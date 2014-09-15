@@ -1,6 +1,6 @@
 # Maintainer: Michal Krenek (Mikos) <m.krenek@gmail.com>
 pkgname=hangupsbot
-pkgver=0.1
+pkgver=1.0
 pkgrel=1
 pkgdesc="Bot for Google Hangouts"
 arch=('any')
