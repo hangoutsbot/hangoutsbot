@@ -4,7 +4,7 @@
     [["hi", "hello"], "Hello world!"],
   ],
   "autoreplies_enabled": true,
-  "commands_admin": ["rename", "easteregg", "users", "conversations"],
+  "commands_admin": ["rename", "easteregg", "users", "conversations", "reload", "quit"],
   "commands_enabled": true,
   "conversations": {
     "CONV1_ID": {

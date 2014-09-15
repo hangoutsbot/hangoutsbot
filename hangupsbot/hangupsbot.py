@@ -313,6 +313,19 @@ class MessageHandler(object):
         segments.append(hangups.ChatMessageSegment(') byl právě reportován Nianticu za pokus o spoofing!'))
         self.bot.send_message_segments(event.conv, segments)
 
+    @command.register
+    @gen.coroutine
+    def reload(self, *args, event=None):
+        """Znovu načte konfiguraci bota ze souboru"""
+        self.bot.config.load()
+
+    @command.register
+    @gen.coroutine
+    def quit(self, *args, event=None):
+        """Nech bota žít!"""
+        sys.exit('HangupsBot killed by user {} from conversation {}'.format(event.user.full_name,
+                                                                            get_conv_name(event.conv, truncate=True)))
+
     @command.register_unknown
     @gen.coroutine
     def unknown_command(self, event=None):
