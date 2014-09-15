@@ -9,7 +9,7 @@ import hangups
 from hangups.utils import get_conv_name
 
 
-__version__ = '0.1'
+__version__ = '1.0'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
 
