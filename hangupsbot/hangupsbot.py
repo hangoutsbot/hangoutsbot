@@ -294,10 +294,10 @@ class MessageHandler(object):
             link = 'https://plus.google.com/u/0/{}/about'.format(u.id_.chat_id)
             segments.append(hangups.ChatMessageSegment(u.full_name, hangups.SegmentType.LINK,
                                                        link_target=link))
-            if u.email:
+            if u.emails:
                 segments.append(hangups.ChatMessageSegment(' ('))
-                segments.append(hangups.ChatMessageSegment(u.email[0], hangups.SegmentType.LINK,
-                                                           link_target='mailto:{}'.format(u.email[0])))
+                segments.append(hangups.ChatMessageSegment(u.emails[0], hangups.SegmentType.LINK,
+                                                           link_target='mailto:{}'.format(u.emails[0])))
                 segments.append(hangups.ChatMessageSegment(')'))
             segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
         self.bot.send_message_segments(event.conv, segments)
