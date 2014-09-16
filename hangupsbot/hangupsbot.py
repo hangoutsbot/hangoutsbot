@@ -375,6 +375,7 @@ class MessageHandler(object):
             config_args = list(args[:-1])
             if len(args) >= 2:
                 self.bot.config.set_by_path(config_args, json.loads(args[-1]))
+                self.bot.config.save()
                 value = self.bot.config.get_by_path(config_args)
             else:
                 yield self.unknown_command(event=event)
