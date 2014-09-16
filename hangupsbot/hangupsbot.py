@@ -25,6 +25,24 @@ def word_in_text(word, text):
 
     return True if word in text.split() else False
 
+def text_to_segments(text):
+    """Create list of message segments from text"""
+    # Replace two consecutive spaces with space and non-breakable space,
+    # then split text to lines
+    lines = text.replace('  ', ' \xa0').splitlines()
+    if not lines:
+        return []
+
+    # Generate line segments
+    segments = []
+    for line in lines[:-1]:
+        if line:
+            segments.append(hangups.ChatMessageSegment(line))
+        segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+    if lines[-1]:
+        segments.append(hangups.ChatMessageSegment(lines[-1]))
+
+    return segments
 
 class Config(collections.MutableMapping):
     """Configuration JSON storage class"""
@@ -36,17 +54,32 @@ class Config(collections.MutableMapping):
         self.load()
 
     def load(self):
+        """Load config from file"""
         try:
             self.config = json.load(open(self.filename))
         except IOError:
             self.config = {}
         self.changed = False
 
+    def loads(self, json_str):
+        """Load config from JSON string"""
+        self.config = json.loads(json_str)
+        self.changed = True
+
     def save(self):
+        """Save config to file (only if config has changed)"""
         if self.changed:
             with open(self.filename, 'w') as f:
                 json.dump(self.config, f, indent=2, sort_keys=True)
                 self.changed = False
+
+    def get_by_path(self, keys_list):
+        """Get item from config by path (list of keys)"""
+        return functools.reduce(lambda d, k: d[k], keys_list, self)
+
+    def set_by_path(self, keys_list, value):
+        """Set item in config by path (list of keys)"""
+        self.get_by_path(keys_list[:-1])[keys_list[-1]] = value
 
     def __getitem__(self, key):
         try:
@@ -90,7 +123,10 @@ class CommandDispatcher(object):
         if instance:
             args.insert(0, instance)
 
-        yield func(*args, **kwds)
+        try:
+            yield func(*args, **kwds)
+        except Exception as e:
+            print(e)
 
     def register(self, func):
         """Decorator for registering command"""
@@ -227,8 +263,8 @@ class MessageHandler(object):
             try:
                 command_fn = self.command.commands[command]
                 segments = [hangups.ChatMessageSegment('{}:'.format(command), is_bold=True),
-                            hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-                            hangups.ChatMessageSegment(command_fn.__doc__)]
+                            hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
+                segments.extend(text_to_segments(command_fn.__doc__))
             except KeyError:
                 yield self.unknown_command(event=event)
                 return
@@ -325,6 +361,37 @@ class MessageHandler(object):
         """Nech bota žít!"""
         sys.exit('HangupsBot killed by user {} from conversation {}'.format(event.user.full_name,
                                                                             get_conv_name(event.conv, truncate=True)))
+
+    @command.register
+    @gen.coroutine
+    def config(self, cmd=None, *args, event=None):
+        """Zobrazí nebo upraví konfiguraci bota
+           Parametry: /bot config [get|set] [key] [subkey] [...] [value]"""
+
+        if cmd == 'get' or cmd is None:
+            config_args = list(args)
+            value = self.bot.config.get_by_path(config_args) if config_args else dict(self.bot.config)
+        elif cmd == 'set':
+            config_args = list(args[:-1])
+            if len(args) >= 2:
+                self.bot.config.set_by_path(config_args, json.loads(args[-1]))
+                value = self.bot.config.get_by_path(config_args)
+            else:
+                yield self.unknown_command(event=event)
+                return
+        else:
+            yield self.unknown_command(event=event)
+            return
+
+        if value is None:
+            value = 'Parametr neexistuje!'
+
+        config_path = ' '.join(k for k in ['config'] + config_args)
+        segments = [hangups.ChatMessageSegment('{}:'.format(config_path),
+                                                is_bold=True),
+                    hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
+        segments.extend(text_to_segments(json.dumps(value, indent=2, sort_keys=True)))
+        self.bot.send_message_segments(event.conv, segments)
 
     @command.register_unknown
     @gen.coroutine
