@@ -524,7 +524,8 @@ class HangupsBot(object):
         print('Connected!')
         self._message_handler = MessageHandler(self)
 
-        self._user_list = hangups.UserList(initial_data.self_entity,
+        self._user_list = hangups.UserList(self._client,
+                                           initial_data.self_entity,
                                            initial_data.entities,
                                            initial_data.conversation_participants)
         self._conv_list = hangups.ConversationList(self._client,
