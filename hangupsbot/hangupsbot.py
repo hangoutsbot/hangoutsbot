@@ -1,15 +1,14 @@
 #!/usr/bin/env python
-import os, sys, time, datetime, random, argparse, logging
-import unicodedata, collections, functools, shlex, json
+import os, sys, argparse, logging, shutil
 
 import appdirs
-from tornado import ioloop, gen
-
+from tornado import ioloop
 import hangups
 from hangups.utils import get_conv_name
 
 import hangupsbot.config
 import hangupsbot.handlers
+
 
 __version__ = '1.0'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -41,9 +40,9 @@ class HangupsBot(object):
     """Hangouts bot listening on all conversations"""
     def __init__(self, cookies_path, config_path):
         # These are populated by on_connect when it's called.
-        self._conv_list = None       # hangups.ConversationList
-        self._user_list = None       # hangups.UserList
-        self._message_handler = None # MessageHandler
+        self._conv_list = None        # hangups.ConversationList
+        self._user_list = None        # hangups.UserList
+        self._message_handler = None  # MessageHandler
 
         # Load config file
         self.config = hangupsbot.config.Config(config_path)

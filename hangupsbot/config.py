@@ -1,5 +1,6 @@
 import collections, functools, json
 
+
 class Config(collections.MutableMapping):
     """Configuration JSON storage class"""
     def __init__(self, filename, default=None):
