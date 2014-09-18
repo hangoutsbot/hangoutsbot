@@ -2,8 +2,8 @@ import sys, json, time, random
 
 from tornado import ioloop, gen
 import hangups
-
 from hangups.utils import get_conv_name
+
 from hangupsbot.utils import text_to_segments
 
 class CommandDispatcher(object):
@@ -44,7 +44,7 @@ class CommandDispatcher(object):
         self.unknown_command = func
         return func
 
-# CommandsDispatcher singleton
+# CommandDispatcher singleton
 command = CommandDispatcher()
 
 
