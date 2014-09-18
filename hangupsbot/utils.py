@@ -1,5 +1,6 @@
 import hangups
 
+
 def text_to_segments(text):
     """Create list of message segments from text"""
     # Replace two consecutive spaces with space and non-breakable space,

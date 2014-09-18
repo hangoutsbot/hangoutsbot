@@ -1,10 +1,10 @@
 import logging, shlex, unicodedata
 
-from tornado import ioloop, gen
+from tornado import gen
 import hangups
 
 from hangupsbot.commands import command
-from hangupsbot.utils import text_to_segments
+
 
 class MessageHandler(object):
     """Handle Hangups conversation events"""

@@ -6,6 +6,7 @@ from hangups.utils import get_conv_name
 
 from hangupsbot.utils import text_to_segments
 
+
 class CommandDispatcher(object):
     """Register commands and run them"""
     def __init__(self):
@@ -54,6 +55,7 @@ def unknown_command(bot, event):
     bot.send_message(event.conv,
                      '{}: Ja ne znaju, ne ponimaju!'.format(event.user.full_name))
 
+
 @command.register
 def help(bot, event, cmd=None, *args):
     """Help me, Obi-Wan Kenobi. You're my only hope."""
@@ -73,15 +75,18 @@ def help(bot, event, cmd=None, *args):
 
     bot.send_message_segments(event.conv, segments)
 
+
 @command.register
 def ping(bot, event, *args):
     """Zahrajem si ping pong!"""
     bot.send_message(event.conv, 'pong')
 
+
 @command.register
 def echo(bot, event, *args):
     """Pojďme se opičit!"""
     bot.send_message(event.conv, '{}'.format(' '.join(args)))
+
 
 @command.register
 def users(bot, event, *args):
@@ -101,6 +106,7 @@ def users(bot, event, *args):
         segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
     bot.send_message_segments(event.conv, segments)
 
+
 @command.register
 def hangouts(bot, event, *args):
     """Výpis všech aktivních Hangoutů, v kterých řádí bot
@@ -117,10 +123,12 @@ def hangouts(bot, event, *args):
 
     bot.send_message_segments(event.conv, segments)
 
+
 @command.register
 def rename(bot, event, *args):
     """Přejmenuje aktuální Hangout"""
     yield bot._client.setchatname(event.conv_id, ' '.join(args))
+
 
 @command.register
 def easteregg(bot, event, easteregg, eggcount=1, period=0.5, *args):
@@ -131,6 +139,7 @@ def easteregg(bot, event, easteregg, eggcount=1, period=0.5, *args):
         if int(eggcount) > 1:
             yield gen.Task(ioloop.IOLoop.instance().add_timeout,
                            time.time() + int(period) + random.uniform(-0.1, 0.1))
+
 
 @command.register
 def spoof(bot, event, *args):
@@ -144,16 +153,19 @@ def spoof(bot, event, *args):
     segments.append(hangups.ChatMessageSegment(') byl právě reportován Nianticu za pokus o spoofing!'))
     bot.send_message_segments(event.conv, segments)
 
+
 @command.register
 def reload(bot, event, *args):
     """Znovu načte konfiguraci bota ze souboru"""
     bot.config.load()
+
 
 @command.register
 def quit(bot, event, *args):
     """Nech bota žít!"""
     sys.exit('HangupsBot killed by user {} from conversation {}'.format(event.user.full_name,
                                                                         get_conv_name(event.conv, truncate=True)))
+
 
 @command.register
 def config(bot, event, cmd=None, *args):
