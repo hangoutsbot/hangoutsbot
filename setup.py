@@ -13,4 +13,4 @@ setup(name='HangupsBot',
       packages=['hangupsbot'],
       package_data={"hangupsbot": ["config.json"]},
       scripts=["scripts/hangupsbot"],
-      requires=["hangups", "appdirs", "tornado"])
+      requires=["hangups", "appdirs", "asyncio"])
