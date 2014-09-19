@@ -9,7 +9,7 @@ Requirements
 - Python >= 3.3
 - hangups (https://github.com/tdryer/hangups)
 - appdirs (https://github.com/ActiveState/appdirs)
-- tornado (http://www.tornadoweb.org)
+- asyncio (https://pypi.python.org/pypi/asyncio) for Python < 3.4
 
 Usage
 -----
