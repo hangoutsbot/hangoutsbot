@@ -136,7 +136,7 @@ def easteregg(bot, event, easteregg, eggcount=1, period=0.5, *args):
     for i in range(int(eggcount)):
         yield from bot._client.sendeasteregg(event.conv_id, easteregg)
         if int(eggcount) > 1:
-            yield from asyncio.sleep(int(period) + random.uniform(-0.1, 0.1))
+            yield from asyncio.sleep(float(period) + random.uniform(-0.1, 0.1))
 
 @command.register
 def spoof(bot, event, *args):
