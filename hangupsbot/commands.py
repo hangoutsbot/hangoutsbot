@@ -1,6 +1,5 @@
-import sys, json, time, random
+import sys, json, random, asyncio
 
-from tornado import ioloop, gen
 import hangups
 from hangups.utils import get_conv_name
 
@@ -13,7 +12,7 @@ class CommandDispatcher(object):
         self.commands = {}
         self.unknown_command = None
 
-    @gen.coroutine
+    @asyncio.coroutine
     def run(self, bot, event, *args, **kwds):
         """Run command"""
         try:
@@ -25,13 +24,13 @@ class CommandDispatcher(object):
                 raise
 
         # Automatically wrap command function in coroutine
-        # (so we don't have to write @gen.coroutine decorator before every command function)
-        func = gen.coroutine(func)
+        # (so we don't have to write @asyncio.coroutine decorator before every command function)
+        func = asyncio.coroutine(func)
 
         args = list(args[1:])
 
         try:
-            yield func(bot, event, *args, **kwds)
+            yield from func(bot, event, *args, **kwds)
         except Exception as e:
             print(e)
 
@@ -70,7 +69,7 @@ def help(bot, event, cmd=None, *args):
                         hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
             segments.extend(text_to_segments(command_fn.__doc__))
         except KeyError:
-            yield command.unknown_command(bot, event)
+            yield from command.unknown_command(bot, event)
             return
 
     bot.send_message_segments(event.conv, segments)
@@ -127,7 +126,7 @@ def hangouts(bot, event, *args):
 @command.register
 def rename(bot, event, *args):
     """Přejmenuje aktuální Hangout"""
-    yield bot._client.setchatname(event.conv_id, ' '.join(args))
+    yield from bot._client.setchatname(event.conv_id, ' '.join(args))
 
 
 @command.register
@@ -135,11 +134,9 @@ def easteregg(bot, event, easteregg, eggcount=1, period=0.5, *args):
     """Spustí combo velikonočních vajíček (parametry: vajíčko [počet] [perioda])
        Podporovaná velikonoční vajíčka: ponies, pitchforks, bikeshed, shydino"""
     for i in range(int(eggcount)):
-        yield bot._client.sendeasteregg(event.conv_id, easteregg)
+        yield from bot._client.sendeasteregg(event.conv_id, easteregg)
         if int(eggcount) > 1:
-            yield gen.Task(ioloop.IOLoop.instance().add_timeout,
-                           time.time() + int(period) + random.uniform(-0.1, 0.1))
-
+            yield from asyncio.sleep(int(period) + random.uniform(-0.1, 0.1))
 
 @command.register
 def spoof(bot, event, *args):
@@ -182,10 +179,10 @@ def config(bot, event, cmd=None, *args):
             bot.config.save()
             value = bot.config.get_by_path(config_args)
         else:
-            yield command.unknown_command(bot, event)
+            yield from command.unknown_command(bot, event)
             return
     else:
-        yield command.unknown_command(bot, event)
+        yield from command.unknown_command(bot, event)
         return
 
     if value is None:

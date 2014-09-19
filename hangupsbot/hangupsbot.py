@@ -1,8 +1,7 @@
 #!/usr/bin/env python
-import os, sys, argparse, logging, shutil
+import os, sys, argparse, logging, shutil, asyncio
 
 import appdirs
-from tornado import ioloop
 import hangups
 from hangups.utils import get_conv_name
 
@@ -59,12 +58,13 @@ class HangupsBot(object):
         self._client = hangups.Client(cookies)
         self._client.on_connect.add_observer(self._on_connect)
         self._client.on_disconnect.add_observer(self._on_disconnect)
-        ioloop.IOLoop.instance().run_sync(self._client.connect)
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self._client.connect())
 
     def handle_chat_message(self, conv_event):
         """Handle chat messages"""
         event = ConversationEvent(self, conv_event)
-        self._message_handler.handle(event)
+        asyncio.async(self._message_handler.handle(event))
 
     def handle_membership_change(self, conv_event):
         """Handle conversation membership change"""
@@ -127,9 +127,9 @@ class HangupsBot(object):
             return
         # XXX: Exception handling here is still a bit broken. Uncaught
         # exceptions in _on_message_sent will only be logged.
-        conversation.send_message(segments).add_done_callback(
-            self._on_message_sent
-        )
+        asyncio.async(
+            conversation.send_message(segments)
+        ).add_done_callback(self._on_message_sent)
 
     def list_conversations(self):
         """List all active conversations"""
@@ -230,6 +230,8 @@ def main():
     # Configure logging
     log_level = logging.DEBUG if args.debug else logging.WARNING
     logging.basicConfig(filename=args.log, level=log_level, format=LOG_FORMAT)
+    # asyncio's debugging logs are VERY noisy, so adjust the log level
+    logging.getLogger('asyncio').setLevel(logging.WARNING)
 
     # Start Hangups bot
     HangupsBot(args.cookies, args.config)
