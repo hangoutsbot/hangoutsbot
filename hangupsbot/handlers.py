@@ -1,6 +1,5 @@
-import logging, shlex, unicodedata
+import logging, shlex, unicodedata, asyncio
 
-from tornado import gen
 import hangups
 
 from hangupsbot.commands import command
@@ -26,7 +25,7 @@ class MessageHandler(object):
 
         return True if word in text.split() else False
 
-    @gen.coroutine
+    @asyncio.coroutine
     def handle(self, event):
         """Handle conversation event"""
         if logging.root.level == logging.DEBUG:
@@ -35,15 +34,15 @@ class MessageHandler(object):
         if not event.user.is_self and event.text:
             if event.text.split()[0].lower() == self.bot_command:
                 # Run command
-                yield self.handle_command(event)
+                yield from self.handle_command(event)
             else:
                 # Forward messages
-                yield self.handle_forward(event)
+                yield from self.handle_forward(event)
 
                 # Send automatic replies
-                yield self.handle_autoreply(event)
+                yield from self.handle_autoreply(event)
 
-    @gen.coroutine
+    @asyncio.coroutine
     def handle_command(self, event):
         """Handle command messages"""
         # Test if command handling is enabled
@@ -69,9 +68,9 @@ class MessageHandler(object):
                 return
 
         # Run command
-        yield command.run(self.bot, event, *line_args[1:])
+        yield from command.run(self.bot, event, *line_args[1:])
 
-    @gen.coroutine
+    @asyncio.coroutine
     def handle_forward(self, event):
         """Handle message forwarding"""
         # Test if message forwarding is enabled
@@ -92,7 +91,7 @@ class MessageHandler(object):
                                      for link in event.conv_event.attachments])
                 self.bot.send_message_segments(self.bot._conv_list.get(dst), segments)
 
-    @gen.coroutine
+    @asyncio.coroutine
     def handle_autoreply(self, event):
         """Handle autoreplies to keywords in messages"""
         # Test if autoreplies are enabled
