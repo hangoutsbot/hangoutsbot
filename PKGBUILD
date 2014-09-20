@@ -6,7 +6,7 @@ pkgdesc="Bot for Google Hangouts"
 arch=('any')
 url="https://github.com/xmikos/hangupsbot"
 license=('GPL3')
-depends=('python-hangups' 'python-appdirs')
+depends=('hangups-git' 'python-appdirs')
 source=(https://github.com/xmikos/hangupsbot/archive/v$pkgver.tar.gz)
 
 build() {
