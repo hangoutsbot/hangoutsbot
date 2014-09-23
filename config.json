@@ -4,8 +4,9 @@
     [["hi", "hello"], "Hello world!"],
   ],
   "autoreplies_enabled": true,
-  "commands_admin": ["rename", "easteregg", "users", "conversations", "reload", "quit", "config"],
+  "commands_admin": ["rename", "easteregg", "users", "hangouts", "reload", "quit", "config"],
   "commands_enabled": true,
+  "forwarding_enabled": true
   "conversations": {
     "CONV1_ID": {
       "forward_to": [
@@ -21,5 +22,4 @@
       ]
     },
   },
-  "forwarding_enabled": true
 }
