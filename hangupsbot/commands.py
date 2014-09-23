@@ -49,7 +49,7 @@ command = CommandDispatcher()
 
 
 @command.register_unknown
-def unknown_command(bot, event):
+def unknown_command(bot, event, *args):
     """Unknown command handler"""
     bot.send_message(event.conv,
                      '{}: Ja ne znaju, ne ponimaju!'.format(event.user.full_name))
