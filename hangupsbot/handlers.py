@@ -81,7 +81,10 @@ class MessageHandler(object):
         if forward_to_list:
             for dst in forward_to_list:
                 # Prepend forwarded message with name of sender
-                segments = [hangups.ChatMessageSegment('{}: '.format(event.user.full_name), is_bold=True)]
+                link = 'https://plus.google.com/u/0/{}/about'.format(event.user_id.chat_id)
+                segments = [hangups.ChatMessageSegment(event.user.full_name, hangups.SegmentType.LINK,
+                                                       link_target=link, is_bold=True),
+                            hangups.ChatMessageSegment(': ', is_bold=True)]
                 # Copy original message segments
                 segments.extend(event.conv_event.segments)
                 # Append links to attachments (G+ photos) to forwarded message
