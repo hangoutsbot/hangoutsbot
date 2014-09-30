@@ -1,7 +1,7 @@
 import sys, json, random, asyncio
 
 import hangups
-from hangups.utils import get_conv_name
+from hangups.ui.utils import get_conv_name
 
 from hangupsbot.utils import text_to_segments
 
