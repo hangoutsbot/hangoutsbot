@@ -3,7 +3,7 @@ import os, sys, argparse, logging, shutil, asyncio
 
 import appdirs
 import hangups
-from hangups.utils import get_conv_name
+from hangups.ui.utils import get_conv_name
 
 import hangupsbot.config
 import hangupsbot.handlers
