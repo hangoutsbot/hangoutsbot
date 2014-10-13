@@ -107,6 +107,30 @@ def users(bot, event, *args):
 
 
 @command.register
+def user(bot, event, username, *args):
+    """Vyhledá uživatele podle jména"""
+    username_lower = username.strip().lower()
+    segments = [hangups.ChatMessageSegment('Výsledky hledání uživatelů jménem "{}":'.format(username),
+                                           is_bold=True),
+                hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
+    for u in sorted(bot._user_list._user_dict.values(), key=lambda x: x.full_name.split()[-1]):
+        if not username_lower in u.full_name.lower():
+            continue
+
+        link = 'https://plus.google.com/u/0/{}/about'.format(u.id_.chat_id)
+        segments.append(hangups.ChatMessageSegment(u.full_name, hangups.SegmentType.LINK,
+                                                   link_target=link))
+        if u.emails:
+            segments.append(hangups.ChatMessageSegment(' ('))
+            segments.append(hangups.ChatMessageSegment(u.emails[0], hangups.SegmentType.LINK,
+                                                       link_target='mailto:{}'.format(u.emails[0])))
+            segments.append(hangups.ChatMessageSegment(')'))
+        segments.append(hangups.ChatMessageSegment(' ... {}'.format(u.id_.chat_id)))
+        segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+    bot.send_message_segments(event.conv, segments)
+
+
+@command.register
 def hangouts(bot, event, *args):
     """Výpis všech aktivních Hangoutů, v kterých řádí bot
         Vysvětlivky: c ... commands, f ... forwarding, a ... autoreplies"""
