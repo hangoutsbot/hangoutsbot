@@ -274,7 +274,7 @@ def main():
 
     # Start Hangups bot
     bot = HangupsBot(args.cookies, args.config)
-    bot.start()
+    bot.run()
 
 
 if __name__ == '__main__':
