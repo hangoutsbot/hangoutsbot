@@ -160,8 +160,9 @@ def reload(bot, event, *args):
 @command.register
 def quit(bot, event, *args):
     """Nech bota žít!"""
-    sys.exit('HangupsBot killed by user {} from conversation {}'.format(event.user.full_name,
-                                                                        get_conv_name(event.conv, truncate=True)))
+    print('HangupsBot killed by user {} from conversation {}'.format(event.user.full_name,
+                                                                     get_conv_name(event.conv, truncate=True)))
+    yield from bot._client.disconnect()
 
 
 @command.register
