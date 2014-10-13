@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import os, sys, argparse, logging, shutil, asyncio
+import os, sys, argparse, logging, shutil, asyncio, time, signal
 
 import appdirs
 import hangups
@@ -37,7 +37,11 @@ class ConversationEvent(object):
 
 class HangupsBot(object):
     """Hangouts bot listening on all conversations"""
-    def __init__(self, cookies_path, config_path):
+    def __init__(self, cookies_path, config_path, max_retries=5):
+        self._client = None
+        self._cookies_path = cookies_path
+        self._max_retries = max_retries
+
         # These are populated by on_connect when it's called.
         self._conv_list = None        # hangups.ConversationList
         self._user_list = None        # hangups.UserList
@@ -46,20 +50,55 @@ class HangupsBot(object):
         # Load config file
         self.config = hangupsbot.config.Config(config_path)
 
+        # Handle signals on Unix
+        # (add_signal_handler is not implemented on Windows)
+        try:
+            loop = asyncio.get_event_loop()
+            for signum in (signal.SIGINT, signal.SIGTERM):
+                loop.add_signal_handler(signum, lambda: self.stop())
+        except NotImplementedError:
+            pass
+
+    def login(self, cookies_path):
+        """Login to Google account"""
         # Authenticate Google user and save auth cookies
         # (or load already saved cookies)
         try:
             cookies = hangups.auth.get_auth_stdin(cookies_path)
+            return cookies
         except hangups.GoogleAuthError as e:
             print('Login failed ({})'.format(e))
-            sys.exit(1)
+            return False
 
-        # Start Hangups client
-        self._client = hangups.Client(cookies)
-        self._client.on_connect.add_observer(self._on_connect)
-        self._client.on_disconnect.add_observer(self._on_disconnect)
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self._client.connect())
+    def run(self):
+        """Connect to Hangouts and run bot"""
+        cookies = self.login(self._cookies_path)
+        if cookies:
+            # Create Hangups client
+            self._client = hangups.Client(cookies)
+            self._client.on_connect.add_observer(self._on_connect)
+            self._client.on_disconnect.add_observer(self._on_disconnect)
+
+            # Start asyncio event loop and connect to Hangouts 
+            # If we are forcefully disconnected, try connecting again
+            loop = asyncio.get_event_loop()
+            for retry in range(self._max_retries):
+                try:
+                    loop.run_until_complete(self._client.connect())
+                    sys.exit(0)
+                except Exception as e:
+                    print('Client unexpectedly disconnected:\n{}'.format(e))
+                    print('Waiting {} seconds...'.format(5 + retry * 5))
+                    time.sleep(5 + retry * 5)
+                    print('Trying to connect again (try {} of {})...'.format(retry + 1, self._max_retries))
+            print('Maximum number of retries reached! Exiting...')
+        sys.exit(1)
+
+    def stop(self):
+        """Disconnect from Hangouts"""
+        asyncio.async(
+            self._client.disconnect()
+        ).add_done_callback(lambda future: future.result())
 
     def handle_chat_message(self, conv_event):
         """Handle chat messages"""
@@ -234,7 +273,8 @@ def main():
     logging.getLogger('asyncio').setLevel(logging.WARNING)
 
     # Start Hangups bot
-    HangupsBot(args.cookies, args.config)
+    bot = HangupsBot(args.cookies, args.config)
+    bot.start()
 
 
 if __name__ == '__main__':
