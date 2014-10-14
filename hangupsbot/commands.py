@@ -154,6 +154,15 @@ def rename(bot, event, *args):
 
 
 @command.register
+def leave(bot, event, *args):
+    """Opustí aktuální Hangout"""
+    yield from event.conv.send_message([
+        hangups.ChatMessageSegment('I\'ll be back!')
+    ])
+    yield from bot._conv_list.delete_conversation(event.conv_id)
+
+
+@command.register
 def easteregg(bot, event, easteregg, eggcount=1, period=0.5, *args):
     """Spustí combo velikonočních vajíček (parametry: vajíčko [počet] [perioda])
        Podporovaná velikonoční vajíčka: ponies, pitchforks, bikeshed, shydino"""
