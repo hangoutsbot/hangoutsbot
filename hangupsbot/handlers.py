@@ -80,7 +80,9 @@ class MessageHandler(object):
         forward_to_list = self.bot.get_config_suboption(event.conv_id, 'forward_to')
         if forward_to_list:
             for dst in forward_to_list:
-                if dst not in self.bot._conv_list.get_all():
+                try:
+                    conv = self.bot._conv_list.get(dst)
+                except KeyError:
                     continue
 
                 # Prepend forwarded message with name of sender
@@ -95,7 +97,7 @@ class MessageHandler(object):
                     segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
                     segments.extend([hangups.ChatMessageSegment(link, hangups.SegmentType.LINK, link_target=link)
                                      for link in event.conv_event.attachments])
-                self.bot.send_message_segments(self.bot._conv_list.get(dst), segments)
+                self.bot.send_message_segments(conv, segments)
 
     @asyncio.coroutine
     def handle_autoreply(self, event):
