@@ -109,6 +109,10 @@ class HangupsBot(object):
         """Handle conversation membership change"""
         event = ConversationEvent(self, conv_event)
 
+        # Don't handle events caused by the bot himself
+        if event.user.is_self:
+            return
+
         # Test if watching for membership changes is enabled
         if not self.get_config_suboption(event.conv_id, 'membership_watching_enabled'):
             return
@@ -144,6 +148,10 @@ class HangupsBot(object):
     def handle_rename(self, conv_event):
         """Handle conversation rename"""
         event = ConversationEvent(self, conv_event)
+
+        # Don't handle events caused by the bot himself
+        if event.user.is_self:
+            return
 
         # Test if watching for conversation rename is enabled
         if not self.get_config_suboption(event.conv_id, 'rename_watching_enabled'):
