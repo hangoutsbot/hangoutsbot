@@ -4,7 +4,7 @@
     [["hi", "hello"], "Hello world!"],
   ],
   "autoreplies_enabled": true,
-  "commands_admin": ["rename", "easteregg", "user", "users", "hangouts", "reload", "quit", "config"],
+  "commands_admin": ["rename", "leave", "easteregg", "user", "users", "hangouts", "reload", "quit", "config"],
   "commands_enabled": true,
   "forwarding_enabled": true
   "conversations": {
