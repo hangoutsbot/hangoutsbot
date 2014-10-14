@@ -80,6 +80,9 @@ class MessageHandler(object):
         forward_to_list = self.bot.get_config_suboption(event.conv_id, 'forward_to')
         if forward_to_list:
             for dst in forward_to_list:
+                if dst not in self.bot._conv_list.get_all():
+                    continue
+
                 # Prepend forwarded message with name of sender
                 link = 'https://plus.google.com/u/0/{}/about'.format(event.user_id.chat_id)
                 segments = [hangups.ChatMessageSegment(event.user.full_name, hangups.SegmentType.LINK,
