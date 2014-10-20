@@ -110,6 +110,6 @@ class MessageHandler(object):
         if autoreplies_list:
             for kwds, sentence in autoreplies_list:
                 for kw in kwds:
-                    if self.word_in_text(kw, event.text):
+                    if self.word_in_text(kw, event.text) or kw == "*":
                         self.bot.send_message(event.conv, sentence)
                         break
