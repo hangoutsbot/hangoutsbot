@@ -154,12 +154,22 @@ def rename(bot, event, *args):
 
 
 @command.register
-def leave(bot, event, *args):
-    """Opustí aktuální Hangout"""
-    yield from event.conv.send_message([
-        hangups.ChatMessageSegment('I\'ll be back!')
-    ])
-    yield from bot._conv_list.delete_conversation(event.conv_id)
+def leave(bot, event, conversation=None, *args):
+    """Opustí aktuální nebo jiný specifikovaný Hangout"""
+    convs = []
+    if not conversation:
+        convs.append(event.conv)
+    else:
+        conversation = conversation.strip().lower()
+        for c in bot.list_conversations():
+            if conversation in get_conv_name(c, truncate=True).lower():
+                convs.append(c)
+
+    for c in convs:
+        yield from c.send_message([
+            hangups.ChatMessageSegment('I\'ll be back!')
+        ])
+        yield from bot._conv_list.delete_conversation(c.id_)
 
 
 @command.register
