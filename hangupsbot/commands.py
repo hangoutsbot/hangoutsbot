@@ -199,6 +199,14 @@ def reload(bot, event, *args):
     """Reload config"""
     bot.config.load()
 
+#My commands
+@command.register
+def joke(bot, event, *args):
+    """Send joke!"""
+    a_joke =str(random.choice(list(open('jokes.txt'))))
+    bot.send_message(event.conv, a_joke)
+
+#My commands end
 
 @command.register
 def quit(bot, event, *args):
