@@ -219,12 +219,14 @@ def wiki(bot, event, *args):
     
     try:
         wiki_res =  wikipedia.summary(wiki_query)
+        bot.send_message(event.conv, wiki_res)
     except wikipedia.exceptions.DisambiguationError as e:
         text_res = 'Disambiguation result: {}'.format(str(e.options))
         bot.send_message(event.conv, text_res)
     except wikipedia.exceptions.PageError:
         text_res = 'No result.'
         bot.send_message(event.conv, text_res)
+        
 
     
 
