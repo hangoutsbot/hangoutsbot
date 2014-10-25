@@ -235,7 +235,7 @@ def wolf(bot, event, *args):
     """Search query in wolfram!"""
     bot.send_message(event.conv, 'Computing with WolframAlpha on {}'.format(' '.join(args)))
     client = wolframalpha.Client(WOLFRAM_APPID)
-    res = client.query('{}'.format(' '.join(args))))
+    res = client.query('{}'.format(' '.join(args)))
     if len(list(res.results)) > 0:
         text_res = next(res.results).text
     else:
