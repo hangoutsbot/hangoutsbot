@@ -9,7 +9,7 @@ from hangups.ui.utils import get_conv_name
 from hangupsbot.utils import text_to_segments
 
 WOLFRAM_APPID = "E362PK-7395YTX894"
-
+JOKES_PATH = "/home/cena/.local/share/hangupsbot/jokes.txt"
 class CommandDispatcher(object):
     """Register commands and run them"""
     def __init__(self):
