@@ -8,8 +8,11 @@ from hangups.ui.utils import get_conv_name
 
 from hangupsbot.utils import text_to_segments
 
-WOLFRAM_APPID = "<REMOVED>"
-JOKES_PATH = "/home/<REMOVED>/.local/share/hangupsbot/jokes.txt"
+import os
+
+
+WOLFRAM_APPID = os.environ["WOLFRAMALPHA_APPID"]
+JOKES_PATH = os.environ["HOME"] + "/.local/share/hangupsbot/jokes.txt"
 class CommandDispatcher(object):
     """Register commands and run them"""
     def __init__(self):
