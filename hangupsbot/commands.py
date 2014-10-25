@@ -2,6 +2,7 @@ import sys, json, random, asyncio
 
 import google
 import wolframalpha
+import wikipedia
 import hangups
 from hangups.ui.utils import get_conv_name
 
@@ -208,6 +209,24 @@ def joke(bot, event, *args):
     """Send joke!"""
     a_joke =str(random.choice(list(open('jokes.txt'))))
     bot.send_message(event.conv, a_joke)
+
+
+@command.register
+def wiki(bot, event, *args):
+    """Search query in wolfram!"""
+    wiki_query = '{}'.format(' '.join(args))
+    bot.send_message(event.conv, 'Computing with Wikpedia on {}'.format(wiki_query))
+    
+    try:
+        wiki_res =  wikipedia.summary(wiki_query)
+    except wikipedia.exceptions.DisambiguationError as e:
+        text_res = 'Disambiguation result: {}'.format(str(e.options))
+        bot.send_message(event.conv, text_res)
+    except wikipedia.exceptions.PageError:
+        text_res = 'No result.'
+        bot.send_message(event.conv, text_res)
+
+    
 
 @command.register
 def wolf(bot, event, *args):
