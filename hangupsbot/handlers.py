@@ -8,7 +8,7 @@ from hangupsbot.commands import command
 class MessageHandler(object):
     """Handle Hangups conversation events"""
 
-    def __init__(self, bot, bot_command='/bot'):
+    def __init__(self, bot, bot_command='/b'):
         self.bot = bot
         self.bot_command = bot_command
 
