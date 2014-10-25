@@ -14,7 +14,7 @@ LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
 
 class ConversationEvent(object):
-    """Cenversation event"""
+    """Conversation event"""
     def __init__(self, bot, conv_event):
         self.conv_event = conv_event
         self.conv_id = conv_event.conversation_id
@@ -128,22 +128,22 @@ class HangupsBot(object):
             admins_list = self.get_config_suboption(event.conv_id, 'admins')
             if event.user_id.chat_id in admins_list:
                 self.send_message(event.conv,
-                                  '{}: Ahoj, {} mezi nás!'.format(names,
-                                                                  'vítejte' if len(event_users) > 1 else 'vítej'))
+                                  '{}: Hi, {} among us!'.format(names,
+                                                                  'welcomes' if len(event_users) > 1 else 'welcome'))
             else:
-                segments = [hangups.ChatMessageSegment('!!! POZOR !!!', is_bold=True),
+                segments = [hangups.ChatMessageSegment('!!! Caution !!!', is_bold=True),
                             hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-                            hangups.ChatMessageSegment('{} neoprávněně přidal do tohoto Hangoutu uživatele {}!'.format(
+                            hangups.ChatMessageSegment('{} this hangout user has illegally added to {}!'.format(
                                                        event.user.full_name, names)),
                             hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
                             hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-                            hangups.ChatMessageSegment('{}: Opusťte prosím urychleně tento Hangout!'.format(names))]
+                            hangups.ChatMessageSegment('{}: Please exit from this Hangout!'.format(names))]
                 self.send_message_segments(event.conv, segments)
         # LEAVE
         else:
             self.send_message(event.conv,
-                              '{} nám {} košem :-( Řekněte pá pá!'.format(names,
-                                                                          'dali' if len(event_users) > 1 else 'dal'))
+                              '{} us? {} group? :-( tell?!'.format(names,
+                                                                          'gave?' if len(event_users) > 1 else 'gave?'))
 
     def handle_rename(self, conv_event):
         """Handle conversation rename"""
