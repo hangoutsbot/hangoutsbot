@@ -207,7 +207,7 @@ def reload(bot, event, *args):
 @command.register
 def joke(bot, event, *args):
     """Send joke!"""
-    a_joke =str(random.choice(list(open('jokes.txt'))))
+    a_joke =str(random.choice(list(open(JOKES_PATH))))
     bot.send_message(event.conv, a_joke)
 
 
