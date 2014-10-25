@@ -1,10 +1,13 @@
 import sys, json, random, asyncio
 
+import google
+import wolframalpha
 import hangups
 from hangups.ui.utils import get_conv_name
 
 from hangupsbot.utils import text_to_segments
 
+WOLFRAM_APPID = "E362PK-7395YTX894"
 
 class CommandDispatcher(object):
     """Register commands and run them"""
@@ -205,6 +208,18 @@ def joke(bot, event, *args):
     """Send joke!"""
     a_joke =str(random.choice(list(open('jokes.txt'))))
     bot.send_message(event.conv, a_joke)
+
+@command.register
+def wolf(bot, event, *args):
+    """Search query in wolfram!"""
+    bot.send_message(event.conv, 'Computing with WolframAlpha on {}'.format(' '.join(args)))
+    client = wolframalpha.Client(WOLFRAM_APPID)
+    res = client.query('{}'.format(' '.join(args))))
+    if len(list(res.results)) > 0:
+        text_res = next(res.results).text
+    else:
+        text_res = "No result."
+    bot.send_message(event.conv, text_res)
 
 #My commands end
 
