@@ -125,5 +125,5 @@ class MessageHandler(object):
             for word in occurrences:
                 # strip all special characters
                 cleaned_name = ''.join(e for e in word if e.isalnum())
-                yield from command.run(self.bot, event, *["/bot", "mention", cleaned_name])
+                yield from command.run(self.bot, event, *["mention", cleaned_name])
  
