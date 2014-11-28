@@ -118,6 +118,6 @@ class MessageHandler(object):
                         break
 
     @asyncio.coroutine
-    def handle_mention(self, event)
+    def handle_mention(self, event):
         """handle @mention or exclamation!"""
         print(event.text)
