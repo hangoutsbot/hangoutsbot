@@ -36,6 +36,9 @@ class MessageHandler(object):
                 # Run command
                 yield from self.handle_command(event)
             else:
+                # handle @mentions/exclamations!
+                yield from self.handle_mention(event)
+
                 # Forward messages
                 yield from self.handle_forward(event)
 
@@ -113,3 +116,8 @@ class MessageHandler(object):
                     if self.word_in_text(kw, event.text) or kw == "*":
                         self.bot.send_message(event.conv, sentence)
                         break
+
+    @asyncio.coroutine
+    def handle_mention(self, event)
+        """handle @mention or exclamation!"""
+        print(event.text)
