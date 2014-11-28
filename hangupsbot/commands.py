@@ -169,7 +169,7 @@ def leave(bot, event, conversation=None, *args):
         yield from c.send_message([
             hangups.ChatMessageSegment('I\'ll be back!')
         ])
-        yield from bot._conv_list.deleteconversation(c.id_)
+        yield from bot._conv_list.leave_conversation(c.id_)
 
 
 @command.register
