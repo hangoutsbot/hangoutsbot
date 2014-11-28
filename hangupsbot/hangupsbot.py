@@ -6,9 +6,6 @@ import appdirs
 import hangups
 from hangups.ui.utils import get_conv_name
 
-#import hangupsbot.config
-#import hangupsbot.handlers
-
 import config
 import handlers
 
@@ -131,22 +128,20 @@ class HangupsBot(object):
             admins_list = self.get_config_suboption(event.conv_id, 'admins')
             if event.user_id.chat_id in admins_list:
                 self.send_message(event.conv,
-                                  '{}: Ahoj, {} mezi nás!'.format(names,
-                                                                  'vítejte' if len(event_users) > 1 else 'vítej'))
+                                  '{}: welcome'.format(names)
             else:
-                segments = [hangups.ChatMessageSegment('!!! POZOR !!!', is_bold=True),
+                segments = [hangups.ChatMessageSegment('!!! ATTENTION !!!', is_bold=True),
                             hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-                            hangups.ChatMessageSegment('{} neoprávněně přidal do tohoto Hangoutu uživatele {}!'.format(
+                            hangups.ChatMessageSegment('{} added these users {}!'.format(
                                                        event.user.full_name, names)),
                             hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
                             hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-                            hangups.ChatMessageSegment('{}: Opusťte prosím urychleně tento Hangout!'.format(names))]
+                            hangups.ChatMessageSegment('{}: please leave this hangout'.format(names))]
                 self.send_message_segments(event.conv, segments)
         # LEAVE
         else:
             self.send_message(event.conv,
-                              '{} nám {} košem :-( Řekněte pá pá!'.format(names,
-                                                                          'dali' if len(event_users) > 1 else 'dal'))
+                              '{}: left'.format(names)
 
     def handle_rename(self, conv_event):
         """Handle conversation rename"""
