@@ -6,11 +6,9 @@ import appdirs
 import hangups
 from hangups.ui.utils import get_conv_name
 
-#import hangupsbot.config
-#import hangupsbot.handlers
+import hangupsbot.config
+import hangupsbot.handlers
 
-import config
-import handlers
 
 __version__ = '1.1'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -51,7 +49,7 @@ class HangupsBot(object):
         self._message_handler = None  # MessageHandler
 
         # Load config file
-        self.config = config.Config(config_path)
+        self.config = hangupsbot.config.Config(config_path)
 
         # Handle signals on Unix
         # (add_signal_handler is not implemented on Windows)
@@ -208,7 +206,7 @@ class HangupsBot(object):
     def _on_connect(self, initial_data):
         """Handle connecting for the first time"""
         print('Connected!')
-        self._message_handler = handlers.MessageHandler(self)
+        self._message_handler = hangupsbot.handlers.MessageHandler(self)
 
         self._user_list = hangups.UserList(self._client,
                                            initial_data.self_entity,

@@ -2,7 +2,7 @@ import logging, shlex, unicodedata, asyncio
 
 import hangups
 
-from commands import command
+from hangupsbot.commands import command
 
 
 class MessageHandler(object):

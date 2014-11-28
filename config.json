@@ -1,12 +1,14 @@
 {
-  "admins": ["USER1_ID", "USER2_ID"],
+  "admins": ["104821221116551390464","UgwuaaLQf2IPoqZDmFZ4AaABAQ","Arthur Raymond"],
   "autoreplies": [
     [["hi", "hello"], "Hello world!"],
+    [["test"], "test back!"],
+    [["ping"], "pong!"]
   ],
   "autoreplies_enabled": true,
   "commands_admin": ["rename", "leave", "easteregg", "user", "users", "hangouts", "reload", "quit", "config"],
   "commands_enabled": true,
-  "forwarding_enabled": true
+  "forwarding_enabled": true,
   "conversations": {
     "CONV1_ID": {
       "forward_to": [
@@ -20,6 +22,6 @@
       "forward_to": [
         "CONV1_ID"
       ]
-    },
-  },
+    }
+  }
 }

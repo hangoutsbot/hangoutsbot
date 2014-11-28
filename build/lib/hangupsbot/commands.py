@@ -3,7 +3,7 @@ import sys, json, random, asyncio
 import hangups
 from hangups.ui.utils import get_conv_name
 
-from utils import text_to_segments
+from hangupsbot.utils import text_to_segments
 
 
 class CommandDispatcher(object):
