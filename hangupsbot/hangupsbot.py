@@ -127,8 +127,7 @@ class HangupsBot(object):
             # Test if user who added new participants is admin
             admins_list = self.get_config_suboption(event.conv_id, 'admins')
             if event.user_id.chat_id in admins_list:
-                self.send_message(event.conv,
-                                  '{}: welcome'.format(names)
+                self.send_message(event.conv, '{}: welcome'.format(names))
             else:
                 segments = [hangups.ChatMessageSegment('!!! ATTENTION !!!', is_bold=True),
                             hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
@@ -140,8 +139,7 @@ class HangupsBot(object):
                 self.send_message_segments(event.conv, segments)
         # LEAVE
         else:
-            self.send_message(event.conv,
-                              '{}: left'.format(names)
+            self.send_message(event.conv, '{}: left'.format(names))
 
     def handle_rename(self, conv_event):
         """Handle conversation rename"""
