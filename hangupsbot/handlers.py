@@ -55,7 +55,7 @@ class MessageHandler(object):
         # Test if command length is sufficient
         if len(line_args) < 2:
             self.bot.send_message(event.conv,
-                                  '{}: Co si bude pán ráčit?'.format(event.user.full_name))
+                                  '{}: missing parameter(s)'.format(event.user.full_name))
             return
 
         # Test if user has permissions for running command
