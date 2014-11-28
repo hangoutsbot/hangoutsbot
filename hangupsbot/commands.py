@@ -89,7 +89,7 @@ def echo(bot, event, *args):
 
 @command.register
 def users(bot, event, *args):
-    """list all users in current hangouts (include g+ and email links)"""
+    """list all users in current hangout (include g+ and email links)"""
     segments = [hangups.ChatMessageSegment('user list (total {}):'.format(len(event.conv.users)),
                                            is_bold=True),
                 hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
@@ -232,3 +232,4 @@ def mention(bot, event, *args):
     """alert a @mentioned user"""
     username = args[0]
     bot.send_message(event.conv, 'mentioned {}'.format(username))
+
