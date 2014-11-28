@@ -225,3 +225,10 @@ def config(bot, event, cmd=None, *args):
                 hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
     segments.extend(text_to_segments(json.dumps(value, indent=2, sort_keys=True)))
     bot.send_message_segments(event.conv, segments)
+
+
+@command.register
+def mention(bot, event, *args):
+    """alert a @mentioned user"""
+    username = args[0]
+    bot.send_message(event.conv, 'mentioned {}'.format(username))
