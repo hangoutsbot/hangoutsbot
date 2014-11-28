@@ -215,7 +215,10 @@ class HangupsBot(object):
 
         print('Conversations:')
         for c in self.list_conversations():
-            print('  {} ({})'.format(get_conv_name(c, truncate=True), c.id_))
+            print('  {} ({}) u:{}'.format(get_conv_name(c, truncate=True), c.id_, len(c.users)))
+            for u in c.users:
+                print('    {} ({})'.format(u.first_name, u.full_name))
+                print('        ', u.id_)
         print()
 
     def _on_event(self, conv_event):
