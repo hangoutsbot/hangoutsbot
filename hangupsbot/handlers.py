@@ -36,7 +36,7 @@ class MessageHandler(object):
                 # Run command
                 yield from self.handle_command(event)
             else:
-                # handle @mentions/exclamations!
+                # handle @mentions
                 yield from self.handle_mention(event)
 
                 # Forward messages
@@ -119,5 +119,11 @@ class MessageHandler(object):
 
     @asyncio.coroutine
     def handle_mention(self, event):
-        """handle @mention or exclamation!"""
-        print(event.text)
+        """handle @mention"""
+        occurrences = [word for word in event.text.split() if word.startswith('@')]
+        if len(occurrences) > 0:
+            for word in occurrences:
+                # strip all special characters
+                cleaned_name = ''.join(e for e in word if e.isalnum())
+                yield from command.run(self.bot, event, *["/bot", "mention", cleaned_name])
+ 
