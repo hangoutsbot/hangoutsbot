@@ -4,6 +4,8 @@ import os, sys, argparse, logging, shutil, asyncio, time, signal
 
 import appdirs
 import hangups
+from threading import Thread
+
 from hangups.ui.utils import get_conv_name
 
 import config
@@ -234,6 +236,11 @@ class HangupsBot(object):
         """Handle disconnecting"""
         print('Connection lost!')
 
+def start_thread():
+    # test thread
+    while True:
+        print("thread sleeping for 5 sec")
+        time.sleep(5)
 
 def main():
     """Main entry point"""
@@ -279,10 +286,14 @@ def main():
     # asyncio's debugging logs are VERY noisy, so adjust the log level
     logging.getLogger('asyncio').setLevel(logging.WARNING)
 
+    # sample concurrent thread
+    t = Thread(target=start_thread)
+    t.start()
+
     # Start Hangups bot
     bot = HangupsBot(args.cookies, args.config)
     bot.run()
-
+   
 
 if __name__ == '__main__':
     main()
