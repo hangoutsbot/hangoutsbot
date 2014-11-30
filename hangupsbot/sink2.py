@@ -3,9 +3,10 @@ from jsonrpclib.SimpleJSONRPCServer import SimpleJSONRPCServer
 def hello(str):
     print('hello', str)
 
-def start_rpc_listener():
+def start_rpc_listener(bot):
+    bot.debug_do_something()
     server = SimpleJSONRPCServer(('localhost', 4000))
-    server.register_function(hello)
+    server.register_function(bot.debug_do_something, 'hello')
     server.serve_forever()
 
 if __name__ == '__main__':
