@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding: utf-8
 import os, sys, argparse, logging, shutil, asyncio, time, signal
 
 import appdirs
@@ -11,9 +10,11 @@ from hangups.ui.utils import get_conv_name
 import config
 import handlers
 
+# rpc sink
+from sink2 import start_rpc_listener
+
 __version__ = '1.1'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-
 
 class ConversationEvent(object):
     """Cenversation event"""
@@ -236,12 +237,6 @@ class HangupsBot(object):
         """Handle disconnecting"""
         print('Connection lost!')
 
-def start_thread():
-    # test thread
-    while True:
-        print("thread sleeping for 5 sec")
-        time.sleep(5)
-
 def main():
     """Main entry point"""
     # Build default paths for files.
@@ -287,7 +282,8 @@ def main():
     logging.getLogger('asyncio').setLevel(logging.WARNING)
 
     # sample concurrent thread
-    t = Thread(target=start_thread)
+    t = Thread(target=start_rpc_listener)
+    t.daemon = True
     t.start()
 
     # Start Hangups bot
