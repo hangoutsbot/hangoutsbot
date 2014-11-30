@@ -237,6 +237,9 @@ class HangupsBot(object):
         """Handle disconnecting"""
         print('Connection lost!')
 
+    def debug_do_something(self):
+        print('do something!')
+
 def main():
     """Main entry point"""
     # Build default paths for files.
@@ -281,13 +284,15 @@ def main():
     # asyncio's debugging logs are VERY noisy, so adjust the log level
     logging.getLogger('asyncio').setLevel(logging.WARNING)
 
+    # initialise the bot
+    bot = HangupsBot(args.cookies, args.config)
+
     # sample concurrent thread
-    t = Thread(target=start_rpc_listener)
+    t = Thread(target=start_rpc_listener, args=(bot,))
     t.daemon = True
     t.start()
 
     # Start Hangups bot
-    bot = HangupsBot(args.cookies, args.config)
     bot.run()
    
 
