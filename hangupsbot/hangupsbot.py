@@ -85,6 +85,12 @@ class HangupsBot(object):
             # Start asyncio event loop and connect to Hangouts 
             # If we are forcefully disconnected, try connecting again
             loop = asyncio.get_event_loop()
+            
+            # start up rpc listener in a separate thread
+            t = Thread(target=start_rpc_listener, args=(self, loop))
+            t.daemon = True
+            t.start()
+
             for retry in range(self._max_retries):
                 try:
                     loop.run_until_complete(self._client.connect())
@@ -246,7 +252,7 @@ class HangupsBot(object):
 
     def rpc_send_message(self):
         conversation = self._conv_list.get('UgwuaaLQf2IPoqZDmFZ4AaABAQ')
-        print('sending message to', get_conv_name(conversation))
+        print('sending message, conversation name:', get_conv_name(conversation))
         self.send_message(conversation, 'hello world')
         print('rpc_send_message completed()')
 
@@ -299,11 +305,6 @@ def main():
 
     # initialise the bot
     bot = HangupsBot(args.cookies, args.config)
-
-    # sample concurrent thread
-    t = Thread(target=start_rpc_listener, args=(bot,))
-    t.daemon = True
-    t.start()
 
     # Start Hangups bot
     bot.run()
