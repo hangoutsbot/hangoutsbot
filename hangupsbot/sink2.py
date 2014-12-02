@@ -6,6 +6,7 @@ def start_rpc_listener(bot, loop):
 
     server = SimpleJSONRPCServer(('localhost', 4000))
     server.register_function(bot.external_send_message, 'send')
+    server.register_function(bot.external_send_message_parsed, 'sendparsed')
     server.serve_forever()
 
 if __name__ == '__main__':
