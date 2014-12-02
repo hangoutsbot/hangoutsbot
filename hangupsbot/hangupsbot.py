@@ -17,7 +17,7 @@ __version__ = '1.1'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
 class ConversationEvent(object):
-    """Cenversation event"""
+    """Conversation event"""
     def __init__(self, bot, conv_event):
         self.conv_event = conv_event
         self.conv_id = conv_event.conversation_id
@@ -350,8 +350,6 @@ def main():
 
     # initialise the bot
     bot = HangupsBot(args.cookies, args.config)
-
-    # Start Hangups bot
     bot.run()
    
 
