@@ -243,21 +243,10 @@ class HangupsBot(object):
         """Handle disconnecting"""
         print('Connection lost!')
 
-    def rpc_list_conversations(self):
-        for c in self.list_conversations():
-            print('  {} ({}) u:{}'.format(get_conv_name(c, truncate=True), c.id_, len(c.users)))
-            for u in c.users:
-                print('    {} ({})'.format(u.first_name, u.full_name))
-                print('        ', u.id_)
-
-    def rpc_send_message(self):
-        conversation = self._conv_list.get('UgwuaaLQf2IPoqZDmFZ4AaABAQ')
+    def external_send_message(self, conversation_id, text):
+        conversation = self._conv_list.get(conversation_id)
         print('sending message, conversation name:', get_conv_name(conversation))
-        self.send_message(conversation, 'hello world')
-        print('rpc_send_message completed()')
-
-    def debug_do_something(self):
-        print('do something!')
+        self.send_message(conversation, text)
 
 def main():
     """Main entry point"""
