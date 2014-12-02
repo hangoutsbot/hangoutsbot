@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, sys, argparse, logging, shutil, asyncio, time, signal
+import os, sys, argparse, logging, shutil, asyncio, time, signal, re
 
 import appdirs
 import hangups
@@ -172,6 +172,57 @@ class HangupsBot(object):
         """"Send simple chat message"""
         self.send_message_segments(conversation, [hangups.ChatMessageSegment(text)])
 
+    def send_message_parsed(self, conversation, blocks):
+        # cheap parser (partially based on markdown), XXX: needs more work
+        segments = list()
+        for b in blocks:
+
+             """basic formatting"""
+             is_bold = False
+             is_italic = False
+             if b.startswith("'''''"):
+                 is_bold = True
+                 is_italic = True
+                 b = b[5:]
+             elif b.startswith("'''"):
+                 is_bold = True
+                 b = b[3:]
+             elif b.startswith("''"):
+                 is_italic = True
+                 b = b[2:]
+
+             """detect line break"""
+             break_after = False
+             if b.endswith("\n"):
+                break_after = True
+
+             b = b.strip("\n")
+
+             """link"""
+             link_target = None
+             markdown_match = re.search("^\[(.*?)\]\((.*?)\)", b)
+             if markdown_match:
+                 link_target = markdown_match.group(2)
+                 b = markdown_match.group(1)
+             elif b.startswith(("http://", "https://", "//")):
+                 link_target = b
+
+             segments.append(
+               hangups.ChatMessageSegment(
+                 b, 
+                 is_bold=is_bold, 
+                 is_italic=is_italic, 
+                 link_target=link_target))
+
+             """line break"""
+             if break_after:
+                 segments.append(
+                   hangups.ChatMessageSegment(
+                     "\n", 
+                     hangups.SegmentType.LINE_BREAK))
+
+        self.send_message_segments(conversation, segments)
+
     def send_message_segments(self, conversation, segments):
         """Send chat message segments"""
         # Ignore if the user hasn't typed a message.
@@ -247,6 +298,11 @@ class HangupsBot(object):
         conversation = self._conv_list.get(conversation_id)
         print('sending message, conversation name:', get_conv_name(conversation))
         self.send_message(conversation, text)
+
+    def external_send_message_parsed(self, conversation_id, text):
+        conversation = self._conv_list.get(conversation_id)
+        print('sending parsed message, conversation name:', get_conv_name(conversation))
+        self.send_message_parsed(conversation, text)
 
 def main():
     """Main entry point"""
