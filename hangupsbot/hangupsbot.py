@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, sys, argparse, logging, shutil, asyncio, time, signal, re
+import os, sys, argparse, logging, shutil, asyncio, time, signal
 
 import appdirs
 import hangups
@@ -12,6 +12,7 @@ import handlers
 
 # rpc sink
 from sink2 import start_rpc_listener
+from utils import cheap_parse_blocks_to_segments
 
 __version__ = '1.1'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -173,54 +174,7 @@ class HangupsBot(object):
         self.send_message_segments(conversation, [hangups.ChatMessageSegment(text)])
 
     def send_message_parsed(self, conversation, blocks):
-        # cheap parser (partially based on markdown), XXX: needs more work
-        segments = list()
-        for b in blocks:
-
-             """basic formatting"""
-             is_bold = False
-             is_italic = False
-             if b.startswith("'''''"):
-                 is_bold = True
-                 is_italic = True
-                 b = b[5:]
-             elif b.startswith("'''"):
-                 is_bold = True
-                 b = b[3:]
-             elif b.startswith("''"):
-                 is_italic = True
-                 b = b[2:]
-
-             """detect line break"""
-             break_after = False
-             if b.endswith("\n"):
-                break_after = True
-
-             b = b.strip("\n")
-
-             """link"""
-             link_target = None
-             markdown_match = re.search("^\[(.*?)\]\((.*?)\)", b)
-             if markdown_match:
-                 link_target = markdown_match.group(2)
-                 b = markdown_match.group(1)
-             elif b.startswith(("http://", "https://", "//")):
-                 link_target = b
-
-             segments.append(
-               hangups.ChatMessageSegment(
-                 b, 
-                 is_bold=is_bold, 
-                 is_italic=is_italic, 
-                 link_target=link_target))
-
-             """line break"""
-             if break_after:
-                 segments.append(
-                   hangups.ChatMessageSegment(
-                     "\n", 
-                     hangups.SegmentType.LINE_BREAK))
-
+        segments = cheap_parse_blocks_to_segments(blocks)
         self.send_message_segments(conversation, segments)
 
     def send_message_segments(self, conversation, segments):
@@ -251,6 +205,15 @@ class HangupsBot(object):
                 suboption = None
         return suboption
 
+    def print_conversations(self):
+        print('Conversations:')
+        for c in self.list_conversations():
+            print('  {} ({}) u:{}'.format(get_conv_name(c, truncate=True), c.id_, len(c.users)))
+            for u in c.users:
+                print('    {} ({})'.format(u.first_name, u.full_name))
+                print('      ', u.id_.chat_id)
+        print()
+
     def _on_message_sent(self, future):
         """Handle showing an error if a message fails to send"""
         try:
@@ -273,13 +236,7 @@ class HangupsBot(object):
                                                    initial_data.sync_timestamp)
         self._conv_list.on_event.add_observer(self._on_event)
 
-        print('Conversations:')
-        for c in self.list_conversations():
-            print('  {} ({}) u:{}'.format(get_conv_name(c, truncate=True), c.id_, len(c.users)))
-            for u in c.users:
-                print('    {} ({})'.format(u.first_name, u.full_name))
-                print('        ', u.id_)
-        print()
+        self.print_conversations()
 
     def _on_event(self, conv_event):
         """Handle conversation events"""
