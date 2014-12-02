@@ -1,5 +1,7 @@
-import collections, functools, json
-
+import collections
+import functools
+import json
+import sys
 
 class Config(collections.MutableMapping):
     """Configuration JSON storage class"""
@@ -16,6 +18,13 @@ class Config(collections.MutableMapping):
             self.config = json.load(open(self.filename))
         except IOError:
             self.config = {}
+        except ValueError:
+            # better error-handling for n00bs, including me!
+            print("exception occurred, config.json likely malformed")
+            print("  check {}".format(self.filename))
+            print("  {}".format(sys.exc_info()[1]))
+            sys.exit(0)
+
         self.changed = False
 
     def loads(self, json_str):
