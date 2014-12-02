@@ -12,7 +12,7 @@ import handlers
 
 # rpc sink
 from sink2 import start_rpc_listener
-from utils import cheap_parse_blocks_to_segments
+from utils import simple_parse_to_segments
 
 __version__ = '1.1'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -173,8 +173,8 @@ class HangupsBot(object):
         """"Send simple chat message"""
         self.send_message_segments(conversation, [hangups.ChatMessageSegment(text)])
 
-    def send_message_parsed(self, conversation, blocks):
-        segments = cheap_parse_blocks_to_segments(blocks)
+    def send_message_parsed(self, conversation, html):
+        segments = simple_parse_to_segments(html)
         self.send_message_segments(conversation, segments)
 
     def send_message_segments(self, conversation, segments):
