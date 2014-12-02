@@ -1,5 +1,18 @@
-HangupsBot
-==========
+IMPORTANT
+=========
+
+This is a fork of https://github.com/xmikos/hangupsbot
+
+* The build script is out-of-date and will most likely be removed in the future.
+* To execute: `python3 hangupsbot.py`
+  * If the script cannot find `config.json`, execute `<path of hangupsbot.py>/python3 hangupsbot.py --config ../config.json`
+* Any current tests will be in `<path of hangupsbot.py>/tests/`
+
+Additional requirements:
+* https://pypi.python.org/pypi/jsonrpclib-pelix `pip3 install jsonrpclib-pelix`
+
+HangupsBot (original README.md)
+===============================
 
 Bot for Google Hangouts
 
