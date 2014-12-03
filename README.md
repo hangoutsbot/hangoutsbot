@@ -1,5 +1,4 @@
-IMPORTANT
-=========
+# IMPORTANT
 
 This is a fork of https://github.com/xmikos/hangupsbot
 
@@ -20,14 +19,48 @@ Additional requirements:
 * https://pypi.python.org/pypi/jsonrpclib-pelix `pip3 install jsonrpclib-pelix`
 * https://pypi.python.org/pypi/pushbullet.py/0.5.0 `pip3 install pushbullet.py`
 
-Quickstart for Users
-====================
+# Quickstart for Users
+
 1. You need to open a 1-on-1 conversation with the bot first and say "hello" 
    (or anything!)
 2. Then give yourself a @mention in another HO where the bot is participating 
    as a group member
 
 This procedure is necessary to let the bot know you're alive ;P 
+No seriously, the above steps are **required** to authorise two-way 
+communication between the bot and your own account.
+
+# Installation & Configuration
+
+* `config.json` is found in two places:
+  * one folder below `hangupsbot.py`;and later,
+  * ...in `/root/.local/share/hangupsbot/` after first successful run
+* add (or replace) your *user id* into the `admins` array in config.json
+```
+{
+  "admins": [
+    "104821221116551390464"
+  ],
+  "autoreplies": [
+  ...
+```
+To find out how to get your user id, read on!
+
+## Getting Your User ID
+
+### first time admins with no existing bot
+1. start the bot with a valid gmail account (not your actual account!)
+2. open a hangout with the bot (using your actual account), say anything to it
+3. login into the bot's gmail account and ensure chat is activated
+4. open up invites, and accept your incoming invite (from your actual account)
+5. restart the bot and it will dump out a conversation and users list
+6. find your actual account user name, the chat_id will be listed next to it
+
+### getting other user ids, and/or if you know another bot admin
+If you are already a bot admin (or know another bot admin) you can join an 
+existing Hangout with the bot participating and have the admin issue the
+following command `/bot user <your first/last name>` - this will dump the 
+user id for the named user.
 
 HangupsBot (original README.md)
 ===============================
