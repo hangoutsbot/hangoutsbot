@@ -14,6 +14,8 @@ This is a fork of https://github.com/xmikos/hangupsbot
   * To set your pushbullet key, open a 1-on-1 HO with the bot and issue:
     `/bot pushbulletapi [<api key>|false, 0, -1]`
     to set your api key or clear it, respectively.
+* please also see the original documentation which is reproduced below
+  (after the TODO section)
 
 Additional requirements:
 * https://pypi.python.org/pypi/jsonrpclib-pelix `pip3 install jsonrpclib-pelix`
@@ -72,6 +74,9 @@ user id for the named user.
 * integration with gitlab
 * secure json-rpc
 * more specific @mentions
+* better debug output
+
+---
 
 HangupsBot (original README.md)
 ===============================
