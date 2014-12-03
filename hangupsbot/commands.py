@@ -246,19 +246,21 @@ def mention(bot, event, *args):
             """pushbullet integration"""
             pushbullet_integration = bot.get_config_suboption(event.conv.id_, 'pushbullet')
             if pushbullet_integration:
-                pushbullet_apikey = pushbullet_integration[u.id_.chat_id]
-                if pushbullet_apikey:
-                    pb = PushBullet(pushbullet_apikey["api"])
-                    success, push = pb.push_note(
-                        "{} mentioned you in {}".format(
-                            event.user.full_name, 
-                            get_conv_name(event.conv, truncate=True)), 
-                        event.text)
-                    if success:
-                        print('  alerted via pushbullet')
-                        alert_via_1on1 = False # disable 1on1 alert
+                if u.id_.chat_id in pushbullet_integration.keys():
+                    pushbullet_apikey = pushbullet_integration[u.id_.chat_id]
+                    if pushbullet_apikey:
+                        pb = PushBullet(pushbullet_apikey["api"])
+                        success, push = pb.push_note(
+                            "{} mentioned you in {}".format(
+                                event.user.full_name, 
+                                get_conv_name(event.conv, truncate=True)), 
+                            event.text)
+                        if success:
+                            print('  alerted via pushbullet')
+                            alert_via_1on1 = False # disable 1on1 alert
 
             if alert_via_1on1:
+                print("  using 1on1")
                 """send alert with 1on1 conversation"""
                 conv_1on1 = bot.get_1on1_conversation(u.id_.chat_id)
                 if conv_1on1:
