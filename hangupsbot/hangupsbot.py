@@ -256,10 +256,10 @@ class HangupsBot(object):
         print('sending message, conversation name:', get_conv_name(conversation))
         self.send_message(conversation, text)
 
-    def external_send_message_parsed(self, conversation_id, text):
+    def external_send_message_parsed(self, conversation_id, html):
         conversation = self._conv_list.get(conversation_id)
         print('sending parsed message, conversation name:', get_conv_name(conversation))
-        self.send_message_parsed(conversation, text)
+        self.send_message_parsed(conversation, html)
 
 def main():
     """Main entry point"""
