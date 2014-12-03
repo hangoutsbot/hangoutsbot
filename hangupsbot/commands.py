@@ -232,8 +232,8 @@ def config(bot, event, cmd=None, *args):
 def mention(bot, event, *args):
     """alert a @mentioned user"""
     username = args[0].strip()
-    if len(username) < 3:
-        print('@mention must be 3 letters or longer (== "{}")'.format(username))
+    if len(username) < 2:
+        print('@mention must be 2 letters or longer (== "{}")'.format(username))
         return
     """verify user is in current conversation, get id"""
     username_lower = username.lower()
@@ -270,7 +270,7 @@ def mention(bot, event, *args):
                             event.user.full_name, 
                             get_conv_name(event.conv, truncate=True), 
                             event.text))
-                    print('  alerted via 1on1')
+                    print('  alerted via 1on1 with id {}'.format(conv_1on1.id_))
                 else:
                     bot.send_message_parsed(
                         event.conv, 
