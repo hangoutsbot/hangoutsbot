@@ -230,6 +230,25 @@ def config(bot, event, cmd=None, *args):
 @command.register
 def mention(bot, event, *args):
     """alert a @mentioned user"""
-    username = args[0]
-    bot.send_message(event.conv, 'mentioned {}'.format(username))
-
+    username = args[0].strip()
+    if len(username) < 3:
+        print('@mention must be 3 letters or longer (== "{}")'.format(username))
+        return
+    """verify user is in current conversation, get id"""
+    username_lower = username.lower()
+    for u in sorted(event.conv.users, key=lambda x: x.full_name.split()[-1]):
+        if username_lower in u.full_name.lower():
+            print('user exist:', u.full_name, u.id_.chat_id)
+            """seek a 1on1 conversation with user"""
+            conv_1on1 = bot.get_1on1_conversation(u.id_.chat_id)
+            if conv_1on1:
+                bot.send_message_parsed(conv_1on1, 
+                  "<b>{}</b> @mentioned you in <i>{}</i>:<br />{}".format(
+                    event.user.full_name, 
+                    get_conv_name(event.conv, truncate=True), 
+                    event.text))
+            else:
+                bot.send_message_parsed(event.conv, 
+                                        "I'm sorry, I couldn't @mention <b>{}</b>".format(
+                                          u.full_name
+                                        ))

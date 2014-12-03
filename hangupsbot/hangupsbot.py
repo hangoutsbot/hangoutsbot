@@ -214,6 +214,16 @@ class HangupsBot(object):
                 print('      ', u.id_.chat_id)
         print()
 
+    def get_1on1_conversation(self, chat_id):
+        conversation = None
+        for c in self.list_conversations():
+            if len(c.users) == 2:
+                for u in c.users:
+                    if u.id_.chat_id == chat_id:
+                        conversation = c
+                        break
+        return conversation
+
     def _on_message_sent(self, future):
         """Handle showing an error if a message fails to send"""
         try:
