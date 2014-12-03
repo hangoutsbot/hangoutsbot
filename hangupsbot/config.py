@@ -46,6 +46,7 @@ class Config(collections.MutableMapping):
     def set_by_path(self, keys_list, value):
         """Set item in config by path (list of keys)"""
         self.get_by_path(keys_list[:-1])[keys_list[-1]] = value
+        self.changed = True
 
     def __getitem__(self, key):
         try:
