@@ -15,6 +15,13 @@ This is a fork of https://github.com/xmikos/hangupsbot
     `/bot pushbulletapi [<api key>|false, 0, -1]`
     to set your api key or clear it, respectively.
 
+For Users
+=========
+1. You need to open a 1-on-1 conversation with the bot first and say "hello" (or anything!)
+2. Then give yourself a @mention in another HO where the bot is participating as a group member
+
+This procedure is necessary to let the bot know you're alive ;P 
+
 Additional requirements:
 * https://pypi.python.org/pypi/jsonrpclib-pelix `pip3 install jsonrpclib-pelix`
 * https://pypi.python.org/pypi/pushbullet.py/0.5.0 `pip3 install pushbullet.py`
