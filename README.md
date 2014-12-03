@@ -50,6 +50,7 @@ To find out how to get your user id, read on!
 ## Getting Your User ID
 
 ### first time admins with no existing bot
+
 1. start the bot with a valid gmail account (not your actual account!)
 2. open a hangout with the bot (using your actual account), say anything to it
 3. login into the bot's gmail account and ensure chat is activated
@@ -58,10 +59,19 @@ To find out how to get your user id, read on!
 6. find your actual account user name, the chat_id will be listed next to it
 
 ### getting other user ids, and/or if you know another bot admin
+
 If you are already a bot admin (or know another bot admin) you can join an 
 existing Hangout with the bot participating and have the admin issue the
 following command `/bot user <your first/last name>` - this will dump the 
 user id for the named user.
+
+# TODO
+
+* easier setup/configuration
+* run as service
+* integration with gitlab
+* secure json-rpc
+* more specific @mentions
 
 HangupsBot (original README.md)
 ===============================
