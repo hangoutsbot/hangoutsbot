@@ -5,6 +5,7 @@ from hangups.ui.utils import get_conv_name
 
 from utils import text_to_segments
 
+from pushbullet import PushBullet
 
 class CommandDispatcher(object):
     """Register commands and run them"""
@@ -238,17 +239,65 @@ def mention(bot, event, *args):
     username_lower = username.lower()
     for u in sorted(event.conv.users, key=lambda x: x.full_name.split()[-1]):
         if username_lower in u.full_name.lower():
-            print('user exist:', u.full_name, u.id_.chat_id)
-            """seek a 1on1 conversation with user"""
-            conv_1on1 = bot.get_1on1_conversation(u.id_.chat_id)
-            if conv_1on1:
-                bot.send_message_parsed(conv_1on1, 
-                  "<b>{}</b> @mentioned you in <i>{}</i>:<br />{}".format(
-                    event.user.full_name, 
-                    get_conv_name(event.conv, truncate=True), 
-                    event.text))
-            else:
-                bot.send_message_parsed(event.conv, 
-                                        "I'm sorry, I couldn't @mention <b>{}</b>".format(
-                                          u.full_name
-                                        ))
+            print('user {} found, chat_id: {}'.format(u.full_name, u.id_.chat_id))
+
+            alert_via_1on1 = True
+
+            """pushbullet integration"""
+            pushbullet_integration = bot.get_config_suboption(event.conv.id_, 'pushbullet')
+            if pushbullet_integration:
+                pushbullet_apikey = pushbullet_integration[u.id_.chat_id]
+                if pushbullet_apikey:
+                    pb = PushBullet(pushbullet_apikey["api"])
+                    success, push = pb.push_note(
+                        "{} mentioned you in {}".format(
+                            event.user.full_name, 
+                            get_conv_name(event.conv, truncate=True)), 
+                        event.text)
+                    if success:
+                        print('  alerted via pushbullet')
+                        alert_via_1on1 = False # disable 1on1 alert
+
+            if alert_via_1on1:
+                """send alert with 1on1 conversation"""
+                conv_1on1 = bot.get_1on1_conversation(u.id_.chat_id)
+                if conv_1on1:
+                    bot.send_message_parsed(
+                        conv_1on1, 
+                        "<b>{}</b> @mentioned you in <i>{}</i>:<br />{}".format(
+                            event.user.full_name, 
+                            get_conv_name(event.conv, truncate=True), 
+                            event.text))
+                    print('  alerted via 1on1')
+                else:
+                    bot.send_message_parsed(
+                        event.conv, 
+                        "I'm sorry, I couldn't @mention <b>{}</b>".format(
+                        u.full_name))
+                    print('  could not alert user via 1on1')
+
+
+@command.register
+def pushbulletapi(bot, event, *args):
+    """allow users to configure pushbullet integration with api key
+        /bot pushbulletapi [<api key>|false, 0, -1]"""
+
+    # XXX: /bot config exposes all configured api keys (security risk!)
+
+    if len(args) == 1:
+        value = args[0]
+        if value.lower() in ('false', '0', '-1'):
+            value = None
+            bot.send_message_parsed(
+                event.conv, 
+                "deactivating pushbullet integration")
+        else:
+            bot.send_message_parsed(
+                event.conv, 
+                "setting pushbullet api key")
+        bot.config.set_by_path(["pushbullet", event.user.id_.chat_id], { "api": value })
+        bot.config.save()
+    else:
+        bot.send_message_parsed(
+            event.conv, 
+            "pushbullet configuration not changed")
