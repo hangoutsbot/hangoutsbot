@@ -36,6 +36,7 @@ communication between the bot and your own account.
   * one folder below `hangupsbot.py`;and later,
   * ...in `/root/.local/share/hangupsbot/` after first successful run
 * add (or replace) your *user id* into the `admins` array in config.json
+
 ```
 {
   "admins": [
