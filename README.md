@@ -21,7 +21,7 @@ Additional requirements:
 * https://pypi.python.org/pypi/jsonrpclib-pelix `pip3 install jsonrpclib-pelix`
 * https://pypi.python.org/pypi/pushbullet.py/0.5.0 `pip3 install pushbullet.py`
 
-# Quickstart for Users
+# Users: Quickstart
 
 1. You need to open a 1-on-1 conversation with the bot first and say "hello" 
    (or anything!)
@@ -32,7 +32,7 @@ This procedure is necessary to let the bot know you're alive ;P
 No seriously, the above steps are **required** to authorise two-way 
 communication between the bot and your own account.
 
-# Installation & Configuration
+# Admins: Installation & Configuration
 
 * `config.json` is found in two places:
   * one folder below `hangupsbot.py`;and later,
@@ -67,7 +67,7 @@ existing Hangout with the bot participating and have the admin issue the
 following command `/bot user <your first/last name>` - this will dump the 
 user id for the named user.
 
-# TODO
+# Developers: TODO
 
 * easier setup/configuration
 * run as service
