@@ -241,6 +241,10 @@ def mention(bot, event, *args):
         if username_lower in u.full_name.lower():
             print('user {} found, chat_id: {}'.format(u.full_name, u.id_.chat_id))
 
+            if u.is_self:
+                print("can't mention bot")
+                continue
+
             alert_via_1on1 = True
 
             """pushbullet integration"""
@@ -260,7 +264,6 @@ def mention(bot, event, *args):
                             alert_via_1on1 = False # disable 1on1 alert
 
             if alert_via_1on1:
-                print("  using 1on1")
                 """send alert with 1on1 conversation"""
                 conv_1on1 = bot.get_1on1_conversation(u.id_.chat_id)
                 if conv_1on1:
