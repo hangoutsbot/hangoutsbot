@@ -86,11 +86,14 @@ class HangupsBot(object):
             # Start asyncio event loop and connect to Hangouts 
             # If we are forcefully disconnected, try connecting again
             loop = asyncio.get_event_loop()
-            
-            # start up rpc listener in a separate thread
-            t = Thread(target=start_rpc_listener, args=(self, loop))
-            t.daemon = True
-            t.start()
+
+            if "jsonrpc" in self.config.keys():
+                if self.config["jsonrpc"]:
+                    print("starting json rpc sink")
+                    # start up rpc listener in a separate thread
+                    t = Thread(target=start_rpc_listener, args=(self, loop))
+                    t.daemon = True
+                    t.start()
 
             for retry in range(self._max_retries):
                 try:
