@@ -1,14 +1,30 @@
 {
-  "admins": ["104821221116551390464"],
+  "admins": [
+    "104821221116551390464"
+  ],
   "autoreplies": [
-    [["hi", "hello"], "Hello world!"],
-    [["test"], "test back!"],
-    [["ping"], "pong!"]
+    [
+      [
+        "hi",
+        "hello"
+      ],
+      "Hello world!"
+    ]
   ],
   "autoreplies_enabled": true,
-  "commands_admin": ["rename", "leave", "easteregg", "user", "users", "hangouts", "reload", "quit", "config", "mention"],
+  "commands_admin": [
+    "rename",
+    "leave",
+    "easteregg",
+    "user",
+    "users",
+    "hangouts",
+    "reload",
+    "quit",
+    "config",
+    "mention"
+  ],
   "commands_enabled": true,
-  "forwarding_enabled": true,
   "conversations": {
     "CONV1_ID": {
       "forward_to": [
@@ -18,10 +34,17 @@
     "CONV2_ID": {
       "autoreplies_enabled": false,
       "commands_enabled": false,
-      "forwarding_enabled": false,
       "forward_to": [
         "CONV1_ID"
-      ]
+      ],
+      "forwarding_enabled": false
     }
-  }
+  },
+  "forwarding_enabled": false,
+  "pushbullet": {
+    "104821221116551390464": {
+      "api": null
+    }
+  },
+  "jsonrpc": true
 }
