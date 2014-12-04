@@ -213,8 +213,7 @@ class HangupsBot(object):
         for c in self.list_conversations():
             print('  {} ({}) u:{}'.format(get_conv_name(c, truncate=True), c.id_, len(c.users)))
             for u in c.users:
-                print('    {} ({})'.format(u.first_name, u.full_name))
-                print('      ', u.id_.chat_id)
+                print('    {} ({}) {}'.format(u.first_name, u.full_name, u.id_.chat_id))
         print()
 
     def get_1on1_conversation(self, chat_id):
