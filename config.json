@@ -11,7 +11,7 @@
       "Hello world!"
     ]
   ],
-  "autoreplies_enabled": true,
+  "autoreplies_enabled": false,
   "commands_admin": [
     "rename",
     "leave",
@@ -45,6 +45,7 @@
       "api": null
     }
   },
-  "jsonrpc": true,
-  "mentionerrors": false
+  "jsonrpc": false,
+  "mentionerrors": false,
+  "donotdisturb": []
 }
