@@ -372,3 +372,8 @@ def dnd(bot, event, *args):
 
     bot.config.set_by_path(["donotdisturb"], dnd_list)
     bot.config.save()
+
+@command.register
+def whoami(bot, event, *args):
+    """whoami"""
+    bot.send_message_parsed(event.conv, "<b>{}</b>, chat_id = <i>{}</i>".format(event.user.full_name, event.user.id_.chat_id))
