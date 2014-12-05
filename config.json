@@ -27,8 +27,7 @@
     "hangouts",
     "reload",
     "quit",
-    "config",
-    "mention"
+    "config"
   ],
   "commands_enabled": true,
   "conversations": {
@@ -52,5 +51,6 @@
       "api": null
     }
   },
-  "jsonrpc": true
+  "jsonrpc": true,
+  "mentionerrors": false
 }
