@@ -68,7 +68,7 @@ chat_id will be displayed
 # Developers: TODO
 
 * easier setup/configuration
-* run as service
+* run as service ([cron](http://www.raspberrypi-spy.co.uk/2013/07/running-a-python-script-at-boot-using-cron/) works too!)
 * integration with gitlab
 * secure json-rpc
 * more specific @mentions
