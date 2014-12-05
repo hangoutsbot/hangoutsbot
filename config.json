@@ -21,8 +21,7 @@
     "hangouts",
     "reload",
     "quit",
-    "config",
-    "mention"
+    "config"
   ],
   "commands_enabled": true,
   "conversations": {
