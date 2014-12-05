@@ -275,10 +275,11 @@ def mention(bot, event, *args):
                             event.text))
                     print('  alerted via 1on1 with id {}'.format(conv_1on1.id_))
                 else:
-                    #bot.send_message_parsed(
-                        #event.conv, 
-                        #"I'm sorry, I couldn't @mention <b>{}</b>".format(
-                        #u.full_name))
+                    if bot.get_config_suboption(event.conv_id, 'mentionerrors'):
+                        #bot.send_message_parsed(
+                            #event.conv, 
+                            #"I'm sorry, I couldn't @mention <b>{}</b>".format(
+                            #u.full_name))
                     print('  could not alert user via 1on1')
 
 
