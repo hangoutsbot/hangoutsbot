@@ -198,8 +198,11 @@ def quit(bot, event, *args):
 
 @command.register
 def config(bot, event, cmd=None, *args):
-    """Displays or modifies the configuration boot
-        Parameters: / bot config [get | set] [key] [subkey] [...] [value]"""
+    """Displays or modifies the configuration
+        Parameters: /bot config get [key] [subkey] [...]
+                    /bot config set [key] [subkey] [...] [value]
+                    /bot config append [key] [subkey] [...] [value]
+                    /bot config remove [key] [subkey] [...] [value]"""
 
     if cmd == 'get' or cmd is None:
         config_args = list(args)
@@ -210,6 +213,32 @@ def config(bot, event, cmd=None, *args):
             bot.config.set_by_path(config_args, json.loads(args[-1]))
             bot.config.save()
             value = bot.config.get_by_path(config_args)
+        else:
+            yield from command.unknown_command(bot, event)
+            return
+    elif cmd == 'append':
+        config_args = list(args[:-1])
+        if len(args) >= 2:
+            value = bot.config.get_by_path(config_args)
+            if isinstance(value, list):
+                value.append(json.loads(args[-1]))
+                bot.config.set_by_path(config_args, value)
+                bot.config.save()
+            else:
+                value = 'append failed on non-list'
+        else:
+            yield from command.unknown_command(bot, event)
+            return
+    elif cmd == 'remove':
+        config_args = list(args[:-1])
+        if len(args) >= 2:
+            value = bot.config.get_by_path(config_args)
+            if isinstance(value, list):
+                value.remove(json.loads(args[-1]))
+                bot.config.set_by_path(config_args, value)
+                bot.config.save()
+            else:
+                value = 'remove failed on non-list'
         else:
             yield from command.unknown_command(bot, event)
             return
