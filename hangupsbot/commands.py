@@ -242,7 +242,12 @@ def mention(bot, event, *args):
             print('user {} found, chat_id: {}'.format(u.full_name, u.id_.chat_id))
 
             if u.is_self:
-                print("can't mention bot")
+                print("bot cannot be directly mentioned")
+                continue
+
+            if u.id_.chat_id == event.user.id_.chat_id and username_lower == "all":
+                """prevent initiating user from receiving duplicate @all"""
+                print("suppressing @all for initiator")
                 continue
 
             alert_via_1on1 = True
