@@ -51,6 +51,7 @@
       "api": null
     }
   },
-  "jsonrpc": true,
-  "mentionerrors": false
+  "jsonrpc": false,
+  "mentionerrors": false,
+  "donotdisturb": []
 }

@@ -1,6 +1,6 @@
 # IMPORTANT
 
-This is a fork of a fork of https://github.com/xmikos/hangupsbot
+This is a fork of a [fork](https://gitlab.sabah.io/eol/mogunsamang/) of https://github.com/xmikos/hangupsbot
 
 * The build script is out-of-date and will be removed in the future.
   DO NOT TRUST IT ;)
@@ -60,17 +60,26 @@ To find out how to get your user id, read on!
 5. restart the bot and it will dump out a conversation and users list
 6. find your actual account user name, the chat_id will be listed next to it
 
-### getting other user ids, and/or if you know another bot admin
+### with an existing bot
 
-If you are already a bot admin (or know another bot admin) you can join an 
-existing Hangout with the bot participating and have the admin issue the
-following command `/bot user <your first/last name>` - this will dump the 
-user id for the named user.
+join a group with an existing bot and issue this command `/bot whoami`, your
+chat_id will be displayed
+
+# Admins: Useful Commands
+```
+# add user 104...64 to the admins list...
+/bot config append admins "104...64"  
+/bot reload
+
+# remove user 104...64 from the admins list...
+/bot config remove admins "104...64"
+/bot reload
+```
 
 # Developers: TODO
 
 * easier setup/configuration
-* run as service
+* run as service ([cron](http://www.raspberrypi-spy.co.uk/2013/07/running-a-python-script-at-boot-using-cron/) works too!)
 * integration with gitlab
 * secure json-rpc
 * more specific @mentions

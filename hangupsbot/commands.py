@@ -7,6 +7,8 @@ from utils import text_to_segments
 
 from pushbullet import PushBullet
 
+import hashlib
+
 class CommandDispatcher(object):
     """Register commands and run them"""
     def __init__(self):
@@ -198,8 +200,11 @@ def quit(bot, event, *args):
 
 @command.register
 def config(bot, event, cmd=None, *args):
-    """Displays or modifies the configuration boot
-        Parameters: / bot config [get | set] [key] [subkey] [...] [value]"""
+    """Displays or modifies the configuration
+        Parameters: /bot config get [key] [subkey] [...]
+                    /bot config set [key] [subkey] [...] [value]
+                    /bot config append [key] [subkey] [...] [value]
+                    /bot config remove [key] [subkey] [...] [value]"""
 
     if cmd == 'get' or cmd is None:
         config_args = list(args)
@@ -210,6 +215,32 @@ def config(bot, event, cmd=None, *args):
             bot.config.set_by_path(config_args, json.loads(args[-1]))
             bot.config.save()
             value = bot.config.get_by_path(config_args)
+        else:
+            yield from command.unknown_command(bot, event)
+            return
+    elif cmd == 'append':
+        config_args = list(args[:-1])
+        if len(args) >= 2:
+            value = bot.config.get_by_path(config_args)
+            if isinstance(value, list):
+                value.append(json.loads(args[-1]))
+                bot.config.set_by_path(config_args, value)
+                bot.config.save()
+            else:
+                value = 'append failed on non-list'
+        else:
+            yield from command.unknown_command(bot, event)
+            return
+    elif cmd == 'remove':
+        config_args = list(args[:-1])
+        if len(args) >= 2:
+            value = bot.config.get_by_path(config_args)
+            if isinstance(value, list):
+                value.remove(json.loads(args[-1]))
+                bot.config.set_by_path(config_args, value)
+                bot.config.save()
+            else:
+                value = 'remove failed on non-list'
         else:
             yield from command.unknown_command(bot, event)
             return
@@ -238,12 +269,24 @@ def mention(bot, event, *args):
     """verify user is in current conversation, get id"""
     username_lower = username.lower()
     for u in sorted(event.conv.users, key=lambda x: x.full_name.split()[-1]):
-        if username_lower in u.full_name.lower():
+        if username_lower == "all" or username_lower in u.full_name.lower():
             print('user {} found, chat_id: {}'.format(u.full_name, u.id_.chat_id))
 
             if u.is_self:
-                print("can't mention bot")
+                print("bot cannot be directly mentioned")
                 continue
+
+            if u.id_.chat_id == event.user.id_.chat_id and username_lower == "all":
+                """prevent initiating user from receiving duplicate @all"""
+                print("suppressing @all for initiator {}".format(u.full_name))
+                continue
+
+            donotdisturb = bot.config.get('donotdisturb')
+            if donotdisturb:
+                """user-configured DND"""
+                if u.id_.chat_id in donotdisturb:
+                    print("global DND for {} ({})".format(u.full_name, u.id_.chat_id))
+                    continue
 
             alert_via_1on1 = True
 
@@ -307,3 +350,30 @@ def pushbulletapi(bot, event, *args):
         bot.send_message_parsed(
             event.conv, 
             "pushbullet configuration not changed")
+
+
+@command.register
+def dnd(bot, event, *args):
+    """allow users to toggle DND for ALL conversations (i.e. no @mentions)
+        /bot dnd"""
+
+    initiator_chat_id = event.user.id_.chat_id
+    dnd_list = bot.config.get_by_path(["donotdisturb"])
+    if not initiator_chat_id in dnd_list:
+        dnd_list.append(initiator_chat_id)
+        bot.send_message_parsed(
+            event.conv, 
+            "global DND toggled ON for {}".format(event.user.full_name))
+    else:
+        dnd_list.remove(initiator_chat_id)
+        bot.send_message_parsed(
+            event.conv, 
+            "global DND toggled OFF for {}".format(event.user.full_name))
+
+    bot.config.set_by_path(["donotdisturb"], dnd_list)
+    bot.config.save()
+
+@command.register
+def whoami(bot, event, *args):
+    """whoami"""
+    bot.send_message_parsed(event.conv, "<b>{}</b>, chat_id = <i>{}</i>".format(event.user.full_name, event.user.id_.chat_id))

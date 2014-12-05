@@ -6,3 +6,4 @@ purplex
 aiohttp
 
 *.*~
+/hangupsbot/__pycache__
