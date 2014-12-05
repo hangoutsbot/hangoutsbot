@@ -7,6 +7,8 @@ from utils import text_to_segments
 
 from pushbullet import PushBullet
 
+import hashlib
+
 class CommandDispatcher(object):
     """Register commands and run them"""
     def __init__(self):
@@ -276,8 +278,15 @@ def mention(bot, event, *args):
 
             if u.id_.chat_id == event.user.id_.chat_id and username_lower == "all":
                 """prevent initiating user from receiving duplicate @all"""
-                print("suppressing @all for initiator")
+                print("suppressing @all for initiator {}".format(u.full_name))
                 continue
+
+            donotdisturb = bot.config.get('donotdisturb')
+            if donotdisturb:
+                """user-configured DND"""
+                if u.id_.chat_id in donotdisturb:
+                    print("global DND for {} ({})".format(u.full_name, u.id_.chat_id))
+                    continue
 
             alert_via_1on1 = True
 
@@ -341,3 +350,25 @@ def pushbulletapi(bot, event, *args):
         bot.send_message_parsed(
             event.conv, 
             "pushbullet configuration not changed")
+
+
+@command.register
+def dnd(bot, event, *args):
+    """allow users to toggle DND for ALL conversations (i.e. no @mentions)
+        /bot dnd"""
+
+    initiator_chat_id = event.user.id_.chat_id
+    dnd_list = bot.config.get_by_path(["donotdisturb"])
+    if not initiator_chat_id in dnd_list:
+        dnd_list.append(initiator_chat_id)
+        bot.send_message_parsed(
+            event.conv, 
+            "global DND toggled ON for {}".format(event.user.full_name))
+    else:
+        dnd_list.remove(initiator_chat_id)
+        bot.send_message_parsed(
+            event.conv, 
+            "global DND toggled OFF for {}".format(event.user.full_name))
+
+    bot.config.set_by_path(["donotdisturb"], dnd_list)
+    bot.config.save()
