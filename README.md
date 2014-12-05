@@ -60,12 +60,10 @@ To find out how to get your user id, read on!
 5. restart the bot and it will dump out a conversation and users list
 6. find your actual account user name, the chat_id will be listed next to it
 
-### getting other user ids, and/or if you know another bot admin
+### with an existing bot
 
-If you are already a bot admin (or know another bot admin) you can join an 
-existing Hangout with the bot participating and have the admin issue the
-following command `/bot user <your first/last name>` - this will dump the 
-user id for the named user.
+join a group with an existing bot and issue this command `/bot whoami`, your
+chat_id will be displayed
 
 # Developers: TODO
 
