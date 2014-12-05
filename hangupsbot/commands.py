@@ -238,7 +238,7 @@ def mention(bot, event, *args):
     """verify user is in current conversation, get id"""
     username_lower = username.lower()
     for u in sorted(event.conv.users, key=lambda x: x.full_name.split()[-1]):
-        if username_lower in u.full_name.lower():
+        if username_lower == "all" or username_lower in u.full_name.lower():
             print('user {} found, chat_id: {}'.format(u.full_name, u.id_.chat_id))
 
             if u.is_self:
