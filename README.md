@@ -65,10 +65,21 @@ To find out how to get your user id, read on!
 join a group with an existing bot and issue this command `/bot whoami`, your
 chat_id will be displayed
 
+# Admins: Useful Commands
+```
+# add user 104...64 to the admins list...
+/bot config append admins "104...64"  
+/bot reload
+
+# remove user 104...64 from the admins list...
+/bot config remove admins "104...64"
+/bot reload
+```
+
 # Developers: TODO
 
 * easier setup/configuration
-* run as service
+* run as service ([cron](http://www.raspberrypi-spy.co.uk/2013/07/running-a-python-script-at-boot-using-cron/) works too!)
 * integration with gitlab
 * secure json-rpc
 * more specific @mentions
