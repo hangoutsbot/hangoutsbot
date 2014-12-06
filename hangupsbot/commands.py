@@ -262,12 +262,14 @@ def mention(bot, event, *args):
     """alert a @mentioned user"""
     username = args[0].strip()
     if len(username) < 2:
-        print('@mention must be 2 letters or longer (== "{}")'.format(username))
+        print("@mention must be 2 letters or longer (== '{}')".format(username))
         return
     """verify user is in current conversation, get id"""
     username_lower = username.lower()
-    for u in sorted(event.conv.users, key=lambda x: x.full_name.split()[-1]):
-        if username_lower == "all" or username_lower in u.full_name.lower():
+    for u in event.conv.users:
+        if username_lower == "all" or \
+                username_lower in u.full_name.replace(" ", "").lower():
+
             print('user {} found, chat_id: {}'.format(u.full_name, u.id_.chat_id))
 
             if u.is_self:
@@ -301,7 +303,7 @@ def mention(bot, event, *args):
                                 get_conv_name(event.conv, truncate=True)), 
                             event.text)
                         if success:
-                            print('  alerted via pushbullet')
+                            print("{} alerted via pushbullet".format(u.full_name))
                             alert_via_1on1 = False # disable 1on1 alert
 
             if alert_via_1on1:
@@ -314,14 +316,16 @@ def mention(bot, event, *args):
                             event.user.full_name, 
                             get_conv_name(event.conv, truncate=True), 
                             event.text))
-                    print('  alerted via 1on1 with id {}'.format(conv_1on1.id_))
+                    print("{} alerted via 1on1 with id {}".format(
+                            u.full_name, 
+                            conv_1on1.id_))
                 else:
                     if bot.get_config_suboption(event.conv_id, 'mentionerrors'):
                         bot.send_message_parsed(
                             event.conv, 
-                            "I'm sorry, I couldn't @mention <b>{}</b>".format(
-                            u.full_name))
-                    print('  could not alert user via 1on1')
+                            "Unable to @mention <b>{}</b>. User must talk to me first.".format(
+                                u.full_name))
+                    print("could not alert user {} via 1on1".format(u.full_name))
 
 
 @command.register
