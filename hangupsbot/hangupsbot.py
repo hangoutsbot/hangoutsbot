@@ -193,8 +193,14 @@ class HangupsBot(object):
 
     def list_conversations(self):
         """List all active conversations"""
-        convs = sorted(self._conv_list.get_all(),
-                       reverse=True, key=lambda c: c.last_modified)
+        try:
+            _all_conversations = self._conv_list.get_all()
+            convs = sorted(_all_conversations, reverse=True, key=lambda c: c.last_modified)
+            print('list_conversations() returned {} conversations'.format(len(convs)))
+        except Exception as e:
+            logging.warning("list_conversations()", e)
+            raise
+
         return convs
 
     def get_config_suboption(self, conv_id, option):
