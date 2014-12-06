@@ -262,12 +262,14 @@ def mention(bot, event, *args):
     """alert a @mentioned user"""
     username = args[0].strip()
     if len(username) < 2:
-        print('@mention must be 2 letters or longer (== "{}")'.format(username))
+        print("@mention must be 2 letters or longer (== '{}')".format(username))
         return
     """verify user is in current conversation, get id"""
     username_lower = username.lower()
-    for u in sorted(event.conv.users, key=lambda x: x.full_name.split()[-1]):
-        if username_lower == "all" or username_lower in u.full_name.lower():
+    for u in event.conv.users:
+        if username_lower == "all" or \
+                username_lower in u.full_name.replace(" ", "").lower():
+
             print('user {} found, chat_id: {}'.format(u.full_name, u.id_.chat_id))
 
             if u.is_self:
