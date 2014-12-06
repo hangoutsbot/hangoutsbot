@@ -198,7 +198,7 @@ class HangupsBot(object):
             convs = sorted(_all_conversations, reverse=True, key=lambda c: c.last_modified)
             print('list_conversations() returned {} conversations'.format(len(convs)))
         except Exception as e:
-            print('list_conversations()', e)
+            logging.warning("list_conversations()", e)
             raise
 
         return convs
