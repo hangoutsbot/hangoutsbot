@@ -7,8 +7,6 @@ from utils import text_to_segments
 
 from pushbullet import PushBullet
 
-import hashlib
-
 class CommandDispatcher(object):
     """Register commands and run them"""
     def __init__(self):
