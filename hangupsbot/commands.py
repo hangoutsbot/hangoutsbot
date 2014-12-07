@@ -269,22 +269,22 @@ def mention(bot, event, *args):
 
     """verify user is in current conversation"""
     conversation_name = get_conv_name(event.conv, truncate=True);
-    logging.info("verifying @mention fragment '{}' in {} ({})".format(username, conversation_name, event.conv.id_))
+    logging.info("@mention '{}' in '{}' ({})".format(username, conversation_name, event.conv.id_))
     username_lower = username.lower()
     for u in event.conv.users:
         if username_lower == "all" or \
                 username_lower in u.full_name.replace(" ", "").lower():
 
-            logging.info("user {} ({}) is present in conversation".format(u.full_name, u.id_.chat_id))
+            logging.info("user {} ({}) is present".format(u.full_name, u.id_.chat_id))
 
             if u.is_self:
                 """bot cannot be @mentioned"""
-                logging.info("suppressing bot mention by initiator {} ({})".format(u.full_name, u.id_.chat_id))
+                logging.info("suppressing bot mention by {} ({})".format(event.user.full_name, event.user.id_.chat_id))
                 continue
 
             if u.id_.chat_id == event.user.id_.chat_id and username_lower == "all":
                 """prevent initiating user from receiving duplicate @all"""
-                logging.info("suppressing @all for initiator {} ({})".format(event.user.full_name, event.user.id_.chat_id))
+                logging.info("suppressing @all for {} ({})".format(event.user.full_name, event.user.id_.chat_id))
                 continue
 
             donotdisturb = bot.config.get('donotdisturb')
