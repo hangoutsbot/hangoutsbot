@@ -196,7 +196,7 @@ class HangupsBot(object):
         try:
             _all_conversations = self._conv_list.get_all()
             convs = sorted(_all_conversations, reverse=True, key=lambda c: c.last_modified)
-            print('list_conversations() returned {} conversations'.format(len(convs)))
+            logging.info("list_conversations() returned {} conversation(s)".format(len(convs)))
         except Exception as e:
             logging.warning("list_conversations()", e)
             raise
@@ -318,10 +318,12 @@ def main():
             sys.exit('Failed to copy default config file: {}'.format(e))
 
     # Configure logging
-    log_level = logging.DEBUG if args.debug else logging.WARNING
+    log_level = logging.DEBUG if args.debug else logging.INFO
     logging.basicConfig(filename=args.log, level=log_level, format=LOG_FORMAT)
     # asyncio's debugging logs are VERY noisy, so adjust the log level
     logging.getLogger('asyncio').setLevel(logging.WARNING)
+    # hangups log is quite verbose too, suppress so we can debug the bot
+    logging.getLogger('hangups').setLevel(logging.WARNING)
 
     # initialise the bot
     bot = HangupsBot(args.cookies, args.config)
