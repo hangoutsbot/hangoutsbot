@@ -260,14 +260,15 @@ def config(bot, event, cmd=None, *args):
 @command.register
 def mention(bot, event, *args):
     """alert a @mentioned user"""
+
+    """minimum length check for @mention"""
     username = args[0].strip()
-    if len(username) < 2:
-        print("@mention must be 2 letters or longer (== '{}')".format(username))
+    if len(username) <= 2:
+        logging.warning("@mention from {} ({}) too short (== '{}')".format(event.user.full_name, event.user.id_.chat_id, username))
         return
 
-    conversation_name = get_conv_name(event.conv, truncate=True);
-
     """verify user is in current conversation"""
+    conversation_name = get_conv_name(event.conv, truncate=True);
     logging.info("verifying @mention fragment '{}' in {} ({})".format(username, conversation_name, event.conv.id_))
     username_lower = username.lower()
     for u in event.conv.users:
@@ -283,7 +284,7 @@ def mention(bot, event, *args):
 
             if u.id_.chat_id == event.user.id_.chat_id and username_lower == "all":
                 """prevent initiating user from receiving duplicate @all"""
-                logging.info("suppressing @all for initiator {} ({})".format(event.user.id_.full_name, event.user.id_.chat_id))
+                logging.info("suppressing @all for initiator {} ({})".format(event.user.full_name, event.user.id_.chat_id))
                 continue
 
             donotdisturb = bot.config.get('donotdisturb')
