@@ -1,4 +1,4 @@
-import sys, json, random, asyncio
+import sys, json, random, asyncio, logging
 
 import hangups
 from hangups.ui.utils import get_conv_name
@@ -264,47 +264,54 @@ def mention(bot, event, *args):
     if len(username) < 2:
         print("@mention must be 2 letters or longer (== '{}')".format(username))
         return
-    """verify user is in current conversation, get id"""
+
+    conversation_name = get_conv_name(event.conv, truncate=True);
+
+    """verify user is in current conversation"""
+    logging.info("verifying @mention fragment '{}' in {} ({})".format(username, conversation_name, event.conv.id_))
     username_lower = username.lower()
     for u in event.conv.users:
         if username_lower == "all" or \
                 username_lower in u.full_name.replace(" ", "").lower():
 
-            print('user {} found, chat_id: {}'.format(u.full_name, u.id_.chat_id))
+            logging.info("user {} ({}) is present in conversation".format(u.full_name, u.id_.chat_id))
 
             if u.is_self:
-                print("bot cannot be directly mentioned")
+                """bot cannot be @mentioned"""
+                logging.info("suppressing bot mention by initiator {} ({})".format(u.full_name, u.id_.chat_id))
                 continue
 
             if u.id_.chat_id == event.user.id_.chat_id and username_lower == "all":
                 """prevent initiating user from receiving duplicate @all"""
-                print("suppressing @all for initiator {}".format(u.full_name))
+                logging.info("suppressing @all for initiator {} ({})".format(event.user.id_.full_name, event.user.id_.chat_id))
                 continue
 
             donotdisturb = bot.config.get('donotdisturb')
             if donotdisturb:
                 """user-configured DND"""
                 if u.id_.chat_id in donotdisturb:
-                    print("global DND for {} ({})".format(u.full_name, u.id_.chat_id))
+                    logging.info("suppressing @mention for {} ({})".format(u.full_name, u.id_.chat_id))
                     continue
 
             alert_via_1on1 = True
 
             """pushbullet integration"""
             pushbullet_integration = bot.get_config_suboption(event.conv.id_, 'pushbullet')
-            if pushbullet_integration:
+            if pushbullet_integration is not None:
                 if u.id_.chat_id in pushbullet_integration.keys():
-                    pushbullet_apikey = pushbullet_integration[u.id_.chat_id]
-                    if pushbullet_apikey:
-                        pb = PushBullet(pushbullet_apikey["api"])
+                    pushbullet_config = pushbullet_integration[u.id_.chat_id]
+                    if pushbullet_config["api"] is not None:
+                        pb = PushBullet(pushbullet_config["api"])
                         success, push = pb.push_note(
                             "{} mentioned you in {}".format(
                                 event.user.full_name, 
-                                get_conv_name(event.conv, truncate=True)), 
-                            event.text)
+                                conversation_name, 
+                                event.text))
                         if success:
-                            print("{} alerted via pushbullet".format(u.full_name))
+                            logging.info("{} ({}) alerted via pushbullet".format(u.full_name, u.id_.chat_id))
                             alert_via_1on1 = False # disable 1on1 alert
+                        else:
+                            logging.warning("pushbullet alert failed for {} ({})".format(u.full_name, u.id_.chat_id))
 
             if alert_via_1on1:
                 """send alert with 1on1 conversation"""
@@ -314,18 +321,16 @@ def mention(bot, event, *args):
                         conv_1on1, 
                         "<b>{}</b> @mentioned you in <i>{}</i>:<br />{}".format(
                             event.user.full_name, 
-                            get_conv_name(event.conv, truncate=True), 
+                            conversation_name, 
                             event.text))
-                    print("{} alerted via 1on1 with id {}".format(
-                            u.full_name, 
-                            conv_1on1.id_))
+                    logging.info("{} ({}) alerted via 1on1 ({})".format(u.full_name, u.id_.chat_id, conv_1on1.id_))
                 else:
                     if bot.get_config_suboption(event.conv_id, 'mentionerrors'):
                         bot.send_message_parsed(
                             event.conv, 
                             "Unable to @mention <b>{}</b>. User must talk to me first.".format(
                                 u.full_name))
-                    print("could not alert user {} via 1on1".format(u.full_name))
+                    logging.warning("user {} ({}) could not be alerted via 1on1".format(u.full_name, u.id_.chat_id))
 
 
 @command.register
