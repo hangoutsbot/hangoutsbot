@@ -11,7 +11,7 @@ import config
 import handlers
 
 # rpc sink
-from sink2 import start_rpc_listener
+from sinks.sink2 import start_rpc_listener
 from utils import simple_parse_to_segments
 
 __version__ = '1.1'
