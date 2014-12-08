@@ -3,11 +3,10 @@ from urllib.parse import urlparse, parse_qs
 import ssl
 
 import json
-import jsonrpclib
-
-hangouts_server = jsonrpclib.ServerProxy('http://localhost:4000')
+import asyncio
 
 class webhookReceiver(BaseHTTPRequestHandler):
+    _bot = None
 
     def _handle_incoming(self, path, query_string, payload):
         """gitlab-specific handling"""
@@ -44,7 +43,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
               commit["timestamp"],
               commit["id"])
 
-        hangouts_server.sendparsed(conversation_id, html)
+        webhookReceiver._bot.external_send_message_parsed(conversation_id, html)
 
 
     def do_POST(self):
@@ -75,28 +74,38 @@ class webhookReceiver(BaseHTTPRequestHandler):
 
 
     def log_message(self, formate, *args):
-        """
-            disable printing to stdout/stderr for every post
-        """
+        # disable printing to stdout/stderr for every post
         return
 
 
-def main():
-    """
-        the main event.
-    """
+def start_listening(bot=None, loop=None):
+    if loop:
+        print('setting event loop')
+        asyncio.set_event_loop(loop)
+
+    if bot:
+        print('setting bot reference')
+        webhookReceiver._bot = bot
+
     certfile_path = "/root/projects/server.pem"
+
     try:
         httpd = HTTPServer(('', 8000), webhookReceiver)
-        httpd.socket = ssl.wrap_socket (
+
+        httpd.socket = ssl.wrap_socket(
           httpd.socket, 
           certfile=certfile_path, 
           server_side=True)
-        print("listening...")
+
         httpd.serve_forever()
+
     except KeyboardInterrupt:
         httpd.socket.close()
-        hangouts_server('close')()
+        #hangouts_server('close')()
+
+
+def main():
+    start_listening()
 
 if __name__ == '__main__':
     main()

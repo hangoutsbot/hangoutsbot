@@ -5,14 +5,13 @@ import appdirs
 import hangups
 from threading import Thread
 
+from utils import simple_parse_to_segments
 from hangups.ui.utils import get_conv_name
 
 import config
 import handlers
 
-# rpc sink
-from sinks.botcommandsink2 import start_rpc_listener
-from utils import simple_parse_to_segments
+import sinks.gitlab.simplepush
 
 __version__ = '1.1'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -91,7 +90,8 @@ class HangupsBot(object):
                 if self.config["jsonrpc"]:
                     print("starting json rpc sink")
                     # start up rpc listener in a separate thread
-                    t = Thread(target=start_rpc_listener, args=(self, loop))
+                    t = Thread(target=sinks.gitlab.simplepush.start_listening, args=(self, loop))
+
                     t.daemon = True
                     t.start()
 
