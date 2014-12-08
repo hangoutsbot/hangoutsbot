@@ -1,4 +1,0 @@
-#!/usr/bin/python3
-
-from hangupsbot import hangupsbot
-hangupsbot.main()

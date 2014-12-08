@@ -2,8 +2,6 @@
 
 This is a fork of a [fork](https://gitlab.sabah.io/eol/mogunsamang/) of https://github.com/xmikos/hangupsbot
 
-* The build script is out-of-date and will be removed in the future.
-  DO NOT TRUST IT ;)
 * To execute: `python3 hangupsbot.py`
   * If the script cannot find `config.json`, execute 
     `<path of hangupsbot.py>/python3 hangupsbot.py --config ../config.json`
