@@ -1,5 +1,6 @@
 import hangups
 import re
+import importlib
 
 from html.parser import HTMLParser
 from html.entities import name2codepoint
@@ -76,6 +77,13 @@ class simpleHTMLParser(HTMLParser):
 def simple_parse_to_segments(html):
     parser = simpleHTMLParser()
     return parser.feed(html)
+
+def class_from_name(module_name, class_name):
+    # load the module, will raise ImportError if module cannot be loaded
+    m = importlib.import_module(module_name)
+    # get the class, will raise AttributeError if class cannot be found
+    c = getattr(m, class_name)
+    return c
 
 if __name__ == '__main__':
     parser = simpleHTMLParser()

@@ -1,12 +1,7 @@
-import sys
-import os
-
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
-import ssl
 
 import json
-import asyncio
 
 class webhookReceiver(BaseHTTPRequestHandler):
     _bot = None
@@ -79,43 +74,3 @@ class webhookReceiver(BaseHTTPRequestHandler):
     def log_message(self, formate, *args):
         # disable printing to stdout/stderr for every post
         return
-
-
-def start_listening(bot=None, loop=None, port=8000, certfile=None):
-    if loop:
-        print('setting event loop')
-        asyncio.set_event_loop(loop)
-
-    if bot:
-        print('setting static reference to bot')
-        webhookReceiver._bot = bot
-
-    if not certfile:
-        print("certfile must be supplied, sink will not run")
-        sys.exit(1)
-
-    try:
-        httpd = HTTPServer(('', port), webhookReceiver)
-
-        httpd.socket = ssl.wrap_socket(
-          httpd.socket, 
-          certfile=certfile, 
-          server_side=True)
-
-        sa = httpd.socket.getsockname()
-        print("sink listening on {}, port {}...".format(sa[0], sa[1]))
-
-        httpd.serve_forever()
-    except IOError:
-        # do not run sink without https!
-        print("pem file possibly missing or broken (== '{}')".format(certfile))
-        httpd.socket.close()
-    except KeyboardInterrupt:
-        httpd.socket.close()
-
-
-def main():
-    start_listening()
-
-if __name__ == '__main__':
-    main()
