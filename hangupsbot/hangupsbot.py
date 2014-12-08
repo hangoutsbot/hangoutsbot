@@ -229,10 +229,13 @@ class HangupsBot(object):
         return conversation
 
     def _start_sinks(self, shared_loop):
+        itemNo = -1
         threads = []
         if "jsonrpc" in self.config.keys():
             if isinstance(self.config["jsonrpc"], list):
                 for sinkConfig in self.config["jsonrpc"]:
+                    itemNo += 1
+
                     # default configuration for sinks
                     certfile = None
                     port = 8000
@@ -243,18 +246,18 @@ class HangupsBot(object):
                         # extra configuration options available
                         module = sinkConfig["module"].split(".")
                         if len(module) < 4:
-                            print("should have at least 4 packages {}".format(module))
+                            print("config.jsonrpc[{}].module should have at least 4 packages {}".format(itemNo, module))
                             continue
-                        module_name = '.'.join(module[0:-1])
-                        class_name = '.'.join(module[-1:]) 
                         certfile = sinkConfig["certfile"]
                         port = sinkConfig["port"]
                     except KeyError as e:
-                        print("config.jsonrpc[] missing keyword", e)
+                        print("config.jsonrpc[{}] missing keyword".format(itemNo), e)
                         continue
 
+                    module_name = '.'.join(module[0:-1])
+                    class_name = '.'.join(module[-1:]) 
                     if not module_name or not class_name:
-                        print("config.jsonrpc[].module must be configured")
+                        print("config.jsonrpc[{}].module must be configured".format(itemNo))
                         continue
 
                     # start up rpc listener in a separate thread
