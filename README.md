@@ -89,9 +89,8 @@ are preliminary instructions how to setup a webhook sink:
    ```
    https://<your bot ip/domain name>:8000/<conversation id>/
    ```
-
-   After entering the above, **Add Web Hook**
-4. Test the hook after, by pressing the test button.
+   
+4. After entering the above, **Add Web Hook**, test the hook.
 
 # Developers: TODO
 
