@@ -1,6 +1,8 @@
-import jsonrpclib
-
-server = jsonrpclib.ServerProxy('http://localhost:4000')
-server.sendparsed(conversation_id = 'UgwuaaLQf2IPoqZDmFZ4AaABAQ', 
-                  html = 'hello world<br /><b>it <u>works!</u></b>')
-server('close')()
+# use with the simpledemo sink which is part of sinks.generic.simpledemo package
+import json
+import requests
+url = 'https://127.0.0.1:9001/UgwuaaLQf2IPoqZDmFZ4AaABAQ/'
+payload = {"echo" : "hello world 123"}
+headers = {'content-type': 'application/json'}
+r = requests.post(url, data = json.dumps(payload), headers = headers, verify=False)
+print(r)

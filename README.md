@@ -76,13 +76,66 @@ chat_id will be displayed
 /bot reload
 ```
 
+# Developers: Adding your own Web Hook Sinks
+
+In the `hangoutsbot/sinks/` folder are additional packages you can reference.
+The imlementation of a sink/receiver is derived from `BaseHTTPRequestHandler`.
+See `hangoutsbot/sinks/generic/simpledemo.py` for a basic example.
+Some recommendations:
+* Always use SSL/TLS, a self-signed certificate is better than nothing
+* Setting `config.jsonrpc[].name` to "127.0.0.1" will start the sink but only
+  allow connections from localhost - use this to debug potentially unsafe sinks.
+
+# GitLab Users: Web Hook Sink/Receiver
+
+Partial support as a "sink" (receiver) for gitlab project webhooks is available. These
+are preliminary instructions how to setup a webhook sink:
+
+## configuring and starting the sink
+
+Important: Still under development, subject to change
+
+1. Generate a .pem file for SSL/TLS. It can be generated anywhere
+   accessible to the script. **This is a mandatory step** as the sink will refuse
+   to start without SSL/TLS. A self-signed certificate will do:
+   ```
+   openssl req -new -x509 -keyout server.pem -out server.pem -days 365 -nodes
+   ```
+
+2. Open the bot's `config.json` file and modify the `jsonrpc` key as follows:
+   ```
+   ...,
+   "jsonrpc": [
+     {
+       "module": "sinks.gitlab.simplepush.webhookReceiver",
+       "certfile": "<location of .pem file>",
+       "port": 8000
+     }
+   ],
+   ...
+   ```
+
+3. (Re-)start the bot
+
+## configuring gitlab
+
+1. Determine which group hangout you want to receive GitLab events. In that 
+   hangout, execute `/bot whereami` - the bot will message the id for that 
+   specific hangout. Record the conversation id.
+2. In your GitLab instance, access Project Settings > Web Hooks
+3. Select which project events you want to be notified of and specify this URL:
+   ```
+   https://<your bot ip/domain name>:8000/<conversation id>/
+   ```
+   
+4. After entering the above, **Add Web Hook**, then test the hook.
+
 # Developers: TODO
 
 * easier setup/configuration
 * run as service ([cron](http://www.raspberrypi-spy.co.uk/2013/07/running-a-python-script-at-boot-using-cron/) works too!)
-* integration with gitlab
+* integration with gitlab (in progress)
 * secure json-rpc
-* more specific @mentions
 * better debug output
 
 ---
