@@ -88,10 +88,18 @@ class HangupsBot(object):
 
             if "jsonrpc" in self.config.keys():
                 if self.config["jsonrpc"]:
-                    print("starting json rpc sink")
-                    # start up rpc listener in a separate thread
-                    t = Thread(target=sinks.gitlab.simplepush.start_listening, args=(self, loop))
+                    # default configuration for sinks
+                    certfile = None
+                    port = 8000
 
+                    if isinstance(self.config["jsonrpc"], dict):
+                        # extra configuration options available
+                        certfile = self.config["jsonrpc"]["certfile"]
+                        port = self.config["jsonrpc"]["port"]
+
+                    # start up rpc listener in a separate thread
+                    print("starting sink thread...")
+                    t = Thread(target=sinks.gitlab.simplepush.start_listening, args=(self, loop, port, certfile))
                     t.daemon = True
                     t.start()
 
