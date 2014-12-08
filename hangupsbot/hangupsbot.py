@@ -5,14 +5,14 @@ import appdirs
 import hangups
 from threading import Thread
 
+from utils import simple_parse_to_segments, class_from_name
 from hangups.ui.utils import get_conv_name
 
 import config
 import handlers
 
-# rpc sink
-from sink2 import start_rpc_listener
-from utils import simple_parse_to_segments
+from sinks.listener import start_listening
+#import sinks.gitlab.simplepush
 
 __version__ = '1.1'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -83,18 +83,14 @@ class HangupsBot(object):
             self._client.on_connect.add_observer(self._on_connect)
             self._client.on_disconnect.add_observer(self._on_disconnect)
 
-            # Start asyncio event loop and connect to Hangouts 
-            # If we are forcefully disconnected, try connecting again
+            # Start asyncio event loop
             loop = asyncio.get_event_loop()
 
-            if "jsonrpc" in self.config.keys():
-                if self.config["jsonrpc"]:
-                    print("starting json rpc sink")
-                    # start up rpc listener in a separate thread
-                    t = Thread(target=start_rpc_listener, args=(self, loop))
-                    t.daemon = True
-                    t.start()
+            # Start threads for web sinks
+            self._start_sinks(loop)
 
+            # Connect to Hangouts
+            # If we are forcefully disconnected, try connecting again
             for retry in range(self._max_retries):
                 try:
                     loop.run_until_complete(self._client.connect())
@@ -231,6 +227,63 @@ class HangupsBot(object):
                         conversation = c
                         break
         return conversation
+
+    def _start_sinks(self, shared_loop):
+        itemNo = -1
+        threads = []
+        if "jsonrpc" in self.config.keys():
+            if isinstance(self.config["jsonrpc"], list):
+                for sinkConfig in self.config["jsonrpc"]:
+                    itemNo += 1
+
+                    # default configuration for sinks
+                    module = None
+                    certfile = None
+                    name = ''
+                    port = 8000
+                    module_name = None
+                    class_name = None
+
+                    try:
+                        module = sinkConfig["module"].split(".")
+                        if len(module) < 4:
+                            print("config.jsonrpc[{}].module should have at least 4 packages {}".format(itemNo, module))
+                            continue
+                        certfile = sinkConfig["certfile"]
+                        name = sinkConfig["name"]
+                        port = sinkConfig["port"]
+                    except KeyError as e:
+                        print("config.jsonrpc[{}] missing keyword".format(itemNo), e)
+                        continue
+
+                    module_name = '.'.join(module[0:-1])
+                    class_name = '.'.join(module[-1:]) 
+                    if not module_name or not class_name:
+                        print("config.jsonrpc[{}].module must be configured".format(itemNo))
+                        continue
+
+                    if not certfile:
+                        print("config.jsonrpc[{}].certfile must be configured".format(itemNo))
+                        continue
+
+                    # start up rpc listener in a separate thread
+                    print("starting sink thread: {}".format(module))
+                    t = Thread(target=start_listening, args=(
+                      self, 
+                      shared_loop, 
+                      name,
+                      port, 
+                      certfile, 
+                      class_from_name(module_name, class_name)))
+
+                    t.daemon = True
+                    t.start()
+
+                    threads.append(t)
+
+        message = "{} sink thread(s) started".format(len(threads))
+        logging.info(message)
+        print(message)
 
     def _on_message_sent(self, future):
         """Handle showing an error if a message fails to send"""
