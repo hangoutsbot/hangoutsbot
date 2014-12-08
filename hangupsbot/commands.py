@@ -383,5 +383,14 @@ def dnd(bot, event, *args):
 
 @command.register
 def whoami(bot, event, *args):
-    """whoami"""
+    """whoami: get user id"""
     bot.send_message_parsed(event.conv, "<b>{}</b>, chat_id = <i>{}</i>".format(event.user.full_name, event.user.id_.chat_id))
+
+@command.register
+def whereami(bot, event, *args):
+    """whereami: get conversation id"""
+    bot.send_message_parsed(
+      event.conv, 
+      "You are at <b>{}</b>, conv_id = <i>{}</i>".format(
+        get_conv_name(event.conv, truncate=True), 
+        event.conv.id_))
