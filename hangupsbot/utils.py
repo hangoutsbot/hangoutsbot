@@ -79,6 +79,7 @@ def simple_parse_to_segments(html):
     return parser.feed(html)
 
 def class_from_name(module_name, class_name):
+    """adapted from http://stackoverflow.com/a/13808375"""
     # load the module, will raise ImportError if module cannot be loaded
     m = importlib.import_module(module_name)
     # get the class, will raise AttributeError if class cannot be found
