@@ -76,6 +76,22 @@ chat_id will be displayed
 /bot reload
 ```
 
+# GitLab Users: Web hooks sink/receiver
+
+Partial support as a "sink" (receiver) for gitlab project webhooks is available. These
+are preliminary instructions how to setup a webhook sink:
+
+1. Determine which group hangout you want to receive GitLab events. In that 
+   hangout, execute `/bot whereami` - the bot will message the id for that 
+   specific hangout. Record the conversation id.
+2. In your GitLab instance, access Project Settings > Web Hooks
+3. Select which project events you want to be notified of and specify this URL:
+   ```
+   https://<your bot ip/domain name>:8000/<conversation id>/
+   ```
+   After entering the above, **Add Web Hook**
+4. Test the hook after, by pressing the test button.
+
 # Developers: TODO
 
 * easier setup/configuration
