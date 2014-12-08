@@ -12,10 +12,6 @@ def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webh
         print('setting static reference to bot')
         webhookReceiver._bot = bot
 
-    if not certfile:
-        print("certfile must be supplied, sink will not run")
-        return
-
     try:
         httpd = HTTPServer((name, port), webhookReceiver)
 
