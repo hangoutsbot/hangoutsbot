@@ -76,10 +76,27 @@ chat_id will be displayed
 /bot reload
 ```
 
-# GitLab Users: Web hooks sink/receiver
+# GitLab Users: Web hooks Sink/Receiver
 
 Partial support as a "sink" (receiver) for gitlab project webhooks is available. These
 are preliminary instructions how to setup a webhook sink:
+
+## configuring and starting the sink
+
+Note: Still under development, subject to change
+
+1. Generate a .pem file to enable SSL/TLS. It can be generated anywhere
+   accessible to the script. A self-signed certificate will do:
+   ```
+   openssl req -new -x509 -keyout server.pem -out server.pem -days 365 -nodes
+   ```
+
+2. If necessary, modify the location of the certificate file in the sink 
+   [here](https://gitlab.sabah.io/eol/mogunsamang/blob/gitlab-integration/hangupsbot/sinks/gitlab/gitlab_translator.py#L88)
+3. Start the sink **independently of the bot**, by running 
+   ```python3 gitlab_translator.py```
+
+## configuring gitlab
 
 1. Determine which group hangout you want to receive GitLab events. In that 
    hangout, execute `/bot whereami` - the bot will message the id for that 
