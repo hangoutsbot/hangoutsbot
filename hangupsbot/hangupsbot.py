@@ -262,6 +262,10 @@ class HangupsBot(object):
                         print("config.jsonrpc[{}].module must be configured".format(itemNo))
                         continue
 
+                    if not certfile:
+                        print("config.jsonrpc[{}].certfile must be configured".format(itemNo))
+                        continue
+
                     # start up rpc listener in a separate thread
                     print("starting sink thread: {}".format(module))
                     t = Thread(target=start_listening, args=(
