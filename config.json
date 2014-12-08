@@ -63,6 +63,12 @@
       "certfile": null,
       "name": "",
       "port": 8000
+    },
+    {
+      "module": "sinks.github.simplepush.webhookReceiver",
+      "certfile": null,
+      "name": "",
+      "port": 8001
     }
   ],
   "mentionerrors": false,
