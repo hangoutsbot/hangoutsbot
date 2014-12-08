@@ -95,10 +95,13 @@ Important: Still under development, subject to change
 2. Open the bot's `config.json` file and modify the `jsonrpc` key as follows:
    ```
    ...,
-   "jsonrpc": {
-     "certfile": "<location of the .pem file>",
-     "port": 8000
-   },
+   "jsonrpc": [
+     {
+       "module": "sinks.gitlab.simplepush.webhookReceiver",
+       "certfile": "<location of .pem file>",
+       "port": 8000
+     }
+   ],
    ...
    ```
 
