@@ -85,8 +85,3 @@ def class_from_name(module_name, class_name):
     # get the class, will raise AttributeError if class cannot be found
     c = getattr(m, class_name)
     return c
-
-if __name__ == '__main__':
-    parser = simpleHTMLParser()
-    print(simple_parse_to_segments('<b><i>abcdefg</i> is before hijk</b><br /><br /><b><a href="abcdef">xyz</a></b>'))
-
