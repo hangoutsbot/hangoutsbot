@@ -45,7 +45,10 @@
       "api": null
     }
   },
-  "jsonrpc": false,
+  "jsonrpc": {
+    "certfile": null,
+    "port": 8000
+  },
   "mentionerrors": false,
   "donotdisturb": []
 }

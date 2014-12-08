@@ -1,3 +1,6 @@
+import sys
+import os
+
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
 import ssl
@@ -78,30 +81,37 @@ class webhookReceiver(BaseHTTPRequestHandler):
         return
 
 
-def start_listening(bot=None, loop=None):
+def start_listening(bot=None, loop=None, port=8000, certfile=None):
     if loop:
         print('setting event loop')
         asyncio.set_event_loop(loop)
 
     if bot:
-        print('setting bot reference')
+        print('setting static reference to bot')
         webhookReceiver._bot = bot
 
-    certfile_path = "/root/projects/server.pem"
+    if not certfile:
+        print("certfile must be supplied, sink will not run")
+        sys.exit(1)
 
     try:
-        httpd = HTTPServer(('', 8000), webhookReceiver)
+        httpd = HTTPServer(('', port), webhookReceiver)
 
         httpd.socket = ssl.wrap_socket(
           httpd.socket, 
-          certfile=certfile_path, 
+          certfile=certfile, 
           server_side=True)
 
-        httpd.serve_forever()
+        sa = httpd.socket.getsockname()
+        print("sink listening on {}, port {}...".format(sa[0], sa[1]))
 
+        httpd.serve_forever()
+    except IOError:
+        # do not run sink without https!
+        print("pem file possibly missing or broken (== '{}')".format(certfile))
+        httpd.socket.close()
     except KeyboardInterrupt:
         httpd.socket.close()
-        #hangouts_server('close')()
 
 
 def main():

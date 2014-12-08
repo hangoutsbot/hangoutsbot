@@ -76,7 +76,7 @@ chat_id will be displayed
 /bot reload
 ```
 
-# GitLab Users: Web Hooks Sink/Receiver
+# GitLab Users: Web Hook Sink/Receiver
 
 Partial support as a "sink" (receiver) for gitlab project webhooks is available. These
 are preliminary instructions how to setup a webhook sink:
@@ -85,19 +85,24 @@ are preliminary instructions how to setup a webhook sink:
 
 Important: Still under development, subject to change
 
-1. Modify the bot's `config.json` file and ensure that 
-   [jsonrpc](https://gitlab.sabah.io/eol/mogunsamang/blob/gitlab-integration/config.json#L48)
-   is set to **true**
-2. Generate a .pem file to enable SSL/TLS. It can be generated anywhere
-   accessible to the script. A self-signed certificate will do:
+1. Generate a .pem file for SSL/TLS. It can be generated anywhere
+   accessible to the script. **This is a mandatory step** as the sink will refuse
+   to start without SSL/TLS. A self-signed certificate will do:
    ```
    openssl req -new -x509 -keyout server.pem -out server.pem -days 365 -nodes
    ```
 
-3. If necessary, modify the location of the certificate file in the sink 
-   [here](https://gitlab.sabah.io/eol/mogunsamang/blob/gitlab-integration/hangupsbot/sinks/gitlab/gitlab_translator.py#L88)
-4. Start the sink **independently of the bot**, by running 
-   ```python3 gitlab_translator.py```
+2. Open the bot's `config.json` file and modify the `jsonrpc` key as follows:
+   ```
+   ...,
+   "jsonrpc": {
+     "certfile": "<location of the .pem file>",
+     "port": 8000
+   },
+   ...
+   ```
+
+3. (Re-)start the bot
 
 ## configuring gitlab
 
