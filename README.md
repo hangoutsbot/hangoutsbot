@@ -83,7 +83,7 @@ The imlementation of a sink/receiver is derived from `BaseHTTPRequestHandler`.
 See `hangoutsbot/sinks/generic/simpledemo.py` for a basic example.
 Some recommendations:
 * Always use SSL/TLS, a self-signed certificate is better than nothing
-* Setting config.jsonrpc[].name to "127.0.0.1" will start the sink but only
+* Setting `config.jsonrpc[].name` to "127.0.0.1" will start the sink but only
   allow connections from localhost - use this to debug potentially unsafe sinks.
 
 # GitLab Users: Web Hook Sink/Receiver
