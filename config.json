@@ -49,6 +49,7 @@
     {
       "module": "sinks.gitlab.simplepush.webhookReceiver",
       "certfile": null,
+      "name": "",
       "port": 8000
     }
   ],

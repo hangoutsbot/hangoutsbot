@@ -3,7 +3,7 @@ import asyncio
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-def start_listening(bot=None, loop=None, port=8000, certfile=None, webhookReceiver=BaseHTTPRequestHandler):
+def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webhookReceiver=BaseHTTPRequestHandler):
     if loop:
         print('setting event loop')
         asyncio.set_event_loop(loop)
@@ -17,7 +17,7 @@ def start_listening(bot=None, loop=None, port=8000, certfile=None, webhookReceiv
         return
 
     try:
-        httpd = HTTPServer(('', port), webhookReceiver)
+        httpd = HTTPServer((name, port), webhookReceiver)
 
         httpd.socket = ssl.wrap_socket(
           httpd.socket, 

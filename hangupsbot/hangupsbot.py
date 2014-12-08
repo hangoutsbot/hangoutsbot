@@ -237,18 +237,20 @@ class HangupsBot(object):
                     itemNo += 1
 
                     # default configuration for sinks
+                    module = None
                     certfile = None
+                    name = ''
                     port = 8000
                     module_name = None
                     class_name = None
 
                     try:
-                        # extra configuration options available
                         module = sinkConfig["module"].split(".")
                         if len(module) < 4:
                             print("config.jsonrpc[{}].module should have at least 4 packages {}".format(itemNo, module))
                             continue
                         certfile = sinkConfig["certfile"]
+                        name = sinkConfig["name"]
                         port = sinkConfig["port"]
                     except KeyError as e:
                         print("config.jsonrpc[{}] missing keyword".format(itemNo), e)
@@ -265,9 +267,11 @@ class HangupsBot(object):
                     t = Thread(target=start_listening, args=(
                       self, 
                       shared_loop, 
+                      name,
                       port, 
                       certfile, 
                       class_from_name(module_name, class_name)))
+
                     t.daemon = True
                     t.start()
 
