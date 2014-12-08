@@ -89,6 +89,7 @@ are preliminary instructions how to setup a webhook sink:
    ```
    https://<your bot ip/domain name>:8000/<conversation id>/
    ```
+
    After entering the above, **Add Web Hook**
 4. Test the hook after, by pressing the test button.
 
@@ -96,9 +97,8 @@ are preliminary instructions how to setup a webhook sink:
 
 * easier setup/configuration
 * run as service ([cron](http://www.raspberrypi-spy.co.uk/2013/07/running-a-python-script-at-boot-using-cron/) works too!)
-* integration with gitlab
+* integration with gitlab (in progress)
 * secure json-rpc
-* more specific @mentions
 * better debug output
 
 ---
