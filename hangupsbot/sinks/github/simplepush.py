@@ -13,7 +13,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
             print("conversation id must be provided as part of path") 
             return
 
-        if "repository" in payload and "commits" in payload and "pusher" in payload
+        if "repository" in payload and "commits" in payload and "pusher" in payload:
             self._github_push(conversation_id, payload)
         else:
             print(payload)
