@@ -45,10 +45,13 @@
       "api": null
     }
   },
-  "jsonrpc": {
-    "certfile": null,
-    "port": 8000
-  },
+  "jsonrpc": [
+    {
+      "module": "sinks.gitlab.simplepush.webhookReceiver",
+      "certfile": null,
+      "port": 8000
+    }
+  ],
   "mentionerrors": false,
   "donotdisturb": []
 }

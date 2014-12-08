@@ -5,13 +5,14 @@ import appdirs
 import hangups
 from threading import Thread
 
-from utils import simple_parse_to_segments
+from utils import simple_parse_to_segments, class_from_name
 from hangups.ui.utils import get_conv_name
 
 import config
 import handlers
 
-import sinks.gitlab.simplepush
+from sinks.listener import start_listening
+#import sinks.gitlab.simplepush
 
 __version__ = '1.1'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -86,22 +87,7 @@ class HangupsBot(object):
             # If we are forcefully disconnected, try connecting again
             loop = asyncio.get_event_loop()
 
-            if "jsonrpc" in self.config.keys():
-                if self.config["jsonrpc"]:
-                    # default configuration for sinks
-                    certfile = None
-                    port = 8000
-
-                    if isinstance(self.config["jsonrpc"], dict):
-                        # extra configuration options available
-                        certfile = self.config["jsonrpc"]["certfile"]
-                        port = self.config["jsonrpc"]["port"]
-
-                    # start up rpc listener in a separate thread
-                    print("starting sink thread...")
-                    t = Thread(target=sinks.gitlab.simplepush.start_listening, args=(self, loop, port, certfile))
-                    t.daemon = True
-                    t.start()
+            self.run_sinks(loop)
 
             for retry in range(self._max_retries):
                 try:
@@ -114,6 +100,33 @@ class HangupsBot(object):
                     print('Trying to connect again (try {} of {})...'.format(retry + 1, self._max_retries))
             print('Maximum number of retries reached! Exiting...')
         sys.exit(1)
+
+    def run_sinks(self, shared_loop):
+        threads_sink = []
+        if "jsonrpc" in self.config.keys():
+            if isinstance(self.config["jsonrpc"], list):
+                for sinkConfig in self.config["jsonrpc"]:
+                    # default configuration for sinks
+                    certfile = None
+                    port = 8000
+
+                    if isinstance(sinkConfig, dict):
+                        # extra configuration options available
+                        module = sinkConfig["module"]
+                        certfile = sinkConfig["certfile"]
+                        port = sinkConfig["port"]
+
+                    # start up rpc listener in a separate thread
+                    print("starting sink thread...")
+                    t = Thread(target=start_listening, args=(
+                      self, 
+                      shared_loop, 
+                      port, 
+                      certfile, 
+                      class_from_name('sinks.gitlab.simplepush', 'webhookReceiver')))
+                    t.daemon = True
+                    t.start()
+                    threads_sink.append(t)
 
     def stop(self):
         """Disconnect from Hangouts"""
