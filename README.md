@@ -76,13 +76,48 @@ chat_id will be displayed
 /bot reload
 ```
 
+# GitLab Users: Web Hooks Sink/Receiver
+
+Partial support as a "sink" (receiver) for gitlab project webhooks is available. These
+are preliminary instructions how to setup a webhook sink:
+
+## configuring and starting the sink
+
+Important: Still under development, subject to change
+
+1. Modify the bot's `config.json` file and ensure that 
+   [jsonrpc](https://gitlab.sabah.io/eol/mogunsamang/blob/gitlab-integration/config.json#L48)
+   is set to **true**
+2. Generate a .pem file to enable SSL/TLS. It can be generated anywhere
+   accessible to the script. A self-signed certificate will do:
+   ```
+   openssl req -new -x509 -keyout server.pem -out server.pem -days 365 -nodes
+   ```
+
+3. If necessary, modify the location of the certificate file in the sink 
+   [here](https://gitlab.sabah.io/eol/mogunsamang/blob/gitlab-integration/hangupsbot/sinks/gitlab/gitlab_translator.py#L88)
+4. Start the sink **independently of the bot**, by running 
+   ```python3 gitlab_translator.py```
+
+## configuring gitlab
+
+1. Determine which group hangout you want to receive GitLab events. In that 
+   hangout, execute `/bot whereami` - the bot will message the id for that 
+   specific hangout. Record the conversation id.
+2. In your GitLab instance, access Project Settings > Web Hooks
+3. Select which project events you want to be notified of and specify this URL:
+   ```
+   https://<your bot ip/domain name>:8000/<conversation id>/
+   ```
+   
+4. After entering the above, **Add Web Hook**, then test the hook.
+
 # Developers: TODO
 
 * easier setup/configuration
 * run as service ([cron](http://www.raspberrypi-spy.co.uk/2013/07/running-a-python-script-at-boot-using-cron/) works too!)
-* integration with gitlab
+* integration with gitlab (in progress)
 * secure json-rpc
-* more specific @mentions
 * better debug output
 
 ---
