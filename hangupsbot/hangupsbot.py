@@ -83,12 +83,14 @@ class HangupsBot(object):
             self._client.on_connect.add_observer(self._on_connect)
             self._client.on_disconnect.add_observer(self._on_disconnect)
 
-            # Start asyncio event loop and connect to Hangouts 
-            # If we are forcefully disconnected, try connecting again
+            # Start asyncio event loop
             loop = asyncio.get_event_loop()
 
-            self.run_sinks(loop)
+            # Start threads for web sinks
+            self._start_sinks(loop)
 
+            # Connect to Hangouts
+            # If we are forcefully disconnected, try connecting again
             for retry in range(self._max_retries):
                 try:
                     loop.run_until_complete(self._client.connect())
@@ -100,33 +102,6 @@ class HangupsBot(object):
                     print('Trying to connect again (try {} of {})...'.format(retry + 1, self._max_retries))
             print('Maximum number of retries reached! Exiting...')
         sys.exit(1)
-
-    def run_sinks(self, shared_loop):
-        threads_sink = []
-        if "jsonrpc" in self.config.keys():
-            if isinstance(self.config["jsonrpc"], list):
-                for sinkConfig in self.config["jsonrpc"]:
-                    # default configuration for sinks
-                    certfile = None
-                    port = 8000
-
-                    if isinstance(sinkConfig, dict):
-                        # extra configuration options available
-                        module = sinkConfig["module"]
-                        certfile = sinkConfig["certfile"]
-                        port = sinkConfig["port"]
-
-                    # start up rpc listener in a separate thread
-                    print("starting sink thread...")
-                    t = Thread(target=start_listening, args=(
-                      self, 
-                      shared_loop, 
-                      port, 
-                      certfile, 
-                      class_from_name('sinks.gitlab.simplepush', 'webhookReceiver')))
-                    t.daemon = True
-                    t.start()
-                    threads_sink.append(t)
 
     def stop(self):
         """Disconnect from Hangouts"""
@@ -252,6 +227,52 @@ class HangupsBot(object):
                         conversation = c
                         break
         return conversation
+
+    def _start_sinks(self, shared_loop):
+        threads = []
+        if "jsonrpc" in self.config.keys():
+            if isinstance(self.config["jsonrpc"], list):
+                for sinkConfig in self.config["jsonrpc"]:
+                    # default configuration for sinks
+                    certfile = None
+                    port = 8000
+                    module_name = None
+                    class_name = None
+
+                    try:
+                        # extra configuration options available
+                        module = sinkConfig["module"].split(".")
+                        if len(module) < 4:
+                            print("should have at least 4 packages {}".format(module))
+                            continue
+                        module_name = '.'.join(module[0:-1])
+                        class_name = '.'.join(module[-1:]) 
+                        certfile = sinkConfig["certfile"]
+                        port = sinkConfig["port"]
+                    except KeyError as e:
+                        print("config.jsonrpc[] missing keyword", e)
+                        continue
+
+                    if not module_name or not class_name:
+                        print("config.jsonrpc[].module must be configured")
+                        continue
+
+                    # start up rpc listener in a separate thread
+                    print("starting sink thread: {}".format(module))
+                    t = Thread(target=start_listening, args=(
+                      self, 
+                      shared_loop, 
+                      port, 
+                      certfile, 
+                      class_from_name(module_name, class_name)))
+                    t.daemon = True
+                    t.start()
+
+                    threads.append(t)
+
+        message = "{} sink thread(s) started".format(len(threads))
+        logging.info(message)
+        print(message)
 
     def _on_message_sent(self, future):
         """Handle showing an error if a message fails to send"""
