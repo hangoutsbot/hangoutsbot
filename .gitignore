@@ -7,3 +7,5 @@ aiohttp
 
 *.*~
 /hangupsbot/__pycache__
+/build
+/scripts
