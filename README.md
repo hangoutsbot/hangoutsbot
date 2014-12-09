@@ -74,22 +74,58 @@ chat_id will be displayed
 /bot reload
 ```
 
-# Developers: Adding your own Web Hook Sinks
+# Developers: Extending the Bot
 
-In the `hangoutsbot/sinks/` folder are additional packages you can reference.
-The implementation of a sink/receiver is derived from `BaseHTTPRequestHandler`.
-See `hangoutsbot/sinks/generic/simpledemo.py` for a basic example.
+## Adding Hooks
+
+Hooks allow extension of bot functionality by adding modular packages which
+contain class methods. These methods are called on common chat events:
+* `init`, called when the hook is first loaded (one-time per run)
+* `on_chat_message`
+* `on_membership_change`
+* `on_rename`
+
+A fully-functional chat logger is provided as part of the repo, and can be 
+found in `hangoutsbot/hooks/chatlogger/writer.php`. The chat logger logs each
+chat the bot is operating in inside separate text files.
+
+Note that hooks can use `config.json` as a configuration source as well. In 
+the case of the example chat logger, the following configuration is necessary:
+```
+...,
+"hooks": [
+{
+  "module": "hooks.chatlogger.writer.logger",
+  "config": 
+  {
+    "storage_path": "<location to store chat log files>"
+  }
+}
+],
+...
+```
+
+## Adding your own (Web-Hook) Sinks
+
+Sinks allow the bot to receive external events in the form of JSON-based web
+requests. Presently the bot comes pre-packaged with several sinks:
+* GitLab-compatible web hook sink that post git pushes in a hangout
+* GitHub-compatible web hook sink that post git pushes in a hangout
+* demo implementation that works with `hangupsbot/tests/send.py`
+
+The sink/receiver is based on `BaseHTTPRequestHandler` - 
+`hangoutsbot/sinks/generic/simpledemo.py` is a very basic example.
 Some recommendations:
 * Always use SSL/TLS, a self-signed certificate is better than nothing
 * Setting `config.jsonrpc[].name` to "127.0.0.1" will start the sink but only
   allow connections from localhost - use this to debug potentially unsafe sinks.
 
-# GitLab Users: Web Hook Sink/Receiver
+### GitLab Users: Web Hook Sink/Receiver
 
-Partial support as a "sink" (receiver) for gitlab project webhooks is available. These
-are preliminary instructions how to setup a webhook sink:
+As noted previously, a GitLab-compatible sink is available for posting pushes into
+a hangout - these are the configuration instructions:
 
-## configuring and starting the sink
+#### configuring and starting the sink
 
 Important: Still under development, subject to change
 
@@ -115,7 +151,7 @@ Important: Still under development, subject to change
 
 3. (Re-)start the bot
 
-## configuring gitlab
+#### configuring gitlab
 
 1. Determine which group hangout you want to receive GitLab events. In that 
    hangout, execute `/bot whereami` - the bot will message the id for that 
@@ -132,8 +168,6 @@ Important: Still under development, subject to change
 
 * easier setup/configuration
 * run as service ([cron](http://www.raspberrypi-spy.co.uk/2013/07/running-a-python-script-at-boot-using-cron/) works too!)
-* integration with gitlab (in progress)
-* secure json-rpc
 * better debug output
 
 ---
