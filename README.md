@@ -3,8 +3,6 @@
 This is a fork of a [fork](https://gitlab.sabah.io/eol/mogunsamang/) of https://github.com/xmikos/hangupsbot
 
 * To execute: `python3 hangupsbot.py`
-  * If the script cannot find `config.json`, execute 
-    `<path of hangupsbot.py>/python3 hangupsbot.py --config ../config.json`
 * Any current tests will be in `<path of hangupsbot.py>/tests/`
 * PushBullet integration is **experimental** - it also has a security risk: 
   since the only way to send pushes is via API key, the key has to be stored - 
