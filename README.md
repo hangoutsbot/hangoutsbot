@@ -77,7 +77,7 @@ chat_id will be displayed
 # Developers: Adding your own Web Hook Sinks
 
 In the `hangoutsbot/sinks/` folder are additional packages you can reference.
-The imlementation of a sink/receiver is derived from `BaseHTTPRequestHandler`.
+The implementation of a sink/receiver is derived from `BaseHTTPRequestHandler`.
 See `hangoutsbot/sinks/generic/simpledemo.py` for a basic example.
 Some recommendations:
 * Always use SSL/TLS, a self-signed certificate is better than nothing
