@@ -83,6 +83,9 @@ class HangupsBot(object):
             self._client.on_connect.add_observer(self._on_connect)
             self._client.on_disconnect.add_observer(self._on_disconnect)
 
+            # Initialise hooks
+            self._load_hooks()
+
             # Start asyncio event loop
             loop = asyncio.get_event_loop()
 
@@ -112,11 +115,13 @@ class HangupsBot(object):
     def handle_chat_message(self, conv_event):
         """Handle chat messages"""
         event = ConversationEvent(self, conv_event)
+        self._execute_hook("_on_chat_message", event)
         asyncio.async(self._message_handler.handle(event))
 
     def handle_membership_change(self, conv_event):
         """Handle conversation membership change"""
         event = ConversationEvent(self, conv_event)
+        self._execute_hook("_on_membership_change", event)
 
         # Don't handle events caused by the bot himself
         if event.user.is_self:
@@ -153,6 +158,7 @@ class HangupsBot(object):
     def handle_rename(self, conv_event):
         """Handle conversation rename"""
         event = ConversationEvent(self, conv_event)
+        self._execute_hook("_on_rename", event)
 
         # Don't handle events caused by the bot himself
         if event.user.is_self:
@@ -211,7 +217,7 @@ class HangupsBot(object):
         try:
             suboption = self.config['conversations'][conv_id][option]
         except KeyError:
-            suboption = get_config_option(self, option)
+            suboption = self.get_config_option(option)
         return suboption
 
     def print_conversations(self):
@@ -282,6 +288,13 @@ class HangupsBot(object):
         logging.info(message)
         print(message)
 
+    def _load_hooks(self):
+        self._hooks = []
+
+        theClass = class_from_name("hooks.chatlogger.writer", "logger")
+        theClass._bot = self
+        self._hooks.append(theClass)
+
     def _on_message_sent(self, future):
         """Handle showing an error if a message fails to send"""
         try:
@@ -308,12 +321,28 @@ class HangupsBot(object):
 
     def _on_event(self, conv_event):
         """Handle conversation events"""
+
+        self._execute_hook("_on_event", conv_event)
+
         if isinstance(conv_event, hangups.ChatMessageEvent):
             self.handle_chat_message(conv_event)
+
         elif isinstance(conv_event, hangups.MembershipChangeEvent):
             self.handle_membership_change(conv_event)
+
         elif isinstance(conv_event, hangups.RenameEvent):
             self.handle_rename(conv_event)
+
+    def _execute_hook(self, funcname, parameters=None):
+        for hook in self._hooks:
+            method = getattr(hook, funcname, None)
+            if method:
+                try:
+                    method(parameters)
+                except Exception as e:
+                    message = "_execute_hooks()", hook, e
+                    logging.warning(message)
+                    print(message)
 
     def _on_disconnect(self):
         """Handle disconnecting"""
