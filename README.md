@@ -2,11 +2,7 @@
 
 This is a fork of a [fork](https://gitlab.sabah.io/eol/mogunsamang/) of https://github.com/xmikos/hangupsbot
 
-* The build script is out-of-date and will be removed in the future.
-  DO NOT TRUST IT ;)
 * To execute: `python3 hangupsbot.py`
-  * If the script cannot find `config.json`, execute 
-    `<path of hangupsbot.py>/python3 hangupsbot.py --config ../config.json`
 * Any current tests will be in `<path of hangupsbot.py>/tests/`
 * PushBullet integration is **experimental** - it also has a security risk: 
   since the only way to send pushes is via API key, the key has to be stored - 
@@ -76,13 +72,100 @@ chat_id will be displayed
 /bot reload
 ```
 
+# Developers: Extending the Bot
+
+## Adding Hooks
+
+Hooks allow extension of bot functionality by adding modular packages which
+contain class methods. These methods are called on common chat events:
+* `init`, called when the hook is first loaded (one-time per run)
+* `on_chat_message`
+* `on_membership_change`
+* `on_rename`
+
+A fully-functional chat logger is provided as part of the repo, and can be 
+found in `hangoutsbot/hooks/chatlogger/writer.php`. The chat logger logs each
+chat the bot is operating in inside separate text files.
+
+Note that hooks can use `config.json` as a configuration source as well. In 
+the case of the example chat logger, the following configuration is necessary:
+```
+...,
+"hooks": [
+{
+  "module": "hooks.chatlogger.writer.logger",
+  "config": 
+  {
+    "storage_path": "<location to store chat log files>"
+  }
+}
+],
+...
+```
+
+## Adding your own (Web-Hook) Sinks
+
+Sinks allow the bot to receive external events in the form of JSON-based web
+requests. Presently the bot comes pre-packaged with several sinks:
+* GitLab-compatible web hook sink that post git pushes in a hangout
+* GitHub-compatible web hook sink that post git pushes in a hangout
+* demo implementation that works with `hangupsbot/tests/send.py`
+
+The sink/receiver is based on `BaseHTTPRequestHandler` - 
+`hangoutsbot/sinks/generic/simpledemo.py` is a very basic example.
+Some recommendations:
+* Always use SSL/TLS, a self-signed certificate is better than nothing
+* Setting `config.jsonrpc[].name` to "127.0.0.1" will start the sink but only
+  allow connections from localhost - use this to debug potentially unsafe sinks.
+
+### GitLab Users: Web Hook Sink/Receiver
+
+As noted previously, a GitLab-compatible sink is available for posting pushes into
+a hangout - these are the configuration instructions:
+
+#### configuring and starting the sink
+
+Important: Still under development, subject to change
+
+1. Generate a .pem file for SSL/TLS. It can be generated anywhere
+   accessible to the script. **This is a mandatory step** as the sink will refuse
+   to start without SSL/TLS. A self-signed certificate will do:
+   ```
+   openssl req -new -x509 -keyout server.pem -out server.pem -days 365 -nodes
+   ```
+
+2. Open the bot's `config.json` file and modify the `jsonrpc` key as follows:
+   ```
+   ...,
+   "jsonrpc": [
+     {
+       "module": "sinks.gitlab.simplepush.webhookReceiver",
+       "certfile": "<location of .pem file>",
+       "port": 8000
+     }
+   ],
+   ...
+   ```
+
+3. (Re-)start the bot
+
+#### configuring gitlab
+
+1. Determine which group hangout you want to receive GitLab events. In that 
+   hangout, execute `/bot whereami` - the bot will message the id for that 
+   specific hangout. Record the conversation id.
+2. In your GitLab instance, access Project Settings > Web Hooks
+3. Select which project events you want to be notified of and specify this URL:
+   ```
+   https://<your bot ip/domain name>:8000/<conversation id>/
+   ```
+   
+4. After entering the above, **Add Web Hook**, then test the hook.
+
 # Developers: TODO
 
 * easier setup/configuration
 * run as service ([cron](http://www.raspberrypi-spy.co.uk/2013/07/running-a-python-script-at-boot-using-cron/) works too!)
-* integration with gitlab
-* secure json-rpc
-* more specific @mentions
 * better debug output
 
 ---

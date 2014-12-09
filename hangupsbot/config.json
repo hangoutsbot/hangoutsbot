@@ -51,7 +51,35 @@
       "api": null
     }
   },
-  "jsonrpc": false,
+  "jsonrpc": [
+    {
+      "module": "sinks.generic.simpledemo.webhookReceiver",
+      "certfile": null,
+      "name": "127.0.0.1",
+      "port": 9001
+    },
+    {
+      "module": "sinks.gitlab.simplepush.webhookReceiver",
+      "certfile": null,
+      "name": "",
+      "port": 8000
+    },
+    {
+      "module": "sinks.github.simplepush.webhookReceiver",
+      "certfile": null,
+      "name": "",
+      "port": 8001
+    }
+  ],
+  "hooks": [
+    {
+      "module": "hooks.chatlogger.writer.logger",
+      "config": 
+      {
+        "storage_path": false
+      }
+    }
+  ],
   "mentionerrors": false,
   "donotdisturb": []
 }
