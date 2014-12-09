@@ -83,6 +83,9 @@ class HangupsBot(object):
             self._client.on_connect.add_observer(self._on_connect)
             self._client.on_disconnect.add_observer(self._on_disconnect)
 
+            # Initialise hooks
+            self._load_hooks()
+
             # Start asyncio event loop
             loop = asyncio.get_event_loop()
 
@@ -112,11 +115,13 @@ class HangupsBot(object):
     def handle_chat_message(self, conv_event):
         """Handle chat messages"""
         event = ConversationEvent(self, conv_event)
+        self._execute_hook("on_chat_message", event)
         asyncio.async(self._message_handler.handle(event))
 
     def handle_membership_change(self, conv_event):
         """Handle conversation membership change"""
         event = ConversationEvent(self, conv_event)
+        self._execute_hook("on_membership_change", event)
 
         # Don't handle events caused by the bot himself
         if event.user.is_self:
@@ -153,6 +158,7 @@ class HangupsBot(object):
     def handle_rename(self, conv_event):
         """Handle conversation rename"""
         event = ConversationEvent(self, conv_event)
+        self._execute_hook("on_rename", event)
 
         # Don't handle events caused by the bot himself
         if event.user.is_self:
@@ -199,15 +205,19 @@ class HangupsBot(object):
 
         return convs
 
+    def get_config_option(self, option):
+        try:
+            option_value = self.config[option]
+        except KeyError:
+            option_value = None
+        return option_value
+
     def get_config_suboption(self, conv_id, option):
         """Get config suboption for conversation (or global option if not defined)"""
         try:
             suboption = self.config['conversations'][conv_id][option]
         except KeyError:
-            try:
-                suboption = self.config[option]
-            except KeyError:
-                suboption = None
+            suboption = self.get_config_option(option)
         return suboption
 
     def print_conversations(self):
@@ -229,59 +239,89 @@ class HangupsBot(object):
         return conversation
 
     def _start_sinks(self, shared_loop):
+        jsonrpc_sinks = self.get_config_option('jsonrpc')
         itemNo = -1
         threads = []
-        if "jsonrpc" in self.config.keys():
-            if isinstance(self.config["jsonrpc"], list):
-                for sinkConfig in self.config["jsonrpc"]:
-                    itemNo += 1
 
-                    # default configuration for sinks
-                    module = None
-                    certfile = None
-                    name = ''
-                    port = 8000
-                    module_name = None
-                    class_name = None
+        if isinstance(jsonrpc_sinks, list):
+            for sinkConfig in jsonrpc_sinks:
+                itemNo += 1
 
-                    try:
-                        module = sinkConfig["module"].split(".")
-                        if len(module) < 4:
-                            print("config.jsonrpc[{}].module should have at least 4 packages {}".format(itemNo, module))
-                            continue
-                        certfile = sinkConfig["certfile"]
-                        name = sinkConfig["name"]
-                        port = sinkConfig["port"]
-                    except KeyError as e:
-                        print("config.jsonrpc[{}] missing keyword".format(itemNo), e)
+                try:
+                    module = sinkConfig["module"].split(".")
+                    if len(module) < 4:
+                        print("config.jsonrpc[{}].module should have at least 4 packages {}".format(itemNo, module))
                         continue
-
-                    module_name = '.'.join(module[0:-1])
-                    class_name = '.'.join(module[-1:]) 
+                    module_name = ".".join(module[0:-1])
+                    class_name = ".".join(module[-1:]) 
                     if not module_name or not class_name:
-                        print("config.jsonrpc[{}].module must be configured".format(itemNo))
+                        print("config.jsonrpc[{}].module must be a valid package name".format(itemNo))
                         continue
 
+                    certfile = sinkConfig["certfile"]
                     if not certfile:
                         print("config.jsonrpc[{}].certfile must be configured".format(itemNo))
                         continue
 
-                    # start up rpc listener in a separate thread
-                    print("starting sink thread: {}".format(module))
-                    t = Thread(target=start_listening, args=(
-                      self, 
-                      shared_loop, 
-                      name,
-                      port, 
-                      certfile, 
-                      class_from_name(module_name, class_name)))
+                    name = sinkConfig["name"]
+                    port = sinkConfig["port"]
+                except KeyError as e:
+                    print("config.jsonrpc[{}] missing keyword".format(itemNo), e)
+                    continue
 
-                    t.daemon = True
-                    t.start()
+                # start up rpc listener in a separate thread
+                print("thread starting: {}".format(module))
+                t = Thread(target=start_listening, args=(
+                  self, 
+                  shared_loop, 
+                  name,
+                  port, 
+                  certfile, 
+                  class_from_name(module_name, class_name)))
 
-                    threads.append(t)
+                t.daemon = True
+                t.start()
+
+                threads.append(t)
 
         message = "{} sink thread(s) started".format(len(threads))
+        logging.info(message)
+        print(message)
+
+    def _load_hooks(self):
+        hook_packages = self.get_config_option('hooks')
+        itemNo = -1
+        self._hooks = []
+
+        if isinstance(hook_packages, list):
+            for hook_config in hook_packages:
+                try:
+                    module = hook_config["module"].split(".")
+                    if len(module) < 4:
+                        print("config.hooks[{}].module should have at least 4 packages {}".format(itemNo, module))
+                        continue
+                    module_name = ".".join(module[0:-1])
+                    class_name = ".".join(module[-1:]) 
+                    if not module_name or not class_name:
+                        print("config.hooks[{}].module must be a valid package name".format(itemNo))
+                        continue
+                except KeyError as e:
+                    print("config.hooks[{}] missing keyword".format(itemNo), e)
+                    continue
+
+                theClass = class_from_name(module_name, class_name)
+                theClass._bot = self
+                if "config" in hook_config:
+                    # allow separate configuration file to be loaded
+                    theClass._config = hook_config["config"]
+
+                if theClass.init():
+                    print("hook inited: {}".format(module))
+                    self._hooks.append(theClass)
+                else:
+                    print("hook failed to initialise")
+
+        message = "{} hook(s) loaded".format(len(self._hooks))
         logging.info(message)
         print(message)
 
@@ -311,12 +351,28 @@ class HangupsBot(object):
 
     def _on_event(self, conv_event):
         """Handle conversation events"""
+
+        self._execute_hook("on_event", conv_event)
+
         if isinstance(conv_event, hangups.ChatMessageEvent):
             self.handle_chat_message(conv_event)
+
         elif isinstance(conv_event, hangups.MembershipChangeEvent):
             self.handle_membership_change(conv_event)
+
         elif isinstance(conv_event, hangups.RenameEvent):
             self.handle_rename(conv_event)
+
+    def _execute_hook(self, funcname, parameters=None):
+        for hook in self._hooks:
+            method = getattr(hook, funcname, None)
+            if method:
+                try:
+                    method(parameters)
+                except Exception as e:
+                    message = "_execute_hooks()", hook, e
+                    logging.warning(message)
+                    print(message)
 
     def _on_disconnect(self):
         """Handle disconnecting"""
