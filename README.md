@@ -7,9 +7,24 @@ This is a fork of https://github.com/xmikos/hangupsbot
 * Please see the original documentation which is reproduced below
   (after the TODO section)
 
-Additional requirements:
-* https://pypi.python.org/pypi/jsonrpclib-pelix `pip3 install jsonrpclib-pelix`
-* https://pypi.python.org/pypi/pushbullet.py/0.5.0 `pip3 install pushbullet.py`
+# Installation
+
+Install python 3.4 from source 
+
+```
+wget https://www.python.org/ftp/python/3.4.2/Python-3.4.2.tgz
+tar xvf Python-3.4.2.tgz
+cd Python-3.4.2
+./config
+make
+make install
+```
+
+Install dependencies
+
+```
+pip3 install -r requirements.txt
+```
 
 # Users: Quickstart
 
