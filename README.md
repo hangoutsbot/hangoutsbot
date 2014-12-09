@@ -102,14 +102,14 @@ configuration in `config.commands_admin`.
 * Changes are saved instantly into `config.json`.
 * WARNING: This command is low-level and can scramble the configuration.
 
-`config append <key> [<subkey> [...]]` "<value>"`
+`config append <key> [<subkey> [...]] "<value>"`
 * Bot appends <value> to list at `config.<key>[.<subkey>...]`
 * `<value>` must be enclosed in double-quotes and is interpreted as JSON.
 * Only works if the key pointed at is an actual list.
 * Usually used to add administrator ids to `config.admins`
 * WARNING: This command is low-level and can scramble the configuration.
 
-`config remove <key> [<subkey> [...]]` "<value>"`
+`config remove <key> [<subkey> [...]] "<value>"`
 * Bot removes specified <value> from list at `config.<key>[.<subkey>...]`
 * `<value>` must be enclosed in double-quotes and is interpreted as JSON.
 * Only works if the key pointed at is an actual list.
