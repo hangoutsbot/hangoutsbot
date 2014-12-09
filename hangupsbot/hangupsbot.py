@@ -233,7 +233,7 @@ class HangupsBot(object):
         return conversation
 
     def _start_sinks(self, shared_loop):
-        jsonrpc_sinks = self.config.get_by_path('jsonrpc')
+        jsonrpc_sinks = self.get_config_option('jsonrpc')
         itemNo = -1
         threads = []
 
