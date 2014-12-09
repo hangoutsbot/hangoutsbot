@@ -4,13 +4,7 @@ This is a fork of https://github.com/xmikos/hangupsbot
 
 * To execute: `python3 hangupsbot.py`
 * Any current tests will be in `<path of hangupsbot.py>/tests/`
-* PushBullet integration is **experimental** - it also has a security risk: 
-  since the only way to send pushes is via API key, the key has to be stored - 
-  and is visible - inside `config.json`
-  * To set your pushbullet key, open a 1-on-1 HO with the bot and issue:
-    `/bot pushbulletapi [<api key>|false, 0, -1]`
-    to set your api key or clear it, respectively.
-* please also see the original documentation which is reproduced below
+* Please see the original documentation which is reproduced below
   (after the TODO section)
 
 Additional requirements:
@@ -61,16 +55,106 @@ To find out how to get your user id, read on!
 join a group with an existing bot and issue this command `/bot whoami`, your
 chat_id will be displayed
 
-# Admins: Useful Commands
-```
-# add user 104...64 to the admins list...
-/bot config append admins "104...64"  
-/bot reload
+# Bot Commands
 
-# remove user 104...64 from the admins list...
-/bot config remove admins "104...64"
-/bot reload
-```
+All bot commands must be prefixed by `/bot`, as in `/bot <command>`.
+
+## Administrative Commands
+
+These are commands that can only be executed by admins, based on the default
+configuration in `config.commands_admin`.
+
+`users` 
+* Bot lists all users in current conversation.
+* List will contain user G+ profile link and email (if available).
+
+`user <string name>` 
+* Bot searches for users whose names contain <string> in internal user list.
+* Spaces are not allowed.
+* The bot will search all users in all participating conversations.
+
+`hangouts`
+* Bot lists all participating conversations with additional details.
+* Legend: c = commands enabled; f = forwarding enabled; a = auto-replies.
+
+`rename <string title>`
+* Bot renames the current conversation. 
+* Spaces in the title are allowed.
+* Works with both 1-on-1 or group conversations.
+* Note: 1-on-1 renames may not reflect their title properly on desktop clients.
+
+`leave [<conversation id>]`
+* Bot leaves the current hangout if <conversation id> not specified.
+
+`easteregg <ponies|pitchforks|bikeshed|shydino> <number> <period>`
+* Bot activates Hangouts easter-egg animation (varies by client).
+* <number> is the amount of repetition with delay of <period> in seconds.
+
+`quit`
+* Kills the running bot process on the server with a disconnection.
+
+`config get <key> [<subkey> [...]]`
+* Bot reads config.json and displays contents of `config.<key>[.<subkey>...]`
+
+`config set <key> [<subkey> [...]] "<value>"`
+* Bot sets contents of `config.<key>[.<subkey>...]` to `<value>`
+* `<value>` must be enclosed in double-quotes and is interpreted as JSON.
+* Changes are saved instantly into `config.json`.
+* WARNING: This command is low-level and can scramble the configuration.
+
+`config append <key> [<subkey> [...]]` "<value>"`
+* Bot appends <value> to list at `config.<key>[.<subkey>...]`
+* `<value>` must be enclosed in double-quotes and is interpreted as JSON.
+* Only works if the key pointed at is an actual list.
+* Usually used to add administrator ids to `config.admins`
+* WARNING: This command is low-level and can scramble the configuration.
+
+`config remove <key> [<subkey> [...]]` "<value>"`
+* Bot removes specified <value> from list at `config.<key>[.<subkey>...]`
+* `<value>` must be enclosed in double-quotes and is interpreted as JSON.
+* Only works if the key pointed at is an actual list.
+* Usually used to remove administrator ids from `config.admins`
+* WARNING: This command is low-level and can scramble the configuration.
+
+## Standard Commands
+
+These are commands that can be executed by any user, based on the default
+configuration in `config.commands_admin`.
+
+`help` 
+* Bot lists all supported commands.
+
+`ping` 
+* Bot replies with a `pong.
+
+`echo <string anything>`
+* Bot replies with <string> as the message.
+* Spaces are allowed.
+
+`pushbulletapi <apikey>`
+* Sets the pushbullet api key for current user.
+* When user is @mentioned, bot will alert user through PushBullet.
+* If the push fails, bot will revert to normal hangouts-based alert.
+  
+`pushbullet <false|0|-1>`
+* Disables pushbullet integration for current user.
+
+`dnd`
+* Toggles global DND (Do Not Disturb) for current user.
+* Bot will message user whether DND is toggled on or off.
+* User will not receive alerts for @mentions.
+
+'whoami'
+* Bot replies with the full name and `chat_id` of the current user.
+
+`whereami`
+* Bot replies with the conversation name and `conversation id`.
+
+`mention <name fragment>`
+* Alias for @<name fragment>.
+* Triggers the same mechanisms for @mentions.
+* `<name fragment>` cannot contain spaces.
+* Like @mentions, `<name fragment>` matches combined first name and last name.
 
 # Developers: Extending the Bot
 
