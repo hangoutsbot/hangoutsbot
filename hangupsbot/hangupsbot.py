@@ -199,15 +199,19 @@ class HangupsBot(object):
 
         return convs
 
+    def get_config_option(self, option):
+        try:
+            option_value = self.config[option]
+        except KeyError:
+            option_value = None
+        return option_value
+
     def get_config_suboption(self, conv_id, option):
         """Get config suboption for conversation (or global option if not defined)"""
         try:
             suboption = self.config['conversations'][conv_id][option]
         except KeyError:
-            try:
-                suboption = self.config[option]
-            except KeyError:
-                suboption = None
+            suboption = get_config_option(self, option)
         return suboption
 
     def print_conversations(self):
