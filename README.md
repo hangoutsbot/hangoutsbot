@@ -69,13 +69,13 @@ configuration in `config.commands_admin`.
 * List will contain user G+ profile link and email (if available).
 
 `user <string name>` 
-* Bot searches for users whose names contain <string> in internal user list.
+* Bot searches for users whose names contain `<string name>` in internal user list.
 * Spaces are not allowed.
 * The bot will search all users in all participating conversations.
 
 `hangouts`
 * Bot lists all participating conversations with additional details.
-* Legend: c = commands enabled; f = forwarding enabled; a = auto-replies.
+* Legend: `c` = commands enabled; `f` = forwarding enabled; `a` = auto-replies.
 
 `rename <string title>`
 * Bot renames the current conversation. 
@@ -84,11 +84,11 @@ configuration in `config.commands_admin`.
 * Note: 1-on-1 renames may not reflect their title properly on desktop clients.
 
 `leave [<conversation id>]`
-* Bot leaves the current hangout if <conversation id> not specified.
+* Bot leaves the current hangout if `<conversation id>` not specified.
 
 `easteregg <ponies|pitchforks|bikeshed|shydino> <number> <period>`
 * Bot activates Hangouts easter-egg animation (varies by client).
-* <number> is the amount of repetition with delay of <period> in seconds.
+* `<number>` is the amount of repetition with delay of `<period>` in seconds.
 
 `quit`
 * Kills the running bot process on the server with a disconnection.
@@ -125,10 +125,10 @@ configuration in `config.commands_admin`.
 * Bot lists all supported commands.
 
 `ping` 
-* Bot replies with a `pong.
+* Bot replies with a `pong`.
 
 `echo <string anything>`
-* Bot replies with <string> as the message.
+* Bot replies with `<string anything>` as the message.
 * Spaces are allowed.
 
 `pushbulletapi <apikey>`
