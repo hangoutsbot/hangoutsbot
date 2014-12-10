@@ -267,10 +267,27 @@ def mention(bot, event, *args):
         logging.warning("@mention from {} ({}) too short (== '{}')".format(event.user.full_name, event.user.id_.chat_id, username))
         return
 
+    """
+    /bot mention <fragment> test
+    """
+    noisy_mention_test = False
+    if len(args) == 2 and args[1] == "test":
+        noisy_mention_test = True
+
     """verify user is in current conversation"""
     conversation_name = get_conv_name(event.conv, truncate=True);
     logging.info("@mention '{}' in '{}' ({})".format(username, conversation_name, event.conv.id_))
     username_lower = username.lower()
+
+    usernames = { 
+      "mentioned":[], 
+      "ignored":[],
+      "failed": {
+        "pushbullet": [],
+        "one2one": [],
+      }
+    }
+
     for u in event.conv.users:
         if username_lower == "all" or \
                 username_lower in u.full_name.replace(" ", "").lower():
@@ -292,6 +309,7 @@ def mention(bot, event, *args):
                 """user-configured DND"""
                 if u.id_.chat_id in donotdisturb:
                     logging.info("suppressing @mention for {} ({})".format(u.full_name, u.id_.chat_id))
+                    usernames["ignored"].append(u.full_name)
                     continue
 
             alert_via_1on1 = True
@@ -309,9 +327,11 @@ def mention(bot, event, *args):
                                 conversation_name, 
                                 event.text))
                         if success:
+                            usernames["mentioned"].append(u.full_name)
                             logging.info("{} ({}) alerted via pushbullet".format(u.full_name, u.id_.chat_id))
                             alert_via_1on1 = False # disable 1on1 alert
                         else:
+                            usernames["failed"]["pushbullet"].append(u.full_name)
                             logging.warning("pushbullet alert failed for {} ({})".format(u.full_name, u.id_.chat_id))
 
             if alert_via_1on1:
@@ -324,15 +344,34 @@ def mention(bot, event, *args):
                             event.user.full_name, 
                             conversation_name, 
                             event.text))
+                    usernames["mentioned"].append(u.full_name)
                     logging.info("{} ({}) alerted via 1on1 ({})".format(u.full_name, u.id_.chat_id, conv_1on1.id_))
                 else:
+                    usernames["failed"]["one2one"].append(u.full_name)
                     if bot.get_config_suboption(event.conv_id, 'mentionerrors'):
                         bot.send_message_parsed(
                             event.conv, 
-                            "Unable to @mention <b>{}</b>. User must talk to me first.".format(
+                            "@mention didn't work for <b>{}</b>. User must say something to me first.".format(
                                 u.full_name))
                     logging.warning("user {} ({}) could not be alerted via 1on1".format(u.full_name, u.id_.chat_id))
 
+    if noisy_mention_test:
+        html = "<b>@mentions:</b><br />"
+        if len(usernames["failed"]["one2one"]) > 0:
+            html = html + "1-to-1 fail: {}<br />".format(", ".join(usernames["failed"]["one2one"]))
+        if len(usernames["failed"]["pushbullet"]) > 0:
+            html = html + "PushBullet fail: {}<br />".format(", ".join(usernames["failed"]["pushbullet"]))
+        if len(usernames["ignored"]) > 0:
+            html = html + "Ignored (DND): {}<br />".format(", ".join(usernames["ignored"]))
+        if len(usernames["mentioned"]) > 0:
+            html = html + "Alerted: {}<br />".format(", ".join(usernames["mentioned"]))
+        else:
+            html = html + "Nobody was successfully @mentioned ;-(<br />"
+
+        if len(usernames["failed"]["one2one"]) > 0:
+            html = html + "Users failing 1-to-1 need to say something to me privately first.<br />"
+
+        bot.send_message_parsed(event.conv, html)
 
 @command.register
 def pushbulletapi(bot, event, *args):
