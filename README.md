@@ -144,16 +144,20 @@ configuration in `config.commands_admin`.
 * Bot will message user whether DND is toggled on or off.
 * User will not receive alerts for @mentions.
 
-'whoami'
+`whoami`
 * Bot replies with the full name and `chat_id` of the current user.
 
 `whereami`
 * Bot replies with the conversation name and `conversation id`.
 
-`mention <name fragment>`
+`mention <name fragment> [test]`
 * Alias for @<name fragment>.
-* Triggers the same mechanisms for @mentions.
+* Triggers the same mechanism for @mentions.
 * `<name fragment>` cannot contain spaces.
+* Adding optional second parameter `test` will show additional log information
+  inside the current conversation when attempting to alert users. This
+  can be used to check for any @mention errors with specific users. It is 
+  similar to `config.mentionerrors = True`, but more verbose.
 * Like @mentions, `<name fragment>` matches combined first name and last name.
 
 # Developers: Extending the Bot
