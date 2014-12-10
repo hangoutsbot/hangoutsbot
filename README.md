@@ -156,8 +156,7 @@ configuration in `config.commands_admin`.
 * `<name fragment>` cannot contain spaces.
 * Adding optional second parameter `test` will show additional log information
   inside the current conversation when attempting to alert users. This
-  can be used to check for any @mention errors with specific users. It is 
-  similar to `config.mentionerrors = True`, but more verbose.
+  can be used to check for any @mention errors with specific users.
 * Like @mentions, `<name fragment>` matches combined first name and last name.
 
 # Developers: Extending the Bot
