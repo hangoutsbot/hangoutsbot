@@ -267,10 +267,19 @@ def mention(bot, event, *args):
         logging.warning("@mention from {} ({}) too short (== '{}')".format(event.user.full_name, event.user.id_.chat_id, username))
         return
 
+    """
+    /bot mention <fragment> test
+        overrides config.mentionerrors
+    """
+    noisy_mention_test = False
+    if len(args) == 2 and args[1] == "test":
+        noisy_mention_test = True
+
     """verify user is in current conversation"""
     conversation_name = get_conv_name(event.conv, truncate=True);
     logging.info("@mention '{}' in '{}' ({})".format(username, conversation_name, event.conv.id_))
     username_lower = username.lower()
+    users_mentioned = []
     for u in event.conv.users:
         if username_lower == "all" or \
                 username_lower in u.full_name.replace(" ", "").lower():
@@ -309,9 +318,15 @@ def mention(bot, event, *args):
                                 conversation_name, 
                                 event.text))
                         if success:
+                            users_mentioned.append(u.full_name)
                             logging.info("{} ({}) alerted via pushbullet".format(u.full_name, u.id_.chat_id))
                             alert_via_1on1 = False # disable 1on1 alert
                         else:
+                            if noisy_mention_test:
+                                bot.send_message_parsed(
+                                    event.conv, 
+                                    "PushBullet alert didn't work for <b>{}</b>.".format(
+                                        u.full_name))
                             logging.warning("pushbullet alert failed for {} ({})".format(u.full_name, u.id_.chat_id))
 
             if alert_via_1on1:
@@ -324,15 +339,24 @@ def mention(bot, event, *args):
                             event.user.full_name, 
                             conversation_name, 
                             event.text))
+                    users_mentioned.append(u.full_name)
                     logging.info("{} ({}) alerted via 1on1 ({})".format(u.full_name, u.id_.chat_id, conv_1on1.id_))
                 else:
-                    if bot.get_config_suboption(event.conv_id, 'mentionerrors'):
+                    if bot.get_config_suboption(event.conv_id, 'mentionerrors') or noisy_mention_test:
                         bot.send_message_parsed(
                             event.conv, 
-                            "Unable to @mention <b>{}</b>. User must talk to me first.".format(
+                            "@mention didn't work for <b>{}</b>. User must say something to me first.".format(
                                 u.full_name))
                     logging.warning("user {} ({}) could not be alerted via 1on1".format(u.full_name, u.id_.chat_id))
 
+    if noisy_mention_test:
+        if len(users_mentioned) > 0:
+            bot.send_message_parsed(
+                event.conv, 
+                "@mentions: alerted {}".format(
+                    ', '.join(users_mentioned)))
+        else:
+            bot.send_message_parsed(event.conv, "@mentions: nobody was alerted ;-(")
 
 @command.register
 def pushbulletapi(bot, event, *args):
