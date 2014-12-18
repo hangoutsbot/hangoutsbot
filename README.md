@@ -99,6 +99,9 @@ Most configuration directives can be specified **globally** or **per-conversatio
 * enables/disables @all for mentions
 * when set to `false`, admins and chat ids listed in `mentionallwhitelist` 
   can still use **@all**
+* users who are blocked from using @mentions (`mentionall == false`; 
+  not an admin; not whitelisted) will be notified privately if the bot 
+  already has a 1-on-1 with them
 
 `mentionallwhitelist`
 * default: `[]`
