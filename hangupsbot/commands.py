@@ -291,13 +291,8 @@ def mention(bot, event, *args):
                         event.user.full_name))
             return
 
-    """verify user is in current conversation"""
-    conversation_name = get_conv_name(event.conv, truncate=True);
-    logging.info("@mention '{}' in '{}' ({})".format(username, conversation_name, event.conv.id_))
-    username_lower = username.lower()
-
     """track mention statistics"""
-    usernames = { 
+    user_tracking = { 
       "mentioned":[], 
       "ignored":[],
       "failed": {
@@ -305,6 +300,14 @@ def mention(bot, event, *args):
         "one2one": [],
       }
     }
+
+    """
+    begin mentioning users as long as they exist in the current conversation...
+    """
+
+    conversation_name = get_conv_name(event.conv, truncate=True);
+    logging.info("@mention '{}' in '{}' ({})".format(username, conversation_name, event.conv.id_))
+    username_lower = username.lower()
 
     for u in event.conv.users:
         if username_lower == "all" or \
@@ -327,7 +330,7 @@ def mention(bot, event, *args):
                 """user-configured DND"""
                 if u.id_.chat_id in donotdisturb:
                     logging.info("suppressing @mention for {} ({})".format(u.full_name, u.id_.chat_id))
-                    usernames["ignored"].append(u.full_name)
+                    user_tracking["ignored"].append(u.full_name)
                     continue
 
             alert_via_1on1 = True
@@ -345,11 +348,11 @@ def mention(bot, event, *args):
                                 conversation_name, 
                                 event.text))
                         if success:
-                            usernames["mentioned"].append(u.full_name)
+                            user_tracking["mentioned"].append(u.full_name)
                             logging.info("{} ({}) alerted via pushbullet".format(u.full_name, u.id_.chat_id))
                             alert_via_1on1 = False # disable 1on1 alert
                         else:
-                            usernames["failed"]["pushbullet"].append(u.full_name)
+                            user_tracking["failed"]["pushbullet"].append(u.full_name)
                             logging.warning("pushbullet alert failed for {} ({})".format(u.full_name, u.id_.chat_id))
 
             if alert_via_1on1:
@@ -362,10 +365,10 @@ def mention(bot, event, *args):
                             event.user.full_name, 
                             conversation_name, 
                             event.text))
-                    usernames["mentioned"].append(u.full_name)
+                    user_tracking["mentioned"].append(u.full_name)
                     logging.info("{} ({}) alerted via 1on1 ({})".format(u.full_name, u.id_.chat_id, conv_1on1.id_))
                 else:
-                    usernames["failed"]["one2one"].append(u.full_name)
+                    user_tracking["failed"]["one2one"].append(u.full_name)
                     if bot.get_config_suboption(event.conv_id, 'mentionerrors'):
                         bot.send_message_parsed(
                             event.conv, 
@@ -375,18 +378,18 @@ def mention(bot, event, *args):
 
     if noisy_mention_test:
         html = "<b>@mentions:</b><br />"
-        if len(usernames["failed"]["one2one"]) > 0:
-            html = html + "1-to-1 fail: <i>{}</i><br />".format(", ".join(usernames["failed"]["one2one"]))
-        if len(usernames["failed"]["pushbullet"]) > 0:
-            html = html + "PushBullet fail: <i>{}</i><br />".format(", ".join(usernames["failed"]["pushbullet"]))
-        if len(usernames["ignored"]) > 0:
-            html = html + "Ignored (DND): <i>{}</i><br />".format(", ".join(usernames["ignored"]))
-        if len(usernames["mentioned"]) > 0:
-            html = html + "Alerted: <i>{}</i><br />".format(", ".join(usernames["mentioned"]))
+        if len(user_tracking["failed"]["one2one"]) > 0:
+            html = html + "1-to-1 fail: <i>{}</i><br />".format(", ".join(user_tracking["failed"]["one2one"]))
+        if len(user_tracking["failed"]["pushbullet"]) > 0:
+            html = html + "PushBullet fail: <i>{}</i><br />".format(", ".join(user_tracking["failed"]["pushbullet"]))
+        if len(user_tracking["ignored"]) > 0:
+            html = html + "Ignored (DND): <i>{}</i><br />".format(", ".join(user_tracking["ignored"]))
+        if len(user_tracking["mentioned"]) > 0:
+            html = html + "Alerted: <i>{}</i><br />".format(", ".join(user_tracking["mentioned"]))
         else:
             html = html + "Nobody was successfully @mentioned ;-(<br />"
 
-        if len(usernames["failed"]["one2one"]) > 0:
+        if len(user_tracking["failed"]["one2one"]) > 0:
             html = html + "Users failing 1-to-1 need to say something to me privately first.<br />"
 
         bot.send_message_parsed(event.conv, html)
