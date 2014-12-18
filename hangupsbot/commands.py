@@ -358,13 +358,13 @@ def mention(bot, event, *args):
     if noisy_mention_test:
         html = "<b>@mentions:</b><br />"
         if len(usernames["failed"]["one2one"]) > 0:
-            html = html + "1-to-1 fail: {}<br />".format(", ".join(usernames["failed"]["one2one"]))
+            html = html + "1-to-1 fail: <i>{}</i><br />".format(", ".join(usernames["failed"]["one2one"]))
         if len(usernames["failed"]["pushbullet"]) > 0:
-            html = html + "PushBullet fail: {}<br />".format(", ".join(usernames["failed"]["pushbullet"]))
+            html = html + "PushBullet fail: <i>{}</i><br />".format(", ".join(usernames["failed"]["pushbullet"]))
         if len(usernames["ignored"]) > 0:
-            html = html + "Ignored (DND): {}<br />".format(", ".join(usernames["ignored"]))
+            html = html + "Ignored (DND): <i>{}</i><br />".format(", ".join(usernames["ignored"]))
         if len(usernames["mentioned"]) > 0:
-            html = html + "Alerted: {}<br />".format(", ".join(usernames["mentioned"]))
+            html = html + "Alerted: <i>{}</i><br />".format(", ".join(usernames["mentioned"]))
         else:
             html = html + "Nobody was successfully @mentioned ;-(<br />"
 
