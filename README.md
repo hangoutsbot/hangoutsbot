@@ -22,7 +22,7 @@ This procedure is necessary to let the bot know you're alive ;P
 No seriously, the above steps are **required** to authorise two-way 
 communication between the bot and your own account.
 
-# Admins: Installation & Configuration
+# Admins: Quick Installation & Configuration
 
 * `config.json` is found in two places:
   * one folder below `hangupsbot.py`;and later,
@@ -54,6 +54,41 @@ To find out how to get your user id, read on!
 
 join a group with an existing bot and issue this command `/bot whoami`, your
 chat_id will be displayed
+
+# Admins: Configuration
+
+Configuration directives can be specified in `config.json`.
+
+Most configuration directives can be specified **globally** or **per-conversation**.
+* Global directives are always specified in the "root" of `config.json`.
+* To specify a per-conversation directive, the same configuration option should
+  be defined as `config.conversations[<conversation-id>].<configuration option>`.
+* Per-conversation directives override global settings, if both are set.
+
+## Mentions
+
+`mentionquidproquo`
+* default: `true`
+* only users who have already initiated a 1-on-1 dialog with the bot will be 
+  able to use @mentions and alert other users
+
+`mentionerrors`
+* default: `false`
+* outputs any problems with a @mention to the current conversation
+* verbose output and should only be used for debugging
+* alternative is to use `/bot mention <name-fragment> test`
+  (see bot command below)
+
+`mentionall`
+* default: `true`
+* enables/disables @all for mentions
+* when set to `false`, admins and chat ids listed in `mentionallwhitelist` 
+  can still use **@all**
+
+`mentionallwhitelist`
+* default: `[]`
+* allow listed chat_ids to use @all in mentions regardless of 
+  global/per-conversation `mentionall` setting
 
 # Bot Commands
 

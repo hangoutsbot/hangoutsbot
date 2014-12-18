@@ -33,6 +33,8 @@
     "CONV2_ID": {
       "autoreplies_enabled": false,
       "commands_enabled": false,
+      "mentionall": false,
+      "mentionallwhitelist": [],
       "forward_to": [
         "CONV1_ID"
       ],
@@ -75,6 +77,8 @@
     }
   ],
   "mentionerrors": false,
-  "quidproquo": true,
+  "mentionall":true,
+  "mentionallwhitelist": [],
+  "mentionquidproquo": true,
   "donotdisturb": []
 }

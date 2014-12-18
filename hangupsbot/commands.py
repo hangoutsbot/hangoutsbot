@@ -278,7 +278,7 @@ def mention(bot, event, *args):
     quidproquo: users can only @mention if they themselves are @mentionable (i.e. have a 1-on-1 with the bot)
     """
     conv_1on1_initiator = None
-    if bot.get_config_option("quidproquo"):
+    if bot.get_config_option("mentionquidproquo"):
         conv_1on1_initiator = bot.get_1on1_conversation(event.user.id_.chat_id)
         if conv_1on1_initiator:
             logging.info("quidproquo: user {} ({}) has 1-on-1".format(event.user.full_name, event.user.id_.chat_id))
@@ -308,6 +308,39 @@ def mention(bot, event, *args):
     conversation_name = get_conv_name(event.conv, truncate=True);
     logging.info("@mention '{}' in '{}' ({})".format(username, conversation_name, event.conv.id_))
     username_lower = username.lower()
+
+    """is @all available globally/per-conversation/initiator?"""
+    if username_lower == "all":
+        if not bot.get_config_suboption(event.conv.id_, 'mentionall'):
+
+            """global toggle is off/not set, check admins"""
+            logging.info("@all in {}: disabled/unset global/per-conversation".format(event.conv.id_))
+            admins_list = bot.get_config_suboption(event.conv_id, 'admins')
+            if event.user_id.chat_id not in admins_list:
+
+                """initiator is not an admin, check whitelist"""
+                logging.info("@all in {}: user {} ({}) is not admin".format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
+                all_whitelist = bot.get_config_suboption(event.conv_id, 'allwhitelist')
+                if all_whitelist is None or event.user_id.chat_id not in all_whitelist:
+
+                    logging.warning("@all in {}: user {} ({}) blocked".format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
+                    if conv_1on1_initiator:
+                        bot.send_message_parsed(
+                            conv_1on1_initiator, 
+                            "You are not allowed to use @all in <b>{}</b>".format(
+                                conversation_name))
+                    if noisy_mention_test or bot.get_config_suboption(event.conv_id, 'mentionerrors'):
+                        bot.send_message_parsed(
+                            event.conv, 
+                            "<b>{}</b> blocked from using <i>@all</i>".format(
+                                event.user.full_name))
+                    return
+                else:
+                    logging.info("@all in {}: allowed, {} ({}) is whitelisted".format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
+            else:
+                logging.info("@all in {}: allowed, {} ({}) is an admin".format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
+        else:
+            logging.info("@all in {}: enabled global/per-conversation".format(event.conv.id_))
 
     for u in event.conv.users:
         if username_lower == "all" or \
