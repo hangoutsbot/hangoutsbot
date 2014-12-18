@@ -274,11 +274,28 @@ def mention(bot, event, *args):
     if len(args) == 2 and args[1] == "test":
         noisy_mention_test = True
 
+    """
+    quidproquo: users can only @mention if they themselves are @mentionable (i.e. have a 1-on-1 with the bot)
+    """
+    if bot.get_config_option("quidproquo"):
+        conv_1on1_initiator = bot.get_1on1_conversation(event.user.id_.chat_id)
+        if conv_1on1_initiator:
+            logging.info("quidproquo: user {} ({}) has 1-on-1".format(event.user.full_name, event.user.id_.chat_id))
+        else:
+            logging.warning("quidproquo: user {} ({}) has no 1-on-1".format(event.user.full_name, event.user.id_.chat_id))
+            if noisy_mention_test or bot.get_config_suboption(event.conv_id, 'mentionerrors'):
+                bot.send_message_parsed(
+                    event.conv, 
+                    "<b>{}</b> cannot @mention anyone until they say something to me first.".format(
+                        event.user.full_name))
+            return
+
     """verify user is in current conversation"""
     conversation_name = get_conv_name(event.conv, truncate=True);
     logging.info("@mention '{}' in '{}' ({})".format(username, conversation_name, event.conv.id_))
     username_lower = username.lower()
 
+    """track mention statistics"""
     usernames = { 
       "mentioned":[], 
       "ignored":[],
