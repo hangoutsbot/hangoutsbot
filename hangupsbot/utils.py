@@ -66,13 +66,24 @@ class simpleHTMLParser(HTMLParser):
                 hangups.SegmentType.LINE_BREAK))
 
     def handle_data(self, data):
-        self._segments.append(
-          hangups.ChatMessageSegment(
-            data, 
-            is_bold=self._flags["bold"], 
-            is_italic=self._flags["italic"], 
-            is_underline=self._flags["underline"], 
-            link_target=self._flags["link_target"]))
+        if self._flags["link_target"] is not None:
+            print("link in message: {}".format(self._flags["link_target"]));
+            self._segments.append(
+              hangups.ChatMessageSegment(
+                data,
+                hangups.SegmentType.LINK,
+                link_target=self._flags["link_target"],
+                is_bold=self._flags["bold"], 
+                is_italic=self._flags["italic"], 
+                is_underline=self._flags["underline"]))
+        else:
+            self._segments.append(
+              hangups.ChatMessageSegment(
+                data, 
+                is_bold=self._flags["bold"], 
+                is_italic=self._flags["italic"], 
+                is_underline=self._flags["underline"], 
+                link_target=self._flags["link_target"]))
 
 def simple_parse_to_segments(html):
     parser = simpleHTMLParser()
