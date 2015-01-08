@@ -1,5 +1,6 @@
 import hangups
 import re
+import importlib
 
 from html.parser import HTMLParser
 from html.entities import name2codepoint
@@ -65,19 +66,33 @@ class simpleHTMLParser(HTMLParser):
                 hangups.SegmentType.LINE_BREAK))
 
     def handle_data(self, data):
-        self._segments.append(
-          hangups.ChatMessageSegment(
-            data, 
-            is_bold=self._flags["bold"], 
-            is_italic=self._flags["italic"], 
-            is_underline=self._flags["underline"], 
-            link_target=self._flags["link_target"]))
+        if self._flags["link_target"] is not None:
+            print("link in message: {}".format(self._flags["link_target"]));
+            self._segments.append(
+              hangups.ChatMessageSegment(
+                data,
+                hangups.SegmentType.LINK,
+                link_target=self._flags["link_target"],
+                is_bold=self._flags["bold"], 
+                is_italic=self._flags["italic"], 
+                is_underline=self._flags["underline"]))
+        else:
+            self._segments.append(
+              hangups.ChatMessageSegment(
+                data, 
+                is_bold=self._flags["bold"], 
+                is_italic=self._flags["italic"], 
+                is_underline=self._flags["underline"], 
+                link_target=self._flags["link_target"]))
 
 def simple_parse_to_segments(html):
     parser = simpleHTMLParser()
     return parser.feed(html)
 
-if __name__ == '__main__':
-    parser = simpleHTMLParser()
-    print(simple_parse_to_segments('<b><i>abcdefg</i> is before hijk</b><br /><br /><b><a href="abcdef">xyz</a></b>'))
-
+def class_from_name(module_name, class_name):
+    """adapted from http://stackoverflow.com/a/13808375"""
+    # load the module, will raise ImportError if module cannot be loaded
+    m = importlib.import_module(module_name)
+    # get the class, will raise AttributeError if class cannot be found
+    c = getattr(m, class_name)
+    return c

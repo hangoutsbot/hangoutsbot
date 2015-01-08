@@ -1,4 +1,4 @@
-import sys, json, random, asyncio
+import sys, json, random, asyncio, logging
 
 import hangups
 from hangups.ui.utils import get_conv_name
@@ -198,8 +198,11 @@ def quit(bot, event, *args):
 
 @command.register
 def config(bot, event, cmd=None, *args):
-    """Displays or modifies the configuration boot
-        Parameters: / bot config [get | set] [key] [subkey] [...] [value]"""
+    """Displays or modifies the configuration
+        Parameters: /bot config get [key] [subkey] [...]
+                    /bot config set [key] [subkey] [...] [value]
+                    /bot config append [key] [subkey] [...] [value]
+                    /bot config remove [key] [subkey] [...] [value]"""
 
     if cmd == 'get' or cmd is None:
         config_args = list(args)
@@ -210,6 +213,32 @@ def config(bot, event, cmd=None, *args):
             bot.config.set_by_path(config_args, json.loads(args[-1]))
             bot.config.save()
             value = bot.config.get_by_path(config_args)
+        else:
+            yield from command.unknown_command(bot, event)
+            return
+    elif cmd == 'append':
+        config_args = list(args[:-1])
+        if len(args) >= 2:
+            value = bot.config.get_by_path(config_args)
+            if isinstance(value, list):
+                value.append(json.loads(args[-1]))
+                bot.config.set_by_path(config_args, value)
+                bot.config.save()
+            else:
+                value = 'append failed on non-list'
+        else:
+            yield from command.unknown_command(bot, event)
+            return
+    elif cmd == 'remove':
+        config_args = list(args[:-1])
+        if len(args) >= 2:
+            value = bot.config.get_by_path(config_args)
+            if isinstance(value, list):
+                value.remove(json.loads(args[-1]))
+                bot.config.set_by_path(config_args, value)
+                bot.config.save()
+            else:
+                value = 'remove failed on non-list'
         else:
             yield from command.unknown_command(bot, event)
             return
@@ -231,37 +260,133 @@ def config(bot, event, cmd=None, *args):
 @command.register
 def mention(bot, event, *args):
     """alert a @mentioned user"""
+
+    """minimum length check for @mention"""
     username = args[0].strip()
-    if len(username) < 2:
-        print('@mention must be 2 letters or longer (== "{}")'.format(username))
+    if len(username) <= 2:
+        logging.warning("@mention from {} ({}) too short (== '{}')".format(event.user.full_name, event.user.id_.chat_id, username))
         return
-    """verify user is in current conversation, get id"""
+
+    """
+    /bot mention <fragment> test
+    """
+    noisy_mention_test = False
+    if len(args) == 2 and args[1] == "test":
+        noisy_mention_test = True
+
+    """
+    quidproquo: users can only @mention if they themselves are @mentionable (i.e. have a 1-on-1 with the bot)
+    """
+    conv_1on1_initiator = None
+    if bot.get_config_option("mentionquidproquo"):
+        conv_1on1_initiator = bot.get_1on1_conversation(event.user.id_.chat_id)
+        if conv_1on1_initiator:
+            logging.info("quidproquo: user {} ({}) has 1-on-1".format(event.user.full_name, event.user.id_.chat_id))
+        else:
+            logging.warning("quidproquo: user {} ({}) has no 1-on-1".format(event.user.full_name, event.user.id_.chat_id))
+            if noisy_mention_test or bot.get_config_suboption(event.conv_id, 'mentionerrors'):
+                bot.send_message_parsed(
+                    event.conv, 
+                    "<b>{}</b> cannot @mention anyone until they say something to me first.".format(
+                        event.user.full_name))
+            return
+
+    """track mention statistics"""
+    user_tracking = { 
+      "mentioned":[], 
+      "ignored":[],
+      "failed": {
+        "pushbullet": [],
+        "one2one": [],
+      }
+    }
+
+    """
+    begin mentioning users as long as they exist in the current conversation...
+    """
+
+    conversation_name = get_conv_name(event.conv, truncate=True);
+    logging.info("@mention '{}' in '{}' ({})".format(username, conversation_name, event.conv.id_))
     username_lower = username.lower()
-    for u in sorted(event.conv.users, key=lambda x: x.full_name.split()[-1]):
-        if username_lower in u.full_name.lower():
-            print('user {} found, chat_id: {}'.format(u.full_name, u.id_.chat_id))
+
+    """is @all available globally/per-conversation/initiator?"""
+    if username_lower == "all":
+        if not bot.get_config_suboption(event.conv.id_, 'mentionall'):
+
+            """global toggle is off/not set, check admins"""
+            logging.info("@all in {}: disabled/unset global/per-conversation".format(event.conv.id_))
+            admins_list = bot.get_config_suboption(event.conv_id, 'admins')
+            if event.user_id.chat_id not in admins_list:
+
+                """initiator is not an admin, check whitelist"""
+                logging.info("@all in {}: user {} ({}) is not admin".format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
+                all_whitelist = bot.get_config_suboption(event.conv_id, 'allwhitelist')
+                if all_whitelist is None or event.user_id.chat_id not in all_whitelist:
+
+                    logging.warning("@all in {}: user {} ({}) blocked".format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
+                    if conv_1on1_initiator:
+                        bot.send_message_parsed(
+                            conv_1on1_initiator, 
+                            "You are not allowed to use @all in <b>{}</b>".format(
+                                conversation_name))
+                    if noisy_mention_test or bot.get_config_suboption(event.conv_id, 'mentionerrors'):
+                        bot.send_message_parsed(
+                            event.conv, 
+                            "<b>{}</b> blocked from using <i>@all</i>".format(
+                                event.user.full_name))
+                    return
+                else:
+                    logging.info("@all in {}: allowed, {} ({}) is whitelisted".format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
+            else:
+                logging.info("@all in {}: allowed, {} ({}) is an admin".format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
+        else:
+            logging.info("@all in {}: enabled global/per-conversation".format(event.conv.id_))
+
+    for u in event.conv.users:
+        if username_lower == "all" or \
+                username_lower in u.full_name.replace(" ", "").lower():
+
+            logging.info("user {} ({}) is present".format(u.full_name, u.id_.chat_id))
 
             if u.is_self:
-                print("can't mention bot")
+                """bot cannot be @mentioned"""
+                logging.info("suppressing bot mention by {} ({})".format(event.user.full_name, event.user.id_.chat_id))
                 continue
+
+            if u.id_.chat_id == event.user.id_.chat_id and username_lower == "all":
+                """prevent initiating user from receiving duplicate @all"""
+                logging.info("suppressing @all for {} ({})".format(event.user.full_name, event.user.id_.chat_id))
+                continue
+
+            donotdisturb = bot.config.get('donotdisturb')
+            if donotdisturb:
+                """user-configured DND"""
+                if u.id_.chat_id in donotdisturb:
+                    logging.info("suppressing @mention for {} ({})".format(u.full_name, u.id_.chat_id))
+                    user_tracking["ignored"].append(u.full_name)
+                    continue
 
             alert_via_1on1 = True
 
             """pushbullet integration"""
             pushbullet_integration = bot.get_config_suboption(event.conv.id_, 'pushbullet')
-            if pushbullet_integration:
+            if pushbullet_integration is not None:
                 if u.id_.chat_id in pushbullet_integration.keys():
-                    pushbullet_apikey = pushbullet_integration[u.id_.chat_id]
-                    if pushbullet_apikey:
-                        pb = PushBullet(pushbullet_apikey["api"])
+                    pushbullet_config = pushbullet_integration[u.id_.chat_id]
+                    if pushbullet_config["api"] is not None:
+                        pb = PushBullet(pushbullet_config["api"])
                         success, push = pb.push_note(
                             "{} mentioned you in {}".format(
                                 event.user.full_name, 
-                                get_conv_name(event.conv, truncate=True)), 
-                            event.text)
+                                conversation_name, 
+                                event.text))
                         if success:
-                            print('  alerted via pushbullet')
+                            user_tracking["mentioned"].append(u.full_name)
+                            logging.info("{} ({}) alerted via pushbullet".format(u.full_name, u.id_.chat_id))
                             alert_via_1on1 = False # disable 1on1 alert
+                        else:
+                            user_tracking["failed"]["pushbullet"].append(u.full_name)
+                            logging.warning("pushbullet alert failed for {} ({})".format(u.full_name, u.id_.chat_id))
 
             if alert_via_1on1:
                 """send alert with 1on1 conversation"""
@@ -271,17 +396,36 @@ def mention(bot, event, *args):
                         conv_1on1, 
                         "<b>{}</b> @mentioned you in <i>{}</i>:<br />{}".format(
                             event.user.full_name, 
-                            get_conv_name(event.conv, truncate=True), 
+                            conversation_name, 
                             event.text))
-                    print('  alerted via 1on1 with id {}'.format(conv_1on1.id_))
+                    user_tracking["mentioned"].append(u.full_name)
+                    logging.info("{} ({}) alerted via 1on1 ({})".format(u.full_name, u.id_.chat_id, conv_1on1.id_))
                 else:
+                    user_tracking["failed"]["one2one"].append(u.full_name)
                     if bot.get_config_suboption(event.conv_id, 'mentionerrors'):
                         bot.send_message_parsed(
                             event.conv, 
-                            "I'm sorry, I couldn't @mention <b>{}</b>".format(
-                            u.full_name))
-                    print('  could not alert user via 1on1')
+                            "@mention didn't work for <b>{}</b>. User must say something to me first.".format(
+                                u.full_name))
+                    logging.warning("user {} ({}) could not be alerted via 1on1".format(u.full_name, u.id_.chat_id))
 
+    if noisy_mention_test:
+        html = "<b>@mentions:</b><br />"
+        if len(user_tracking["failed"]["one2one"]) > 0:
+            html = html + "1-to-1 fail: <i>{}</i><br />".format(", ".join(user_tracking["failed"]["one2one"]))
+        if len(user_tracking["failed"]["pushbullet"]) > 0:
+            html = html + "PushBullet fail: <i>{}</i><br />".format(", ".join(user_tracking["failed"]["pushbullet"]))
+        if len(user_tracking["ignored"]) > 0:
+            html = html + "Ignored (DND): <i>{}</i><br />".format(", ".join(user_tracking["ignored"]))
+        if len(user_tracking["mentioned"]) > 0:
+            html = html + "Alerted: <i>{}</i><br />".format(", ".join(user_tracking["mentioned"]))
+        else:
+            html = html + "Nobody was successfully @mentioned ;-(<br />"
+
+        if len(user_tracking["failed"]["one2one"]) > 0:
+            html = html + "Users failing 1-to-1 need to say something to me privately first.<br />"
+
+        bot.send_message_parsed(event.conv, html)
 
 @command.register
 def pushbulletapi(bot, event, *args):
@@ -307,3 +451,39 @@ def pushbulletapi(bot, event, *args):
         bot.send_message_parsed(
             event.conv, 
             "pushbullet configuration not changed")
+
+
+@command.register
+def dnd(bot, event, *args):
+    """allow users to toggle DND for ALL conversations (i.e. no @mentions)
+        /bot dnd"""
+
+    initiator_chat_id = event.user.id_.chat_id
+    dnd_list = bot.config.get_by_path(["donotdisturb"])
+    if not initiator_chat_id in dnd_list:
+        dnd_list.append(initiator_chat_id)
+        bot.send_message_parsed(
+            event.conv, 
+            "global DND toggled ON for {}".format(event.user.full_name))
+    else:
+        dnd_list.remove(initiator_chat_id)
+        bot.send_message_parsed(
+            event.conv, 
+            "global DND toggled OFF for {}".format(event.user.full_name))
+
+    bot.config.set_by_path(["donotdisturb"], dnd_list)
+    bot.config.save()
+
+@command.register
+def whoami(bot, event, *args):
+    """whoami: get user id"""
+    bot.send_message_parsed(event.conv, "<b>{}</b>, chat_id = <i>{}</i>".format(event.user.full_name, event.user.id_.chat_id))
+
+@command.register
+def whereami(bot, event, *args):
+    """whereami: get conversation id"""
+    bot.send_message_parsed(
+      event.conv, 
+      "You are at <b>{}</b>, conv_id = <i>{}</i>".format(
+        get_conv_name(event.conv, truncate=True), 
+        event.conv.id_))
