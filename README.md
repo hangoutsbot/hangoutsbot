@@ -1,25 +1,30 @@
 # IMPORTANT
 
-This is a fork of a fork of https://github.com/xmikos/hangupsbot
+This is a fork of https://github.com/xmikos/hangupsbot
 
-* The build script is out-of-date and will be removed in the future.
-  DO NOT TRUST IT ;)
 * To execute: `python3 hangupsbot.py`
-  * If the script cannot find `config.json`, execute 
-    `<path of hangupsbot.py>/python3 hangupsbot.py --config ../config.json`
 * Any current tests will be in `<path of hangupsbot.py>/tests/`
-* PushBullet integration is **experimental** - it also has a security risk: 
-  since the only way to send pushes is via API key, the key has to be stored - 
-  and is visible - inside `config.json`
-  * To set your pushbullet key, open a 1-on-1 HO with the bot and issue:
-    `/bot pushbulletapi [<api key>|false, 0, -1]`
-    to set your api key or clear it, respectively.
-* please also see the original documentation which is reproduced below
+* Please see the original documentation which is reproduced below
   (after the TODO section)
 
-Additional requirements:
-* https://pypi.python.org/pypi/jsonrpclib-pelix `pip3 install jsonrpclib-pelix`
-* https://pypi.python.org/pypi/pushbullet.py/0.5.0 `pip3 install pushbullet.py`
+# Installation
+
+Install python 3.4 from source 
+
+```
+wget https://www.python.org/ftp/python/3.4.2/Python-3.4.2.tgz
+tar xvf Python-3.4.2.tgz
+cd Python-3.4.2
+./config
+make
+make install
+```
+
+Install dependencies
+
+```
+pip3 install -r requirements.txt
+```
 
 # Users: Quickstart
 
@@ -32,7 +37,7 @@ This procedure is necessary to let the bot know you're alive ;P
 No seriously, the above steps are **required** to authorise two-way 
 communication between the bot and your own account.
 
-# Admins: Installation & Configuration
+# Admins: Quick Installation & Configuration
 
 * `config.json` is found in two places:
   * one folder below `hangupsbot.py`;and later,
@@ -60,20 +65,247 @@ To find out how to get your user id, read on!
 5. restart the bot and it will dump out a conversation and users list
 6. find your actual account user name, the chat_id will be listed next to it
 
-### getting other user ids, and/or if you know another bot admin
+### with an existing bot
 
-If you are already a bot admin (or know another bot admin) you can join an 
-existing Hangout with the bot participating and have the admin issue the
-following command `/bot user <your first/last name>` - this will dump the 
-user id for the named user.
+join a group with an existing bot and issue this command `/bot whoami`, your
+chat_id will be displayed
+
+# Admins: Configuration
+
+Configuration directives can be specified in `config.json`.
+
+Most configuration directives can be specified **globally** or **per-conversation**.
+* Global directives are always specified in the "root" of `config.json`.
+* To specify a per-conversation directive, the same configuration option should
+  be defined as `config.conversations[<conversation-id>].<configuration option>`.
+* Per-conversation directives override global settings, if both are set.
+
+## Mentions
+
+`mentionquidproquo`
+* default: `true`
+* only users who have already initiated a 1-on-1 dialog with the bot will be 
+  able to use @mentions and alert other users
+
+`mentionerrors`
+* default: `false`
+* outputs any problems with a @mention to the current conversation
+* verbose output and should only be used for debugging
+* alternative is to use `/bot mention <name-fragment> test`
+  (see bot command below)
+
+`mentionall`
+* default: `true`
+* enables/disables @all for mentions
+* when set to `false`, admins and chat ids listed in `mentionallwhitelist` 
+  can still use **@all**
+* users who are blocked from using @mentions (`mentionall == false`; 
+  not an admin; not whitelisted) will be notified privately if the bot 
+  already has a 1-on-1 with them
+
+`mentionallwhitelist`
+* default: `[]`
+* allow listed chat_ids to use @all in mentions regardless of 
+  global/per-conversation `mentionall` setting
+
+# Bot Commands
+
+All bot commands must be prefixed by `/bot`, as in `/bot <command>`.
+
+## Administrative Commands
+
+These are commands that can only be executed by admins, based on the default
+configuration in `config.commands_admin`.
+
+`users` 
+* Bot lists all users in current conversation.
+* List will contain user G+ profile link and email (if available).
+
+`user <string name>` 
+* Bot searches for users whose names contain `<string name>` in internal user list.
+* Spaces are not allowed.
+* The bot will search all users in all participating conversations.
+
+`hangouts`
+* Bot lists all participating conversations with additional details.
+* Legend: `c` = commands enabled; `f` = forwarding enabled; `a` = auto-replies.
+
+`rename <string title>`
+* Bot renames the current conversation. 
+* Spaces in the title are allowed.
+* Works with both 1-on-1 or group conversations.
+* Note: 1-on-1 renames may not reflect their title properly on desktop clients.
+
+`leave [<conversation id>]`
+* Bot leaves the current hangout if `<conversation id>` not specified.
+
+`easteregg <ponies|pitchforks|bikeshed|shydino> <number> <period>`
+* Bot activates Hangouts easter-egg animation (varies by client).
+* `<number>` is the amount of repetition with delay of `<period>` in seconds.
+
+`quit`
+* Kills the running bot process on the server with a disconnection.
+
+`config get <key> [<subkey> [...]]`
+* Bot reads config.json and displays contents of `config.<key>[.<subkey>...]`
+
+`config set <key> [<subkey> [...]] "<value>"`
+* Bot sets contents of `config.<key>[.<subkey>...]` to `<value>`
+* `<value>` must be enclosed in double-quotes and is interpreted as JSON.
+* Changes are saved instantly into `config.json`.
+* WARNING: This command is low-level and can scramble the configuration.
+
+`config append <key> [<subkey> [...]] "<value>"`
+* Bot appends <value> to list at `config.<key>[.<subkey>...]`
+* `<value>` must be enclosed in double-quotes and is interpreted as JSON.
+* Only works if the key pointed at is an actual list.
+* Usually used to add administrator ids to `config.admins`
+* WARNING: This command is low-level and can scramble the configuration.
+
+`config remove <key> [<subkey> [...]] "<value>"`
+* Bot removes specified <value> from list at `config.<key>[.<subkey>...]`
+* `<value>` must be enclosed in double-quotes and is interpreted as JSON.
+* Only works if the key pointed at is an actual list.
+* Usually used to remove administrator ids from `config.admins`
+* WARNING: This command is low-level and can scramble the configuration.
+
+## Standard Commands
+
+These are commands that can be executed by any user, based on the default
+configuration in `config.commands_admin`.
+
+`help` 
+* Bot lists all supported commands.
+
+`ping` 
+* Bot replies with a `pong`.
+
+`echo <string anything>`
+* Bot replies with `<string anything>` as the message.
+* Spaces are allowed.
+
+`pushbulletapi <apikey>`
+* Sets the pushbullet api key for current user.
+* When user is @mentioned, bot will alert user through PushBullet.
+* If the push fails, bot will revert to normal hangouts-based alert.
+  
+`pushbullet <false|0|-1>`
+* Disables pushbullet integration for current user.
+
+`dnd`
+* Toggles global DND (Do Not Disturb) for current user.
+* Bot will message user whether DND is toggled on or off.
+* User will not receive alerts for @mentions.
+
+`whoami`
+* Bot replies with the full name and `chat_id` of the current user.
+
+`whereami`
+* Bot replies with the conversation name and `conversation id`.
+
+`mention <name fragment> [test]`
+* Alias for @<name fragment>.
+* Triggers the same mechanism for @mentions.
+* `<name fragment>` cannot contain spaces.
+* Adding optional second parameter `test` will show additional log information
+  inside the current conversation when attempting to alert users. This
+  can be used to check for any @mention errors with specific users.
+* Like @mentions, `<name fragment>` matches combined first name and last name.
+
+# Developers: Extending the Bot
+
+## Adding Hooks
+
+Hooks allow extension of bot functionality by adding modular packages which
+contain class methods. These methods are called on common chat events:
+* `init`, called when the hook is first loaded (one-time per run)
+* `on_chat_message`
+* `on_membership_change`
+* `on_rename`
+
+A fully-functional chat logger is provided as part of the repo, and can be 
+found in `hangoutsbot/hooks/chatlogger/writer.php`. The chat logger logs each
+chat the bot is operating in inside separate text files.
+
+Note that hooks can use `config.json` as a configuration source as well. In 
+the case of the example chat logger, the following configuration is necessary:
+```
+...,
+"hooks": [
+{
+  "module": "hooks.chatlogger.writer.logger",
+  "config": 
+  {
+    "storage_path": "<location to store chat log files>"
+  }
+}
+],
+...
+```
+
+## Adding your own (Web-Hook) Sinks
+
+Sinks allow the bot to receive external events in the form of JSON-based web
+requests. Presently the bot comes pre-packaged with several sinks:
+* GitLab-compatible web hook sink that post git pushes in a hangout
+* GitHub-compatible web hook sink that post git pushes in a hangout
+* demo implementation that works with `hangupsbot/tests/send.py`
+
+The sink/receiver is based on `BaseHTTPRequestHandler` - 
+`hangoutsbot/sinks/generic/simpledemo.py` is a very basic example.
+Some recommendations:
+* Always use SSL/TLS, a self-signed certificate is better than nothing
+* Setting `config.jsonrpc[].name` to "127.0.0.1" will start the sink but only
+  allow connections from localhost - use this to debug potentially unsafe sinks.
+
+### GitLab Users: Web Hook Sink/Receiver
+
+As noted previously, a GitLab-compatible sink is available for posting pushes into
+a hangout - these are the configuration instructions:
+
+#### configuring and starting the sink
+
+Important: Still under development, subject to change
+
+1. Generate a .pem file for SSL/TLS. It can be generated anywhere
+   accessible to the script. **This is a mandatory step** as the sink will refuse
+   to start without SSL/TLS. A self-signed certificate will do:
+   ```
+   openssl req -new -x509 -keyout server.pem -out server.pem -days 365 -nodes
+   ```
+
+2. Open the bot's `config.json` file and modify the `jsonrpc` key as follows:
+   ```
+   ...,
+   "jsonrpc": [
+     {
+       "module": "sinks.gitlab.simplepush.webhookReceiver",
+       "certfile": "<location of .pem file>",
+       "port": 8000
+     }
+   ],
+   ...
+   ```
+
+3. (Re-)start the bot
+
+#### configuring gitlab
+
+1. Determine which group hangout you want to receive GitLab events. In that 
+   hangout, execute `/bot whereami` - the bot will message the id for that 
+   specific hangout. Record the conversation id.
+2. In your GitLab instance, access Project Settings > Web Hooks
+3. Select which project events you want to be notified of and specify this URL:
+   ```
+   https://<your bot ip/domain name>:8000/<conversation id>/
+   ```
+   
+4. After entering the above, **Add Web Hook**, then test the hook.
 
 # Developers: TODO
 
 * easier setup/configuration
-* run as service
-* integration with gitlab
-* secure json-rpc
-* more specific @mentions
+* run as service ([cron](http://www.raspberrypi-spy.co.uk/2013/07/running-a-python-script-at-boot-using-cron/) works too!)
 * better debug output
 
 ---
