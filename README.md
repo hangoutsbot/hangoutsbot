@@ -9,7 +9,7 @@ This is a fork of https://github.com/xmikos/hangupsbot
 
 # Installation
 
-Install python 3.4 from source 
+Install python 3.4 from source
 
 ```
 wget https://www.python.org/ftp/python/3.4.2/Python-3.4.2.tgz
@@ -28,13 +28,13 @@ pip3 install -r requirements.txt
 
 # Users: Quickstart
 
-1. You need to open a 1-on-1 conversation with the bot first and say "hello" 
+1. You need to open a 1-on-1 conversation with the bot first and say "hello"
    (or anything!)
-2. Then give yourself a @mention in another HO where the bot is participating 
+2. Then give yourself a @mention in another HO where the bot is participating
    as a group member
 
-This procedure is necessary to let the bot know you're alive ;P 
-No seriously, the above steps are **required** to authorise two-way 
+This procedure is necessary to let the bot know you're alive ;P
+No seriously, the above steps are **required** to authorise two-way
 communication between the bot and your own account.
 
 # Admins: Quick Installation & Configuration
@@ -84,7 +84,7 @@ Most configuration directives can be specified **globally** or **per-conversatio
 
 `mentionquidproquo`
 * default: `true`
-* only users who have already initiated a 1-on-1 dialog with the bot will be 
+* only users who have already initiated a 1-on-1 dialog with the bot will be
   able to use @mentions and alert other users
 
 `mentionerrors`
@@ -97,15 +97,15 @@ Most configuration directives can be specified **globally** or **per-conversatio
 `mentionall`
 * default: `true`
 * enables/disables @all for mentions
-* when set to `false`, admins and chat ids listed in `mentionallwhitelist` 
+* when set to `false`, admins and chat ids listed in `mentionallwhitelist`
   can still use **@all**
-* users who are blocked from using @mentions (`mentionall == false`; 
-  not an admin; not whitelisted) will be notified privately if the bot 
+* users who are blocked from using @mentions (`mentionall == false`;
+  not an admin; not whitelisted) will be notified privately if the bot
   already has a 1-on-1 with them
 
 `mentionallwhitelist`
 * default: `[]`
-* allow listed chat_ids to use @all in mentions regardless of 
+* allow listed chat_ids to use @all in mentions regardless of
   global/per-conversation `mentionall` setting
 
 # Bot Commands
@@ -117,11 +117,11 @@ All bot commands must be prefixed by `/bot`, as in `/bot <command>`.
 These are commands that can only be executed by admins, based on the default
 configuration in `config.commands_admin`.
 
-`users` 
+`users`
 * Bot lists all users in current conversation.
 * List will contain user G+ profile link and email (if available).
 
-`user <string name>` 
+`user <string name>`
 * Bot searches for users whose names contain `<string name>` in internal user list.
 * Spaces are not allowed.
 * The bot will search all users in all participating conversations.
@@ -131,7 +131,7 @@ configuration in `config.commands_admin`.
 * Legend: `c` = commands enabled; `f` = forwarding enabled; `a` = auto-replies.
 
 `rename <string title>`
-* Bot renames the current conversation. 
+* Bot renames the current conversation.
 * Spaces in the title are allowed.
 * Works with both 1-on-1 or group conversations.
 * Note: 1-on-1 renames may not reflect their title properly on desktop clients.
@@ -174,10 +174,10 @@ configuration in `config.commands_admin`.
 These are commands that can be executed by any user, based on the default
 configuration in `config.commands_admin`.
 
-`help` 
+`help`
 * Bot lists all supported commands.
 
-`ping` 
+`ping`
 * Bot replies with a `pong`.
 
 `echo <string anything>`
@@ -188,7 +188,7 @@ configuration in `config.commands_admin`.
 * Sets the pushbullet api key for current user.
 * When user is @mentioned, bot will alert user through PushBullet.
 * If the push fails, bot will revert to normal hangouts-based alert.
-  
+
 `pushbullet <false|0|-1>`
 * Disables pushbullet integration for current user.
 
@@ -223,18 +223,18 @@ contain class methods. These methods are called on common chat events:
 * `on_membership_change`
 * `on_rename`
 
-A fully-functional chat logger is provided as part of the repo, and can be 
+A fully-functional chat logger is provided as part of the repo, and can be
 found in `hangoutsbot/hooks/chatlogger/writer.php`. The chat logger logs each
 chat the bot is operating in inside separate text files.
 
-Note that hooks can use `config.json` as a configuration source as well. In 
+Note that hooks can use `config.json` as a configuration source as well. In
 the case of the example chat logger, the following configuration is necessary:
 ```
 ...,
 "hooks": [
 {
   "module": "hooks.chatlogger.writer.logger",
-  "config": 
+  "config":
   {
     "storage_path": "<location to store chat log files>"
   }
@@ -251,7 +251,7 @@ requests. Presently the bot comes pre-packaged with several sinks:
 * GitHub-compatible web hook sink that post git pushes in a hangout
 * demo implementation that works with `hangupsbot/tests/send.py`
 
-The sink/receiver is based on `BaseHTTPRequestHandler` - 
+The sink/receiver is based on `BaseHTTPRequestHandler` -
 `hangoutsbot/sinks/generic/simpledemo.py` is a very basic example.
 Some recommendations:
 * Always use SSL/TLS, a self-signed certificate is better than nothing
@@ -291,15 +291,15 @@ Important: Still under development, subject to change
 
 #### configuring gitlab
 
-1. Determine which group hangout you want to receive GitLab events. In that 
-   hangout, execute `/bot whereami` - the bot will message the id for that 
+1. Determine which group hangout you want to receive GitLab events. In that
+   hangout, execute `/bot whereami` - the bot will message the id for that
    specific hangout. Record the conversation id.
 2. In your GitLab instance, access Project Settings > Web Hooks
 3. Select which project events you want to be notified of and specify this URL:
    ```
    https://<your bot ip/domain name>:8000/<conversation id>/
    ```
-   
+
 4. After entering the above, **Add Web Hook**, then test the hook.
 
 # Developers: TODO
@@ -342,7 +342,7 @@ Help
 ----
 
     usage: hangupsbot [-h] [-d] [--log LOG] [--cookies COOKIES] [--config CONFIG]
-    
+
     optional arguments:
       -h, --help         show this help message and exit
       -d, --debug        log detailed debugging messages (default: False)

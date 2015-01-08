@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+
+hangups
+purplex
+aiohttp
+
+*.*~
+/hangupsbot/__pycache__
+/build
+/scripts
