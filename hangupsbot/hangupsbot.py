@@ -5,14 +5,14 @@ import appdirs
 import hangups
 from threading import Thread
 
+from utils import simple_parse_to_segments, class_from_name
 from hangups.ui.utils import get_conv_name
 
 import config
 import handlers
 
-# rpc sink
-from sink2 import start_rpc_listener
-from utils import simple_parse_to_segments
+from sinks.listener import start_listening
+#import sinks.gitlab.simplepush
 
 __version__ = '1.1'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -83,18 +83,17 @@ class HangupsBot(object):
             self._client.on_connect.add_observer(self._on_connect)
             self._client.on_disconnect.add_observer(self._on_disconnect)
 
-            # Start asyncio event loop and connect to Hangouts 
-            # If we are forcefully disconnected, try connecting again
+            # Initialise hooks
+            self._load_hooks()
+
+            # Start asyncio event loop
             loop = asyncio.get_event_loop()
 
-            if "jsonrpc" in self.config.keys():
-                if self.config["jsonrpc"]:
-                    print("starting json rpc sink")
-                    # start up rpc listener in a separate thread
-                    t = Thread(target=start_rpc_listener, args=(self, loop))
-                    t.daemon = True
-                    t.start()
+            # Start threads for web sinks
+            self._start_sinks(loop)
 
+            # Connect to Hangouts
+            # If we are forcefully disconnected, try connecting again
             for retry in range(self._max_retries):
                 try:
                     loop.run_until_complete(self._client.connect())
@@ -116,11 +115,13 @@ class HangupsBot(object):
     def handle_chat_message(self, conv_event):
         """Handle chat messages"""
         event = ConversationEvent(self, conv_event)
+        self._execute_hook("on_chat_message", event)
         asyncio.async(self._message_handler.handle(event))
 
     def handle_membership_change(self, conv_event):
         """Handle conversation membership change"""
         event = ConversationEvent(self, conv_event)
+        self._execute_hook("on_membership_change", event)
 
         # Don't handle events caused by the bot himself
         if event.user.is_self:
@@ -157,6 +158,7 @@ class HangupsBot(object):
     def handle_rename(self, conv_event):
         """Handle conversation rename"""
         event = ConversationEvent(self, conv_event)
+        self._execute_hook("on_rename", event)
 
         # Don't handle events caused by the bot himself
         if event.user.is_self:
@@ -193,19 +195,29 @@ class HangupsBot(object):
 
     def list_conversations(self):
         """List all active conversations"""
-        convs = sorted(self._conv_list.get_all(),
-                       reverse=True, key=lambda c: c.last_modified)
+        try:
+            _all_conversations = self._conv_list.get_all()
+            convs = sorted(_all_conversations, reverse=True, key=lambda c: c.last_modified)
+            logging.info("list_conversations() returned {} conversation(s)".format(len(convs)))
+        except Exception as e:
+            logging.warning("list_conversations()", e)
+            raise
+
         return convs
+
+    def get_config_option(self, option):
+        try:
+            option_value = self.config[option]
+        except KeyError:
+            option_value = None
+        return option_value
 
     def get_config_suboption(self, conv_id, option):
         """Get config suboption for conversation (or global option if not defined)"""
         try:
             suboption = self.config['conversations'][conv_id][option]
         except KeyError:
-            try:
-                suboption = self.config[option]
-            except KeyError:
-                suboption = None
+            suboption = self.get_config_option(option)
         return suboption
 
     def print_conversations(self):
@@ -225,6 +237,93 @@ class HangupsBot(object):
                         conversation = c
                         break
         return conversation
+
+    def _start_sinks(self, shared_loop):
+        jsonrpc_sinks = self.get_config_option('jsonrpc')
+        itemNo = -1
+        threads = []
+
+        if isinstance(jsonrpc_sinks, list):
+            for sinkConfig in jsonrpc_sinks:
+                itemNo += 1
+
+                try:
+                    module = sinkConfig["module"].split(".")
+                    if len(module) < 4:
+                        print("config.jsonrpc[{}].module should have at least 4 packages {}".format(itemNo, module))
+                        continue
+                    module_name = ".".join(module[0:-1])
+                    class_name = ".".join(module[-1:]) 
+                    if not module_name or not class_name:
+                        print("config.jsonrpc[{}].module must be a valid package name".format(itemNo))
+                        continue
+
+                    certfile = sinkConfig["certfile"]
+                    if not certfile:
+                        print("config.jsonrpc[{}].certfile must be configured".format(itemNo))
+                        continue
+
+                    name = sinkConfig["name"]
+                    port = sinkConfig["port"]
+                except KeyError as e:
+                    print("config.jsonrpc[{}] missing keyword".format(itemNo), e)
+                    continue
+
+                # start up rpc listener in a separate thread
+                print("thread starting: {}".format(module))
+                t = Thread(target=start_listening, args=(
+                  self, 
+                  shared_loop, 
+                  name,
+                  port, 
+                  certfile, 
+                  class_from_name(module_name, class_name)))
+
+                t.daemon = True
+                t.start()
+
+                threads.append(t)
+
+        message = "{} sink thread(s) started".format(len(threads))
+        logging.info(message)
+        print(message)
+
+    def _load_hooks(self):
+        hook_packages = self.get_config_option('hooks')
+        itemNo = -1
+        self._hooks = []
+
+        if isinstance(hook_packages, list):
+            for hook_config in hook_packages:
+                try:
+                    module = hook_config["module"].split(".")
+                    if len(module) < 4:
+                        print("config.hooks[{}].module should have at least 4 packages {}".format(itemNo, module))
+                        continue
+                    module_name = ".".join(module[0:-1])
+                    class_name = ".".join(module[-1:]) 
+                    if not module_name or not class_name:
+                        print("config.hooks[{}].module must be a valid package name".format(itemNo))
+                        continue
+                except KeyError as e:
+                    print("config.hooks[{}] missing keyword".format(itemNo), e)
+                    continue
+
+                theClass = class_from_name(module_name, class_name)
+                theClass._bot = self
+                if "config" in hook_config:
+                    # allow separate configuration file to be loaded
+                    theClass._config = hook_config["config"]
+
+                if theClass.init():
+                    print("hook inited: {}".format(module))
+                    self._hooks.append(theClass)
+                else:
+                    print("hook failed to initialise")
+
+        message = "{} hook(s) loaded".format(len(self._hooks))
+        logging.info(message)
+        print(message)
 
     def _on_message_sent(self, future):
         """Handle showing an error if a message fails to send"""
@@ -252,12 +351,28 @@ class HangupsBot(object):
 
     def _on_event(self, conv_event):
         """Handle conversation events"""
+
+        self._execute_hook("on_event", conv_event)
+
         if isinstance(conv_event, hangups.ChatMessageEvent):
             self.handle_chat_message(conv_event)
+
         elif isinstance(conv_event, hangups.MembershipChangeEvent):
             self.handle_membership_change(conv_event)
+
         elif isinstance(conv_event, hangups.RenameEvent):
             self.handle_rename(conv_event)
+
+    def _execute_hook(self, funcname, parameters=None):
+        for hook in self._hooks:
+            method = getattr(hook, funcname, None)
+            if method:
+                try:
+                    method(parameters)
+                except Exception as e:
+                    message = "_execute_hooks()", hook, e
+                    logging.warning(message)
+                    print(message)
 
     def _on_disconnect(self):
         """Handle disconnecting"""
@@ -312,10 +427,12 @@ def main():
             sys.exit('Failed to copy default config file: {}'.format(e))
 
     # Configure logging
-    log_level = logging.DEBUG if args.debug else logging.WARNING
+    log_level = logging.DEBUG if args.debug else logging.INFO
     logging.basicConfig(filename=args.log, level=log_level, format=LOG_FORMAT)
     # asyncio's debugging logs are VERY noisy, so adjust the log level
     logging.getLogger('asyncio').setLevel(logging.WARNING)
+    # hangups log is quite verbose too, suppress so we can debug the bot
+    logging.getLogger('hangups').setLevel(logging.WARNING)
 
     # initialise the bot
     bot = HangupsBot(args.cookies, args.config)
