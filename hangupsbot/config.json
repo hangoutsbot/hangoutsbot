@@ -76,15 +76,15 @@
   "hooks": [
     {
       "module": "hooks.chatlogger.writer.logger",
-      "config": 
+      "config":
       {
-        "storage_path": false
+        "storage_path": true
       }
     }
   ],
-  "mentionerrors": false,
+  "mentionerrors": true,
   "mentionall":true,
   "mentionallwhitelist": [],
-  "mentionquidproquo": true,
+  "mentionquidproquo": false,
   "donotdisturb": []
 }

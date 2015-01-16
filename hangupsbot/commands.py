@@ -286,14 +286,14 @@ def mention(bot, event, *args):
             logging.warning("quidproquo: user {} ({}) has no 1-on-1".format(event.user.full_name, event.user.id_.chat_id))
             if noisy_mention_test or bot.get_config_suboption(event.conv_id, 'mentionerrors'):
                 bot.send_message_parsed(
-                    event.conv, 
+                    event.conv,
                     "<b>{}</b> cannot @mention anyone until they say something to me first.".format(
                         event.user.full_name))
             return
 
     """track mention statistics"""
-    user_tracking = { 
-      "mentioned":[], 
+    user_tracking = {
+      "mentioned":[],
       "ignored":[],
       "failed": {
         "pushbullet": [],
@@ -326,12 +326,12 @@ def mention(bot, event, *args):
                     logging.warning("@all in {}: user {} ({}) blocked".format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
                     if conv_1on1_initiator:
                         bot.send_message_parsed(
-                            conv_1on1_initiator, 
+                            conv_1on1_initiator,
                             "You are not allowed to use @all in <b>{}</b>".format(
                                 conversation_name))
                     if noisy_mention_test or bot.get_config_suboption(event.conv_id, 'mentionerrors'):
                         bot.send_message_parsed(
-                            event.conv, 
+                            event.conv,
                             "<b>{}</b> blocked from using <i>@all</i>".format(
                                 event.user.full_name))
                     return
@@ -377,8 +377,8 @@ def mention(bot, event, *args):
                         pb = PushBullet(pushbullet_config["api"])
                         success, push = pb.push_note(
                             "{} mentioned you in {}".format(
-                                event.user.full_name, 
-                                conversation_name, 
+                                event.user.full_name,
+                                conversation_name,
                                 event.text))
                         if success:
                             user_tracking["mentioned"].append(u.full_name)
@@ -393,10 +393,10 @@ def mention(bot, event, *args):
                 conv_1on1 = bot.get_1on1_conversation(u.id_.chat_id)
                 if conv_1on1:
                     bot.send_message_parsed(
-                        conv_1on1, 
+                        conv_1on1,
                         "<b>{}</b> @mentioned you in <i>{}</i>:<br />{}".format(
-                            event.user.full_name, 
-                            conversation_name, 
+                            event.user.full_name,
+                            conversation_name,
                             event.text))
                     user_tracking["mentioned"].append(u.full_name)
                     logging.info("{} ({}) alerted via 1on1 ({})".format(u.full_name, u.id_.chat_id, conv_1on1.id_))
@@ -404,7 +404,7 @@ def mention(bot, event, *args):
                     user_tracking["failed"]["one2one"].append(u.full_name)
                     if bot.get_config_suboption(event.conv_id, 'mentionerrors'):
                         bot.send_message_parsed(
-                            event.conv, 
+                            event.conv,
                             "@mention didn't work for <b>{}</b>. User must say something to me first.".format(
                                 u.full_name))
                     logging.warning("user {} ({}) could not be alerted via 1on1".format(u.full_name, u.id_.chat_id))
@@ -439,17 +439,17 @@ def pushbulletapi(bot, event, *args):
         if value.lower() in ('false', '0', '-1'):
             value = None
             bot.send_message_parsed(
-                event.conv, 
+                event.conv,
                 "deactivating pushbullet integration")
         else:
             bot.send_message_parsed(
-                event.conv, 
+                event.conv,
                 "setting pushbullet api key")
         bot.config.set_by_path(["pushbullet", event.user.id_.chat_id], { "api": value })
         bot.config.save()
     else:
         bot.send_message_parsed(
-            event.conv, 
+            event.conv,
             "pushbullet configuration not changed")
 
 
@@ -463,12 +463,12 @@ def dnd(bot, event, *args):
     if not initiator_chat_id in dnd_list:
         dnd_list.append(initiator_chat_id)
         bot.send_message_parsed(
-            event.conv, 
+            event.conv,
             "global DND toggled ON for {}".format(event.user.full_name))
     else:
         dnd_list.remove(initiator_chat_id)
         bot.send_message_parsed(
-            event.conv, 
+            event.conv,
             "global DND toggled OFF for {}".format(event.user.full_name))
 
     bot.config.set_by_path(["donotdisturb"], dnd_list)
@@ -483,7 +483,64 @@ def whoami(bot, event, *args):
 def whereami(bot, event, *args):
     """whereami: get conversation id"""
     bot.send_message_parsed(
-      event.conv, 
+      event.conv,
       "You are at <b>{}</b>, conv_id = <i>{}</i>".format(
-        get_conv_name(event.conv, truncate=True), 
+        get_conv_name(event.conv, truncate=True),
         event.conv.id_))
+
+@command.register
+def lookup(bot, event, keyword, *args):
+    """find keywords in a specified spreadsheet"""
+    spreadsheet_url = 'https://docs.google.com/spreadsheets/d/1Sbi7KpTazK3aYL9vPgRzRwwJk1qg_e0pGiryWNfoI0U/pubhtml?gid=1450758948&single=true'
+
+    segments = [hangups.ChatMessageSegment('Results for keyword "{}":'.format(keyword),
+                                           is_bold=True),
+                hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
+
+    print("User has requested to lookup {}".format(keyword))
+    import urllib.request
+    html = urllib.request.urlopen(spreadsheet_url).read()
+
+    keyword_lower = keyword.strip().lower()
+
+    data = []
+
+    counter = 1
+
+    # Adapted from http://stackoverflow.com/questions/23377533/python-beautifulsoup-parsing-table
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(str(html))
+    table = soup.find('table', attrs={'class':'waffle'})
+    table_body = table.find('tbody')
+
+    rows = table_body.find_all('tr')
+
+    for row in rows:
+        col = row.find_all('td')
+        cols = [ele.text.strip() for ele in col]
+        data.append([ele for ele in cols if ele]) # Get rid of empty values
+
+    for row in data:
+        for cell in row:
+            testcell = str(cell).lower().strip()
+            if (keyword_lower in testcell) and counter <= 5:
+                segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+                segments.append(hangups.ChatMessageSegment('Agent {}: '.format(counter),
+                                                       is_bold=True))
+                for datapoint in row:
+                    segments.append(hangups.ChatMessageSegment(datapoint))
+                    segments.append(hangups.ChatMessageSegment(' | '))
+                segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+                counter += 1
+            elif (keyword_lower in testcell) and counter > 5:
+                counter += 1
+
+    if counter > 6:
+        segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+        segments.append(hangups.ChatMessageSegment('{} agents found. Only returning first 5.'.format(counter-1), is_bold=True))
+    if counter == 1:
+        segments.append(hangups.ChatMessageSegment('No match found', is_bold=True))
+
+    segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+    bot.send_message_segments(event.conv, segments)
