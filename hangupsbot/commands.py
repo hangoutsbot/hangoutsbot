@@ -530,7 +530,7 @@ def lookup(bot, event, keyword, *args):
                                                        is_bold=True))
                 for datapoint in row:
                     segments.append(hangups.ChatMessageSegment(datapoint))
-                    segments.append(hangups.ChatMessageSegment(' | '), is_bold=True)
+                    segments.append(hangups.ChatMessageSegment(' | ', is_bold=True))
                 segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
                 counter += 1
             elif (keyword_lower in testcell) and counter > 5:
