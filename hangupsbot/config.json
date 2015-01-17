@@ -78,7 +78,7 @@
       "module": "hooks.chatlogger.writer.logger",
       "config":
       {
-        "storage_path": true
+        "storage_path": false
       }
     }
   ],
