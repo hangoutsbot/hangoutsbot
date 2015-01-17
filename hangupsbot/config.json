@@ -29,6 +29,9 @@
     "quit",
     "config"
   ],
+  "broadcasting_enabled": true,
+  "push_room": ["UgwvBXqU2c-V405IUtF4AaABAQ"],
+  "broadcast_room": ["UgzGaB_qhlTjAEOnvaV4AaABAQ"],
   "commands_enabled": true,
   "conversations": {
     "CONV1_ID": {

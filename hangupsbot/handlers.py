@@ -2,8 +2,12 @@ import logging, shlex, unicodedata, asyncio
 
 import hangups
 
+import re
+
 from commands import command
 from random import randint
+
+from hangups.ui.utils import get_conv_name
 
 class MessageHandler(object):
     """Handle Hangups conversation events"""
@@ -11,6 +15,7 @@ class MessageHandler(object):
     def __init__(self, bot, bot_command='/bot'):
         self.bot = bot
         self.bot_command = bot_command
+        self.last_event_id = 'none' # recorded last event to avoid re-broadcasting
 
     @staticmethod
     def word_in_text(word, text):
@@ -41,6 +46,9 @@ class MessageHandler(object):
 
                 # Forward messages
                 yield from self.handle_forward(event)
+
+                # Broadcast messages
+                yield from self.handle_broadcast(event)
 
                 # Send automatic replies
                 yield from self.handle_autoreply(event)
@@ -75,6 +83,43 @@ class MessageHandler(object):
 
         # Run command
         yield from command.run(self.bot, event, *line_args[1:])
+
+    @asyncio.coroutine
+    def handle_broadcast(self, event):
+        """Handle message broadcasting"""
+        if not self.bot.get_config_option('syncing_enabled'):
+            return
+        sync_room_list = self.bot.get_config_option('sync_rooms')
+
+        if self.last_event_id == event.conv_event.id_:
+            return # This event has already been broadcasted
+        self.last_event_id = event.conv_event.id_
+
+        if event.conv_id in sync_room_list:
+            print('>> message from synced room');
+            link = 'https://plus.google.com/u/0/{}/about'.format(event.user_id.chat_id)
+            segments = [hangups.ChatMessageSegment(event.user.full_name, hangups.SegmentType.LINK,
+                                                   link_target=link, is_bold=True),
+                        hangups.ChatMessageSegment(': ', is_bold=True)]
+            segments.extend(event.conv_event.segments)
+
+            # Append links to attachments (G+ photos) to forwarded message
+            if event.conv_event.attachments:
+                segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+                segments.extend([hangups.ChatMessageSegment(link, hangups.SegmentType.LINK, link_target=link)
+                                 for link in event.conv_event.attachments])
+
+            for dst in sync_room_list:
+                print('>> ' + dst);
+                try:
+                    conv = self.bot._conv_list.get(dst)
+                except KeyError:
+                    continue
+                if dst == event.conv_id:
+                    continue
+                else:
+                    self.bot.send_message_segments(conv, segments)
+
 
     @asyncio.coroutine
     def handle_forward(self, event):
