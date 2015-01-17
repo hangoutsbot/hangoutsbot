@@ -560,3 +560,15 @@ def lookup(bot, event, *args):
 
     segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
     bot.send_message_segments(event.conv, segments)
+
+
+@command.register
+def setnickname(bot, event, nickname, *args):
+    """allow users to set a nickname for sync relay
+        /bot setnickname <nickname chosen>"""
+
+    bot.send_message_parsed(
+        event.conv,
+        "setting nickname to '{}'".format(nickname))
+    bot.config.set_by_path(["nickname", event.user.id_.chat_id], { "ign": nickname })
+    bot.config.save()

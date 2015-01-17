@@ -53,6 +53,11 @@
       "api": null
     }
   },
+  "nickname": {
+    "109883513693796164843": {
+      "ign": "nylonee"
+    }
+  },
   "jsonrpc": [
     {
       "module": "sinks.generic.simpledemo.webhookReceiver",

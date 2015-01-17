@@ -98,7 +98,13 @@ class MessageHandler(object):
         if event.conv_id in sync_room_list:
             print('>> message from synced room');
             link = 'https://plus.google.com/u/0/{}/about'.format(event.user_id.chat_id)
-            segments = [hangups.ChatMessageSegment(event.user.full_name, hangups.SegmentType.LINK,
+
+            if event.user_id.chat_id in self.bot.get_config_option('nickname'):
+                fullname = '{0} ({1})'.format(event.user.full_name
+                    , self.bot.get_config_option('nickname')[event.user_id.chat_id]['ign'])
+
+
+            segments = [hangups.ChatMessageSegment('{0}'.format(fullname), hangups.SegmentType.LINK,
                                                    link_target=link, is_bold=True),
                         hangups.ChatMessageSegment(': ', is_bold=True)]
             segments.extend(event.conv_event.segments)
