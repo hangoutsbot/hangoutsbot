@@ -108,6 +108,14 @@ Most configuration directives can be specified **globally** or **per-conversatio
 * allow listed chat_ids to use @all in mentions regardless of
   global/per-conversation `mentionall` setting
 
+# Syncing Chats
+`syncing_enabled`
+* default: false
+* If enabled, will look for synced rooms and start relaying chats across the rooms
+
+`sync_rooms`
+* a list of group ChatID's that the bot will attempt to keep synced
+
 # Bot Commands
 
 All bot commands must be prefixed by `/bot`, as in `/bot <command>`.
@@ -211,6 +219,11 @@ configuration in `config.commands_admin`.
   inside the current conversation when attempting to alert users. This
   can be used to check for any @mention errors with specific users.
 * Like @mentions, `<name fragment>` matches combined first name and last name.
+
+`lookup <keyword>`
+* Used in conjunction with a published Google Spreadsheet
+* Need to enable in config: `spreadsheet_enabled`, `spreadsheet_url` and `spreadsheet_table_class`
+* Will look up each row of a spreadsheet and if the keyword is found will return the whole row
 
 # Developers: Extending the Bot
 
@@ -322,6 +335,7 @@ Requirements
 - hangups (https://github.com/tdryer/hangups)
 - appdirs (https://github.com/ActiveState/appdirs)
 - asyncio (https://pypi.python.org/pypi/asyncio) for Python < 3.4
+- BeautifulSoup4
 
 Usage
 -----
