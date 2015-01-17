@@ -519,7 +519,7 @@ def lookup(bot, event, keyword, *args):
     for row in rows:
         col = row.find_all('td')
         cols = [ele.text.strip() for ele in col]
-        data.append([ele for ele in cols if ele]) # Get rid of empty values
+        #data.append([ele for ele in cols if ele]) # Get rid of empty values (Not needed)
 
     for row in data:
         for cell in row:
