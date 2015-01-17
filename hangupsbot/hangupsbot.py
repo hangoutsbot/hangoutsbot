@@ -23,6 +23,7 @@ class ConversationEvent(object):
         self.conv_event = conv_event
         self.conv_id = conv_event.conversation_id
         self.conv = bot._conv_list.get(self.conv_id)
+        self.event_id = conv_event.id_
         self.user_id = conv_event.user_id
         self.user = self.conv.get_user(self.user_id)
         self.timestamp = conv_event.timestamp
@@ -32,6 +33,7 @@ class ConversationEvent(object):
         """Print informations about conversation event"""
         print('Conversation ID: {}'.format(self.conv_id))
         print('Conversation name: {}'.format(get_conv_name(self.conv, truncate=True)))
+        print('Event ID: {}'.format(self.event_id))
         print('User ID: {}'.format(self.user_id))
         print('User name: {}'.format(self.user.full_name))
         print('Timestamp: {}'.format(self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
@@ -253,7 +255,7 @@ class HangupsBot(object):
                         print("config.jsonrpc[{}].module should have at least 4 packages {}".format(itemNo, module))
                         continue
                     module_name = ".".join(module[0:-1])
-                    class_name = ".".join(module[-1:]) 
+                    class_name = ".".join(module[-1:])
                     if not module_name or not class_name:
                         print("config.jsonrpc[{}].module must be a valid package name".format(itemNo))
                         continue
@@ -272,11 +274,11 @@ class HangupsBot(object):
                 # start up rpc listener in a separate thread
                 print("thread starting: {}".format(module))
                 t = Thread(target=start_listening, args=(
-                  self, 
-                  shared_loop, 
+                  self,
+                  shared_loop,
                   name,
-                  port, 
-                  certfile, 
+                  port,
+                  certfile,
                   class_from_name(module_name, class_name)))
 
                 t.daemon = True
@@ -301,7 +303,7 @@ class HangupsBot(object):
                         print("config.hooks[{}].module should have at least 4 packages {}".format(itemNo, module))
                         continue
                     module_name = ".".join(module[0:-1])
-                    class_name = ".".join(module[-1:]) 
+                    class_name = ".".join(module[-1:])
                     if not module_name or not class_name:
                         print("config.hooks[{}].module must be a valid package name".format(itemNo))
                         continue
@@ -437,7 +439,7 @@ def main():
     # initialise the bot
     bot = HangupsBot(args.cookies, args.config)
     bot.run()
-   
+
 
 if __name__ == '__main__':
     main()
