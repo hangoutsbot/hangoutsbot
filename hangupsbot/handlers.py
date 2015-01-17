@@ -115,9 +115,7 @@ class MessageHandler(object):
                     conv = self.bot._conv_list.get(dst)
                 except KeyError:
                     continue
-                if dst == event.conv_id:
-                    continue
-                else:
+                if not dst == event.conv_id:
                     self.bot.send_message_segments(conv, segments)
 
 
