@@ -3,7 +3,7 @@ import logging, shlex, unicodedata, asyncio
 import hangups
 
 from commands import command
-
+from random import randint
 
 class MessageHandler(object):
     """Handle Hangups conversation events"""
@@ -44,6 +44,9 @@ class MessageHandler(object):
 
                 # Send automatic replies
                 yield from self.handle_autoreply(event)
+
+                # respond to /me events
+                yield from self.handle_me_action(event)
 
     @asyncio.coroutine
     def handle_command(self, event):
@@ -126,4 +129,15 @@ class MessageHandler(object):
                 # strip all special characters
                 cleaned_name = ''.join(e for e in word if e.isalnum())
                 yield from command.run(self.bot, event, *["mention", cleaned_name])
- 
+
+    @asyncio.coroutine
+    def handle_me_action(self, event):
+        """handle /me"""
+        if event.text.startswith('/me'):
+            if event.text.find("roll dice") > -1 or event.text.find("rolls dice") > -1 or event.text.find("rolls a dice") > -1 or event.text.find("rolled a dice") > -1:
+                self.bot.send_message_parsed(event.conv, "<i>{} rolled <b>{}</b></i>".format(event.user.full_name, randint(1,6)))
+            elif event.text.find("flips a coin") > -1 or event.text.find("flips coin") > -1 or event.text.find("flip coin") > -1 or event.text.find("flipped a coin") > -1:
+                if randint(1,2) == 1:
+                    self.bot.send_message_parsed(event.conv, "<i>{}, the coin turned up <b>heads</b></i>".format(event.user.full_name))
+                else:
+                    self.bot.send_message_parsed(event.conv, "<i>{}, the coin turned up <b>tails</b></i>".format(event.user.full_name))
