@@ -489,10 +489,12 @@ def whereami(bot, event, *args):
         event.conv.id_))
 
 @command.register
-def lookup(bot, event, keyword, *args):
+def lookup(bot, event, *args):
     """find keywords in a specified spreadsheet"""
     spreadsheet_url = 'https://docs.google.com/spreadsheets/d/1Sbi7KpTazK3aYL9vPgRzRwwJk1qg_e0pGiryWNfoI0U/pubhtml?gid=1450758948&single=true'
     table_class = 'waffle' # Name of table class to search
+
+    keyword = ' '.join(args)
 
     segments = [hangups.ChatMessageSegment('Results for keyword "{}":'.format(keyword),
                                            is_bold=True),
@@ -526,7 +528,6 @@ def lookup(bot, event, keyword, *args):
         for cell in row:
             testcell = str(cell).lower().strip()
             if (keyword_lower in testcell) and counter < counter_max:
-                print("Keyword found!")
                 segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
                 segments.append(hangups.ChatMessageSegment('Row {}: '.format(counter+1),
                                                        is_bold=True))
