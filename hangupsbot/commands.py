@@ -491,8 +491,21 @@ def whereami(bot, event, *args):
 @command.register
 def lookup(bot, event, *args):
     """find keywords in a specified spreadsheet"""
-    spreadsheet_url = 'https://docs.google.com/spreadsheets/d/1Sbi7KpTazK3aYL9vPgRzRwwJk1qg_e0pGiryWNfoI0U/pubhtml?gid=1450758948&single=true'
-    table_class = 'waffle' # Name of table class to search
+
+    if not bot.get_config_option('spreadsheet_enabled'):
+        bot.send_message_parsed(event.conv, "Spreadsheet function disabled")
+        return
+
+    if not bot.get_config_option('spreadsheet_url'):
+        bot.send_message_parsed(event.conv, "Spreadsheet URL not set")
+        return
+
+    if not bot.get_config_option('spreadsheet_table_class'):
+        bot.send_message_parsed(event.conv, "Spreadsheet table identifier not set")
+        return
+
+    spreadsheet_url = bot.get_config_option('spreadsheet_url')
+    table_class = bot.get_config_option('spreadsheet_table_class') # Name of table class to search
 
     keyword = ' '.join(args)
 
