@@ -1,12 +1,7 @@
 {
   "admins": [
     "109883513693796164843",
-    "104821221116551390464",
-    "105654368005891080602",
-    "111522003007603813028",
-    "102230462600125685676",
-    "102391307109072910289",
-    "108851277464971981957"
+    "104821221116551390464"
   ],
   "autoreplies": [
     [
@@ -29,9 +24,11 @@
     "quit",
     "config"
   ],
-  "broadcasting_enabled": true,
-  "push_room": ["UgwvBXqU2c-V405IUtF4AaABAQ"],
-  "broadcast_room": ["UgzGaB_qhlTjAEOnvaV4AaABAQ"],
+  "spreadsheet_enabled": false,
+  "spreadsheet_url": "INSERT_PUBLIC_URL_OF_GSHEET_HERE",
+  "spreadsheet_table_class": "INSERT_NAME_OF_GSHEET_CLASS",
+  "syncing_enabled": false,
+  "sync_rooms": ["INSERT_CHAT_ID_OF_ROOMS_TO_SYNC"],
   "commands_enabled": true,
   "conversations": {
     "CONV1_ID": {
