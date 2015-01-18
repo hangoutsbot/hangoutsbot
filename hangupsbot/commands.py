@@ -1,4 +1,4 @@
-import sys, json, random, asyncio, logging
+import sys, json, random, asyncio, logging, os
 
 import hangups
 from hangups.ui.utils import get_conv_name
@@ -545,9 +545,10 @@ def lookup(bot, event, *args):
         data.append([ele for ele in cols if ele]) # Get rid of empty values
 
     for row in data:
+        matchfound = 0
         for cell in row:
             testcell = str(cell).lower().strip()
-            if (keyword_lower in testcell) and counter < counter_max:
+            if (keyword_lower in testcell) and counter < counter_max and matchfound == 0:
                 segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
                 segments.append(hangups.ChatMessageSegment('Row {}: '.format(counter+1),
                                                        is_bold=True))
@@ -556,6 +557,7 @@ def lookup(bot, event, *args):
                     segments.append(hangups.ChatMessageSegment(' | ', is_bold=True))
                 segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
                 counter += 1
+                matchfound = 1
             elif (keyword_lower in testcell) and counter >= counter_max:
                 counter += 1
 
