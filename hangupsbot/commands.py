@@ -574,7 +574,7 @@ def lookup(bot, event, *args):
 @command.register
 def setnickname(bot, event, nickname, *args):
     """allow users to set a nickname for sync relay
-        /bot setnickname <nickname chosen>"""
+        /bot setnickname <nickname>"""
 
     bot.send_message_parsed(
         event.conv,
