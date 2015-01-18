@@ -100,7 +100,6 @@ class MessageHandler(object):
             link = 'https://plus.google.com/u/0/{}/about'.format(event.user_id.chat_id)
 
             if event.user_id.chat_id in self.bot.get_config_option('nickname'):
-                print("nickname detected")
                 fullname = '{0} ({1})'.format(event.user.full_name
                     , self.bot.get_config_option('nickname')[event.user_id.chat_id]['ign'])
             else:

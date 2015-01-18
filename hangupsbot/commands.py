@@ -477,7 +477,14 @@ def dnd(bot, event, *args):
 @command.register
 def whoami(bot, event, *args):
     """whoami: get user id"""
-    bot.send_message_parsed(event.conv, "<b>{}</b>, chat_id = <i>{}</i>".format(event.user.full_name, event.user.id_.chat_id))
+
+    if event.user_id.chat_id in bot.get_config_option('nickname'):
+        fullname = '{0} ({1})'.format(event.user.full_name
+            , bot.get_config_option('nickname')[event.user_id.chat_id]['ign'])
+    else:
+        fullname = event.user.full_name
+
+    bot.send_message_parsed(event.conv, "<b>{}</b>, chat_id = <i>{}</i>".format(fullname, event.user.id_.chat_id))
 
 @command.register
 def whereami(bot, event, *args):
