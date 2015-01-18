@@ -15,7 +15,7 @@ class MessageHandler(object):
     def __init__(self, bot, bot_command='/bot'):
         self.bot = bot
         self.bot_command = bot_command
-        self.last_event_id = 'none' # recorded last event to avoid re-broadcasting
+        self.last_event_id = 'none' # recorded last event to avoid re-syncing
 
     @staticmethod
     def word_in_text(word, text):
@@ -47,8 +47,8 @@ class MessageHandler(object):
                 # Forward messages
                 yield from self.handle_forward(event)
 
-                # Broadcast messages
-                yield from self.handle_broadcast(event)
+                # Sync messages
+                yield from self.handle_syncing(event)
 
                 # Send automatic replies
                 yield from self.handle_autoreply(event)
@@ -85,14 +85,14 @@ class MessageHandler(object):
         yield from command.run(self.bot, event, *line_args[1:])
 
     @asyncio.coroutine
-    def handle_broadcast(self, event):
-        """Handle message broadcasting"""
+    def handle_syncing(self, event):
+        """Handle message syncing"""
         if not self.bot.get_config_option('syncing_enabled'):
             return
         sync_room_list = self.bot.get_config_option('sync_rooms')
 
         if self.last_event_id == event.conv_event.id_:
-            return # This event has already been broadcasted
+            return # This event has already been synced
         self.last_event_id = event.conv_event.id_
 
         if event.conv_id in sync_room_list:
