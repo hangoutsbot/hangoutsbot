@@ -116,6 +116,28 @@ Most configuration directives can be specified **globally** or **per-conversatio
 `sync_rooms`
 * a list of group ChatID's that the bot will attempt to keep synced
 
+# User Triggers (`/me` prefix)
+
+Special `/me` triggers are available to any user.
+All these must be prefixed by `/me`, as in `/me <trigger>`.
+
+`roll[s] [a] dice`
+* Bot will (virtually) roll a dice and return the number **1-6**
+
+`flip[s] [a] coin`
+* Bot will (virtually) flip a coin and return **heads** or **tails**.
+
+`draw[s] [a|an] <thing>`
+* Bot will get a random <thing> from a box.
+* The box must be "prepared" first (see Bot Commands below).
+* Used for user lotteries
+* `draw`-ing without a `<thing>` will always fetch an item from the
+  **default** lottery/box (if its prepared). To draw from another box,
+  `<thing>` must be supplied.
+* Bot keeps tracks of people who have already participated in the draw.
+  * Trying to draw again will make the bot remind you of your previous results.
+  * WARNING: Records are not persisted between bot restarts!
+
 # Bot Commands
 
 All bot commands must be prefixed by `/bot`, as in `/bot <command>`.
@@ -224,6 +246,19 @@ configuration in `config.commands_admin`.
 * Used in conjunction with a published Google Spreadsheet
 * Need to enable in config: `spreadsheet_enabled`, `spreadsheet_url` and `spreadsheet_table_class`
 * Will look up each row of a spreadsheet and if the keyword is found will return the whole row
+
+`prepare [<things>] <listdef>`
+* Bot prepares a list of `<things>` and puts them in a virtual box for lottery
+  drawings.
+  * If `<things>` is not supplied, then "default" will be used.
+  * WARNING: Records are not persisted between bot restarts!
+* `<listdef>` can be:
+  * comma-separated list of values (no spaces!) e.g. `abc,ghi,xyz`
+  * range of numbers e.g. 50-100
+  * "numberTokens" e.g. 9long1short
+* Each user must issue `/me draws` (or similar) to get a random item from the
+  box. Note: `/me draw` always draws from "default" if available; to draw from
+  another box, `/me draw [a|an] <thing>`
 
 # Developers: Extending the Bot
 
