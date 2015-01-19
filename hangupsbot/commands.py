@@ -578,8 +578,9 @@ def lookup(bot, event, *args):
 def setnickname(bot, event, *args):
     """allow users to set a nickname for sync relay
         /bot setnickname <nickname>"""
+    truncatelength = 16 # What should the maximum length of the nickname be?
 
-    nickname = ' '.join(args).strip()[0:12]
+    nickname = ' '.join(args).strip()[0:truncatelength]
     if(nickname == ''):
         bot.send_message_parsed(event.conv,"Removing nickname")
     else:
