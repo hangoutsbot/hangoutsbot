@@ -16,6 +16,7 @@ class MessageHandler(object):
         self.bot = bot
         self.bot_command = bot_command
         self.last_event_id = 'none' # recorded last event to avoid re-syncing
+        self.last_user_id = 'none' # recorded last user to allow message compression
 
     @staticmethod
     def word_in_text(word, text):
@@ -99,9 +100,11 @@ class MessageHandler(object):
             print('>> message from synced room');
             link = 'https://plus.google.com/u/0/{}/about'.format(event.user_id.chat_id)
 
-            if event.user_id.chat_id in self.bot.get_config_option('nickname'):
+            if event.user_id.chat_id in self.bot.get_config_option('nickname') and self.last_user_id not in event.user_id.chat_id:
                 fullname = '{0} ({1})'.format(event.user.full_name
                     , self.bot.get_config_option('nickname')[event.user_id.chat_id]['ign'])
+            elif self.last_user_id in event.user_id.chat_id:
+                fullname = '>>'
             else:
                 fullname = event.user.full_name
 
@@ -124,6 +127,7 @@ class MessageHandler(object):
                     continue
                 if not dst == event.conv_id:
                     self.bot.send_message_segments(conv, segments)
+                    self.last_user_id = event.user_id.chat_id
 
 
     @asyncio.coroutine
