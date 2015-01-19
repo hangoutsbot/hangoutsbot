@@ -271,6 +271,12 @@ def mention(bot, event, *args):
         logging.warning("@mention from {} ({}) too short (== '{}')".format(event.user.full_name, event.user.id_.chat_id, username))
         return
 
+    """check if synced room"""
+    if event.conv_id in bot.get_config_option('sync_rooms'):
+        syncout = True
+    else:
+        syncout = False
+
     """
     /bot mention <fragment> test
     """
