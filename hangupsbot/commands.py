@@ -504,7 +504,7 @@ def prepare(bot, event, *args):
         /bot prepare 1-3
             "default" = [1,2,3]
 
-        note: see /me draw for user drawings
+        note: see /me draw for user lottery/drawings
 
         XXX: generated lists are NOT saved on bot termination
     """
@@ -561,7 +561,7 @@ def prepare(bot, event, *args):
         random.shuffle(draw_lists[global_draw_name]["box"])
         bot.send_message_parsed(
             event.conv, 
-            "The <b>{}</b> drawing is ready: {} items loaded and shuffled".format(listname, len(draw_lists[global_draw_name]["box"])))
+            "The <b>{}</b> lottery is ready: {} items loaded and shuffled into the box.".format(listname, len(draw_lists[global_draw_name]["box"])))
     else:
         raise Exception("prepare: {} was initialised empty".format(global_draw_name))
 
@@ -572,11 +572,11 @@ def perform_drawing(bot, event, *args):
         /me draw[s] [a[n]] sticks[s] => draws from "stick", "sticks" or "stickses"
         /me draws[s]<unrecognised> => draws from "default"
 
-        note: to prepare drawings, see /bot prepare ...
+        note: to prepare lotteries/drawings, see /bot prepare ...
 
         XXX: check is for singular, plural "-s" and plural "-es"
     """
-    pattern = re.compile("/me draws?( +(a +|an +)?([a-z0-9\-_]+))?", re.IGNORECASE)
+    pattern = re.compile("/me draws?( +(a +|an +)?([a-z0-9\-_]+))?$", re.IGNORECASE)
     if pattern.match(event.text):
         listname = "default"
 
@@ -601,9 +601,9 @@ def perform_drawing(bot, event, *args):
         if global_draw_name is not None:
             if len(draw_lists[global_draw_name]["box"]) > 0:
                 if event.user.id_.chat_id in draw_lists[global_draw_name]["users"]:
-                    # user already drawn something from the box
+                    # user already drew something from the box
                     bot.send_message_parsed(event.conv, 
-                        "<b>{}</b>, you already drawn <b>{}</b> from the <b>{}</b> draw".format(
+                        "<b>{}</b>, you have already drew <b>{}</b> from the <b>{}</b> box".format(
                             event.user.full_name, 
                             draw_lists[global_draw_name]["users"][event.user.id_.chat_id], 
                             word))
@@ -612,17 +612,17 @@ def perform_drawing(bot, event, *args):
                     # draw something for the user
                     _thing = str(draw_lists[global_draw_name]["box"].pop())
 
-                    text_drawn = "<b>{}</b> draws <b>{}</b> ".format(event.user.full_name, _thing);
+                    text_drawn = "<b>{}</b> draws <b>{}</b> from the <b>{}</b> box. ".format(event.user.full_name, _thing, word, );
                     if len(draw_lists[global_draw_name]["box"]) == 0:
-                        text_drawn = text_drawn + "...AAAAAND its all gone! The <b>{}</b> drawing is over folks.".format(word)
+                        text_drawn = text_drawn + "...AAAAAND its all gone! The <b>{}</b> lottery is over folks.".format(word)
 
                     bot.send_message_parsed(event.conv, text_drawn)
 
                     draw_lists[global_draw_name]["users"][event.user.id_.chat_id] = _thing
             else:
-                text_finished = "<b>{}</b>, the <b>{}</b> drawing is over. ".format(event.user.full_name, word);
+                text_finished = "<b>{}</b>, the <b>{}</b> lottery is over. ".format(event.user.full_name, word);
 
                 if event.user.id_.chat_id in draw_lists[global_draw_name]["users"]:
-                    text_finished = "You drawn a {} previously.".format(draw_lists[global_draw_name]["users"][event.user.id_.chat_id]);
+                    text_finished = "You drew a {} previously.".format(draw_lists[global_draw_name]["users"][event.user.id_.chat_id]);
 
                 bot.send_message_parsed(event.conv, text_finished)
