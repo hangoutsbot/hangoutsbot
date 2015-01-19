@@ -217,7 +217,8 @@ class MessageHandler(object):
     @asyncio.coroutine
     def handle_mention(self, event):
         """handle @mention"""
-        self.botmention = False
+        if event.conv_id not in self.bot.get_config_option('sync_rooms'):
+            self.botmention = False
         occurrences = [word for word in event.text.split() if word.startswith('@')]
         if len(occurrences) > 0:
             for word in occurrences:
