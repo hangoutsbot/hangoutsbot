@@ -21,6 +21,8 @@ class MessageHandler(object):
         self.last_chatroom_id = 'none' # recorded last chat room to prevent room crossover
         self.last_time_id = 0 # recorded timestamp of last chat to 'expire' chats
 
+        self.botmention = False # is the bot making a syncout mention?
+
     @staticmethod
     def word_in_text(word, text):
         """Return True if word is in text"""
@@ -45,11 +47,11 @@ class MessageHandler(object):
                 # Run command
                 yield from self.handle_command(event)
             else:
-                # handle @mentions
-                yield from self.handle_mention(event)
-
                 # Forward messages
                 yield from self.handle_forward(event)
+
+                # handle @mentions
+                yield from self.handle_mention(event)
 
                 # Sync messages
                 yield from self.handle_syncing(event)
@@ -59,6 +61,9 @@ class MessageHandler(object):
 
                 # respond to /me events
                 yield from self.handle_me_action(event)
+        elif self.botmention:
+            # handle @mentions
+            yield from self.handle_mention(event)
 
     @asyncio.coroutine
     def handle_command(self, event):
@@ -157,6 +162,9 @@ class MessageHandler(object):
                     continue
                 if not dst == event.conv_id:
                     self.bot.send_message_segments(conv, segments)
+                    occurrences = [word for word in event.text.split() if word.startswith('@')]
+                    if len(occurrences) > 0:
+                        self.botmention = True
 
             self.last_user_id = event.user_id.chat_id
             self.last_time_id = time.time()
@@ -209,6 +217,7 @@ class MessageHandler(object):
     @asyncio.coroutine
     def handle_mention(self, event):
         """handle @mention"""
+        self.botmention = False
         occurrences = [word for word in event.text.split() if word.startswith('@')]
         if len(occurrences) > 0:
             for word in occurrences:
