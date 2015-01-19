@@ -2,7 +2,7 @@ import logging, shlex, unicodedata, asyncio
 
 import hangups
 
-import re
+import re, time
 
 from commands import command
 from random import randint
@@ -17,6 +17,8 @@ class MessageHandler(object):
         self.bot_command = bot_command
         self.last_event_id = 'none' # recorded last event to avoid re-syncing
         self.last_user_id = 'none' # recorded last user to allow message compression
+        self.last_chatroom_id = 'none' # recorded last chat room to prevent room crossover
+        self.last_time_id = 0 # recorded timestamp of last chat to 'expire' chats
 
     @staticmethod
     def word_in_text(word, text):
@@ -96,20 +98,45 @@ class MessageHandler(object):
             return # This event has already been synced
         self.last_event_id = event.conv_event.id_
 
+
         if event.conv_id in sync_room_list:
             print('>> message from synced room');
             link = 'https://plus.google.com/u/0/{}/about'.format(event.user_id.chat_id)
 
-            if event.user_id.chat_id in self.bot.get_config_option('nickname') and self.last_user_id not in event.user_id.chat_id:
+            ### Deciding how to relay the name across
+
+            # Checking that it hasn't timed out since last message
+            timeout_threshold = 30.0 # Number of seconds to allow the timeout
+            if time.time() - self.last_time_id > timeout_threshold:
+                timeout = True
+            else:
+                timeout = False
+
+            # Checking if the user is the same as the one who sent the previous message
+            if self.last_user_id in event.user_id.chat_id:
+                sameuser = True
+            else:
+                sameuser = False
+
+            # Checking if the room is the same as the room where the last message was sent
+            if self.last_chatroom_id in event.conv_id:
+                sameroom = True
+            else:
+                sameroom = False
+
+            if event.user_id.chat_id in self.bot.get_config_option('nickname') and (not sameroom or timeout or not sameuser):
+                # Now check if there is a nickname set
                 if self.bot.get_config_option('nickname')[event.user_id.chat_id]['ign'] == '':
                     fullname = event.user.full_name
                 else:
                     fullname = '{0} ({1})'.format(event.user.full_name.split(' ', 1)[0]
                         , self.bot.get_config_option('nickname')[event.user_id.chat_id]['ign'])
-            elif self.last_user_id in event.user_id.chat_id:
+            elif sameroom and sameuser and not timeout:
                 fullname = '>>'
             else:
                 fullname = event.user.full_name
+
+            ### Name decided and put into variable 'fullname'
 
             segments = [hangups.ChatMessageSegment('{0}'.format(fullname), hangups.SegmentType.LINK,
                                                    link_target=link, is_bold=True),
@@ -131,6 +158,8 @@ class MessageHandler(object):
                 if not dst == event.conv_id:
                     self.bot.send_message_segments(conv, segments)
                     self.last_user_id = event.user_id.chat_id
+                    self.last_time_id = time.time()
+                    self.last_chatroom_id = event.conv_id
 
 
     @asyncio.coroutine
