@@ -129,6 +129,8 @@ class HangupsBot(object):
         if event.user.is_self:
             return
 
+        sync_room_list = self.get_config_option('sync_rooms')
+
         # Test if watching for membership changes is enabled
         if not self.get_config_suboption(event.conv_id, 'membership_watching_enabled'):
             return
@@ -140,22 +142,26 @@ class HangupsBot(object):
 
         # JOIN
         if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
-            # Test if user who added new participants is admin
-            admins_list = self.get_config_suboption(event.conv_id, 'admins')
-            if event.user_id.chat_id in admins_list:
-                self.send_message(event.conv, '{}: welcome'.format(names))
-            else:
-                segments = [hangups.ChatMessageSegment('!!! ATTENTION !!!', is_bold=True),
-                            hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-                            hangups.ChatMessageSegment('{} added these users {}!'.format(
-                                                       event.user.full_name, names)),
-                            hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-                            hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-                            hangups.ChatMessageSegment('{}: please leave this hangout'.format(names))]
-                self.send_message_segments(event.conv, segments)
+            self.send_message(event.conv, '{}: Welcome!'.format(names))
+            if event.conv_id in sync_room_list:
+                for dst in sync_room_list:
+                    try:
+                        conv = self._conv_list.get(dst)
+                    except KeyError:
+                        continue
+                    if not dst == event.conv_id:
+                        self.send_message(conv, '{} has added {} to the Syncout'.format(event.user.full_name, names))
         # LEAVE
         else:
-            self.send_message(event.conv, '{}: left'.format(names))
+            self.send_message(event.conv, 'Goodbye {}! =('.format(names))
+            if event.conv_id in sync_room_list:
+                for dst in sync_room_list:
+                    try:
+                        conv = self._conv_list.get(dst)
+                    except KeyError:
+                        continue
+                    if not dst == event.conv_id:
+                        self.send_message(conv, '{} has left the Syncout'.format(names))
 
     def handle_rename(self, conv_event):
         """Handle conversation rename"""

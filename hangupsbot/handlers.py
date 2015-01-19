@@ -15,6 +15,7 @@ class MessageHandler(object):
     def __init__(self, bot, bot_command='/bot'):
         self.bot = bot
         self.bot_command = bot_command
+
         self.last_event_id = 'none' # recorded last event to avoid re-syncing
         self.last_user_id = 'none' # recorded last user to allow message compression
         self.last_chatroom_id = 'none' # recorded last chat room to prevent room crossover
@@ -157,10 +158,10 @@ class MessageHandler(object):
                     continue
                 if not dst == event.conv_id:
                     self.bot.send_message_segments(conv, segments)
-                    self.last_user_id = event.user_id.chat_id
-                    self.last_time_id = time.time()
-                    self.last_chatroom_id = event.conv_id
-
+                    
+            self.last_user_id = event.user_id.chat_id
+            self.last_time_id = time.time()
+            self.last_chatroom_id = event.conv_id
 
     @asyncio.coroutine
     def handle_forward(self, event):
