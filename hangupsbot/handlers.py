@@ -151,14 +151,13 @@ class MessageHandler(object):
                                  for link in event.conv_event.attachments])
 
             for dst in sync_room_list:
-                print('>> ' + dst);
                 try:
                     conv = self.bot._conv_list.get(dst)
                 except KeyError:
                     continue
                 if not dst == event.conv_id:
                     self.bot.send_message_segments(conv, segments)
-                    
+
             self.last_user_id = event.user_id.chat_id
             self.last_time_id = time.time()
             self.last_chatroom_id = event.conv_id
