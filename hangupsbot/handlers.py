@@ -101,8 +101,11 @@ class MessageHandler(object):
             link = 'https://plus.google.com/u/0/{}/about'.format(event.user_id.chat_id)
 
             if event.user_id.chat_id in self.bot.get_config_option('nickname') and self.last_user_id not in event.user_id.chat_id:
-                fullname = '{0} ({1})'.format(event.user.full_name
-                    , self.bot.get_config_option('nickname')[event.user_id.chat_id]['ign'])
+                if self.bot.get_config_option('nickname')[event.user_id.chat_id]['ign'] == '':
+                    fullname = event.user.full_name
+                else:
+                    fullname = '{0} ({1})'.format(event.user.full_name.split(' ', 1)[0]
+                        , self.bot.get_config_option('nickname')[event.user_id.chat_id]['ign'])
             elif self.last_user_id in event.user_id.chat_id:
                 fullname = '>>'
             else:

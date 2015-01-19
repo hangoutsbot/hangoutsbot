@@ -479,8 +479,11 @@ def whoami(bot, event, *args):
     """whoami: get user id"""
 
     if event.user_id.chat_id in bot.get_config_option('nickname'):
-        fullname = '{0} ({1})'.format(event.user.full_name
-            , bot.get_config_option('nickname')[event.user_id.chat_id]['ign'])
+        if bot.get_config_option('nickname')[event.user_id.chat_id]['ign'] == '':
+            fullname = event.user.full_name
+        else:
+            fullname = '{0} ({1})'.format(event.user.full_name
+                , bot.get_config_option('nickname')[event.user_id.chat_id]['ign'])
     else:
         fullname = event.user.full_name
 
@@ -572,12 +575,16 @@ def lookup(bot, event, *args):
 
 
 @command.register
-def setnickname(bot, event, nickname, *args):
+def setnickname(bot, event, *args):
     """allow users to set a nickname for sync relay
         /bot setnickname <nickname>"""
 
-    bot.send_message_parsed(
-        event.conv,
-        "setting nickname to '{}'".format(nickname))
+    nickname = ' '.join(args).strip()[0:12]
+    if(nickname == ''):
+        bot.send_message_parsed(event.conv,"Removing nickname")
+    else:
+        bot.send_message_parsed(
+            event.conv,
+            "setting nickname to '{}'".format(nickname))
     bot.config.set_by_path(["nickname", event.user.id_.chat_id], { "ign": nickname })
     bot.config.save()
