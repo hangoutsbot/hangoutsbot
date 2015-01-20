@@ -271,11 +271,15 @@ def mention(bot, event, *args):
         logging.warning("@mention from {} ({}) too short (== '{}')".format(event.user.full_name, event.user.id_.chat_id, username))
         return
 
-    """check if synced room"""
+    users_in_chat = event.conv.users
+    last_mention_chat_id = 'none'
+
+    """check if synced room, if so, append on the users"""
     if event.conv_id in bot.get_config_option('sync_rooms'):
-        syncout = True
-    else:
-        syncout = False
+        sync_room_list = bot.get_config_option('sync_rooms')
+        for syncedroom in sync_room_list:
+            if event.conv_id not in syncedroom:
+                users_in_chat += bot.get_users_in_conversation(syncedroom)
 
     """
     /bot mention <fragment> test
@@ -352,7 +356,7 @@ def mention(bot, event, *args):
         else:
             logging.info("@all in {}: enabled global/per-conversation".format(event.conv.id_))
 
-    for u in event.conv.users:
+    for u in users_in_chat:
         if username_lower == "all" or \
                 username_lower in u.full_name.replace(" ", "").lower():
 
@@ -368,6 +372,11 @@ def mention(bot, event, *args):
                 logging.info("suppressing @all for {} ({})".format(event.user.full_name, event.user.id_.chat_id))
                 continue
 
+            if u.id_.chat_id == last_mention_chat_id:
+                """prevent most duplicate mentions (in the case of syncouts)"""
+                logging.info("suppressing duplicate mention for {} ({})".format(event.user.full_name, event.user.id_.chat_id))
+                continue
+
             donotdisturb = bot.config.get('donotdisturb')
             if donotdisturb:
                 """user-configured DND"""
@@ -377,6 +386,7 @@ def mention(bot, event, *args):
                     continue
 
             alert_via_1on1 = True
+            last_mention_chat_id = u.id_.chat_id
 
             """pushbullet integration"""
             pushbullet_integration = bot.get_config_suboption(event.conv.id_, 'pushbullet')
