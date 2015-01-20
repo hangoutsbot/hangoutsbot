@@ -1,6 +1,5 @@
 {
   "admins": [
-    "104821221116551390464"
   ],
   "autoreplies": [
     [
@@ -11,7 +10,7 @@
       "Hello world!"
     ]
   ],
-  "autoreplies_enabled": false,
+  "autoreplies_enabled": true,
   "commands_admin": [
     "rename",
     "leave",
@@ -48,14 +47,8 @@
   },
   "forwarding_enabled": false,
   "pushbullet": {
-    "104821221116551390464": {
-      "api": null
-    }
   },
   "nickname": {
-    "HANGOUTS_CHAT_ID": {
-      "ign": "USER_NICKNAME"
-    }
   },
   "jsonrpc": [
     {
@@ -86,9 +79,9 @@
       }
     }
   ],
-  "mentionerrors": false,
+  "mentionerrors": true,
   "mentionall":true,
   "mentionallwhitelist": [],
-  "mentionquidproquo": true,
+  "mentionquidproquo": false,
   "donotdisturb": []
 }

@@ -1,6 +1,6 @@
 # IMPORTANT
 
-This is a fork of https://github.com/xmikos/hangupsbot
+This is a [fork](https://gitlab.sabah.io/eol/mogunsamang) of a [fork](https://github.com/xmikos/hangupsbot).
 
 * To execute: `python3 hangupsbot.py`
 * Any current tests will be in `<path of hangupsbot.py>/tests/`
