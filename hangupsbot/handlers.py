@@ -12,7 +12,7 @@ from hangups.ui.utils import get_conv_name
 class MessageHandler(object):
     """Handle Hangups conversation events"""
 
-    def __init__(self, bot, bot_command='bb'):
+    def __init__(self, bot, bot_command='/bot'):
         self.bot = bot
         self.bot_command = bot_command
 
