@@ -271,11 +271,15 @@ def mention(bot, event, *args):
         logging.warning("@mention from {} ({}) too short (== '{}')".format(event.user.full_name, event.user.id_.chat_id, username))
         return
 
-    """check if synced room"""
+    users_in_chat = event.conv.users
+    mention_chat_ids = []
+
+    """check if synced room, if so, append on the users"""
     if event.conv_id in bot.get_config_option('sync_rooms'):
-        syncout = True
-    else:
-        syncout = False
+        sync_room_list = bot.get_config_option('sync_rooms')
+        for syncedroom in sync_room_list:
+            if event.conv_id not in syncedroom:
+                users_in_chat += bot.get_users_in_conversation(syncedroom)
 
     """
     /bot mention <fragment> test
@@ -352,7 +356,7 @@ def mention(bot, event, *args):
         else:
             logging.info("@all in {}: enabled global/per-conversation".format(event.conv.id_))
 
-    for u in event.conv.users:
+    for u in users_in_chat:
         if username_lower == "all" or \
                 username_lower in u.full_name.replace(" ", "").lower():
 
@@ -366,6 +370,11 @@ def mention(bot, event, *args):
             if u.id_.chat_id == event.user.id_.chat_id and username_lower == "all":
                 """prevent initiating user from receiving duplicate @all"""
                 logging.info("suppressing @all for {} ({})".format(event.user.full_name, event.user.id_.chat_id))
+                continue
+
+            if u.id_.chat_id in mention_chat_ids:
+                """prevent most duplicate mentions (in the case of syncouts)"""
+                logging.info("suppressing duplicate mention for {} ({})".format(event.user.full_name, event.user.id_.chat_id))
                 continue
 
             donotdisturb = bot.config.get('donotdisturb')
@@ -408,6 +417,7 @@ def mention(bot, event, *args):
                             event.user.full_name,
                             conversation_name,
                             event.text))
+                    mention_chat_ids.append(u.id_.chat_id)
                     user_tracking["mentioned"].append(u.full_name)
                     logging.info("{} ({}) alerted via 1on1 ({})".format(u.full_name, u.id_.chat_id, conv_1on1.id_))
                 else:

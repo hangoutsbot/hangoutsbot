@@ -213,6 +213,12 @@ class HangupsBot(object):
 
         return convs
 
+    def get_users_in_conversation(self, conv_id):
+        """List all users in conv_id"""
+        for c in self.list_conversations():
+            if conv_id in c.id_:
+                return c.users
+
     def get_config_option(self, option):
         try:
             option_value = self.config[option]
@@ -355,7 +361,7 @@ class HangupsBot(object):
                                                    initial_data.sync_timestamp)
         self._conv_list.on_event.add_observer(self._on_event)
 
-        self.print_conversations()
+        #self.print_conversations()
 
     def _on_event(self, conv_event):
         """Handle conversation events"""
