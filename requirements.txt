@@ -4,5 +4,3 @@ asyncio
 jsonrpclib-pelix
 pushbullet.py
 beautifulsoup4
-wolframalpha
-wikipedia
