@@ -1,5 +1,8 @@
 import sys, json, random, asyncio, logging, os
 
+import google
+import wolframalpha
+import wikipedia
 import hangups
 from hangups.ui.utils import get_conv_name
 
@@ -11,6 +14,9 @@ draw_lists = {}
 import re
 from random import shuffle
 
+
+WOLFRAM_APPID = os.environ["WOLFRAMALPHA_APPID"]
+JOKES_PATH = os.environ["HOME"] + "/.local/share/hangupsbot/jokes.txt"
 class CommandDispatcher(object):
     """Register commands and run them"""
     def __init__(self):
@@ -64,7 +70,7 @@ def unknown_command(bot, event, *args):
 def help(bot, event, cmd=None, *args):
     """list supported commands"""
     if not cmd:
-        segments = [hangups.ChatMessageSegment('supported commands:', is_bold=True),
+        segments = [hangups.ChatMessageSegment('Supported commands:', is_bold=True),
                     hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
                     hangups.ChatMessageSegment(', '.join(sorted(command.commands.keys())))]
     else:
@@ -95,7 +101,7 @@ def echo(bot, event, *args):
 @command.register
 def users(bot, event, *args):
     """list all users in current hangout (include g+ and email links)"""
-    segments = [hangups.ChatMessageSegment('user list (total {}):'.format(len(event.conv.users)),
+    segments = [hangups.ChatMessageSegment('User List (total {}):'.format(len(event.conv.users)),
                                            is_bold=True),
                 hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
     for u in sorted(event.conv.users, key=lambda x: x.full_name.split()[-1]):
@@ -154,7 +160,7 @@ def hangouts(bot, event, *args):
 
 @command.register
 def rename(bot, event, *args):
-    """rename current hangout"""
+    """Rename Hangout"""
     yield from bot._client.setchatname(event.conv_id, ' '.join(args))
 
 
@@ -187,9 +193,60 @@ def easteregg(bot, event, easteregg, eggcount=1, period=0.5, *args):
             yield from asyncio.sleep(float(period) + random.uniform(-0.1, 0.1))
 
 @command.register
+def spoof(bot, event, *args):
+    """Spoof report"""
+    segments = [hangups.ChatMessageSegment('!!! Caution !!!', is_bold=True),
+                hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
+    segments.append(hangups.ChatMessageSegment('User {} ('.format(event.user.full_name)))
+    link = 'https://plus.google.com/u/0/{}/about'.format(event.user.id_.chat_id)
+    segments.append(hangups.ChatMessageSegment(link, hangups.SegmentType.LINK,
+                                               link_target=link))
+    segments.append(hangups.ChatMessageSegment(') has just been reported for attempted spoofing!'))
+    bot.send_message_segments(event.conv, segments)
+
+
+@command.register
 def reload(bot, event, *args):
-    """reloads configuration"""
+    """Reload config"""
     bot.config.load()
+
+@command.register
+def joke(bot, event, *args):
+    """Send joke!"""
+    a_joke =str(random.choice(list(open(JOKES_PATH))))
+    bot.send_message(event.conv, a_joke)
+
+
+@command.register
+def wiki(bot, event, *args):
+    """Search query in wolfram!"""
+    wiki_query = '{}'.format(' '.join(args))
+    bot.send_message(event.conv, 'Computing with Wikpedia on {}'.format(wiki_query))
+
+    try:
+        wiki_res =  wikipedia.summary(wiki_query)
+        bot.send_message(event.conv, wiki_res)
+    except wikipedia.exceptions.DisambiguationError as e:
+        text_res = 'Disambiguation result: {}'.format(str(e.options))
+        bot.send_message(event.conv, text_res)
+    except wikipedia.exceptions.PageError:
+        text_res = 'No result.'
+        bot.send_message(event.conv, text_res)
+
+
+
+
+@command.register
+def wolf(bot, event, *args):
+    """Search query in wolfram!"""
+    bot.send_message(event.conv, 'Computing with WolframAlpha on {}'.format(' '.join(args)))
+    client = wolframalpha.Client(WOLFRAM_APPID)
+    res = client.query('{}'.format(' '.join(args)))
+    if len(list(res.results)) > 0:
+        text_res = next(res.results).text
+    else:
+        text_res = "No result."
+    bot.send_message(event.conv, text_res)
 
 
 @command.register
@@ -251,7 +308,7 @@ def config(bot, event, cmd=None, *args):
         return
 
     if value is None:
-        value = 'parameter does not exist'
+        value = 'Parameter does not exist!'
 
     config_path = ' '.join(k for k in ['config'] + config_args)
     segments = [hangups.ChatMessageSegment('{}:'.format(config_path),
