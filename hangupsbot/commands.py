@@ -1,7 +1,5 @@
 import sys, json, random, asyncio, logging, os
 
-#import google
-import wolframalpha
 import wikipedia
 import hangups
 from hangups.ui.utils import get_conv_name
@@ -14,8 +12,6 @@ draw_lists = {}
 import re
 from random import shuffle
 
-
-WOLFRAM_APPID = "E362PK-7395YTX894"
 JOKES_PATH = os.environ["HOME"] + "/.local/share/hangupsbot/jokes.txt"
 class CommandDispatcher(object):
     """Register commands and run them"""
@@ -232,21 +228,6 @@ def wiki(bot, event, *args):
     except wikipedia.exceptions.PageError:
         text_res = 'No result.'
         bot.send_message(event.conv, text_res)
-
-
-
-
-@command.register
-def wolfram(bot, event, *args):
-    """Search query in WolframAlpha"""
-    bot.send_message(event.conv, 'Computing with WolframAlpha on {}'.format(' '.join(args)))
-    client = wolframalpha.Client(WOLFRAM_APPID)
-    res = client.query('{}'.format(' '.join(args)))
-    if len(list(res.results)) > 0:
-        text_res = next(res.results).text
-    else:
-        text_res = "No result."
-    bot.send_message(event.conv, text_res)
 
 
 @command.register
