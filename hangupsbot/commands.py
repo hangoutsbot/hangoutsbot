@@ -272,7 +272,7 @@ def mention(bot, event, *args):
         return
 
     users_in_chat = event.conv.users
-    last_mention_chat_id = 'none'
+    mention_chat_ids = []
 
     """check if synced room, if so, append on the users"""
     if event.conv_id in bot.get_config_option('sync_rooms'):
@@ -372,7 +372,7 @@ def mention(bot, event, *args):
                 logging.info("suppressing @all for {} ({})".format(event.user.full_name, event.user.id_.chat_id))
                 continue
 
-            if u.id_.chat_id == last_mention_chat_id:
+            if u.id_.chat_id in mention_chat_ids:
                 """prevent most duplicate mentions (in the case of syncouts)"""
                 logging.info("suppressing duplicate mention for {} ({})".format(event.user.full_name, event.user.id_.chat_id))
                 continue
@@ -386,7 +386,6 @@ def mention(bot, event, *args):
                     continue
 
             alert_via_1on1 = True
-            last_mention_chat_id = u.id_.chat_id
 
             """pushbullet integration"""
             pushbullet_integration = bot.get_config_suboption(event.conv.id_, 'pushbullet')
@@ -418,6 +417,7 @@ def mention(bot, event, *args):
                             event.user.full_name,
                             conversation_name,
                             event.text))
+                    mention_chat_ids.append(u.id_.chat_id)
                     user_tracking["mentioned"].append(u.full_name)
                     logging.info("{} ({}) alerted via 1on1 ({})".format(u.full_name, u.id_.chat_id, conv_1on1.id_))
                 else:
