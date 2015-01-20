@@ -11,7 +11,6 @@ draw_lists = {}
 import re
 from random import shuffle
 
-JOKES_PATH = os.environ["HOME"] + "/.local/share/hangupsbot/jokes.txt"
 class CommandDispatcher(object):
     """Register commands and run them"""
     def __init__(self):
@@ -204,12 +203,6 @@ def spoof(bot, event, *args):
 def reload(bot, event, *args):
     """Reload config"""
     bot.config.load()
-
-@command.register
-def joke(bot, event, *args):
-    """Send joke!"""
-    a_joke =str(random.choice(list(open(JOKES_PATH))))
-    bot.send_message(event.conv, a_joke)
 
 
 @command.register

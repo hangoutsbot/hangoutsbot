@@ -371,6 +371,8 @@ Requirements
 - appdirs (https://github.com/ActiveState/appdirs)
 - asyncio (https://pypi.python.org/pypi/asyncio) for Python < 3.4
 - BeautifulSoup4
+- wolframalpha
+- wikipedia
 
 Usage
 -----
