@@ -64,7 +64,7 @@ def unknown_command(bot, event, *args):
 def help(bot, event, cmd=None, *args):
     """list supported commands"""
     if not cmd:
-        segments = [hangups.ChatMessageSegment('supported commands:', is_bold=True),
+        segments = [hangups.ChatMessageSegment('Supported commands:', is_bold=True),
                     hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
                     hangups.ChatMessageSegment(', '.join(sorted(command.commands.keys())))]
     else:
@@ -95,7 +95,7 @@ def echo(bot, event, *args):
 @command.register
 def users(bot, event, *args):
     """list all users in current hangout (include g+ and email links)"""
-    segments = [hangups.ChatMessageSegment('user list (total {}):'.format(len(event.conv.users)),
+    segments = [hangups.ChatMessageSegment('User List (total {}):'.format(len(event.conv.users)),
                                            is_bold=True),
                 hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
     for u in sorted(event.conv.users, key=lambda x: x.full_name.split()[-1]):
@@ -154,7 +154,7 @@ def hangouts(bot, event, *args):
 
 @command.register
 def rename(bot, event, *args):
-    """rename current hangout"""
+    """Rename Hangout"""
     yield from bot._client.setchatname(event.conv_id, ' '.join(args))
 
 
@@ -187,8 +187,21 @@ def easteregg(bot, event, easteregg, eggcount=1, period=0.5, *args):
             yield from asyncio.sleep(float(period) + random.uniform(-0.1, 0.1))
 
 @command.register
+def spoof(bot, event, *args):
+    """Spoof report"""
+    segments = [hangups.ChatMessageSegment('!!! Caution !!!', is_bold=True),
+                hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
+    segments.append(hangups.ChatMessageSegment('User {} ('.format(event.user.full_name)))
+    link = 'https://plus.google.com/u/0/{}/about'.format(event.user.id_.chat_id)
+    segments.append(hangups.ChatMessageSegment(link, hangups.SegmentType.LINK,
+                                               link_target=link))
+    segments.append(hangups.ChatMessageSegment(') has just been reported for attempted spoofing!'))
+    bot.send_message_segments(event.conv, segments)
+
+
+@command.register
 def reload(bot, event, *args):
-    """reloads configuration"""
+    """Reload config"""
     bot.config.load()
 
 
@@ -251,7 +264,7 @@ def config(bot, event, cmd=None, *args):
         return
 
     if value is None:
-        value = 'parameter does not exist'
+        value = 'Parameter does not exist!'
 
     config_path = ' '.join(k for k in ['config'] + config_args)
     segments = [hangups.ChatMessageSegment('{}:'.format(config_path),
