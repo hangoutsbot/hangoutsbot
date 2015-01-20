@@ -1,6 +1,5 @@
 {
   "admins": [
-    "109883513693796164843",
     "104821221116551390464"
   ],
   "autoreplies": [
@@ -12,7 +11,7 @@
       "Hello world!"
     ]
   ],
-  "autoreplies_enabled": true,
+  "autoreplies_enabled": false,
   "commands_admin": [
     "rename",
     "leave",
@@ -54,8 +53,8 @@
     }
   },
   "nickname": {
-    "109883513693796164843": {
-      "ign": "nylonee"
+    "HANGOUTS_CHAT_ID": {
+      "ign": "USER_NICKNAME"
     }
   },
   "jsonrpc": [
@@ -87,9 +86,9 @@
       }
     }
   ],
-  "mentionerrors": true,
+  "mentionerrors": false,
   "mentionall":true,
   "mentionallwhitelist": [],
-  "mentionquidproquo": false,
+  "mentionquidproquo": true,
   "donotdisturb": []
 }

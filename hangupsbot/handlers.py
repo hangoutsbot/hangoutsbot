@@ -227,3 +227,6 @@ class MessageHandler(object):
                     self.bot.send_message_parsed(event.conv, "<i>{}, the coin turned up <b>heads</b></i>".format(event.user.full_name))
                 else:
                     self.bot.send_message_parsed(event.conv, "<i>{}, the coin turned up <b>tails</b></i>".format(event.user.full_name))
+
+            else:
+                yield from command.run(self.bot, event, *["perform_drawing"])
