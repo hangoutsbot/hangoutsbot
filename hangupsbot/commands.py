@@ -7,6 +7,8 @@ from utils import text_to_segments
 
 from pushbullet import PushBullet
 
+from random import randint
+
 draw_lists = {}
 import re
 from random import shuffle
@@ -288,11 +290,12 @@ def mention(bot, event, *args):
     mention_chat_ids = []
 
     """check if synced room, if so, append on the users"""
-    if event.conv_id in bot.get_config_option('sync_rooms'):
-        sync_room_list = bot.get_config_option('sync_rooms')
-        for syncedroom in sync_room_list:
-            if event.conv_id not in syncedroom:
-                users_in_chat += bot.get_users_in_conversation(syncedroom)
+    if bot.get_config_option('sync_rooms'):
+        if event.conv_id in bot.get_config_option('sync_rooms'):
+            sync_room_list = bot.get_config_option('sync_rooms')
+            for syncedroom in sync_room_list:
+                if event.conv_id not in syncedroom:
+                    users_in_chat += bot.get_users_in_conversation(syncedroom)
 
     """
     /bot mention <fragment> test
@@ -622,6 +625,17 @@ def setnickname(bot, event, *args):
             "setting nickname to '{}'".format(nickname))
     bot.config.set_by_path(["nickname", event.user.id_.chat_id], { "ign": nickname })
     bot.config.save()
+
+@command.register
+def diceroll(bot, event, *args):
+    bot.send_message_parsed(event.conv, "<i>{} rolled <b>{}</b></i>".format(event.user.full_name, randint(1,6)))
+
+@command.register
+def coinflip(bot, event, *args):
+    if randint(1,2) == 1:
+        bot.send_message_parsed(event.conv, "<i>{}, coin turned up <b>heads</b></i>".format(event.user.full_name))
+    else:
+        bot.send_message_parsed(event.conv, "<i>{}, coin turned up <b>tails</b></i>".format(event.user.full_name))
 
 @command.register
 def prepare(bot, event, *args):
