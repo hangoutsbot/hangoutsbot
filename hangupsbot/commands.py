@@ -514,13 +514,10 @@ def dnd(bot, event, *args):
 def whoami(bot, event, *args):
     """whoami: get user id"""
 
-    if event.user_id.chat_id in bot.get_config_option('nickname'):
-        if bot.get_config_option('nickname')[event.user_id.chat_id]['ign'] == '':
-            fullname = event.user.full_name
-        else:
-            fullname = '{0} ({1})'.format(event.user.full_name
-                , bot.get_config_option('nickname')[event.user_id.chat_id]['ign'])
-    else:
+    try:
+        fullname = '{0} ({1})'.format(event.user.full_name.split(' ', 1)[0]
+            , bot.get_memory_suboption(event.user_id.chat_id, 'nickname'))
+    except TypeError:
         fullname = event.user.full_name
 
     bot.send_message_parsed(event.conv, "<b>{}</b>, chat_id = <i>{}</i>".format(fullname, event.user.id_.chat_id))
@@ -618,14 +615,15 @@ def setnickname(bot, event, *args):
     nickname = ' '.join(args).strip()[0:truncatelength]
 
     try:
-        bot.config.set_by_path(["nickname", event.user.id_.chat_id], { "ign": nickname })
-        bot.config.save()
+        bot.memory.set_by_path(["user_data", event.user.id_.chat_id], { "nickname": nickname })
+        bot.memory.save()
     except TypeError:
         bot.send_message_parsed(event.conv,"Failed to set nickname")
-        print("Failed to set a nickname! Did you set the config path correctly?")
+        print("Failed to set a nickname! Did you set the path correctly?")
         return
 
     if(nickname == ''):
+        #TODO: Set up a proper nickname removal process
         bot.send_message_parsed(event.conv,"Removing nickname")
     else:
         bot.send_message_parsed(
