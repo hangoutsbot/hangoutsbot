@@ -65,6 +65,17 @@ class Config(collections.MutableMapping):
             value = self.get_option(keyname)
         return value
 
+    def exists(self, keys_list):
+        _exists = True
+
+        try:
+            if self.get_by_path(keys_list) is None:
+                _exists = False
+        except (KeyError, TypeError):
+            _exists = False
+
+        return _exists
+
     def __getitem__(self, key):
         try:
             return self.config[key]

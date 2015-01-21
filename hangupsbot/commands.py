@@ -40,6 +40,7 @@ class CommandDispatcher(object):
             yield from func(bot, event, *args, **kwds)
         except Exception as e:
             print(e)
+            raise
 
     def register(self, func):
         """Decorator for registering command"""
@@ -614,21 +615,23 @@ def setnickname(bot, event, *args):
     truncatelength = 16 # What should the maximum length of the nickname be?
     nickname = ' '.join(args).strip()[0:truncatelength]
 
-    try:
-        bot.memory.set_by_path(["user_data", event.user.id_.chat_id], { "nickname": nickname })
-        bot.memory.save()
-    except TypeError:
-        bot.send_message_parsed(event.conv,"Failed to set nickname")
-        print("Failed to set a nickname! Did you set the path correctly?")
-        return
+    if not bot.memory.exists(["user_data"]):
+        # create the user_data grouping if it does not exist
+        bot.memory.set_by_path(["user_data"], {})
+
+    if not bot.memory.exists(["user_data", event.user.id_.chat_id]):
+        # create the user memory
+        bot.memory.set_by_path(["user_data", event.user.id_.chat_id], {})
+
+    bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "nickname"], nickname)
+    bot.memory.save()
 
     if(nickname == ''):
-        #TODO: Set up a proper nickname removal process
-        bot.send_message_parsed(event.conv,"Removing nickname")
+        bot.send_message_parsed(event.conv,"Setting no nickname")
     else:
         bot.send_message_parsed(
             event.conv,
-            "setting nickname to '{}'".format(nickname))
+            "Setting nickname to '{}'".format(nickname))
 
 
 @command.register

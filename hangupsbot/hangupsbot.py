@@ -242,7 +242,7 @@ class HangupsBot(object):
         return self.memory.get_option(option)
 
     def get_memory_suboption(self, user_id, option):
-        return self.memory.get_option("user_data", user_id, option)
+        return self.memory.get_suboption("user_data", user_id, option)
 
     def print_conversations(self):
         print('Conversations:')
