@@ -51,6 +51,20 @@ class Config(collections.MutableMapping):
         self.get_by_path(keys_list[:-1])[keys_list[-1]] = value
         self.changed = True
 
+    def get_option(self, keyname):
+        try:
+            value = self.config[keyname]
+        except KeyError:
+            value = None
+        return value
+
+    def get_suboption(self, grouping, groupname, keyname):
+        try:
+            value = self.config[grouping][groupname][keyname]
+        except KeyError:
+            value = self.get_config_option(keyname)
+        return value
+
     def __getitem__(self, key):
         try:
             return self.config[key]
