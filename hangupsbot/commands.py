@@ -290,9 +290,9 @@ def mention(bot, event, *args):
     mention_chat_ids = []
 
     """check if synced room, if so, append on the users"""
-    if bot.get_config_option('sync_rooms'):
-        if event.conv_id in bot.get_config_option('sync_rooms'):
-            sync_room_list = bot.get_config_option('sync_rooms')
+    sync_room_list = bot.get_config_option('sync_rooms')
+    if sync_room_list:
+        if event.conv_id in sync_room_list:
             for syncedroom in sync_room_list:
                 if event.conv_id not in syncedroom:
                     users_in_chat += bot.get_users_in_conversation(syncedroom)
