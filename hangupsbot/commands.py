@@ -189,18 +189,6 @@ def easteregg(bot, event, easteregg, eggcount=1, period=0.5, *args):
         if int(eggcount) > 1:
             yield from asyncio.sleep(float(period) + random.uniform(-0.1, 0.1))
 
-@command.register
-def spoof(bot, event, *args):
-    """Spoof report"""
-    segments = [hangups.ChatMessageSegment('!!! Caution !!!', is_bold=True),
-                hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
-    segments.append(hangups.ChatMessageSegment('User {} ('.format(event.user.full_name)))
-    link = 'https://plus.google.com/u/0/{}/about'.format(event.user.id_.chat_id)
-    segments.append(hangups.ChatMessageSegment(link, hangups.SegmentType.LINK,
-                                               link_target=link))
-    segments.append(hangups.ChatMessageSegment(') has just been reported for attempted spoofing!'))
-    bot.send_message_segments(event.conv, segments)
-
 
 @command.register
 def reload(bot, event, *args):
