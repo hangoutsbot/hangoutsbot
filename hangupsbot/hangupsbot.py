@@ -269,9 +269,10 @@ class HangupsBot(object):
                             conversation = c
                             break
 
-            # remember the conversation so we don't have to do this again
-            self.memory.set_by_path(["user_data", chat_id, "1on1"], conversation.id_)
-            self.memory.save()
+            if conversation is not None:
+                # remember the conversation so we don't have to do this again
+                self.memory.set_by_path(["user_data", chat_id, "1on1"], conversation.id_)
+                self.memory.save()
 
         return conversation
 
