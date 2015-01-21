@@ -379,6 +379,8 @@ def mention(bot, event, *args):
 
         # mentions also checks nicknames if one is configured
         #  exact matches only! see following IF block
+        nickname = ""
+        nickname_lower = ""
         if bot.memory.exists(['user_data', u.id_.chat_id, "nickname"]):
             nickname = bot.memory.get_by_path(['user_data', u.id_.chat_id, "nickname"])
             nickname_lower = nickname.lower()
