@@ -548,10 +548,13 @@ def dnd(bot, event, *args):
 def whoami(bot, event, *args):
     """whoami: get user id"""
 
-    try:
-        fullname = '{0} ({1})'.format(event.user.full_name.split(' ', 1)[0]
-            , bot.get_memory_suboption(event.user_id.chat_id, 'nickname'))
-    except TypeError:
+    if bot.get_memory_suboption(event.user_id.chat_id, 'nickname'):
+        try:
+            fullname = '{0} ({1})'.format(event.user.full_name.split(' ', 1)[0]
+                , bot.get_memory_suboption(event.user_id.chat_id, 'nickname'))
+        except TypeError:
+            fullname = event.user.full_name
+    else:
         fullname = event.user.full_name
 
     bot.send_message_parsed(event.conv, "<b>{}</b>, chat_id = <i>{}</i>".format(fullname, event.user.id_.chat_id))
