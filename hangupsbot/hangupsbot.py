@@ -222,7 +222,6 @@ class HangupsBot(object):
             logging.info("list_conversations() returned {} conversation(s)".format(len(convs)))
         except Exception as e:
             logging.warning("list_conversations()", e)
-            raise
 
         return convs
 
