@@ -25,7 +25,7 @@
   ],
   "spreadsheet_enabled": false,
   "spreadsheet_url": "INSERT_PUBLIC_URL_OF_GSHEET_HERE",
-  "spreadsheet_table_class": "INSERT_NAME_OF_GSHEET_CLASS",
+  "spreadsheet_table_class": "waffle",
   "syncing_enabled": false,
   "sync_rooms": ["INSERT_CHAT_ID_OF_ROOMS_TO_SYNC"],
   "commands_enabled": true,
