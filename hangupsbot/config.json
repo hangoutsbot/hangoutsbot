@@ -10,7 +10,7 @@
       "Hello world!"
     ]
   ],
-  "autoreplies_enabled": true,
+  "autoreplies_enabled": false,
   "commands_admin": [
     "rename",
     "leave",
@@ -79,9 +79,9 @@
       }
     }
   ],
-  "mentionerrors": true,
+  "mentionerrors": false,
   "mentionall":true,
   "mentionallwhitelist": [],
-  "mentionquidproquo": false,
+  "mentionquidproquo": true,
   "donotdisturb": []
 }
