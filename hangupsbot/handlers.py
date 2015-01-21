@@ -5,7 +5,6 @@ import hangups
 import re, time
 
 from commands import command
-from random import randint
 
 from hangups.ui.utils import get_conv_name
 
@@ -221,12 +220,8 @@ class MessageHandler(object):
         """handle /me"""
         if event.text.startswith('/me'):
             if event.text.find("roll dice") > -1 or event.text.find("rolls dice") > -1 or event.text.find("rolls a dice") > -1 or event.text.find("rolled a dice") > -1:
-                self.bot.send_message_parsed(event.conv, "<i>{} rolled <b>{}</b></i>".format(event.user.full_name, randint(1,6)))
+                yield from command.run(self.bot, event, *["diceroll"])
             elif event.text.find("flips a coin") > -1 or event.text.find("flips coin") > -1 or event.text.find("flip coin") > -1 or event.text.find("flipped a coin") > -1:
-                if randint(1,2) == 1:
-                    self.bot.send_message_parsed(event.conv, "<i>{}, the coin turned up <b>heads</b></i>".format(event.user.full_name))
-                else:
-                    self.bot.send_message_parsed(event.conv, "<i>{}, the coin turned up <b>tails</b></i>".format(event.user.full_name))
-
+                yield from command.run(self.bot, event, *["coinflip"])
             else:
                 yield from command.run(self.bot, event, *["perform_drawing"])
