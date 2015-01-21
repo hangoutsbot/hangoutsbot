@@ -254,13 +254,35 @@ class HangupsBot(object):
 
     def get_1on1_conversation(self, chat_id):
         conversation = None
-        for c in self.list_conversations():
-            if len(c.users) == 2:
-                for u in c.users:
-                    if u.id_.chat_id == chat_id:
-                        conversation = c
-                        break
+
+        self.initialise_user_memory(chat_id)
+
+        if self.memory.exists(["user_data", chat_id, "1on1"]):
+            conversation_id = self.memory.get_by_path(["user_data", chat_id, "1on1"])
+            conversation = self._conv_list.get(conversation_id)
+            logging.info("memory: {} is 1on1 with {}".format(conversation_id, chat_id))
+        else:
+            for c in self.list_conversations():
+                if len(c.users) == 2:
+                    for u in c.users:
+                        if u.id_.chat_id == chat_id:
+                            conversation = c
+                            break
+
+            # remember the conversation so we don't have to do this again
+            self.memory.set_by_path(["user_data", chat_id, "1on1"], conversation.id_)
+            self.memory.save()
+
         return conversation
+
+    def initialise_user_memory(self, chat_id):
+        if not self.memory.exists(["user_data"]):
+            # create the user_data grouping if it does not exist
+            self.memory.set_by_path(["user_data"], {})
+
+        if not self.memory.exists(["user_data", chat_id]):
+            # create the user memory
+            self.memory.set_by_path(["user_data", chat_id], {})
 
     def _start_sinks(self, shared_loop):
         jsonrpc_sinks = self.get_config_option('jsonrpc')

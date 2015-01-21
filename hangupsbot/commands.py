@@ -615,13 +615,7 @@ def setnickname(bot, event, *args):
     truncatelength = 16 # What should the maximum length of the nickname be?
     nickname = ' '.join(args).strip()[0:truncatelength]
 
-    if not bot.memory.exists(["user_data"]):
-        # create the user_data grouping if it does not exist
-        bot.memory.set_by_path(["user_data"], {})
-
-    if not bot.memory.exists(["user_data", event.user.id_.chat_id]):
-        # create the user memory
-        bot.memory.set_by_path(["user_data", event.user.id_.chat_id], {})
+    bot.initialise_user_memory(event.user.id_.chat_id)
 
     bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "nickname"], nickname)
     bot.memory.save()
