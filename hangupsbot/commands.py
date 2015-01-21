@@ -366,12 +366,12 @@ def mention(bot, event, *args):
     for u in users_in_chat:
 
         # mentions also checks nicknames if one is configured
-        # exact matches only! see following IF block
+        #  exact matches only! see following IF block
+        nickname = ""
+        nickname_lower = ""
         if bot.memory.exists(['user_data', u.id_.chat_id, "nickname"]):
             nickname = bot.memory.get_by_path(['user_data', u.id_.chat_id, "nickname"])
             nickname_lower = nickname.lower()
-        else:
-            nickname_lower = None # If bot memory does not have nicknames
 
         if username_lower == "all" or \
                 username_lower in u.full_name.replace(" ", "").lower() or \
@@ -771,9 +771,11 @@ def perform_drawing(bot, event, *args):
             _plurality = (listname, listname + "s", listname + "es")
         # seek a matching draw name based on the hacky english singular-plural spellings
         global_draw_name = None
+        _test_name = None
         for word in _plurality:
-            global_draw_name = event.conv.id_ + "-" + word
-            if global_draw_name in draw_lists.keys():
+            _test_name = event.conv.id_ + "-" + word
+            if _test_name in draw_lists:
+                global_draw_name = _test_name
                 break
 
         if global_draw_name is not None:
