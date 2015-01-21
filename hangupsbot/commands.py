@@ -780,9 +780,11 @@ def perform_drawing(bot, event, *args):
             _plurality = (listname, listname + "s", listname + "es")
         # seek a matching draw name based on the hacky english singular-plural spellings
         global_draw_name = None
+        _test_name = None
         for word in _plurality:
-            global_draw_name = event.conv.id_ + "-" + word
-            if global_draw_name in draw_lists.keys():
+            _test_name = event.conv.id_ + "-" + word
+            if _test_name in draw_lists:
+                global_draw_name = _test_name
                 break
 
         if global_draw_name is not None:
