@@ -378,10 +378,12 @@ def mention(bot, event, *args):
     for u in users_in_chat:
 
         # mentions also checks nicknames if one is configured
-        #  exact matches only! see following IF block
+        # exact matches only! see following IF block
         if bot.memory.exists(['user_data', u.id_.chat_id, "nickname"]):
             nickname = bot.memory.get_by_path(['user_data', u.id_.chat_id, "nickname"])
             nickname_lower = nickname.lower()
+        else:
+            nickname_lower = None # If bot memory does not have nicknames
 
         if username_lower == "all" or \
                 username_lower in u.full_name.replace(" ", "").lower() or \
