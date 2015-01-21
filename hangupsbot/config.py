@@ -62,7 +62,7 @@ class Config(collections.MutableMapping):
         try:
             value = self.config[grouping][groupname][keyname]
         except KeyError:
-            value = self.get_config_option(keyname)
+            value = self.get_option(keyname)
         return value
 
     def __getitem__(self, key):

@@ -233,35 +233,16 @@ class HangupsBot(object):
                 return c.users
 
     def get_config_option(self, option):
-        """Get config option"""
-        try:
-            option_value = self.config[option]
-        except KeyError:
-            option_value = None
-        return option_value
+        return self.config.get_option(option)
 
     def get_config_suboption(self, conv_id, option):
-        """Get config suboption for conversation (or global option if not defined)"""
-        try:
-            suboption = self.config['conversations'][conv_id][option]
-        except KeyError:
-            suboption = self.get_config_option(option)
-        return suboption
+        return self.config.get_suboption("conversations", conv_id, option)
 
     def get_memory_option(self, option):
-        try:
-            option_value = self.config[option]
-        except KeyError:
-            option_value = None
-        return option_value
+        return self.memory.get_option(option)
 
     def get_memory_suboption(self, user_id, option):
-        """Get memory suboption for user_data"""
-        try:
-            suboption = self.memory["user_data"][user_id][option]
-        except KeyError:
-            suboption = None
-        return suboption
+        return self.memory.get_option("user_data", user_id, option)
 
     def print_conversations(self):
         print('Conversations:')
