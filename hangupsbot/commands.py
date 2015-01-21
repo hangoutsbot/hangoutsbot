@@ -612,16 +612,23 @@ def setnickname(bot, event, *args):
     """allow users to set a nickname for sync relay
         /bot setnickname <nickname>"""
     truncatelength = 16 # What should the maximum length of the nickname be?
-
     nickname = ' '.join(args).strip()[0:truncatelength]
+
+    try:
+        bot.config.set_by_path(["nickname", event.user.id_.chat_id], { "ign": nickname })
+        bot.config.save()
+    except TypeError:
+        bot.send_message_parsed(event.conv,"Failed to set nickname")
+        print("Failed to set a nickname! Did you set the config path correctly?")
+        return
+
     if(nickname == ''):
         bot.send_message_parsed(event.conv,"Removing nickname")
     else:
         bot.send_message_parsed(
             event.conv,
             "setting nickname to '{}'".format(nickname))
-    bot.config.set_by_path(["nickname", event.user.id_.chat_id], { "ign": nickname })
-    bot.config.save()
+
 
 @command.register
 def prepare(bot, event, *args):
