@@ -427,9 +427,9 @@ def mention(bot, event, *args):
                 html += '<br />'
 
             bot.send_message_parsed(conv_1on1_initiator, html)
-            logging.info("@{} not sent due to multiple recipients".format(username_lower))
 
-            return #SHORT-CIRCUIT
+        logging.info("@{} not sent due to multiple recipients".format(username_lower))
+        return #SHORT-CIRCUIT
 
     """send @mention alerts"""
     for u in mention_list:
