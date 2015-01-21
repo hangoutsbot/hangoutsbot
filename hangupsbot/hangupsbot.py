@@ -43,7 +43,7 @@ class ConversationEvent(object):
 
 class HangupsBot(object):
     """Hangouts bot listening on all conversations"""
-    def __init__(self, cookies_path, config_path, max_retries=5):
+    def __init__(self, cookies_path, config_path, max_retries=5, memory_file=None):
         self._client = None
         self._cookies_path = cookies_path
         self._max_retries = max_retries
@@ -55,6 +55,19 @@ class HangupsBot(object):
 
         # Load config file
         self.config = config.Config(config_path)
+
+        # load in previous memory, or create new one
+        self.memory = None
+        if memory_file:
+            print("memory file will be used")
+            self.memory = config.Config(memory_file)
+            if not os.path.isfile(memory_file):
+                try:
+                    print("creating memory file: {}".format(memory_file))
+                    self.memory.force_taint()
+                    self.memory.save()
+                except (OSError, IOError) as e:
+                    sys.exit('failed to create default memory file: {}'.format(e))
 
         # Handle signals on Unix
         # (add_signal_handler is not implemented on Windows)
@@ -448,8 +461,12 @@ def main():
     # hangups log is quite verbose too, suppress so we can debug the bot
     logging.getLogger('hangups').setLevel(logging.WARNING)
 
+    # allow for persistence of variables across restarts
+    # XXX: used for bot-specific data persistence in lieu of an actual database
+    persist_path = os.path.join(dirs.user_data_dir, 'memory.json')
+
     # initialise the bot
-    bot = HangupsBot(args.cookies, args.config)
+    bot = HangupsBot(args.cookies, args.config, memory_file=persist_path)
     bot.run()
 
 

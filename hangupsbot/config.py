@@ -27,6 +27,9 @@ class Config(collections.MutableMapping):
 
         self.changed = False
 
+    def force_taint(self):
+        self.changed = True
+
     def loads(self, json_str):
         """Load config from JSON string"""
         self.config = json.loads(json_str)
