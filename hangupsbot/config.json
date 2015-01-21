@@ -20,7 +20,8 @@
     "hangouts",
     "reload",
     "quit",
-    "config"
+    "config",
+    "allconversations"
   ],
   "spreadsheet_enabled": false,
   "spreadsheet_url": "INSERT_PUBLIC_URL_OF_GSHEET_HERE",
