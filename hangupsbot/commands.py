@@ -373,9 +373,20 @@ def mention(bot, event, *args):
         else:
             logging.info("@all in {}: enabled global/per-conversation".format(event.conv.id_))
 
+    """generate a list of users to be @mentioned"""
+    mention_list = []
     for u in users_in_chat:
+
+        # mentions also checks nicknames if one is configured
+        #  exact matches only! see following IF block
+        if bot.memory.exists(['user_data', u.id_.chat_id, "nickname"]):
+            nickname = bot.memory.get_by_path(['user_data', u.id_.chat_id, "nickname"])
+            nickname_lower = nickname.lower()
+
         if username_lower == "all" or \
-                username_lower in u.full_name.replace(" ", "").lower():
+                username_lower in u.full_name.replace(" ", "").lower() or \
+                username_lower in u.full_name.replace(" ", "_").lower() or \
+                username_lower == nickname_lower:
 
             logging.info("user {} ({}) is present".format(u.full_name, u.id_.chat_id))
 
@@ -402,6 +413,26 @@ def mention(bot, event, *args):
                     user_tracking["ignored"].append(u.full_name)
                     continue
 
+            mention_list.append(u)
+
+    if len(mention_list) > 1 and username_lower != "all":
+        if conv_1on1_initiator:
+            html = '{} users would be mentioned with "@{}"! Be more specific. List of matching users:<br />'.format(
+                len(mention_list), username, conversation_name)
+
+            for u in mention_list:
+                html += u.full_name
+                if bot.memory.exists(['user_data', u.id_.chat_id, "nickname"]):
+                    html += ' (' + bot.memory.get_by_path(['user_data', u.id_.chat_id, "nickname"]) + ')'
+                html += '<br />'
+
+            bot.send_message_parsed(conv_1on1_initiator, html)
+            logging.info("@{} not sent due to multiple recipients".format(username_lower))
+
+            return #SHORT-CIRCUIT
+
+    """send @mention alerts"""
+    for u in mention_list:
             alert_via_1on1 = True
 
             """pushbullet integration"""
@@ -618,6 +649,13 @@ def setnickname(bot, event, *args):
     bot.initialise_user_memory(event.user.id_.chat_id)
 
     bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "nickname"], nickname)
+
+    try:
+        label = '{0} ({1})'.format(event.user.full_name.split(' ', 1)[0], nickname)
+    except TypeError:
+        label = event.user.full_name
+    bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "label"], label)
+
     bot.memory.save()
 
     if(nickname == ''):
