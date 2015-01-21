@@ -256,7 +256,10 @@ class HangupsBot(object):
 
         self.initialise_user_memory(chat_id)
 
-        if self.memory.exists(["user_data", chat_id, "1on1"]):
+        """Issues with the original hangups library is preventing some code from working."""
+        isMemoryCodeReady = False
+
+        if self.memory.exists(["user_data", chat_id, "1on1"]) and isMemoryCodeReady:
             conversation_id = self.memory.get_by_path(["user_data", chat_id, "1on1"])
             conversation = self._conv_list.get(conversation_id)
             logging.info("memory: {} is 1on1 with {}".format(conversation_id, chat_id))

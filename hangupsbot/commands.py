@@ -652,7 +652,7 @@ def setnickname(bot, event, *args):
     bot.memory.save()
 
     if(nickname == ''):
-        bot.send_message_parsed(event.conv,"Setting no nickname")
+        bot.send_message_parsed(event.conv,"No parameter specified, removing nickname")
     else:
         bot.send_message_parsed(
             event.conv,
