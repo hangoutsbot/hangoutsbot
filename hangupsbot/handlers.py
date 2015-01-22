@@ -125,7 +125,7 @@ class MessageHandler(object):
                 sameroom = False
 
             if (not sameroom or timeout or not sameuser) and \
-                (bot.memory.exists(['user_data', event.user_id.chat_id, "nickname"])):
+                (self.bot.memory.exists(['user_data', event.user_id.chat_id, "nickname"])):
                 # Now check if there is a nickname set
 
                 try:
