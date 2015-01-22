@@ -234,13 +234,11 @@ configuration in `config.commands_admin`.
 * Bot replies with `<string anything>` as the message.
 * Spaces are allowed.
 
-`pushbulletapi <apikey>`
-* Sets the pushbullet api key for current user.
+`pushbulletapi <apikey|false|0|-1>`
+* Sets/unsets the pushbullet api key for current user.
 * When user is @mentioned, bot will alert user through PushBullet.
 * If the push fails, bot will revert to normal hangouts-based alert.
-
-`pushbullet <false|0|-1>`
-* Disables pushbullet integration for current user.
+* `false`, `0` or `-1` Disables pushbullet integration for current user.
 
 `dnd`
 * Toggles global DND (Do Not Disturb) for current user.
