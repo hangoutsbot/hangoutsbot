@@ -2,8 +2,7 @@ This branch is for HANGUPSBOT-HUBOT integration **only**
 
 For the stable copy of HANGUPSBOT, please refer to the master branch.
 
-**DO NOT MERGE THIS WITH MASTER** - although merging changes **from** master is
-probably something that will be done often.
+**DO NOT MERGE THIS WITH MASTER**
 
 # Background
 
@@ -12,10 +11,10 @@ spare time.
 
 # Requirements
 
-* A functional (and running!) version of Hubot. Configuring this is beyond the
-  scope of this document. Please refer to the installation instructions on the
-  GitHub repo.
-* A functional (also running!) copy of Hangupsbot. 
+* A functional (and running!) version of [hubot](https://github.com/github/hubot). 
+  Configuring this is beyond the scope of this document. Please refer to the 
+  installation instructions on the GitHub repo.
+* A functional (also running!) copy of hangupsbot. 
 
 # Setup
 
@@ -32,9 +31,9 @@ spare time.
 "hooks": [
     {
         "config": {
-        "HUBOT_URL": "http://127.0.0.1:8080/receive/"
-      },
-      "module": "hooks.hubotsend.post.sender"
+            "HUBOT_URL": "http://127.0.0.1:8080/receive/"
+        },
+        "module": "hooks.hubotsend.post.sender"
     }
 ]
 ```
@@ -42,10 +41,10 @@ spare time.
 ```
 "jsonrpc": [
     {
-      "certfile": "/root/server.pem",
-      "module": "sinks.hubotreceive.post.receiver",
-      "name": "127.0.0.1",
-      "port": 8081
+        "certfile": "/root/server.pem",
+        "module": "sinks.hubotreceive.post.receiver",
+        "name": "127.0.0.1",
+        "port": 8081
     }
 ]
 ```
@@ -56,6 +55,6 @@ spare time.
 
 # Testing integration
 
-* Open your hangout with hangupsbot, and type a standard hubot command 
+Open your hangout with hangupsbot, and type a standard hubot command 
   e.g. `hubot time`, `hubot ping`. After a brief lag, you should see hubot's
   responses in the hangout.
