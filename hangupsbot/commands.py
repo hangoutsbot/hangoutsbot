@@ -296,9 +296,8 @@ def mention(bot, event, *args):
     """
     quidproquo: users can only @mention if they themselves are @mentionable (i.e. have a 1-on-1 with the bot)
     """
-    conv_1on1_initiator = None
+    conv_1on1_initiator = bot.get_1on1_conversation(event.user.id_.chat_id)
     if bot.get_config_option("mentionquidproquo"):
-        conv_1on1_initiator = bot.get_1on1_conversation(event.user.id_.chat_id)
         if conv_1on1_initiator:
             logging.info("quidproquo: user {} ({}) has 1-on-1".format(event.user.full_name, event.user.id_.chat_id))
         else:
