@@ -37,6 +37,26 @@ This procedure is necessary to let the bot know you're alive ;P
 No seriously, the above steps are **required** to authorise two-way
 communication between the bot and your own account.
 
+## Usage of @mentions
+
+Some general rules:
+* If `mentionquidproquo` is ON, only users who have already said something to 
+  the bot in private will be able to @mention others.
+* If a @mention matches multiple users, the bot will privately warn the user 
+  that too many users were selected. A list of all matching users will be 
+  provided as a guide to the user.
+* A @mention must be at least 3 characters or longer (not counting the `@`)
+
+A @mention matches the following:
+* A part of the combined first name and last name of the user 
+  e.g. `@abc` matches `AB Chin` (bot sees `abchin`)
+* A part of the combined first name and last name with spaces replaced by
+  the underscore
+  e.g. `@ab_c` matches `AB Chin` (bot sees `AB_Chin`)
+* An exact match with a user nickname, if the user has previously has
+  previously `/bot set nickname abc`
+  e.g. `@abc` matches nickname `abc` but NOT nicknames `abcd` or `zabc` 
+
 # Admins: Quick Installation & Configuration
 
 * `config.json` is found in two places:
@@ -227,8 +247,15 @@ configuration in `config.commands_admin`.
 * Bot will message user whether DND is toggled on or off.
 * User will not receive alerts for @mentions.
 
+`setnickname <nickname>`
+* Bot sets the nickname for the current user
+* `/whoami` will return the current nickname
+* Call it again to re-set the `<nickname>` as preferred
+
 `whoami`
-* Bot replies with the full name and `chat_id` of the current user.
+* Bot replies with the current user information:
+  * first name, nickname and `chat_id`, OR
+  * full name and `chat_id`
 
 `whereami`
 * Bot replies with the conversation name and `conversation id`.
@@ -240,12 +267,13 @@ configuration in `config.commands_admin`.
 * Adding optional second parameter `test` will show additional log information
   inside the current conversation when attempting to alert users. This
   can be used to check for any @mention errors with specific users.
-* Like @mentions, `<name fragment>` matches combined first name and last name.
 
 `lookup <keyword>`
 * Used in conjunction with a published Google Spreadsheet
-* Need to enable in config: `spreadsheet_enabled`, `spreadsheet_url` and `spreadsheet_table_class`
-* Will look up each row of a spreadsheet and if the keyword is found will return the whole row
+* Need to enable in config: `spreadsheet_enabled`, `spreadsheet_url` and 
+  `spreadsheet_table_class`
+* Will look up each row of a spreadsheet and if the keyword is found will 
+  return the whole row
 
 `prepare [<things>] <listdef>`
 * Bot prepares a list of `<things>` and puts them in a virtual box for lottery
@@ -259,6 +287,16 @@ configuration in `config.commands_admin`.
 * Each user must issue `/me draws` (or similar) to get a random item from the
   box. Note: `/me draw` always draws from "default" if available; to draw from
   another box, `/me draw [a|an] <thing>`
+
+# Developers: Debugging
+
+* Run the bot with the `-d` parameter e.g. `python3 hangupsbot.py -d` - this 
+  lowers the log level to `INFO` for a more verbose and informative log file.
+* `tail` the log file, which is probably located at
+  `/<user>/.local/share/hangupsbot/hangupsbot.log` - the location varies by 
+  distro!
+* Console output (STDOUT) is fairly limited whatever the log level, so rely
+  on the output of the log file instead.
 
 # Developers: Extending the Bot
 

@@ -48,8 +48,6 @@
   "forwarding_enabled": false,
   "pushbullet": {
   },
-  "nickname": {
-  },
   "jsonrpc": [
     {
       "module": "sinks.generic.simpledemo.webhookReceiver",

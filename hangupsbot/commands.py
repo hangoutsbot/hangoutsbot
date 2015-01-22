@@ -40,6 +40,7 @@ class CommandDispatcher(object):
             yield from func(bot, event, *args, **kwds)
         except Exception as e:
             print(e)
+            raise
 
     def register(self, func):
         """Decorator for registering command"""
@@ -307,9 +308,8 @@ def mention(bot, event, *args):
     """
     quidproquo: users can only @mention if they themselves are @mentionable (i.e. have a 1-on-1 with the bot)
     """
-    conv_1on1_initiator = None
+    conv_1on1_initiator = bot.get_1on1_conversation(event.user.id_.chat_id)
     if bot.get_config_option("mentionquidproquo"):
-        conv_1on1_initiator = bot.get_1on1_conversation(event.user.id_.chat_id)
         if conv_1on1_initiator:
             logging.info("quidproquo: user {} ({}) has 1-on-1".format(event.user.full_name, event.user.id_.chat_id))
         else:
@@ -372,9 +372,22 @@ def mention(bot, event, *args):
         else:
             logging.info("@all in {}: enabled global/per-conversation".format(event.conv.id_))
 
+    """generate a list of users to be @mentioned"""
+    mention_list = []
     for u in users_in_chat:
+
+        # mentions also checks nicknames if one is configured
+        #  exact matches only! see following IF block
+        nickname = ""
+        nickname_lower = ""
+        if bot.memory.exists(['user_data', u.id_.chat_id, "nickname"]):
+            nickname = bot.memory.get_by_path(['user_data', u.id_.chat_id, "nickname"])
+            nickname_lower = nickname.lower()
+
         if username_lower == "all" or \
-                username_lower in u.full_name.replace(" ", "").lower():
+                username_lower in u.full_name.replace(" ", "").lower() or \
+                username_lower in u.full_name.replace(" ", "_").lower() or \
+                username_lower == nickname_lower:
 
             logging.info("user {} ({}) is present".format(u.full_name, u.id_.chat_id))
 
@@ -401,6 +414,26 @@ def mention(bot, event, *args):
                     user_tracking["ignored"].append(u.full_name)
                     continue
 
+            mention_list.append(u)
+
+    if len(mention_list) > 1 and username_lower != "all":
+        if conv_1on1_initiator:
+            html = '{} users would be mentioned with "@{}"! Be more specific. List of matching users:<br />'.format(
+                len(mention_list), username, conversation_name)
+
+            for u in mention_list:
+                html += u.full_name
+                if bot.memory.exists(['user_data', u.id_.chat_id, "nickname"]):
+                    html += ' (' + bot.memory.get_by_path(['user_data', u.id_.chat_id, "nickname"]) + ')'
+                html += '<br />'
+
+            bot.send_message_parsed(conv_1on1_initiator, html)
+
+        logging.info("@{} not sent due to multiple recipients".format(username_lower))
+        return #SHORT-CIRCUIT
+
+    """send @mention alerts"""
+    for u in mention_list:
             alert_via_1on1 = True
 
             """pushbullet integration"""
@@ -514,13 +547,10 @@ def dnd(bot, event, *args):
 def whoami(bot, event, *args):
     """whoami: get user id"""
 
-    if event.user_id.chat_id in bot.get_config_option('nickname'):
-        if bot.get_config_option('nickname')[event.user_id.chat_id]['ign'] == '':
-            fullname = event.user.full_name
-        else:
-            fullname = '{0} ({1})'.format(event.user.full_name
-                , bot.get_config_option('nickname')[event.user_id.chat_id]['ign'])
-    else:
+    try:
+        fullname = '{0} ({1})'.format(event.user.full_name.split(' ', 1)[0]
+            , bot.get_memory_suboption(event.user_id.chat_id, 'nickname'))
+    except TypeError:
         fullname = event.user.full_name
 
     bot.send_message_parsed(event.conv, "<b>{}</b>, chat_id = <i>{}</i>".format(fullname, event.user.id_.chat_id))
@@ -617,20 +647,24 @@ def setnickname(bot, event, *args):
     truncatelength = 16 # What should the maximum length of the nickname be?
     nickname = ' '.join(args).strip()[0:truncatelength]
 
+    bot.initialise_user_memory(event.user.id_.chat_id)
+
+    bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "nickname"], nickname)
+
     try:
-        bot.config.set_by_path(["nickname", event.user.id_.chat_id], { "ign": nickname })
-        bot.config.save()
+        label = '{0} ({1})'.format(event.user.full_name.split(' ', 1)[0], nickname)
     except TypeError:
-        bot.send_message_parsed(event.conv,"Failed to set nickname")
-        print("Failed to set a nickname! Did you set the config path correctly?")
-        return
+        label = event.user.full_name
+    bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "label"], label)
+
+    bot.memory.save()
 
     if(nickname == ''):
-        bot.send_message_parsed(event.conv,"Removing nickname")
+        bot.send_message_parsed(event.conv,"Setting no nickname")
     else:
         bot.send_message_parsed(
             event.conv,
-            "setting nickname to '{}'".format(nickname))
+            "Setting nickname to '{}'".format(nickname))
 
 
 @command.register
@@ -745,9 +779,11 @@ def perform_drawing(bot, event, *args):
             _plurality = (listname, listname + "s", listname + "es")
         # seek a matching draw name based on the hacky english singular-plural spellings
         global_draw_name = None
+        _test_name = None
         for word in _plurality:
-            global_draw_name = event.conv.id_ + "-" + word
-            if global_draw_name in draw_lists.keys():
+            _test_name = event.conv.id_ + "-" + word
+            if _test_name in draw_lists:
+                global_draw_name = _test_name
                 break
 
         if global_draw_name is not None:

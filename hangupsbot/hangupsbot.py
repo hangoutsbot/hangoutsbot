@@ -233,19 +233,16 @@ class HangupsBot(object):
                 return c.users
 
     def get_config_option(self, option):
-        try:
-            option_value = self.config[option]
-        except KeyError:
-            option_value = None
-        return option_value
+        return self.config.get_option(option)
 
     def get_config_suboption(self, conv_id, option):
-        """Get config suboption for conversation (or global option if not defined)"""
-        try:
-            suboption = self.config['conversations'][conv_id][option]
-        except KeyError:
-            suboption = self.get_config_option(option)
-        return suboption
+        return self.config.get_suboption("conversations", conv_id, option)
+
+    def get_memory_option(self, option):
+        return self.memory.get_option(option)
+
+    def get_memory_suboption(self, user_id, option):
+        return self.memory.get_suboption("user_data", user_id, option)
 
     def print_conversations(self):
         print('Conversations:')
@@ -257,13 +254,36 @@ class HangupsBot(object):
 
     def get_1on1_conversation(self, chat_id):
         conversation = None
-        for c in self.list_conversations():
-            if len(c.users) == 2:
-                for u in c.users:
-                    if u.id_.chat_id == chat_id:
-                        conversation = c
-                        break
+
+        self.initialise_user_memory(chat_id)
+
+        if self.memory.exists(["user_data", chat_id, "1on1"]):
+            conversation_id = self.memory.get_by_path(["user_data", chat_id, "1on1"])
+            conversation = self._conv_list.get(conversation_id)
+            logging.info("memory: {} is 1on1 with {}".format(conversation_id, chat_id))
+        else:
+            for c in self.list_conversations():
+                if len(c.users) == 2:
+                    for u in c.users:
+                        if u.id_.chat_id == chat_id:
+                            conversation = c
+                            break
+
+            if conversation is not None:
+                # remember the conversation so we don't have to do this again
+                self.memory.set_by_path(["user_data", chat_id, "1on1"], conversation.id_)
+                self.memory.save()
+
         return conversation
+
+    def initialise_user_memory(self, chat_id):
+        if not self.memory.exists(["user_data"]):
+            # create the user_data grouping if it does not exist
+            self.memory.set_by_path(["user_data"], {})
+
+        if not self.memory.exists(["user_data", chat_id]):
+            # create the user memory
+            self.memory.set_by_path(["user_data", chat_id], {})
 
     def _start_sinks(self, shared_loop):
         jsonrpc_sinks = self.get_config_option('jsonrpc')

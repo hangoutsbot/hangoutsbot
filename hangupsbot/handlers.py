@@ -124,13 +124,14 @@ class MessageHandler(object):
             else:
                 sameroom = False
 
-            if event.user_id.chat_id in self.bot.get_config_option('nickname') and (not sameroom or timeout or not sameuser):
+            if not sameroom or timeout or not sameuser:
                 # Now check if there is a nickname set
-                if self.bot.get_config_option('nickname')[event.user_id.chat_id]['ign'] == '':
-                    fullname = event.user.full_name
-                else:
+
+                try:
                     fullname = '{0} ({1})'.format(event.user.full_name.split(' ', 1)[0]
-                        , self.bot.get_config_option('nickname')[event.user_id.chat_id]['ign'])
+                        , self.bot.get_memory_suboption(event.user_id.chat_id, 'nickname'))
+                except TypeError:
+                    fullname = event.user.full_name
             elif sameroom and sameuser and not timeout:
                 fullname = '>>'
             else:
