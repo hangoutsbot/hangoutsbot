@@ -535,7 +535,7 @@ def dnd(bot, event, *args):
 def whoami(bot, event, *args):
     """whoami: get user id"""
 
-    if bot.get_memory_suboption(event.user_id.chat_id, 'nickname'):
+    if bot.memory.exists(['user_data', event.user_id.chat_id, "nickname"]):
         try:
             fullname = '{0} ({1})'.format(event.user.full_name.split(' ', 1)[0]
                 , bot.get_memory_suboption(event.user_id.chat_id, 'nickname'))
