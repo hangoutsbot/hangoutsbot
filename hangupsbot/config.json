@@ -66,6 +66,12 @@
       "certfile": null,
       "name": "",
       "port": 8001
+    },
+    {
+      "certfile": "/root/server.pem",
+      "module": "sinks.hubotreceive.post.receiver",
+      "name": "127.0.0.1",
+      "port": 8081
     }
   ],
   "hooks": [
@@ -75,6 +81,12 @@
       {
         "storage_path": false
       }
+    },
+    {
+      "config": {
+        "HUBOT_URL": "http://127.0.0.1:8080/receive/"
+      },
+      "module": "hooks.hubotsend.post.sender"
     }
   ],
   "mentionerrors": true,
