@@ -805,23 +805,3 @@ def perform_drawing(bot, event, *args):
                     text_finished = "You drew a {} previously.".format(draw_lists[global_draw_name]["users"][event.user.id_.chat_id]);
 
                 bot.send_message_parsed(event.conv, text_finished)
-
-
-@command.register
-def allconversations(bot, event, *args):
-    """List all conversations that the bot is in (Warning: may be data heavy!)"""
-
-    segments = [hangups.ChatMessageSegment('Conversations', is_bold=True),
-    hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
-
-    for c in bot.list_conversations():
-        segments.append(hangups.ChatMessageSegment('  {} ({}) u:{}'.format(get_conv_name(c, truncate=True), c.id_, len(c.users)), is_bold=True))
-        segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
-        for u in c.users:
-            link = 'https://plus.google.com/u/0/{}/about'.format(u.id_.chat_id)
-            segments.append(hangups.ChatMessageSegment('    {} '.format(u.first_name), is_bold=False))
-            segments.append(hangups.ChatMessageSegment('({})'.format(u.full_name), hangups.SegmentType.LINK, link_target=link, is_bold=True))
-            segments.append(hangups.ChatMessageSegment(' {}'.format(u.id_.chat_id), is_bold=False))
-            segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
-
-    bot.send_message_segments(event.conv, segments)
