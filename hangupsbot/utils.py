@@ -134,6 +134,6 @@ def fix_urls(text):
                            ''')
 
     for email in re.findall(pat_email, text):
-       text = your_string.replace(email[1], '<a href="mailto:%(email)s">%(email)s</a>' % {"email" : email[1]})
+       text = text.replace(email[1], '<a href="mailto:%(email)s">%(email)s</a>' % {"email" : email[1]})
 
     return text
