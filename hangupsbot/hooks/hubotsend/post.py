@@ -18,6 +18,10 @@ class sender():
         return True
 
     def on_chat_message(event):
+        if event.user.is_self:
+            # don't send my own messages
+            return
+
         event_timestamp = event.timestamp
 
         conversation_id = event.conv_id

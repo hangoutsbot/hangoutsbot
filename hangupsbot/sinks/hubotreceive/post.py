@@ -13,7 +13,7 @@ class receiver(BaseHTTPRequestHandler):
             print("conversation id must be provided as part of path") 
             return
 
-        receiver._bot.external_send_message_parsed(conversation_id, payload)
+        receiver._bot.external_send_message_parsed(conversation_id, payload["message"])
 
     def do_POST(self):
         """
@@ -49,10 +49,10 @@ class receiver(BaseHTTPRequestHandler):
             print("no data was received")
             return
 
-        # hubot adapter returns data message=<uri-encoded>
-        data_string = unquote(data_string[8:])
+        print("data: {}".format(data_string))
 
-        self._handle_incoming(path, query_string, data_string)
+        payload = json.loads(data_string)
+        self._handle_incoming(path, query_string, payload)
 
     def log_message(self, formate, *args):
         # disable printing to stdout/stderr for every post

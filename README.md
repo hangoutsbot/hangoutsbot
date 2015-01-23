@@ -16,16 +16,23 @@ spare time.
   installation instructions on the GitHub repo.
 * A functional (also running!) copy of hangupsbot. 
 
+# Recommendations
+
+* Both hubot and hangupsbot should run on the same server to reduce network
+  connectivity issues 
+
 # Setup
 
 1. `git clone` ALL THE THINGS (as usual).
-2. Proceed to your hubot folder, and execute `npm install hubot-web` - we need
-   to acquire the dependencies to get [hubot-web](https://www.npmjs.com/package/hubot-web)
-   integrated into your copy of hubot.
-3. Important bit: Overwrite the installed version of 
-   `hubot/node_modules/hubot-web/index.coffee` with the copy found in this 
-   branch inside the `hubot-adapter-override/` folder
-4. Modify your working hangupsbot config.json and add the following 
+2. `git submodule update --init hubot-web` to retrieve the forked copy of 
+   hubot-web that is compatible with hangupsbot.
+3. Proceed to your hubot folder, and execute `npm install hubot-web` - this
+   acquires the dependencies for [hubot-web](https://www.npmjs.com/package/hubot-web)
+   and installs the npm version (which we will modify shortly).
+4. Important: Overwrite the installed version of 
+   `hubot/node_modules/hubot-web/index.coffee` with `hubot-web/index.coffee` 
+   from the forked version inside the submodule.
+5. Modify your working hangupsbot config.json and add the following 
    sinks/hooks:
 ```
 "hooks": [
@@ -49,9 +56,15 @@ spare time.
 ]
 ```
 
-5. Restart hubot with `bin/hubot --adapter web`. You will not get a shell 
+5. On the console in the hubot server, use the following configuration:
+```
+export HUBOT_HTML_RESPONSE="true"
+export HUBOT_REST_SEND_URL="https://127.0.0.1:8081/"
+```
+
+6. Restart hubot with `bin/hubot --adapter web`. You will not get a shell 
    prompt, the server will just start and become non-interactive.
-6. Restart hangupsbot, and ensure that the new sink and hook starts properly.
+7. Restart hangupsbot, and ensure that the new sink and hook starts properly.
 
 # Testing integration
 
