@@ -24,13 +24,15 @@ spare time.
 # Setup
 
 1. `git clone` ALL THE THINGS (as usual).
-2. Proceed to your hubot folder, and execute `npm install hubot-web` - we need
-   to acquire the dependencies to get [hubot-web](https://www.npmjs.com/package/hubot-web)
-   integrated into your copy of hubot.
-3. Important bit: Overwrite the installed version of 
+2. `git submodule update --init hubot-web` to retrieve the forked copy of 
+   hubot-web that is compatible with hangupsbot.
+3. Proceed to your hubot folder, and execute `npm install hubot-web` - this
+   acquires the dependencies for [hubot-web](https://www.npmjs.com/package/hubot-web)
+   and installs the npm version (which we will modify shortly).
+4. Important: Overwrite the installed version of 
    `hubot/node_modules/hubot-web/index.coffee` with `hubot-web/index.coffee` 
-   inside this branch.
-4. Modify your working hangupsbot config.json and add the following 
+   from the forked version inside the submodule.
+5. Modify your working hangupsbot config.json and add the following 
    sinks/hooks:
 ```
 "hooks": [
