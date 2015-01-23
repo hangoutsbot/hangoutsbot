@@ -105,7 +105,7 @@ def fix_urls(text):
     """adapted from http://stackoverflow.com/a/1071240"""
     pat_url = re.compile(  r'''
                      (?x)( # verbose identify URLs within text
-         (http|ftp|gopher) # make sure we find a resource type
+   (http|https|ftp|gopher) # make sure we find a resource type
                        :// # ...needs to be followed by colon-slash-slash
             (\w+[:.]?){2,} # at least two domain groups, e.g. (gnosis.)(cx)
                       (/?| # could be just the domain name (maybe w/ slash)
