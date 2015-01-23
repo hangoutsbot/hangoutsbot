@@ -119,21 +119,4 @@ def fix_urls(text):
        if url[0]:
         text = text.replace(url[0], '<a href="%(url)s">%(url)s</a>' % {"url" : url[0]})
 
-    pat_email = re.compile(r'''
-                    (?xm)  # verbose identify URLs in text (and multiline)
-                 (?=^.{11} # Mail header matcher
-         (?<!Message-ID:|  # rule out Message-ID's as best possible
-             In-Reply-To)) # ...and also In-Reply-To
-                    (.*?)( # must grab to email to allow prior lookbehind
-        ([A-Za-z0-9-]+\.)? # maybe an initial part: DAVID.mertz@gnosis.cx
-             [A-Za-z0-9-]+ # definitely some local user: MERTZ@gnosis.cx
-                         @ # ...needs an at sign in the middle
-              (\w+\.?){2,} # at least two domain groups, e.g. (gnosis.)(cx)
-         (?=[\s\.,>)'"\]]) # assert: followed by white or clause ending
-                         ) # end of match group
-                           ''')
-
-    for email in re.findall(pat_email, text):
-       text = text.replace(email[1], '<a href="mailto:%(email)s">%(email)s</a>' % {"email" : email[1]})
-
     return text
