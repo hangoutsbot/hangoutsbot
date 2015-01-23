@@ -189,18 +189,6 @@ def easteregg(bot, event, easteregg, eggcount=1, period=0.5, *args):
         if int(eggcount) > 1:
             yield from asyncio.sleep(float(period) + random.uniform(-0.1, 0.1))
 
-@command.register
-def spoof(bot, event, *args):
-    """Spoof report"""
-    segments = [hangups.ChatMessageSegment('!!! Caution !!!', is_bold=True),
-                hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
-    segments.append(hangups.ChatMessageSegment('User {} ('.format(event.user.full_name)))
-    link = 'https://plus.google.com/u/0/{}/about'.format(event.user.id_.chat_id)
-    segments.append(hangups.ChatMessageSegment(link, hangups.SegmentType.LINK,
-                                               link_target=link))
-    segments.append(hangups.ChatMessageSegment(') has just been reported for attempted spoofing!'))
-    bot.send_message_segments(event.conv, segments)
-
 
 @command.register
 def reload(bot, event, *args):
@@ -547,10 +535,13 @@ def dnd(bot, event, *args):
 def whoami(bot, event, *args):
     """whoami: get user id"""
 
-    try:
-        fullname = '{0} ({1})'.format(event.user.full_name.split(' ', 1)[0]
-            , bot.get_memory_suboption(event.user_id.chat_id, 'nickname'))
-    except TypeError:
+    if bot.memory.exists(['user_data', event.user_id.chat_id, "nickname"]):
+        try:
+            fullname = '{0} ({1})'.format(event.user.full_name.split(' ', 1)[0]
+                , bot.get_memory_suboption(event.user_id.chat_id, 'nickname'))
+        except TypeError:
+            fullname = event.user.full_name
+    else:
         fullname = event.user.full_name
 
     bot.send_message_parsed(event.conv, "<b>{}</b>, chat_id = <i>{}</i>".format(fullname, event.user.id_.chat_id))
@@ -660,7 +651,7 @@ def setnickname(bot, event, *args):
     bot.memory.save()
 
     if(nickname == ''):
-        bot.send_message_parsed(event.conv,"Setting no nickname")
+        bot.send_message_parsed(event.conv,"No parameter specified, removing nickname")
     else:
         bot.send_message_parsed(
             event.conv,
