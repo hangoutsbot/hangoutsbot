@@ -26,7 +26,6 @@
   "spreadsheet_url": "INSERT_PUBLIC_URL_OF_GSHEET_HERE",
   "spreadsheet_table_class": "waffle",
   "syncing_enabled": false,
-  "sync_rooms": ["INSERT_CHAT_ID_OF_ROOMS_TO_SYNC"],
   "commands_enabled": true,
   "conversations": {
     "CONV1_ID": {
@@ -42,7 +41,8 @@
       "forward_to": [
         "CONV1_ID"
       ],
-      "forwarding_enabled": false
+      "forwarding_enabled": false,
+      "sync_rooms": ["CHAT_ID_OF_ROOMS_TO_SYNC_TO"]
     }
   },
   "forwarding_enabled": false,
