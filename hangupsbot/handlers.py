@@ -94,6 +94,9 @@ class MessageHandler(object):
             return
         sync_room_list = self.bot.get_config_suboption(event.conv_id, 'sync_rooms')
 
+        if not sync_room_list:
+            return # Sync room not configured, returning
+
         if self.last_event_id == event.conv_event.id_:
             return # This event has already been synced
         self.last_event_id = event.conv_event.id_
