@@ -195,17 +195,13 @@ class MessageHandler(object):
     def handle_autoreply(self, event):
         """Handle autoreplies to keywords in messages"""
         # Test if autoreplies are enabled
-        print("Handling autoreply...")
         if not self.bot.get_config_suboption(event.conv_id, 'autoreplies_enabled'):
             return
-        print("Autoreplies enabled. Continuing")
 
         autoreplies_list = self.bot.get_config_suboption(event.conv_id, 'autoreplies')
         if autoreplies_list:
-            print("Autoreplies list detected")
             for kwds, sentence in autoreplies_list:
                 for kw in kwds:
-                    print("Keyword: {}\n Sentence: {}\n".format(kw, sentence))
                     if self.words_in_text(kw, event.text) or kw == "*":
                         self.bot.send_message(event.conv, sentence)
                         break
