@@ -142,10 +142,10 @@ Most configuration directives can be specified **globally** or **per-conversatio
 },  
 "CONV2_ID": {  
   "sync_rooms": ["CONV1_ID", "CONV2_ID", ...]
+},  
+"CONV3_ID": {  
+  "sync_rooms": ["CONV3_ID", "CONV4_ID", ...]  
 }  
-"CONV3_ID": {
-  "sync_rooms": ["CONV3_ID", "CONV4_ID", ...]
-}
 ```
 
 # User Triggers (`/me` prefix)
