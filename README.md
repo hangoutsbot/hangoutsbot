@@ -128,10 +128,14 @@ Most configuration directives can be specified **globally** or **per-conversatio
 * allow listed chat_ids to use @all in mentions regardless of
   global/per-conversation `mentionall` setting
 
-# Syncing Chats
+# Syncing Chats (Syncout)
+
+Chats can be synced together, called a 'Syncout'. If a person says something in chat A, that message will be relayed into chat B by the bot, and vice versa, allowing multiple rooms to have conversations with each other. The primary use for this is to have more than 150 (the hangout limit) users talking to each other in the same room.
+
 `syncing_enabled`
 * default: false
 * If enabled, will look for synced rooms and start relaying chats across the rooms
+* Can only be enabled/disabled globally
 
 `sync_rooms`
 * a list of group ChatID's that the bot will attempt to keep synced
@@ -147,6 +151,7 @@ Most configuration directives can be specified **globally** or **per-conversatio
   "sync_rooms": ["CONV3_ID", "CONV4_ID", ...]  
 }  
 ```
+* NOTE: You will have to put the convID into the sync_room of that convID too (to allow for backward compatibility with a deprecated method). I know that this is highly redundant for now, but stick to this method and you won't have any problems in the future when the code is improved (I hope).
 
 # User Triggers (`/me` prefix)
 
