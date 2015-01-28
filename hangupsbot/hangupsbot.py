@@ -17,6 +17,16 @@ from sinks.listener import start_listening
 __version__ = '1.1'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
+class FakeConversation(object):
+    def __init__(self, _client, id_):
+        self._client = _client
+        self.id_ = id_
+
+    @asyncio.coroutine
+    def send_message(self, segments):
+        print("FakeConversation: sendchatmessage()")
+        yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments])
+
 class ConversationEvent(object):
     """Conversation event"""
     def __init__(self, bot, conv_event):
@@ -259,7 +269,7 @@ class HangupsBot(object):
 
         if self.memory.exists(["user_data", chat_id, "1on1"]):
             conversation_id = self.memory.get_by_path(["user_data", chat_id, "1on1"])
-            conversation = self._conv_list.get(conversation_id)
+            conversation = FakeConversation(self._client, conversation_id)
             logging.info("memory: {} is 1on1 with {}".format(conversation_id, chat_id))
         else:
             for c in self.list_conversations():
