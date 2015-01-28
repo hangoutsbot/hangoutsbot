@@ -1,3 +1,13 @@
+# Introduction
+Hangupsbot is a bot designed for working with Google Hangouts.
+* **Mentions:** If somebody mentions you in a room, receive a private hangout from the bot with details on the mention, including context, room and person who mentioned you.
+* **Syncouts:** A syncout is two Hangout group chats that have their messages forwarded to each other, allowing seamless interaction between the two rooms. Primarily used to beat the 150 member chat limit, but it can also be used for temporarily connecting teams together to interact.
+* **Hubot Integration:** Hangupsbot will allow you to connect to [Hubot](https://hubot.github.com/), instantly providing you access to hundreds of developed chat tools and plugins.
+* **Lookups:** Google Sheets can be attached to the bot, which allows you to look up data in the spreadsheet instantly with just a few keywords.
+* **Pushbullet API:** [Pushbullet](https://www.pushbullet.com/) is integrated.
+* **Hooks and Sinks:** The bot has instructions for developing and attaching your own hooks and sinks, allowing the bot to interact with external services such as your company website, Google API's and much more.
+* **And many additional features!* Eastereggs, games, nickname functionalities, the list goes on!
+
 # IMPORTANT
 
 This is a [fork](https://gitlab.sabah.io/eol/mogunsamang) of a [fork](https://github.com/xmikos/hangupsbot).
