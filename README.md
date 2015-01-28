@@ -40,22 +40,22 @@ communication between the bot and your own account.
 ## Usage of @mentions
 
 Some general rules:
-* If `mentionquidproquo` is ON, only users who have already said something to 
+* If `mentionquidproquo` is ON, only users who have already said something to
   the bot in private will be able to @mention others.
-* If a @mention matches multiple users, the bot will privately warn the user 
-  that too many users were selected. A list of all matching users will be 
+* If a @mention matches multiple users, the bot will privately warn the user
+  that too many users were selected. A list of all matching users will be
   provided as a guide to the user.
 * A @mention must be at least 3 characters or longer (not counting the `@`)
 
 A @mention matches the following:
-* A part of the combined first name and last name of the user 
+* A part of the combined first name and last name of the user
   e.g. `@abc` matches `AB Chin` (bot sees `abchin`)
 * A part of the combined first name and last name with spaces replaced by
   the underscore
   e.g. `@ab_c` matches `AB Chin` (bot sees `AB_Chin`)
 * An exact match with a user nickname, if the user has previously has
   previously `/bot set nickname abc`
-  e.g. `@abc` matches nickname `abc` but NOT nicknames `abcd` or `zabc` 
+  e.g. `@abc` matches nickname `abc` but NOT nicknames `abcd` or `zabc`
 
 # Admins: Quick Installation & Configuration
 
@@ -135,6 +135,18 @@ Most configuration directives can be specified **globally** or **per-conversatio
 
 `sync_rooms`
 * a list of group ChatID's that the bot will attempt to keep synced
+* it is possible to have more than one syncout instance per bot by having in your config.json:
+```
+"CONV1_ID": {  
+  "sync_rooms": ["CONV1_ID", "CONV2_ID", ...]  
+},  
+"CONV2_ID": {  
+  "sync_rooms": ["CONV1_ID", "CONV2_ID", ...]
+},  
+"CONV3_ID": {  
+  "sync_rooms": ["CONV3_ID", "CONV4_ID", ...]  
+}  
+```
 
 # User Triggers (`/me` prefix)
 
@@ -268,9 +280,9 @@ configuration in `config.commands_admin`.
 
 `lookup <keyword>`
 * Used in conjunction with a published Google Spreadsheet
-* Need to enable in config: `spreadsheet_enabled`, `spreadsheet_url` and 
+* Need to enable in config: `spreadsheet_enabled`, `spreadsheet_url` and
   `spreadsheet_table_class`
-* Will look up each row of a spreadsheet and if the keyword is found will 
+* Will look up each row of a spreadsheet and if the keyword is found will
   return the whole row
 
 `prepare [<things>] <listdef>`
@@ -288,10 +300,10 @@ configuration in `config.commands_admin`.
 
 # Developers: Debugging
 
-* Run the bot with the `-d` parameter e.g. `python3 hangupsbot.py -d` - this 
+* Run the bot with the `-d` parameter e.g. `python3 hangupsbot.py -d` - this
   lowers the log level to `INFO` for a more verbose and informative log file.
 * `tail` the log file, which is probably located at
-  `/<user>/.local/share/hangupsbot/hangupsbot.log` - the location varies by 
+  `/<user>/.local/share/hangupsbot/hangupsbot.log` - the location varies by
   distro!
 * Console output (STDOUT) is fairly limited whatever the log level, so rely
   on the output of the log file instead.
