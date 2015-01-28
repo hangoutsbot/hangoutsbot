@@ -21,7 +21,7 @@ class MessageHandler(object):
         self.last_time_id = 0 # recorded timestamp of last chat to 'expire' chats
 
     @staticmethod
-    def word_in_text(word, text):
+    def words_in_text(word, text):
         """Return True if word is in text"""
         # Transliterate unicode characters to ASCII and make everything lowercase
         word = unicodedata.normalize('NFKD', word).encode('ascii', 'ignore').decode().lower()
@@ -31,7 +31,7 @@ class MessageHandler(object):
         for delim in '.,:;!?':
             text = text.replace(delim, ' ')
 
-        return True if word in text.split() else False
+        return True if word in text else False
 
     @asyncio.coroutine
     def handle(self, event):
@@ -92,12 +92,14 @@ class MessageHandler(object):
         """Handle message syncing"""
         if not self.bot.get_config_option('syncing_enabled'):
             return
-        sync_room_list = self.bot.get_config_option('sync_rooms')
+        sync_room_list = self.bot.get_config_suboption(event.conv_id, 'sync_rooms')
+
+        if not sync_room_list:
+            return # Sync room not configured, returning
 
         if self.last_event_id == event.conv_event.id_:
             return # This event has already been synced
         self.last_event_id = event.conv_event.id_
-
 
         if event.conv_id in sync_room_list:
             print('>> message from synced room');
@@ -203,7 +205,7 @@ class MessageHandler(object):
         if autoreplies_list:
             for kwds, sentence in autoreplies_list:
                 for kw in kwds:
-                    if self.word_in_text(kw, event.text) or kw == "*":
+                    if self.words_in_text(kw, event.text) or kw == "*":
                         self.bot.send_message(event.conv, sentence)
                         break
 
