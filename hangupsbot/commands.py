@@ -269,6 +269,8 @@ def config(bot, event, cmd=None, *args):
 def mention(bot, event, *args):
     """alert a @mentioned user"""
 
+    print(">>> START MENTION >>>")
+
     """minimum length check for @mention"""
     username = args[0].strip()
     if len(username) <= 2:
@@ -323,6 +325,8 @@ def mention(bot, event, *args):
     begin mentioning users as long as they exist in the current conversation...
     """
 
+    print("INITIAL CHECK COMPLETE. MENTIONING")
+
     conversation_name = get_conv_name(event.conv, truncate=True);
     logging.info("@mention '{}' in '{}' ({})".format(username, conversation_name, event.conv.id_))
     username_lower = username.lower()
@@ -359,6 +363,8 @@ def mention(bot, event, *args):
                 logging.info("@all in {}: allowed, {} ({}) is an admin".format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
         else:
             logging.info("@all in {}: enabled global/per-conversation".format(event.conv.id_))
+
+    print("GENERATING LIST OF USERS TO BE MENTIONED")
 
     """generate a list of users to be @mentioned"""
     mention_list = []
@@ -420,6 +426,7 @@ def mention(bot, event, *args):
         logging.info("@{} not sent due to multiple recipients".format(username_lower))
         return #SHORT-CIRCUIT
 
+    print("SEND MENTION ALERTS")
     """send @mention alerts"""
     for u in mention_list:
             alert_via_1on1 = True
@@ -483,6 +490,7 @@ def mention(bot, event, *args):
             html = html + "Users failing 1-to-1 need to say something to me privately first.<br />"
 
         bot.send_message_parsed(event.conv, html)
+        print("<<< MENTION END")
 
 @command.register
 def pushbulletapi(bot, event, *args):
