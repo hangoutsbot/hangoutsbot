@@ -145,13 +145,24 @@ class MessageHandler(object):
             segments = [hangups.ChatMessageSegment('{0}'.format(fullname), hangups.SegmentType.LINK,
                                                    link_target=link, is_bold=True),
                         hangups.ChatMessageSegment(': ', is_bold=True)]
-            segments.extend(event.conv_event.segments)
 
             # Append links to attachments (G+ photos) to forwarded message
             if event.conv_event.attachments:
                 segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
                 segments.extend([hangups.ChatMessageSegment(link, hangups.SegmentType.LINK, link_target=link)
                                  for link in event.conv_event.attachments])
+
+            # Make links hyperlinks and send message
+            URL_RE = re.compile(r'https?://\S+')
+            for segment in event.conv_event.segments:
+                last = 0
+                for match in URL_RE.finditer(segment.text):
+                    if match.start() > last:
+                        segments.append(hangups.ChatMessageSegment(segment.text[last:match.start()]))
+                    segments.append(hangups.ChatMessageSegment(match.group(), link_target=match.group()))
+                    last = match.end()
+                if last != len(segment.text):
+                    segments.append(hangups.ChatMessageSegment(segment.text[last:]))
 
             for dst in sync_room_list:
                 try:
