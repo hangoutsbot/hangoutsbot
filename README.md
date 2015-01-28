@@ -136,11 +136,17 @@ Most configuration directives can be specified **globally** or **per-conversatio
 `sync_rooms`
 * a list of group ChatID's that the bot will attempt to keep synced
 * it is possible to have more than one syncout instance per bot by having in your config.json:
-`
+```
 "CONV1_ID": {  
-  "sync_rooms": ["CONV1_ID", "CONV2_ID"]  
+  "sync_rooms": ["CONV1_ID", "CONV2_ID", ...]  
+},  
+"CONV2_ID": {  
+  "sync_rooms": ["CONV1_ID", "CONV2_ID", ...]
 }  
-`
+"CONV3_ID": {
+  "sync_rooms": ["CONV3_ID", "CONV4_ID", ...]
+}
+```
 
 # User Triggers (`/me` prefix)
 
