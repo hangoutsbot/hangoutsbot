@@ -228,7 +228,7 @@ class HangupsBot(object):
         """List all active conversations"""
         try:
             _all_conversations = self._conv_list.get_all()
-            convs = sorted(_all_conversations, reverse=True, key=lambda c: c.last_modified)
+            convs = _all_conversations
             logging.info("list_conversations() returned {} conversation(s)".format(len(convs)))
         except Exception as e:
             logging.warning("list_conversations()", e)
