@@ -6,7 +6,7 @@ Hangupsbot is a bot designed for working with Google Hangouts.
 * **Lookups:** Google Sheets can be attached to the bot, which allows you to look up data in the spreadsheet instantly with just a few keywords.
 * **Pushbullet API:** [Pushbullet](https://www.pushbullet.com/) is integrated.
 * **Hooks and Sinks:** The bot has instructions for developing and attaching your own hooks and sinks, allowing the bot to interact with external services such as your company website, Google API's and much more.
-* **And many additional features!* Eastereggs, games, nickname functionalities, the list goes on!
+* *And many additional features!* Eastereggs, games, nickname functionalities, the list goes on!
 
 # IMPORTANT
 
