@@ -279,7 +279,7 @@ def mention(bot, event, *args):
     mention_chat_ids = []
 
     """check if synced room, if so, append on the users"""
-    sync_room_list = bot.get_config_option('sync_rooms')
+    sync_room_list = bot.get_config_suboption(event.conv_id, 'sync_rooms')
     if sync_room_list:
         if event.conv_id in sync_room_list:
             for syncedroom in sync_room_list:

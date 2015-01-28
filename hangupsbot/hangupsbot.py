@@ -142,7 +142,7 @@ class HangupsBot(object):
         if event.user.is_self:
             return
 
-        sync_room_list = self.get_config_option('sync_rooms')
+        sync_room_list = self.get_config_suboption(event.conv_id, 'sync_rooms')
 
         # Test if watching for membership changes is enabled
         if not self.get_config_suboption(event.conv_id, 'membership_watching_enabled'):
