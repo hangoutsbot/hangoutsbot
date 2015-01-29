@@ -4,8 +4,9 @@ from pushbullet import PushBullet
 
 from hangups.ui.utils import get_conv_name
 
-def _initalise(command):
+def _initialise(command):
     command.register_handler(_handle_mention)
+    return ["mention", "pushbulletapi", "dnd", "setnickname"]
 
 
 @asyncio.coroutine
