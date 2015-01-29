@@ -4,6 +4,8 @@ from pushbullet import PushBullet
 
 from hangups.ui.utils import get_conv_name
 
+import re, string
+
 def _initalise(command):
     command.register_handler(_handle_mention)
 
@@ -286,7 +288,19 @@ def setnickname(bot, event, *args):
     """allow users to set a nickname for sync relay
         /bot setnickname <nickname>"""
     truncatelength = 16 # What should the maximum length of the nickname be?
-    nickname = ' '.join(args).strip()[0:truncatelength]
+    minlength = 3 # What should the minimum length of the nickname be?
+
+    nickname = ' '.join(args).strip()
+
+    # Strip all non-alphanumeric characters
+    nickname = re.sub('[^0-9a-zA-Z-_]+', '', nickname)
+
+    # Truncate nickname
+    nickname = nickname[0:truncatelength]
+
+    if len(nickname) < minlength and not nickname == '': # Check minimum length
+        bot.send_message_parsed(event.conv, "Error: Minimum length of nickname is {} characters. Only alphabetical and numeric characters allowed.".format(minlength))
+        return
 
     bot.initialise_user_memory(event.user.id_.chat_id)
 
@@ -301,7 +315,7 @@ def setnickname(bot, event, *args):
     bot.memory.save()
 
     if(nickname == ''):
-        bot.send_message_parsed(event.conv,"No parameter specified, removing nickname")
+        bot.send_message_parsed(event.conv, "Removing nickname")
     else:
         bot.send_message_parsed(
             event.conv,
