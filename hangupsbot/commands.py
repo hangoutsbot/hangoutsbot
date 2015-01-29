@@ -56,8 +56,7 @@ class CommandDispatcher(object):
         """called by MessageHandler to get all handlers loaded by plugins"""
         MessageHandler._extra_handlers = self._handlers
 
-    def initialise_plugins(self):
-        plugin_list = ["default", "mentions", "lottery", "lookup", "easteregg", "chance"]
+    def initialise_plugins(self, plugin_list):
         for module in plugin_list: 
             module_path = "plugins.{}".format(module)
             exec("import {}".format(module_path))
