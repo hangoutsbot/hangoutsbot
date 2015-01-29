@@ -8,6 +8,7 @@ import re, string
 
 def _initalise(command):
     command.register_handler(_handle_mention)
+    return ["mention", "pushbulletapi", "dnd", "setnickname"]
 
 
 @asyncio.coroutine
