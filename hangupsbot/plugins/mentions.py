@@ -6,7 +6,7 @@ from hangups.ui.utils import get_conv_name
 
 import re, string
 
-def _initalise(command):
+def _initialise(command):
     command.register_handler(_handle_mention)
     return ["mention", "pushbulletapi", "dnd", "setnickname"]
 
