@@ -303,6 +303,26 @@ def setnickname(bot, event, *args):
         bot.send_message_parsed(event.conv, "Error: Minimum length of nickname is {} characters. Only alphabetical and numeric characters allowed.".format(minlength))
         return
 
+    # perform hard-coded substitution on words that trigger easter eggs
+    #   dammit google! ;P
+    substitution = {
+        "woot": "w00t",
+        "woohoo": "w00h00",
+        "lmao": "lma0",
+        "rofl": "r0fl",
+
+        "hahahaha": "ha_ha_ha_ha",
+        "hehehehe": "he_he_he_he",
+        "jejejeje": "je_je_je_je",
+        "rsrsrsrs": "rs_rs_rs_rs",
+
+        "xd": "x_d"
+    }
+    for original in substitution:
+        if original in nickname.lower():
+            pattern = re.compile(original, re.IGNORECASE)
+            nickname = pattern.sub(substitution[original], nickname)
+
     bot.initialise_user_memory(event.user.id_.chat_id)
 
     bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "nickname"], nickname)
