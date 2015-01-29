@@ -6,7 +6,7 @@ from hangups.ui.utils import get_conv_name
 from utils import text_to_segments
 
 def _initialise(command):
-    return ["users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whoami", "whereami"]
+    return ["users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whoami", "whereami", "echo"]
 
 
 def echo(bot, event, *args):
