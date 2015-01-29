@@ -14,7 +14,6 @@ class CommandDispatcher(object):
         self.unknown_command = None
 
         self._handlers = []
-        self._load_plugins()
 
     @asyncio.coroutine
     def run(self, bot, event, *args, **kwds):
@@ -57,7 +56,7 @@ class CommandDispatcher(object):
         """called by MessageHandler to get all handlers loaded by plugins"""
         MessageHandler._extra_handlers = self._handlers
 
-    def _load_plugins(self):
+    def initialise_plugins(self):
         plugin_list = ["default", "mentions", "lottery", "lookup", "easteregg", "chance"]
         for module in plugin_list: 
             module_path = "plugins.{}".format(module)

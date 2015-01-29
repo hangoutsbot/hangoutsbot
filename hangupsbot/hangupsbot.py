@@ -496,6 +496,11 @@ def main():
 
     # initialise the bot
     bot = HangupsBot(args.cookies, args.config, memory_file=persist_path)
+
+    # initialise command plugins
+    handlers.command.initialise_plugins()
+
+    # start the bot
     bot.run()
 
 
