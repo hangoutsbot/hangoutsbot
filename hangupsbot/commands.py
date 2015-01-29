@@ -13,6 +13,9 @@ class CommandDispatcher(object):
         self.commands = {}
         self.unknown_command = None
 
+        self._handlers = []
+        self._load_plugins()
+
     @asyncio.coroutine
     def run(self, bot, event, *args, **kwds):
         """Run command"""
@@ -46,6 +49,33 @@ class CommandDispatcher(object):
         self.unknown_command = func
         return func
 
+    def register_handler(self, function):
+        """plugins call this to preload any handlers to be used by MessageHandler"""
+        self._handlers.append(function)
+
+    def attach_extra_handlers(self, MessageHandler):
+        """called by MessageHandler to get all handlers loaded by plugins"""
+        MessageHandler._extra_handlers = self._handlers
+
+    def _load_plugins(self):
+        plugin_list = ["default", "mentions", "lottery", "lookup", "easteregg", "chance"]
+        for module in plugin_list: 
+            module_path = "plugins.{}".format(module)
+            exec("import {}".format(module_path))
+            functions_list = [o for o in getmembers(sys.modules[module_path], isfunction)]
+            for function in functions_list:
+                function_name = function[0]
+                if function_name ==  "_initalise" or function_name ==  "_initalize":
+                    function[1](self) # expose only CommandDispatcher methods
+                elif function_name.startswith("_"):
+                    """
+                    ignore functions starting with underscore, most likely an internal call
+                    """
+                else:
+                    self.register(function[1])
+                    print("registered function '{}' from {}".format(function_name, module_path))
+
+
 # CommandDispatcher singleton
 command = CommandDispatcher()
 
@@ -74,19 +104,9 @@ def ping(bot, event, *args):
     """reply to a ping"""
     bot.send_message(event.conv, 'pong')
 
+
 @command.register_unknown
 def unknown_command(bot, event, *args):
     """handle unknown commands"""
     bot.send_message(event.conv,
                      '{}: unknown command'.format(event.user.full_name))
-
-
-# load in all plugins.*
-plugin_list = ["default", "mentions", "lottery", "lookup", "easteregg", "chance"]
-for module in plugin_list: 
-    module_path = "plugins.{}".format(module)
-    exec("import {}".format(module_path))
-    functions_list = [o for o in getmembers(sys.modules[module_path], isfunction)]
-    for function in functions_list:
-        command.register(function[1])
-        print("registered function '{}' from {}".format(function[0], module_path))

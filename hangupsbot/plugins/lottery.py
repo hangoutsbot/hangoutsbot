@@ -1,8 +1,20 @@
-import re
+import asyncio,re
 
 from random import shuffle
 
 draw_lists = {}
+
+def _initalise(command):
+    command.register_handler(_handle_me_action)
+
+
+@asyncio.coroutine
+def _handle_me_action(bot, event, command):
+    # perform a simple check for a recognised pattern (/me draw...)
+    #   do more complex checking later
+    if event.text.startswith('/me draw'):
+        yield from command.run(bot, event, *["perform_drawing"])
+
 
 def prepare(bot, event, *args):
     """prepares a bundle of things for a random draw

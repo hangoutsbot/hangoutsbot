@@ -20,6 +20,10 @@ class MessageHandler(object):
         self.last_chatroom_id = 'none' # recorded last chat room to prevent room crossover
         self.last_time_id = 0 # recorded timestamp of last chat to 'expire' chats
 
+        self._extra_handlers = [];
+        command.attach_extra_handlers(self) 
+
+
     @staticmethod
     def words_in_text(word, text):
         """Return True if word is in text"""
@@ -47,17 +51,15 @@ class MessageHandler(object):
                 # Forward messages
                 yield from self.handle_forward(event)
 
-                # handle @mentions
-                yield from self.handle_mention(event)
-
                 # Sync messages
                 yield from self.handle_syncing(event)
 
                 # Send automatic replies
                 yield from self.handle_autoreply(event)
 
-                # respond to /me events
-                yield from self.handle_me_action(event)
+                for function in self._extra_handlers:
+                    yield from function(self.bot, event, command)
+
 
     @asyncio.coroutine
     def handle_command(self, event):
@@ -219,24 +221,3 @@ class MessageHandler(object):
                     if self.words_in_text(kw, event.text) or kw == "*":
                         self.bot.send_message(event.conv, sentence)
                         break
-
-    @asyncio.coroutine
-    def handle_mention(self, event):
-        """handle @mention"""
-        occurrences = [word for word in event.text.split() if word.startswith('@')]
-        if len(occurrences) > 0:
-            for word in occurrences:
-                # strip all special characters
-                cleaned_name = ''.join(e for e in word if e.isalnum())
-                yield from command.run(self.bot, event, *["mention", cleaned_name])
-
-    @asyncio.coroutine
-    def handle_me_action(self, event):
-        """handle /me"""
-        if event.text.startswith('/me'):
-            if event.text.find("roll dice") > -1 or event.text.find("rolls dice") > -1 or event.text.find("rolls a dice") > -1 or event.text.find("rolled a dice") > -1:
-                yield from command.run(self.bot, event, *["diceroll"])
-            elif event.text.find("flips a coin") > -1 or event.text.find("flips coin") > -1 or event.text.find("flip coin") > -1 or event.text.find("flipped a coin") > -1:
-                yield from command.run(self.bot, event, *["coinflip"])
-            else:
-                yield from command.run(self.bot, event, *["perform_drawing"])

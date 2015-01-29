@@ -1,8 +1,23 @@
-import logging
+import asyncio,logging
 
 from pushbullet import PushBullet
 
 from hangups.ui.utils import get_conv_name
+
+def _initalise(command):
+    command.register_handler(_handle_mention)
+
+
+@asyncio.coroutine
+def _handle_mention(bot, event, command):
+    """handle @mention"""
+    occurrences = [word for word in event.text.split() if word.startswith('@')]
+    if len(occurrences) > 0:
+        for word in occurrences:
+            # strip all special characters
+            cleaned_name = ''.join(e for e in word if e.isalnum())
+            yield from command.run(bot, event, *["mention", cleaned_name])
+
 
 def mention(bot, event, *args):
     """alert a @mentioned user"""

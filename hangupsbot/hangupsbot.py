@@ -69,7 +69,7 @@ class HangupsBot(object):
         # load in previous memory, or create new one
         self.memory = None
         if memory_file:
-            print("memory file will be used")
+            print("HangupsBot: memory file will be used")
             self.memory = config.Config(memory_file)
             if not os.path.isfile(memory_file):
                 try:
@@ -327,23 +327,23 @@ class HangupsBot(object):
                     continue
 
                 # start up rpc listener in a separate thread
-                print("thread starting: {}".format(module))
+                print("_start_sinks(): {}".format(module))
                 t = Thread(target=start_listening, args=(
                   self,
                   shared_loop,
                   name,
                   port,
                   certfile,
-                  class_from_name(module_name, class_name)))
+                  class_from_name(module_name, class_name),
+                  module_name))
 
                 t.daemon = True
                 t.start()
 
                 threads.append(t)
 
-        message = "{} sink thread(s) started".format(len(threads))
+        message = "_start_sinks(): {} sink thread(s) started".format(len(threads))
         logging.info(message)
-        print(message)
 
     def _load_hooks(self):
         hook_packages = self.get_config_option('hooks')
@@ -373,14 +373,13 @@ class HangupsBot(object):
                     theClass._config = hook_config["config"]
 
                 if theClass.init():
-                    print("hook inited: {}".format(module))
+                    print("_load_hooks(): {}".format(module))
                     self._hooks.append(theClass)
                 else:
-                    print("hook failed to initialise")
+                    print("_load_hooks(): hook failed to initialise")
 
-        message = "{} hook(s) loaded".format(len(self._hooks))
+        message = "_load_hooks(): {} hook(s) loaded".format(len(self._hooks))
         logging.info(message)
-        print(message)
 
     def _on_message_sent(self, future):
         """Handle showing an error if a message fails to send"""
