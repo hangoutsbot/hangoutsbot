@@ -4,7 +4,7 @@ from random import shuffle
 
 draw_lists = {}
 
-def _initalise(command):
+def _initialise(command):
     command.register_handler(_handle_me_action)
 
 

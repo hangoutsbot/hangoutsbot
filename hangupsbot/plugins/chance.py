@@ -2,7 +2,7 @@ import asyncio
 
 from random import randint
 
-def _initalise(command):
+def _initialise(command):
     command.register_handler(_handle_me_action)
 
 

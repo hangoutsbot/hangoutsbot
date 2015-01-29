@@ -69,6 +69,7 @@ class MessageHandler(object):
             return
 
         # Parse message
+        event.text = event.text.replace(u'\xa0', u' ') # convert non-breaking space in Latin1 (ISO 8859-1)
         line_args = shlex.split(event.text, posix=False)
 
         # Test if command length is sufficient

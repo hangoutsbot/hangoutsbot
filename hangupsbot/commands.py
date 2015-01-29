@@ -61,17 +61,35 @@ class CommandDispatcher(object):
             module_path = "plugins.{}".format(module)
             exec("import {}".format(module_path))
             functions_list = [o for o in getmembers(sys.modules[module_path], isfunction)]
+
+            available_commands = False # default: ALL
+            candidate_commands = []
+
+            """
+            pass 1: run _initialise()/_initialize() and filter out "hidden" functions
+
+            optionally, _initialise()/_initialize() can return a list of functions available to the user,
+                use this return value when importing functions from external libraries
+
+            """
             for function in functions_list:
                 function_name = function[0]
-                if function_name ==  "_initalise" or function_name ==  "_initalize":
-                    function[1](self) # expose only CommandDispatcher methods
+                if function_name ==  "_initialise" or function_name ==  "_initialize":
+                    _return = function[1](self)
+                    if type(_return) is list:
+                        print("plugin introspection: {} implements {}".format(module_path, _return))
+                        available_commands = _return
                 elif function_name.startswith("_"):
-                    """
-                    ignore functions starting with underscore, most likely an internal call
-                    """
+                    pass
                 else:
+                    candidate_commands.append(function)
+
+            """pass 2: register filtered functions"""
+            for function in candidate_commands:
+                function_name = function[0]
+                if available_commands is False or function_name in available_commands:
                     self.register(function[1])
-                    print("registered function '{}' from {}".format(function_name, module_path))
+                    print("plugin command: {} -> {}".format(module_path, function_name))
 
 
 # CommandDispatcher singleton

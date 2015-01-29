@@ -4,8 +4,11 @@ from pushbullet import PushBullet
 
 from hangups.ui.utils import get_conv_name
 
-def _initalise(command):
+import re, string
+
+def _initialise(command):
     command.register_handler(_handle_mention)
+    return ["mention", "pushbulletapi", "dnd", "setnickname"]
 
 
 @asyncio.coroutine
@@ -286,7 +289,39 @@ def setnickname(bot, event, *args):
     """allow users to set a nickname for sync relay
         /bot setnickname <nickname>"""
     truncatelength = 16 # What should the maximum length of the nickname be?
-    nickname = ' '.join(args).strip()[0:truncatelength]
+    minlength = 3 # What should the minimum length of the nickname be?
+
+    nickname = ' '.join(args).strip()
+
+    # Strip all non-alphanumeric characters
+    nickname = re.sub('[^0-9a-zA-Z-_]+', '', nickname)
+
+    # Truncate nickname
+    nickname = nickname[0:truncatelength]
+
+    if len(nickname) < minlength and not nickname == '': # Check minimum length
+        bot.send_message_parsed(event.conv, "Error: Minimum length of nickname is {} characters. Only alphabetical and numeric characters allowed.".format(minlength))
+        return
+
+    # perform hard-coded substitution on words that trigger easter eggs
+    #   dammit google! ;P
+    substitution = {
+        "woot": "w00t",
+        "woohoo": "w00h00",
+        "lmao": "lma0",
+        "rofl": "r0fl",
+
+        "hahahaha": "ha_ha_ha_ha",
+        "hehehehe": "he_he_he_he",
+        "jejejeje": "je_je_je_je",
+        "rsrsrsrs": "rs_rs_rs_rs",
+
+        "xd": "x_d"
+    }
+    for original in substitution:
+        if original in nickname.lower():
+            pattern = re.compile(original, re.IGNORECASE)
+            nickname = pattern.sub(substitution[original], nickname)
 
     bot.initialise_user_memory(event.user.id_.chat_id)
 
@@ -301,7 +336,7 @@ def setnickname(bot, event, *args):
     bot.memory.save()
 
     if(nickname == ''):
-        bot.send_message_parsed(event.conv,"No parameter specified, removing nickname")
+        bot.send_message_parsed(event.conv, "Removing nickname")
     else:
         bot.send_message_parsed(
             event.conv,
