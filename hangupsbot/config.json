@@ -93,5 +93,6 @@
   "mentionall":true,
   "mentionallwhitelist": [],
   "mentionquidproquo": false,
-  "donotdisturb": []
+  "donotdisturb": [],
+  "plugins": null
 }
