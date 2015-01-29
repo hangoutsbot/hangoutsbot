@@ -1,3 +1,5 @@
+import hangups
+
 def lookup(bot, event, *args):
     """find keywords in a specified spreadsheet"""
 
