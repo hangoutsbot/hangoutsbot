@@ -504,7 +504,7 @@ def main():
         plugin_path = os.path.dirname(os.path.realpath(sys.argv[0])) + os.sep + "plugins"
         plugin_list = [ os.path.splitext(f)[0]  # take only base name (no extension)...
             for f in os.listdir(plugin_path)    # ...by iterating through each node in the plugin_path...
-                if os.path.isfile(os.path.join(plugin_path,f)) 
+                if os.path.isfile(os.path.join(plugin_path,f))
                     and not f.startswith("_") ] # ...that does not start with _
     handlers.command.initialise_plugins(plugin_list)
 
