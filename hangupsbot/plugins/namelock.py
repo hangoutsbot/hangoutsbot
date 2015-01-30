@@ -20,3 +20,6 @@ def setchatname(bot, event, *args):
         bot.send_message_parsed(
             event.conv,
             "Setting chatname to '{}'".format(chatname))
+
+    """Rename Hangout"""
+    yield from bot._client.setchatname(event.conv_id, ' '.join(args))
