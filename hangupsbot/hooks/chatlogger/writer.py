@@ -29,13 +29,13 @@ class logger():
                         return False
 
                 logger._log_path = directory
-                print("logger will store chats in {}".format(logger._log_path))
+                print("logger: chats stored in {}".format(logger._log_path))
             else:
-                print("logger failed to initialise: config.hooks[].storage_path cannot be empty")
+                print("logger: failed to initialise: config.hooks[].storage_path cannot be empty")
                 return False
 
         else:
-            print("logger failed to initialise: config.hooks[].storage_path not provided")
+            print("logger: failed to initialise: config.hooks[].storage_path not provided")
             return False
 
         return True

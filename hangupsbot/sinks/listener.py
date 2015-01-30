@@ -3,13 +3,11 @@ import asyncio
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webhookReceiver=BaseHTTPRequestHandler):
+def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webhookReceiver=BaseHTTPRequestHandler, friendlyName="UNKNOWN"):
     if loop:
-        print('setting event loop')
         asyncio.set_event_loop(loop)
 
     if bot:
-        print('setting static reference to bot')
         webhookReceiver._bot = bot
 
     try:
@@ -21,12 +19,12 @@ def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webh
           server_side=True)
 
         sa = httpd.socket.getsockname()
-        print("sink listening on {}, port {}...".format(sa[0], sa[1]))
+        print("listener: {} : sink on {}, port {}...".format(friendlyName, sa[0], sa[1]))
 
         httpd.serve_forever()
     except IOError:
         # do not run sink without https!
-        print("pem file possibly missing or broken (== '{}')".format(certfile))
+        print("listener: {} : pem file possibly missing or broken (== '{}')".format(friendlyName, certfile))
         httpd.socket.close()
     except KeyboardInterrupt:
         httpd.socket.close()
