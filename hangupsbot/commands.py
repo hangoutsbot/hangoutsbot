@@ -5,7 +5,6 @@ from hangups.ui.utils import get_conv_name
 
 from utils import text_to_segments
 
-from inspect import getmembers, isfunction
 
 class CommandDispatcher(object):
     """Register commands and run them"""
@@ -13,7 +12,6 @@ class CommandDispatcher(object):
         self.commands = {}
         self.unknown_command = None
 
-        self._handlers = { "message":[], "membership":[], "rename":[] }
 
     @asyncio.coroutine
     def run(self, bot, event, *args, **kwds):
@@ -47,49 +45,6 @@ class CommandDispatcher(object):
         """Decorator for registering unknown command"""
         self.unknown_command = func
         return func
-
-    def register_handler(self, function, type="message"):
-        """plugins call this to preload any handlers to be used by MessageHandler"""
-        self._handlers[type].append(function)
-
-    def attach_extra_handlers(self, MessageHandler):
-        """called by MessageHandler to get all handlers loaded by plugins"""
-        MessageHandler._extra_handlers = self._handlers
-
-    def initialise_plugins(self, plugin_list):
-        for module in plugin_list: 
-            module_path = "plugins.{}".format(module)
-            exec("import {}".format(module_path))
-            functions_list = [o for o in getmembers(sys.modules[module_path], isfunction)]
-
-            available_commands = False # default: ALL
-            candidate_commands = []
-
-            """
-            pass 1: run _initialise()/_initialize() and filter out "hidden" functions
-
-            optionally, _initialise()/_initialize() can return a list of functions available to the user,
-                use this return value when importing functions from external libraries
-
-            """
-            for function in functions_list:
-                function_name = function[0]
-                if function_name ==  "_initialise" or function_name ==  "_initialize":
-                    _return = function[1](self)
-                    if type(_return) is list:
-                        print("plugin introspection: {} implements {}".format(module_path, _return))
-                        available_commands = _return
-                elif function_name.startswith("_"):
-                    pass
-                else:
-                    candidate_commands.append(function)
-
-            """pass 2: register filtered functions"""
-            for function in candidate_commands:
-                function_name = function[0]
-                if available_commands is False or function_name in available_commands:
-                    self.register(function[1])
-                    print("plugin command: {} -> {}".format(module_path, function_name))
 
 
 # CommandDispatcher singleton

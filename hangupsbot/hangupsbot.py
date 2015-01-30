@@ -10,9 +10,12 @@ from hangups.ui.utils import get_conv_name
 
 import config
 import handlers
+from commands import command
 
 from sinks.listener import start_listening
-#import sinks.gitlab.simplepush
+
+from inspect import getmembers, isfunction
+
 
 __version__ = '1.1'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -108,13 +111,11 @@ class HangupsBot(object):
             self._client.on_connect.add_observer(self._on_connect)
             self._client.on_disconnect.add_observer(self._on_disconnect)
 
-            # Initialise hooks
-            self._load_hooks()
-
             # Start asyncio event loop
             loop = asyncio.get_event_loop()
 
-            # Start threads for web sinks
+            # initialise pluggable framework
+            self._load_hooks()
             self._start_sinks(loop)
 
             # Connect to Hangouts
@@ -227,6 +228,54 @@ class HangupsBot(object):
             # create the user memory
             self.memory.set_by_path(["user_data", chat_id], {})
 
+    def _load_plugins(self):
+        plugin_list = self.get_config_option('plugins')
+        if plugin_list is None:
+            print("HangupsBot: config.plugins is not defined, using ALL")
+            plugin_path = os.path.dirname(os.path.realpath(sys.argv[0])) + os.sep + "plugins"
+            plugin_list = [ os.path.splitext(f)[0]  # take only base name (no extension)...
+                for f in os.listdir(plugin_path)    # ...by iterating through each node in the plugin_path...
+                    if os.path.isfile(os.path.join(plugin_path,f)) 
+                        and not f.startswith("_") ] # ...that does not start with _
+
+        for module in plugin_list: 
+            module_path = "plugins.{}".format(module)
+
+            exec("import {}".format(module_path))
+            print("PLUGIN: {}".format(module))
+
+            functions_list = [o for o in getmembers(sys.modules[module_path], isfunction)]
+
+            available_commands = False # default: ALL
+            candidate_commands = []
+
+            """
+            pass 1: run _initialise()/_initialize() and filter out "hidden" functions
+
+            optionally, _initialise()/_initialize() can return a list of functions available to the user,
+                use this return value when importing functions from external libraries
+
+            """
+            for function in functions_list:
+                function_name = function[0]
+                if function_name ==  "_initialise" or function_name ==  "_initialize":
+                    _return = function[1](self._message_handler)
+                    if type(_return) is list:
+                        print("implements: {}".format(_return))
+                        available_commands = _return
+                elif function_name.startswith("_"):
+                    pass
+                else:
+                    candidate_commands.append(function)
+
+            """pass 2: register filtered functions"""
+            for function in candidate_commands:
+                function_name = function[0]
+                if available_commands is False or function_name in available_commands:
+                    command.register(function[1])
+                    print("command: {}".format(function_name))
+
+
     def _start_sinks(self, shared_loop):
         jsonrpc_sinks = self.get_config_option('jsonrpc')
         itemNo = -1
@@ -324,6 +373,8 @@ class HangupsBot(object):
         """Handle connecting for the first time"""
         print('Connected!')
         self._message_handler = handlers.MessageHandler(self)
+
+        self._load_plugins()
 
         self._user_list = hangups.UserList(self._client,
                                            initial_data.self_entity,
@@ -433,17 +484,6 @@ def main():
 
     # initialise the bot
     bot = HangupsBot(args.cookies, args.config, memory_file=persist_path)
-
-    # initialise command plugins
-    plugin_list = bot.get_config_option('plugins')
-    if plugin_list is None:
-        print("main(): config.plugins is not defined, using ALL")
-        plugin_path = os.path.dirname(os.path.realpath(sys.argv[0])) + os.sep + "plugins"
-        plugin_list = [ os.path.splitext(f)[0]  # take only base name (no extension)...
-            for f in os.listdir(plugin_path)    # ...by iterating through each node in the plugin_path...
-                if os.path.isfile(os.path.join(plugin_path,f)) 
-                    and not f.startswith("_") ] # ...that does not start with _
-    handlers.command.initialise_plugins(plugin_list)
 
     # start the bot
     bot.run()

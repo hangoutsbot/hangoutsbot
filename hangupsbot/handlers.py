@@ -20,8 +20,13 @@ class MessageHandler(object):
         self.last_chatroom_id = 'none' # recorded last chat room to prevent room crossover
         self.last_time_id = 0 # recorded timestamp of last chat to 'expire' chats
 
-        self._extra_handlers = None
-        command.attach_extra_handlers(self) 
+        self._extra_handlers = { "message":[], "membership":[], "rename":[] }
+
+
+    def register_handler(self, function, type="message"):
+        """plugins call this to preload any handlers to be used by MessageHandler"""
+        print('register_handler(): "{}" registered for "{}"'.format(function.__name__, type))
+        self._extra_handlers[type].append(function)
 
 
     @staticmethod
