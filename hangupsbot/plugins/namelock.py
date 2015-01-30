@@ -12,7 +12,7 @@ def topic(bot, event, *args):
 
     bot.memory.save()
 
-    if(chatname == ''):
+    if(topic == ''):
         bot.send_message_parsed(event.conv, "Removing topic")
     else:
         bot.send_message_parsed(
