@@ -157,8 +157,8 @@ def mention(bot, event, *args):
                     logging.info("suppressing @mention for {} ({})".format(u.full_name, u.id_.chat_id))
                     user_tracking["ignored"].append(u.full_name)
                     continue
-
-            mention_list.append(u)
+            if u not in mention_list:
+                mention_list.append(u)
 
     if len(mention_list) > 1 and username_lower != "all":
         if conv_1on1_initiator:

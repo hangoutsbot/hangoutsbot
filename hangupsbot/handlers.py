@@ -20,8 +20,13 @@ class MessageHandler(object):
         self.last_chatroom_id = 'none' # recorded last chat room to prevent room crossover
         self.last_time_id = 0 # recorded timestamp of last chat to 'expire' chats
 
-        self._extra_handlers = [];
-        command.attach_extra_handlers(self) 
+        self._extra_handlers = { "message":[], "membership":[], "rename":[], "sending":[] }
+
+
+    def register_handler(self, function, type="message"):
+        """plugins call this to preload any handlers to be used by MessageHandler"""
+        print('register_handler(): "{}" registered for "{}"'.format(function.__name__, type))
+        self._extra_handlers[type].append(function)
 
 
     @staticmethod
@@ -38,7 +43,7 @@ class MessageHandler(object):
         return True if word in text else False
 
     @asyncio.coroutine
-    def handle(self, event):
+    def handle_chat_message(self, event):
         """Handle conversation event"""
         if logging.root.level == logging.DEBUG:
             event.print_debug()
@@ -57,8 +62,10 @@ class MessageHandler(object):
                 # Send automatic replies
                 yield from self.handle_autoreply(event)
 
-                for function in self._extra_handlers:
-                    yield from function(self.bot, event, command)
+                # handlers from plugins
+                if "message" in self._extra_handlers:
+                    for function in self._extra_handlers["message"]:
+                        yield from function(self.bot, event, command)
 
 
     @asyncio.coroutine
@@ -173,7 +180,7 @@ class MessageHandler(object):
                 except KeyError:
                     continue
                 if not dst == event.conv_id:
-                    self.bot.send_message_segments(conv, segments)
+                    self.bot.send_message_segments(conv, segments, sync_room_support=False)
 
             self.last_user_id = event.user_id.chat_id
             self.last_time_id = time.time()
@@ -222,3 +229,57 @@ class MessageHandler(object):
                     if self.words_in_text(kw, event.text) or kw == "*":
                         self.bot.send_message(event.conv, sentence)
                         break
+
+    @asyncio.coroutine
+    def handle_chat_membership(self, event):
+        """Handle conversation membership change"""
+
+        # handlers from plugins
+        if "membership" in self._extra_handlers:
+            for function in self._extra_handlers["membership"]:
+                yield from function(self.bot, event, command)
+
+        # Don't handle events caused by the bot himself
+        if event.user.is_self:
+            return
+
+        sync_room_list = self.bot.get_config_suboption(event.conv_id, 'sync_rooms')
+
+        # Test if watching for membership changes is enabled
+        if not self.bot.get_config_suboption(event.conv_id, 'membership_watching_enabled'):
+            return
+
+        # Generate list of added or removed users
+        event_users = [event.conv.get_user(user_id) for user_id
+                       in event.conv_event.participant_ids]
+        names = ', '.join([user.full_name for user in event_users])
+
+        # JOIN
+        if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
+            self.bot.send_message(event.conv, '{}: Welcome!'.format(names))
+            if event.conv_id in sync_room_list:
+                for dst in sync_room_list:
+                    try:
+                        conv = self.bot._conv_list.get(dst)
+                    except KeyError:
+                        continue
+                    if not dst == event.conv_id:
+                        self.bot.send_message(conv, '{} has added {} to the Syncout'.format(event.user.full_name, names))
+        # LEAVE
+        else:
+            self.bot.send_message(event.conv, 'Goodbye {}! =('.format(names))
+            if event.conv_id in sync_room_list:
+                for dst in sync_room_list:
+                    try:
+                        conv = self.bot._conv_list.get(dst)
+                    except KeyError:
+                        continue
+                    if not dst == event.conv_id:
+                        self.bot.send_message(conv, '{} has left the Syncout'.format(names))
+
+    @asyncio.coroutine
+    def handle_chat_rename(self, event):
+        # handlers from plugins
+        if "rename" in self._extra_handlers:
+            for function in self._extra_handlers["rename"]:
+                yield from function(self.bot, event, command)
