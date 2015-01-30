@@ -18,7 +18,8 @@ def _watch_rename(bot, event, command):
         yield from bot._client.setchatname(event.conv_id, bot.memory.get_by_path(["conv_data", event.conv_id, "topic"]))
 
 def topic(bot, event, *args):
-    """Set a chat topic. If no parameters given, remove the topic"""
+    """Set a chat topic. If no parameters given, remove the topic
+    NOTE: Highly recommended that you make both 'topic' and 'rename' an admin command!"""
 
     topic = ' '.join(args).strip()
 
