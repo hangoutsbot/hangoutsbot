@@ -144,66 +144,15 @@ class HangupsBot(object):
         asyncio.async(self._message_handler.handle(event))
 
     def handle_membership_change(self, conv_event):
-        """Handle conversation membership change"""
         event = ConversationEvent(self, conv_event)
         self._execute_hook("on_membership_change", event)
-
-        # Don't handle events caused by the bot himself
-        if event.user.is_self:
-            return
-
-        sync_room_list = self.get_config_suboption(event.conv_id, 'sync_rooms')
-
-        # Test if watching for membership changes is enabled
-        if not self.get_config_suboption(event.conv_id, 'membership_watching_enabled'):
-            return
-
-        # Generate list of added or removed users
-        event_users = [event.conv.get_user(user_id) for user_id
-                       in event.conv_event.participant_ids]
-        names = ', '.join([user.full_name for user in event_users])
-
-        # JOIN
-        if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
-            self.send_message(event.conv, '{}: Welcome!'.format(names))
-            if event.conv_id in sync_room_list:
-                for dst in sync_room_list:
-                    try:
-                        conv = self._conv_list.get(dst)
-                    except KeyError:
-                        continue
-                    if not dst == event.conv_id:
-                        self.send_message(conv, '{} has added {} to the Syncout'.format(event.user.full_name, names))
-        # LEAVE
-        else:
-            self.send_message(event.conv, 'Goodbye {}! =('.format(names))
-            if event.conv_id in sync_room_list:
-                for dst in sync_room_list:
-                    try:
-                        conv = self._conv_list.get(dst)
-                    except KeyError:
-                        continue
-                    if not dst == event.conv_id:
-                        self.send_message(conv, '{} has left the Syncout'.format(names))
+        asyncio.async(self._message_handler.handle_chat_membership(event))
 
     def handle_rename(self, conv_event):
         """Handle conversation rename"""
         event = ConversationEvent(self, conv_event)
         self._execute_hook("on_rename", event)
-
-        # Don't handle events caused by the bot himself
-        if event.user.is_self:
-            return
-
-        # Test if watching for conversation rename is enabled
-        if not self.get_config_suboption(event.conv_id, 'rename_watching_enabled'):
-            return
-
-        # Only print renames for now...
-        if event.conv_event.new_name == '':
-            print('{} cleared the conversation name'.format(event.user.first_name))
-        else:
-            print('{} renamed the conversation to {}'.format(event.user.first_name, event.conv_event.new_name))
+        asyncio.async(self._message_handler.handle_chat_rename(event))
 
     def send_message(self, conversation, text):
         """"Send simple chat message"""
