@@ -20,7 +20,7 @@ class MessageHandler(object):
         self.last_chatroom_id = 'none' # recorded last chat room to prevent room crossover
         self.last_time_id = 0 # recorded timestamp of last chat to 'expire' chats
 
-        self._extra_handlers = [];
+        self._extra_handlers = None
         command.attach_extra_handlers(self) 
 
 
@@ -57,8 +57,10 @@ class MessageHandler(object):
                 # Send automatic replies
                 yield from self.handle_autoreply(event)
 
-                for function in self._extra_handlers:
-                    yield from function(self.bot, event, command)
+                # handlers from plugins
+                if "message" in self._extra_handlers:
+                    for function in self._extra_handlers["message"]:
+                        yield from function(self.bot, event, command)
 
 
     @asyncio.coroutine
@@ -227,6 +229,11 @@ class MessageHandler(object):
     def handle_chat_membership(self, event):
         """Handle conversation membership change"""
 
+        # handlers from plugins
+        if "membership" in self._extra_handlers:
+            for function in self._extra_handlers["membership"]:
+                yield from function(self.bot, event, command)
+
         # Don't handle events caused by the bot himself
         if event.user.is_self:
             return
@@ -267,16 +274,7 @@ class MessageHandler(object):
 
     @asyncio.coroutine
     def handle_chat_rename(self, event):
-        # Don't handle events caused by the bot himself
-        if event.user.is_self:
-            return
-
-        # Test if watching for conversation rename is enabled
-        if not self.get_config_suboption(event.conv_id, 'rename_watching_enabled'):
-            return
-
-        # Only print renames for now...
-        if event.conv_event.new_name == '':
-            print('{} cleared the conversation name'.format(event.user.first_name))
-        else:
-            print('{} renamed the conversation to {}'.format(event.user.first_name, event.conv_event.new_name))
+        # handlers from plugins
+        if "rename" in self._extra_handlers:
+            for function in self._extra_handlers["rename"]:
+                yield from function(self.bot, event, command)

@@ -13,7 +13,7 @@ class CommandDispatcher(object):
         self.commands = {}
         self.unknown_command = None
 
-        self._handlers = []
+        self._handlers = { "message":[], "membership":[], "rename":[] }
 
     @asyncio.coroutine
     def run(self, bot, event, *args, **kwds):
@@ -48,9 +48,9 @@ class CommandDispatcher(object):
         self.unknown_command = func
         return func
 
-    def register_handler(self, function):
+    def register_handler(self, function, type="message"):
         """plugins call this to preload any handlers to be used by MessageHandler"""
-        self._handlers.append(function)
+        self._handlers[type].append(function)
 
     def attach_extra_handlers(self, MessageHandler):
         """called by MessageHandler to get all handlers loaded by plugins"""
