@@ -40,7 +40,9 @@ def mention(bot, event, *args):
         if event.conv_id in sync_room_list:
             for syncedroom in sync_room_list:
                 if event.conv_id not in syncedroom:
-                    users_in_chat += bot.get_users_in_conversation(syncedroom)
+                    for user in bot.get_users_in_conversation(syncedroom):
+                        if user not in users_in_chat:
+                            users_in_chat.append(user)
 
     """
     /bot mention <fragment> test
