@@ -265,7 +265,7 @@ class HangupsBot(object):
     def get_1on1_conversation(self, chat_id):
         conversation = None
 
-        self.initialise_user_memory(chat_id)
+        self.initialise_memory(chat_id, "user_data")
 
         if self.memory.exists(["user_data", chat_id, "1on1"]):
             conversation_id = self.memory.get_by_path(["user_data", chat_id, "1on1"])
@@ -286,14 +286,14 @@ class HangupsBot(object):
 
         return conversation
 
-    def initialise_user_memory(self, chat_id):
-        if not self.memory.exists(["user_data"]):
-            # create the user_data grouping if it does not exist
-            self.memory.set_by_path(["user_data"], {})
+    def initialise_memory(self, chat_id, datatype):
+        if not self.memory.exists([datatype]):
+            # create the datatype grouping if it does not exist
+            self.memory.set_by_path([datatype], {})
 
-        if not self.memory.exists(["user_data", chat_id]):
-            # create the user memory
-            self.memory.set_by_path(["user_data", chat_id], {})
+        if not self.memory.exists([datatype, chat_id]):
+            # create the memory
+            self.memory.set_by_path([datatype, chat_id], {})
 
     def _start_sinks(self, shared_loop):
         jsonrpc_sinks = self.get_config_option('jsonrpc')

@@ -323,7 +323,7 @@ def setnickname(bot, event, *args):
             pattern = re.compile(original, re.IGNORECASE)
             nickname = pattern.sub(substitution[original], nickname)
 
-    bot.initialise_user_memory(event.user.id_.chat_id)
+    bot.initialise_memory(event.user.id_.chat_id, "user_data")
 
     bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "nickname"], nickname)
 
