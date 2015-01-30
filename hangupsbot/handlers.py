@@ -20,7 +20,7 @@ class MessageHandler(object):
         self.last_chatroom_id = 'none' # recorded last chat room to prevent room crossover
         self.last_time_id = 0 # recorded timestamp of last chat to 'expire' chats
 
-        self._extra_handlers = { "message":[], "membership":[], "rename":[] }
+        self._extra_handlers = { "message":[], "membership":[], "rename":[], "sending":[] }
 
 
     def register_handler(self, function, type="message"):

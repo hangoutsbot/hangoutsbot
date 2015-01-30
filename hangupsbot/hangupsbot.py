@@ -27,7 +27,7 @@ class FakeConversation(object):
 
     @asyncio.coroutine
     def send_message(self, segments):
-        print("FakeConversation: sendchatmessage()")
+        print("FakeConversation: sendchatmessage({})".format(self.id_))
         yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments])
 
 class ConversationEvent(object):
@@ -153,9 +153,24 @@ class HangupsBot(object):
             return
         # XXX: Exception handling here is still a bit broken. Uncaught
         # exceptions in _on_message_sent will only be logged.
-        asyncio.async(
-            conversation.send_message(segments)
-        ).add_done_callback(self._on_message_sent)
+
+        # send to one room, or to many? [sync_rooms support]
+        conversation_id = conversation.id_
+        broadcast_list = [conversation_id]
+
+        """
+        # default syncroom extension
+        sync_room_list = self.get_config_suboption(conversation_id, 'sync_rooms')
+        if sync_room_list:
+            broadcast_list = sync_room_list
+        """
+
+        for conversation_id in broadcast_list:
+            _fc = FakeConversation(self._client, conversation_id)
+            asyncio.async(
+                _fc.send_message(segments)
+            ).add_done_callback(self._on_message_sent)
+
 
     def list_conversations(self):
         """List all active conversations"""
