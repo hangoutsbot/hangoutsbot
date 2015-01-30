@@ -38,7 +38,7 @@ class MessageHandler(object):
         return True if word in text else False
 
     @asyncio.coroutine
-    def handle(self, event):
+    def handle_chat_message(self, event):
         """Handle conversation event"""
         if logging.root.level == logging.DEBUG:
             event.print_debug()
