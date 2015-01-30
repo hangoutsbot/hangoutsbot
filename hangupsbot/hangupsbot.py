@@ -137,23 +137,6 @@ class HangupsBot(object):
             self._client.disconnect()
         ).add_done_callback(lambda future: future.result())
 
-    def handle_chat_message(self, conv_event):
-        """Handle chat messages"""
-        event = ConversationEvent(self, conv_event)
-        self._execute_hook("on_chat_message", event)
-        asyncio.async(self._message_handler.handle(event))
-
-    def handle_membership_change(self, conv_event):
-        event = ConversationEvent(self, conv_event)
-        self._execute_hook("on_membership_change", event)
-        asyncio.async(self._message_handler.handle_chat_membership(event))
-
-    def handle_rename(self, conv_event):
-        """Handle conversation rename"""
-        event = ConversationEvent(self, conv_event)
-        self._execute_hook("on_rename", event)
-        asyncio.async(self._message_handler.handle_chat_rename(event))
-
     def send_message(self, conversation, text):
         """"Send simple chat message"""
         self.send_message_segments(conversation, [hangups.ChatMessageSegment(text)])
@@ -359,14 +342,19 @@ class HangupsBot(object):
 
         self._execute_hook("on_event", conv_event)
 
+        event = ConversationEvent(self, conv_event)
+
         if isinstance(conv_event, hangups.ChatMessageEvent):
-            self.handle_chat_message(conv_event)
+            self._execute_hook("on_chat_message", event)
+            asyncio.async(self._message_handler.handle(event))
 
         elif isinstance(conv_event, hangups.MembershipChangeEvent):
-            self.handle_membership_change(conv_event)
+            self._execute_hook("on_membership_change", event)
+            asyncio.async(self._message_handler.handle_chat_membership(event))
 
         elif isinstance(conv_event, hangups.RenameEvent):
-            self.handle_rename(conv_event)
+            self._execute_hook("on_rename", event)
+            asyncio.async(self._message_handler.handle_chat_rename(event))
 
     def _execute_hook(self, funcname, parameters=None):
         for hook in self._hooks:
