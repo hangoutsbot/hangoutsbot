@@ -40,9 +40,7 @@ def mention(bot, event, *args):
         if event.conv_id in sync_room_list:
             for syncedroom in sync_room_list:
                 if event.conv_id not in syncedroom:
-                    for user in bot.get_users_in_conversation(syncedroom):
-                        if user not in users_in_chat:
-                            users_in_chat.append(user)
+                    users_in_chat += bot.get_users_in_conversation(syncedroom)
 
     """
     /bot mention <fragment> test
@@ -159,8 +157,8 @@ def mention(bot, event, *args):
                     logging.info("suppressing @mention for {} ({})".format(u.full_name, u.id_.chat_id))
                     user_tracking["ignored"].append(u.full_name)
                     continue
-
-            mention_list.append(u)
+            if u not in mention_list:
+                mention_list.append(u)
 
     if len(mention_list) > 1 and username_lower != "all":
         if conv_1on1_initiator:
