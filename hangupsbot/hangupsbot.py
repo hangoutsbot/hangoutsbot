@@ -212,7 +212,7 @@ class HangupsBot(object):
     def get_1on1_conversation(self, chat_id):
         conversation = None
 
-        self.initialise_user_memory(chat_id)
+        self.initialise_memory(chat_id, "user_data")
 
         if self.memory.exists(["user_data", chat_id, "1on1"]):
             conversation_id = self.memory.get_by_path(["user_data", chat_id, "1on1"])
@@ -233,14 +233,14 @@ class HangupsBot(object):
 
         return conversation
 
-    def initialise_user_memory(self, chat_id):
-        if not self.memory.exists(["user_data"]):
-            # create the user_data grouping if it does not exist
-            self.memory.set_by_path(["user_data"], {})
+    def initialise_memory(self, chat_id, datatype):
+        if not self.memory.exists([datatype]):
+            # create the datatype grouping if it does not exist
+            self.memory.set_by_path([datatype], {})
 
-        if not self.memory.exists(["user_data", chat_id]):
-            # create the user memory
-            self.memory.set_by_path(["user_data", chat_id], {})
+        if not self.memory.exists([datatype, chat_id]):
+            # create the memory
+            self.memory.set_by_path([datatype, chat_id], {})
 
     def _load_plugins(self):
         plugin_list = self.get_config_option('plugins')
@@ -249,10 +249,10 @@ class HangupsBot(object):
             plugin_path = os.path.dirname(os.path.realpath(sys.argv[0])) + os.sep + "plugins"
             plugin_list = [ os.path.splitext(f)[0]  # take only base name (no extension)...
                 for f in os.listdir(plugin_path)    # ...by iterating through each node in the plugin_path...
-                    if os.path.isfile(os.path.join(plugin_path,f)) 
+                    if os.path.isfile(os.path.join(plugin_path,f))
                         and not f.startswith("_") ] # ...that does not start with _
 
-        for module in plugin_list: 
+        for module in plugin_list:
             module_path = "plugins.{}".format(module)
 
             exec("import {}".format(module_path))
@@ -498,7 +498,6 @@ def main():
 
     # initialise the bot
     bot = HangupsBot(args.cookies, args.config, memory_file=persist_path)
-
     # start the bot
     bot.run()
 
