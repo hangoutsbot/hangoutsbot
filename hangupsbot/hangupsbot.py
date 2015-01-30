@@ -146,7 +146,7 @@ class HangupsBot(object):
         segments = simple_parse_to_segments(html)
         self.send_message_segments(conversation, segments)
 
-    def send_message_segments(self, conversation, segments):
+    def send_message_segments(self, conversation, segments, sync_room_support=True):
         """Send chat message segments"""
         # Ignore if the user hasn't typed a message.
         if len(segments) == 0:
@@ -158,12 +158,11 @@ class HangupsBot(object):
         conversation_id = conversation.id_
         broadcast_list = [conversation_id]
 
-        """
-        # default syncroom extension
-        sync_room_list = self.get_config_suboption(conversation_id, 'sync_rooms')
-        if sync_room_list:
-            broadcast_list = sync_room_list
-        """
+        if sync_room_support:
+            # default syncroom extension
+            sync_room_list = self.get_config_suboption(conversation_id, 'sync_rooms')
+            if sync_room_list:
+                broadcast_list = sync_room_list
 
         for conversation_id in broadcast_list:
             _fc = FakeConversation(self._client, conversation_id)

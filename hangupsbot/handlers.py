@@ -180,7 +180,7 @@ class MessageHandler(object):
                 except KeyError:
                     continue
                 if not dst == event.conv_id:
-                    self.bot.send_message_segments(conv, segments)
+                    self.bot.send_message_segments(conv, segments, sync_room_support=False)
 
             self.last_user_id = event.user_id.chat_id
             self.last_time_id = time.time()
