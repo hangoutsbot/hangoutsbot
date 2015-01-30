@@ -346,7 +346,7 @@ class HangupsBot(object):
 
         if isinstance(conv_event, hangups.ChatMessageEvent):
             self._execute_hook("on_chat_message", event)
-            asyncio.async(self._message_handler.handle(event))
+            asyncio.async(self._message_handler.handle_chat_message(event))
 
         elif isinstance(conv_event, hangups.MembershipChangeEvent):
             self._execute_hook("on_membership_change", event)
