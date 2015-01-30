@@ -1,25 +1,23 @@
 """Allows the user to configure the bot to watch for hangout renames
 and change the name back to a default name accordingly"""
 
-def setchatname(bot, event, *args):
-    """Set a chat name. If no parameters given, remove chat name"""
+def topic(bot, event, *args):
+    """Set a chat topic. If no parameters given, remove the topic"""
 
-    truncatelength = 32 # What should the maximum length of the chatroom be?
-    chatname = ' '.join(args).strip()
-    chatname = chatname[0:truncatelength]
+    topic = ' '.join(args).strip()
 
     bot.initialise_memory(event.conv_id, "conv_data")
 
-    bot.memory.set_by_path(["conv_data", event.conv_id, "chatname"], chatname)
+    bot.memory.set_by_path(["conv_data", event.conv_id, "topic"], topic)
 
     bot.memory.save()
 
     if(chatname == ''):
-        bot.send_message_parsed(event.conv, "Removing chatname")
+        bot.send_message_parsed(event.conv, "Removing topic")
     else:
         bot.send_message_parsed(
             event.conv,
-            "Setting chatname to '{}'".format(chatname))
+            "Setting topic to '{}'".format(topic))
 
     """Rename Hangout"""
     yield from bot._client.setchatname(event.conv_id, ' '.join(args))
