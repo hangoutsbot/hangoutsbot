@@ -14,6 +14,9 @@ def _initialise(command):
 @asyncio.coroutine
 def _handle_mention(bot, event, command):
     """handle @mention"""
+    # Don't handle events caused by the bot himself
+    if event.user.is_self:
+        return
     occurrences = [word for word in event.text.split() if word.startswith('@')]
     if len(occurrences) > 0:
         for word in occurrences:
