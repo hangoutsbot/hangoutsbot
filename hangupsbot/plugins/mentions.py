@@ -291,6 +291,11 @@ def dnd(bot, event, *args):
 def setnickname(bot, event, *args):
     """allow users to set a nickname for sync relay
         /bot setnickname <nickname>"""
+
+    # Don't handle events caused by the bot himself
+    if event.user.is_self:
+        return
+
     truncatelength = 16 # What should the maximum length of the nickname be?
     minlength = 2 # What should the minimum length of the nickname be?
 
