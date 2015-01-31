@@ -168,12 +168,7 @@ class HangupsBot(object):
             for function in self._message_handler._extra_handlers["sending"]:
                 function(self, broadcast_list, context)
 
-        #if sync_room_support:
-            # default syncroom extension
-        #    sync_room_list = self.get_config_suboption(conversation_id, 'sync_rooms')
-        #    if sync_room_list:
-        #        broadcast_list = sync_room_list
-
+        # send messages using FakeConversation as a workaround
         for response in broadcast_list:
             _fc = FakeConversation(self._client, response[0])
             asyncio.async(
