@@ -30,7 +30,7 @@ def mention(bot, event, *args):
 
     """minimum length check for @mention"""
     username = args[0].strip()
-    if len(username) <= 2:
+    if len(username) < 2:
         logging.warning("@mention from {} ({}) too short (== '{}')".format(event.user.full_name, event.user.id_.chat_id, username))
         return
 
