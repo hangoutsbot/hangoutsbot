@@ -27,7 +27,7 @@ def mention(bot, event, *args):
 
     """minimum length check for @mention"""
     username = args[0].strip()
-    if len(username) <= 2:
+    if len(username) < 2:
         logging.warning("@mention from {} ({}) too short (== '{}')".format(event.user.full_name, event.user.id_.chat_id, username))
         return
 
@@ -288,8 +288,9 @@ def dnd(bot, event, *args):
 def setnickname(bot, event, *args):
     """allow users to set a nickname for sync relay
         /bot setnickname <nickname>"""
+
     truncatelength = 16 # What should the maximum length of the nickname be?
-    minlength = 3 # What should the minimum length of the nickname be?
+    minlength = 2 # What should the minimum length of the nickname be?
 
     nickname = ' '.join(args).strip()
 
@@ -323,7 +324,7 @@ def setnickname(bot, event, *args):
             pattern = re.compile(original, re.IGNORECASE)
             nickname = pattern.sub(substitution[original], nickname)
 
-    bot.initialise_user_memory(event.user.id_.chat_id)
+    bot.initialise_memory(event.user.id_.chat_id, "user_data")
 
     bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "nickname"], nickname)
 

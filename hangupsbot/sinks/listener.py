@@ -14,8 +14,8 @@ def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webh
         httpd = HTTPServer((name, port), webhookReceiver)
 
         httpd.socket = ssl.wrap_socket(
-          httpd.socket, 
-          certfile=certfile, 
+          httpd.socket,
+          certfile=certfile,
           server_side=True)
 
         sa = httpd.socket.getsockname()
@@ -26,5 +26,8 @@ def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webh
         # do not run sink without https!
         print("listener: {} : pem file possibly missing or broken (== '{}')".format(friendlyName, certfile))
         httpd.socket.close()
+    except OSError as e:
+        # Could not connect to HTTPServer!
+        print("listener: {} : requested access could not be assigned. Is something else using that port? (== '{}:{}')".format(friendlyName, name, port))
     except KeyboardInterrupt:
         httpd.socket.close()
