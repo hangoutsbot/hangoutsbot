@@ -15,7 +15,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
 
         if "message" in payload:
             print("message detected")
-            self._scripts_push(conversation_id, payload["message"])
+            self._scripts_push(conversation_id, payload)
         else:
             print(payload)
 
