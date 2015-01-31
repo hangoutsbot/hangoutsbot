@@ -54,10 +54,10 @@ class MessageHandler(object):
                 # Send automatic replies
                 yield from self.handle_autoreply(event)
 
-                # handlers from plugins
-                if "message" in self._extra_handlers:
-                    for function in self._extra_handlers["message"]:
-                        yield from function(self.bot, event, command)
+            # handlers from plugins
+            if "message" in self._extra_handlers:
+                for function in self._extra_handlers["message"]:
+                    yield from function(self.bot, event, command)
 
 
     @asyncio.coroutine
