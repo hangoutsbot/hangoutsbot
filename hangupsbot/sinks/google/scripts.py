@@ -15,7 +15,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
 
         if "message" in payload:
             print("message detected")
-            self._scripts_push(conversation_id, payload)
+            self._scripts_push(conversation_id, payload["message"])
         else:
             print(payload)
 
@@ -46,6 +46,6 @@ class webhookReceiver(BaseHTTPRequestHandler):
         print("incoming path: {}".format(path))
 
         # parse incoming data
-        payload = data_string
+        payload = json.loads(data_string)
 
         self._handle_incoming(path, query_string, payload)

@@ -75,7 +75,7 @@
       "port": 8081
     },
     {
-      "certfile": null,
+      "certfile": "/root/server.pem",
       "module": "sinks.google.scripts.webhookReceiver",
       "name": "127.0.0.1",
       "port": 8002
