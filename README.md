@@ -313,6 +313,12 @@ configuration in `config.commands_admin`.
   box. Note: `/me draw` always draws from "default" if available; to draw from
   another box, `/me draw [a|an] <thing>`
 
+`topic <name>`
+* Bot will set the name of the hangouts
+  * Any attempts to change the name manually will be reverted by the bot
+  * Does not protect against somebody renaming using /bot rename, or using /bot topic again
+    * You should have both these commands locked for admin use only!
+
 # Developers: Debugging
 
 * Run the bot with the `-d` parameter e.g. `python3 hangupsbot.py -d` - this
@@ -412,6 +418,56 @@ Important: Still under development, subject to change
    ```
 
 4. After entering the above, **Add Web Hook**, then test the hook.
+
+### Google Script users: Webhook Sink
+
+A Google Script sink can be configured, for the user to be able to send messages
+from Google Scripts directly to the bot. These are the configuration instructions:
+
+#### configuring and starting the sink
+
+Important: Still under development, subject to change
+
+1. Generate a .pem file. See the gitlab tutorial above
+
+2. Open the bot's `config.json` file and modify the `jsonrpc` key as follows:
+```
+...,
+"jsonrpc": [
+{
+  "certfile": "/root/server.pem",
+  "module": "sinks.google.scripts.webhookReceiver",
+  "name": "INSERT_SERVER_IP",
+  "port": 8002
+}
+],
+...
+```
+
+3. (Re-)start the bot
+
+#### configuring Google Scripts
+
+1. Open up Google Scripts and paste the following:
+```
+function sendToHangupsBot(conv_id, message) {
+
+  var serveraddress = 'INSERT_YOUR_SERVER_ADDRESS';
+
+  var url = 'https://' + serveraddress + ':8002/' + conv_id + '/';
+  var options = {
+    'method': 'post',
+    'contentType': 'text/html; charset=utf-8',
+    'validateHttpsCertificates': false,
+    'payload': {'message':message}
+  };
+
+  UrlFetchApp.fetch(url, options);
+}
+```
+2. When you need to send a message to a particular hangout, call sendToHangupsBot()
+with conv_id as the name of the conversation (use /bot whereami to find that out within hangouts)
+and message as the message that you'd like to send.
 
 # Developers: TODO
 
