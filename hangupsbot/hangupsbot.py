@@ -151,11 +151,16 @@ class HangupsBot(object):
         # Ignore if the user hasn't typed a message.
         if len(segments) == 0:
             return
-        # XXX: Exception handling here is still a bit broken. Uncaught
-        # exceptions in _on_message_sent will only be logged.
+
+        # reduce conversation to the only thing we need: the id
+        if isinstance(conversation, (FakeConversation, hangups.conversation.Conversation)):
+            conversation_id = conversation.id_
+        elif isinstance(conversation, string):
+            conversation_id = conversation
+        else:
+            raise ValueError('could not identify conversation id')
 
         # send to one room, or to many? [sync_rooms support]
-        conversation_id = conversation.id_
         broadcast_list = [conversation_id]
 
         if sync_room_support:
