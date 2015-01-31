@@ -146,7 +146,7 @@ class HangupsBot(object):
         segments = simple_parse_to_segments(html)
         self.send_message_segments(conversation, segments)
 
-    def send_message_segments(self, conversation, segments, sync_room_support=True):
+    def send_message_segments(self, conversation, segments, context=None, sync_room_support=True):
         """Send chat message segments"""
         # Ignore if the user hasn't typed a message.
         if len(segments) == 0:
@@ -160,19 +160,24 @@ class HangupsBot(object):
         else:
             raise ValueError('could not identify conversation id')
 
-        # send to one room, or to many? [sync_rooms support]
-        broadcast_list = [conversation_id]
+        # by default, a response always goes into a single conversation only
+        broadcast_list = [(conversation_id, segments)]
 
-        if sync_room_support:
+        # handlers from plugins
+        if "sending" in self._message_handler._extra_handlers:
+            for function in self._message_handler._extra_handlers["sending"]:
+                function(self.bot, broadcast_list, context)
+
+        #if sync_room_support:
             # default syncroom extension
-            sync_room_list = self.get_config_suboption(conversation_id, 'sync_rooms')
-            if sync_room_list:
-                broadcast_list = sync_room_list
+        #    sync_room_list = self.get_config_suboption(conversation_id, 'sync_rooms')
+        #    if sync_room_list:
+        #        broadcast_list = sync_room_list
 
-        for conversation_id in broadcast_list:
-            _fc = FakeConversation(self._client, conversation_id)
+        for response in broadcast_list:
+            _fc = FakeConversation(self._client, response[0])
             asyncio.async(
-                _fc.send_message(segments)
+                _fc.send_message(response[1])
             ).add_done_callback(self._on_message_sent)
 
 
