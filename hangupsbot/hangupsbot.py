@@ -260,8 +260,13 @@ class HangupsBot(object):
         for module in plugin_list:
             module_path = "plugins.{}".format(module)
 
-            exec("import {}".format(module_path))
-            print("PLUGIN: {}".format(module))
+            try:
+                exec("import {}".format(module_path))
+                print("PLUGIN: {}".format(module))
+            except:
+                e = sys.exc_info()[0]
+                print("PLUGIN IMPORT ERROR {} @ {}".format(e, module_path))
+                continue
 
             functions_list = [o for o in getmembers(sys.modules[module_path], isfunction)]
 
@@ -275,17 +280,22 @@ class HangupsBot(object):
                 use this return value when importing functions from external libraries
 
             """
-            for function in functions_list:
-                function_name = function[0]
-                if function_name ==  "_initialise" or function_name ==  "_initialize":
-                    _return = function[1](self._message_handler)
-                    if type(_return) is list:
-                        print("implements: {}".format(_return))
-                        available_commands = _return
-                elif function_name.startswith("_"):
-                    pass
-                else:
-                    candidate_commands.append(function)
+            try:
+                for function in functions_list:
+                    function_name = function[0]
+                    if function_name ==  "_initialise" or function_name ==  "_initialize":
+                        _return = function[1](self._message_handler)
+                        if type(_return) is list:
+                            print("implements: {}".format(_return))
+                            available_commands = _return
+                    elif function_name.startswith("_"):
+                        pass
+                    else:
+                        candidate_commands.append(function)
+            except:
+                e = sys.exc_info()[0]
+                print("PLUGIN PASS1 FAIL {} @ {}".format(e, module_path))
+                continue
 
             """pass 2: register filtered functions"""
             for function in candidate_commands:
