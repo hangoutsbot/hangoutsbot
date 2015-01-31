@@ -45,6 +45,8 @@ class webhookReceiver(BaseHTTPRequestHandler):
 
         print("incoming path: {}".format(path))
 
+        print(data_string)
+
         # parse incoming data
-        payload = json.loads(data_string)
+        payload = data_string
         self._handle_incoming(path, query_string, payload)
