@@ -166,7 +166,7 @@ class HangupsBot(object):
         # handlers from plugins
         if "sending" in self._message_handler._extra_handlers:
             for function in self._message_handler._extra_handlers["sending"]:
-                function(self.bot, broadcast_list, context)
+                function(self, broadcast_list, context)
 
         #if sync_room_support:
             # default syncroom extension
