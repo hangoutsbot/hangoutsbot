@@ -329,13 +329,13 @@ def setnickname(bot, event, *args):
     # First, collect all nicknames already used
     nicks = []
     for userchatid in bot.memory.get_option("user_data"):
-        if bot.memory.get_suboption("user_data", userchatid, "nickname"):
-            nicks.append(bot.memory.get_suboption("user_data", userchatid, "nickname"))
-            print("nicknames found: {}".format(nicks))
+        usernick = bot.memory.get_suboption("user_data", userchatid, "nickname")
+        if usernick and not userchatid in event.user.id_.chat_id:
+            nicks.append(usernick)
 
     # Now compare the new nickname with current nicks
     if nickname in nicks:
-        print("Error, nickname already in use")
+        bot.send_message_parsed(event.conv, "Error: Nickname already in use by somebody else!")
         return
 
     bot.initialise_memory(event.user.id_.chat_id, "user_data")
