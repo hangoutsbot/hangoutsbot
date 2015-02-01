@@ -22,9 +22,7 @@ def _handle_keyword(bot, event, command):
 
 def subscribe(bot, event, *args):
     """allow users to subscribe to phrases"""
-    print("Beginning subscribe")
     _populate_keywords(bot, event)
-    print("Keywords populated")
 
     keyword = ' '.join(args).strip()
 
@@ -33,20 +31,16 @@ def subscribe(bot, event, *args):
             event.conv,"Usage: /bot subscribe <keyword>")
         return
 
-    print("Checking for dupes yo")
     # Check for duplicates
-    if keywords[event.user.id_.chat_id]:
-        print("Keywords check passed")
+    if keywords:
         if keyword in keywords[event.user.id_.chat_id]:
-            print("Second keywords check passed")
             bot.send_message_parsed(
                 event.conv,"Already subscribed to '{}'!".format(keyword))
             return
 
-    print("Dupe check done")
 
     # Add to cache
-    keywords[event.user.id_chat_id].append(keyword)
+    keywords[event.user.id_.chat_id].append(keyword)
 
     # Save to file
     bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "keywords"], keywords[event.user.id_.chat_id])
