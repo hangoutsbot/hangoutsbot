@@ -1,7 +1,17 @@
 import asyncio,re
 
+""" Cache to keep track of what keywords are being watched. Listed by user_id """
+keywords = {}
+
 def _initialise(command):
     command.register_handler(_handle_keyword)
+
+    # Pull the keywords from file
+    for userchatid in bot.memory.get_option("user_data"):
+        userkeywords = bot.memory.get_suboption("user_data", userchatid, "keywords")
+        if userkeywords:
+            keywords.append(userkeywords)
+
     return ["subscribe", "unsubscribe"]
 
 @asyncio.coroutine
