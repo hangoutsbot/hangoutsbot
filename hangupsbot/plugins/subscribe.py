@@ -4,27 +4,27 @@ import asyncio,re
 keywords = {}
 
 def _initialise(command):
-    # Pull the keywords from file
-
-    bot.initialise_memory(event.user.id_.chat_id, "user_data")
-    print("test")
-    for userchatid in bot.memory.get_option("user_data"):
-        print("test2")
-        userkeywords = bot.memory.get_suboption("user_data", userchatid, "keywords")
-        print("test3")
-        if userkeywords:
-            print("test4")
-            keywords.append(userkeywords)
-
     command.register_handler(_handle_keyword)
     return ["subscribe", "unsubscribe"]
 
+def _populate_keywords(bot, event):
+    # Pull the keywords from file
+    if not keywords:
+        bot.initialise_memory(event.user.id_.chat_id, "user_data")
+        for userchatid in bot.memory.get_option("user_data"):
+            userkeywords = bot.memory.get_suboption("user_data", userchatid, "keywords")
+            if userkeywords:
+                keywords.append(userkeywords)
+
 @asyncio.coroutine
 def _handle_keyword(bot, event, command):
-    yield from command.run(bot, event, *["mention_on_keyword"])
+    return
 
 def subscribe(bot, event, *args):
     """allow users to subscribe to phrases"""
+    print("Beginning subscribe")
+    _populate_keywords(bot, event)
+    print("Keywords populated")
 
     keyword = ' '.join(args).strip()
 
@@ -33,11 +33,17 @@ def subscribe(bot, event, *args):
             event.conv,"Usage: /bot subscribe <keyword>")
         return
 
+    print("Checking for dupes yo")
     # Check for duplicates
-    if keyword in keywords[event.user.id_.chat_id]:
-        bot.send_message_parsed(
-            event.conv,"Already subscribed to '{}'!".format(keyword))
-        return
+    if keywords[event.user.id_.chat_id]:
+        print("Keywords check passed")
+        if keyword in keywords[event.user.id_.chat_id]:
+            print("Second keywords check passed")
+            bot.send_message_parsed(
+                event.conv,"Already subscribed to '{}'!".format(keyword))
+            return
+
+    print("Dupe check done")
 
     # Add to cache
     keywords[event.user.id_chat_id].append(keyword)
@@ -51,7 +57,4 @@ def subscribe(bot, event, *args):
         "Subscribing to '{}'".format(keyword))
 
 def unsubscribe(bot, event, *args):
-    return
-
-def mention_on_keyword(bot, event, *args):
     return
