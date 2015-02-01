@@ -117,6 +117,7 @@ def mention(bot, event, *args):
             logging.info("@all in {}: enabled global/per-conversation".format(event.conv.id_))
 
     """generate a list of users to be @mentioned"""
+    exact_nickname_matches = []
     mention_list = []
     for u in users_in_chat:
 
@@ -157,8 +158,18 @@ def mention(bot, event, *args):
                     logging.info("suppressing @mention for {} ({})".format(u.full_name, u.id_.chat_id))
                     user_tracking["ignored"].append(u.full_name)
                     continue
+
+            if username_lower == nickname_lower:
+                if u not in exact_nickname_matches:
+                    exact_nickname_matches.append(u)
+
             if u not in mention_list:
                 mention_list.append(u)
+
+    """prioritise exact nickname matches"""
+    if len(exact_nickname_matches) == 1:
+        logging.info("prioritising nickname match for {}".format(exact_nickname_matches[0].full_name))
+        mention_list = exact_nickname_matches
 
     if len(mention_list) > 1 and username_lower != "all":
         if conv_1on1_initiator:
