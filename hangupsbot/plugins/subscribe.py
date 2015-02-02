@@ -90,7 +90,7 @@ def subscribe(bot, event, *args):
     """allow users to subscribe to phrases"""
     _populate_keywords(bot, event)
 
-    keyword = ' '.join(args).strip()
+    keyword = ' '.join(args).strip().lower()
 
     if(keyword == ''):
         bot.send_message_parsed(
