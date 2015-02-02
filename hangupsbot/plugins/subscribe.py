@@ -33,6 +33,7 @@ def _handle_keyword(bot, event, command):
                     if phrase in event.text:
                         _send_notification(bot, event, phrase, user)
         except KeyError:
+            # User probably hasn't subscribed to anything
             continue
 
 def _populate_keywords(bot, event):
