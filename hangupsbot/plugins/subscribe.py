@@ -30,7 +30,7 @@ def _handle_keyword(bot, event, command):
         try:
             if keywords[user.id_.chat_id]:
                 for phrase in keywords[user.id_.chat_id]:
-                    if phrase in event.text:
+                    if phrase.lower() in event.text.lower():
                         _send_notification(bot, event, phrase, user)
         except KeyError:
             # User probably hasn't subscribed to anything
