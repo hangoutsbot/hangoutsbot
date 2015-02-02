@@ -44,20 +44,19 @@ class MessageHandler(object):
             event.print_debug()
 
         if not event.user.is_self and event.text:
-            if event.text.split()[0].lower() == self.bot_command:
-                # Run command
-                yield from self.handle_command(event)
-            else:
-                # Forward messages
-                yield from self.handle_forward(event)
-
-                # Send automatic replies
-                yield from self.handle_autoreply(event)
-
             # handlers from plugins
             if "message" in self._extra_handlers:
                 for function in self._extra_handlers["message"]:
                     yield from function(self.bot, event, command)
+
+            # Run command
+            yield from self.handle_command(event)
+
+            # Forward messages
+            yield from self.handle_forward(event)
+
+            # Send automatic replies
+            yield from self.handle_autoreply(event)
 
 
     @asyncio.coroutine
@@ -67,14 +66,16 @@ class MessageHandler(object):
         if not self.bot.get_config_suboption(event.conv_id, 'commands_enabled'):
             return
 
+        if event.text.split()[0].lower() != self.bot_command:
+            return
+
         # Parse message
         event.text = event.text.replace(u'\xa0', u' ') # convert non-breaking space in Latin1 (ISO 8859-1)
         line_args = shlex.split(event.text, posix=False)
 
         # Test if command length is sufficient
         if len(line_args) < 2:
-            self.bot.send_message(event.conv,
-                                  '{}: missing parameter(s)'.format(event.user.full_name))
+            self.bot.send_message(event.conv, '{}: missing parameter(s)'.format(event.user.full_name))
             return
 
         # Test if user has permissions for running command
@@ -82,11 +83,11 @@ class MessageHandler(object):
         if commands_admin_list and line_args[1].lower() in commands_admin_list:
             admins_list = self.bot.get_config_suboption(event.conv_id, 'admins')
             if event.user_id.chat_id not in admins_list:
-                self.bot.send_message(event.conv,
-                                      '{}: I\'m sorry. I\'m afraid I can\'t do that.'.format(event.user.full_name))
+                self.bot.send_message(event.conv, '{}: Can\'t do that.'.format(event.user.full_name))
                 return
 
         # Run command
+        yield from asyncio.sleep(0.2)
         yield from command.run(self.bot, event, *line_args[1:])
 
 
