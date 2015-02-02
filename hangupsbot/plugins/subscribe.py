@@ -7,6 +7,23 @@ def _initialise(command):
     command.register_handler(_handle_keyword)
     return ["subscribe", "unsubscribe"]
 
+@asyncio.coroutine
+def _handle_keyword(bot, event, command):
+    """handle keyword"""
+    print("Handling keyword")
+
+    _populate_keywords(bot, event)
+
+    users_in_chat = event.conv.users
+
+    for user in users_in_chat:
+        if keywords[user.id_.chat_id]:
+            for phrase in keywords[user.id_.chat_id]:
+                if phrase in event.text:
+                    print("{} found!".format(phrase))
+                else:
+                    print("{} not found".format(phrase))
+
 def _populate_keywords(bot, event):
     # Pull the keywords from file if not already
     if not keywords:
@@ -17,10 +34,6 @@ def _populate_keywords(bot, event):
                 keywords[userchatid] = userkeywords
             else:
                 keywords[userchatid] = []
-
-@asyncio.coroutine
-def _handle_keyword(bot, event, command):
-    return
 
 def subscribe(bot, event, *args):
     """allow users to subscribe to phrases"""
