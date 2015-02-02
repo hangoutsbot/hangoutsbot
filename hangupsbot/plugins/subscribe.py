@@ -106,6 +106,9 @@ def subscribe(bot, event, *args):
         elif not keywords[event.user.id_.chat_id]:
             # First keyword!
             keywords[event.user.id_.chat_id] = [keyword]
+            bot.send_message_parsed(
+                event.conv,
+                "Note: You will not be able to trigger your own subscriptions. To test, please ask somebody else to test this for you.")
         else:
             # Not the first keyword
             keywords[event.user.id_.chat_id].append(keyword)
