@@ -33,15 +33,17 @@ def subscribe(bot, event, *args):
             event.conv,"Usage: /bot subscribe <keyword>")
         return
 
-    # Check for duplicates, if none, append the keyword
     if keywords:
         if keyword in keywords[event.user.id_.chat_id]:
+            # Duplicate!
             bot.send_message_parsed(
                 event.conv,"Already subscribed to '{}'!".format(keyword))
             return
         elif not keywords[event.user.id_.chat_id]:
+            # First keyword!
             keywords[event.user.id_.chat_id] = [keyword]
         else:
+            # Not the first keyword
             keywords[event.user.id_.chat_id].append(keyword)
 
     # Save to file
@@ -50,7 +52,7 @@ def subscribe(bot, event, *args):
 
     bot.send_message_parsed(
         event.conv,
-        "Subscribing to '{}'".format(keyword))
+        "Subscribed to: {}".format(', '.join(keywords[event.user.id_.chat_id])))
 
 def unsubscribe(bot, event, *args):
     return
