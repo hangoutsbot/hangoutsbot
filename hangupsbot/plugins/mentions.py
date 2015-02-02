@@ -6,6 +6,8 @@ from hangups.ui.utils import get_conv_name
 
 import re, string
 
+nicks = {}
+
 def _initialise(command):
     command.register_handler(_handle_mention)
     return ["mention", "pushbulletapi", "dnd", "setnickname"]
@@ -41,6 +43,7 @@ def mention(bot, event, *args):
             for syncedroom in sync_room_list:
                 if event.conv_id not in syncedroom:
                     users_in_chat += bot.get_users_in_conversation(syncedroom)
+            users_in_chat = list(set(users_in_chat)) # make unique
 
     """
     /bot mention <fragment> test
@@ -115,6 +118,8 @@ def mention(bot, event, *args):
                 logging.info("@all in {}: allowed, {} ({}) is an admin".format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
         else:
             logging.info("@all in {}: enabled global/per-conversation".format(event.conv.id_))
+
+    for u in users_in_chat: print(u.full_name)
 
     """generate a list of users to be @mentioned"""
     exact_nickname_matches = []
@@ -336,22 +341,24 @@ def setnickname(bot, event, *args):
             nickname = pattern.sub(substitution[original], nickname)
 
     # Prevent duplicate nicknames
-
-    # First, collect all nicknames already used
-    nicks = []
-    for userchatid in bot.memory.get_option("user_data"):
-        usernick = bot.memory.get_suboption("user_data", userchatid, "nickname")
-        if usernick and not userchatid in event.user.id_.chat_id:
-            nicks.append(usernick)
+    # First, populate list of nicks if not already
+    if not nicks:
+        for userchatid in bot.memory.get_option("user_data"):
+            usernick = bot.memory.get_suboption("user_data", userchatid, "nickname")
+            if usernick:
+                nicks[userchatid] = usernick
 
     # Now compare the new nickname with current nicks
-    if nickname in nicks:
+    if nickname in nicks.values():
         bot.send_message_parsed(event.conv, "Error: Nickname already in use by somebody else!")
         return
 
     bot.initialise_memory(event.user.id_.chat_id, "user_data")
 
     bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "nickname"], nickname)
+
+    # Update nicks cache with new nickname
+    nicks[event.user.id_.chat_id] = nickname
 
     try:
         label = '{0} ({1})'.format(event.user.full_name.split(' ', 1)[0], nickname)
