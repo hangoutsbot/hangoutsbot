@@ -1,4 +1,6 @@
-import asyncio,re
+import asyncio,re,logging
+
+from hangups.ui.utils import get_conv_name
 
 """ Cache to keep track of what keywords are being watched. Listed by user_id """
 keywords = {}
@@ -10,19 +12,28 @@ def _initialise(command):
 @asyncio.coroutine
 def _handle_keyword(bot, event, command):
     """handle keyword"""
-    print("Handling keyword")
 
     _populate_keywords(bot, event)
 
     users_in_chat = event.conv.users
 
+    """check if synced room, if so, append on the users"""
+    sync_room_list = bot.get_config_suboption(event.conv_id, 'sync_rooms')
+    if sync_room_list:
+        if event.conv_id in sync_room_list:
+            for syncedroom in sync_room_list:
+                if event.conv_id not in syncedroom:
+                    users_in_chat += bot.get_users_in_conversation(syncedroom)
+            users_in_chat = list(set(users_in_chat)) # make unique
+
     for user in users_in_chat:
-        if keywords[user.id_.chat_id]:
-            for phrase in keywords[user.id_.chat_id]:
-                if phrase in event.text:
-                    print("{} found!".format(phrase))
-                else:
-                    print("{} not found".format(phrase))
+        try:
+            if keywords[user.id_.chat_id]:
+                for phrase in keywords[user.id_.chat_id]:
+                    if phrase in event.text:
+                        _send_notification(bot, event, phrase, user)
+        except KeyError:
+            continue
 
 def _populate_keywords(bot, event):
     # Pull the keywords from file if not already
@@ -34,6 +45,45 @@ def _populate_keywords(bot, event):
                 keywords[userchatid] = userkeywords
             else:
                 keywords[userchatid] = []
+
+def _send_notification(bot, event, phrase, user):
+    """Alert a user that a keyword that he subscribed to has been used"""
+
+    conversation_name = get_conv_name(event.conv, truncate=True);
+    logging.info("Keyword found: '{}' in '{}' ({})".format(phrase, conversation_name, event.conv.id_))
+
+    """pushbullet integration"""
+    pushbullet_integration = bot.get_config_suboption(event.conv.id_, 'pushbullet')
+    if pushbullet_integration is not None:
+        if user.id_.chat_id in pushbullet_integration.keys():
+            pushbullet_config = pushbullet_integration[user.id_.chat_id]
+            if pushbullet_config["api"] is not None:
+                pb = PushBullet(pushbullet_config["api"])
+                success, push = pb.push_note(
+                    "{} mentioned '{}' in {}".format(
+                        event.user.full_name,
+                        phrase,
+                        conversation_name,
+                        event.text))
+                if success:
+                    logging.info("{} ({}) alerted via pushbullet".format(user.full_name, user.id_.chat_id))
+                    return
+                else:
+                    logging.warning("pushbullet alert failed for {} ({})".format(user.full_name, user.id_.chat_id))
+
+    """send alert with 1on1 conversation"""
+    conv_1on1 = bot.get_1on1_conversation(user.id_.chat_id)
+    if conv_1on1:
+        bot.send_message_parsed(
+            conv_1on1,
+            "<b>{}</b> mentioned '{}' in <i>{}</i>:<br />{}".format(
+                event.user.full_name,
+                phrase,
+                conversation_name,
+                event.text))
+        logging.info("{} ({}) alerted via 1on1 ({})".format(user.full_name, user.id_.chat_id, conv_1on1.id_))
+    else:
+        logging.warning("user {} ({}) could not be alerted via 1on1".format(user.full_name, user.id_.chat_id))
 
 def subscribe(bot, event, *args):
     """allow users to subscribe to phrases"""
