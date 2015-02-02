@@ -43,6 +43,7 @@ def mention(bot, event, *args):
             for syncedroom in sync_room_list:
                 if event.conv_id not in syncedroom:
                     users_in_chat += bot.get_users_in_conversation(syncedroom)
+            users_in_chat = list(set(users_in_chat)) # make unique
 
     """
     /bot mention <fragment> test
@@ -117,6 +118,8 @@ def mention(bot, event, *args):
                 logging.info("@all in {}: allowed, {} ({}) is an admin".format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
         else:
             logging.info("@all in {}: enabled global/per-conversation".format(event.conv.id_))
+
+    for u in users_in_chat: print(u.full_name)
 
     """generate a list of users to be @mentioned"""
     exact_nickname_matches = []
