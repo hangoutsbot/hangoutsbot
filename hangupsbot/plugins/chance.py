@@ -10,8 +10,10 @@ def _initialise(command):
 def _handle_me_action(bot, event, command):
     if event.text.startswith('/me'):
         if event.text.find("roll dice") > -1 or event.text.find("rolls dice") > -1 or event.text.find("rolls a dice") > -1 or event.text.find("rolled a dice") > -1:
+            yield from asyncio.sleep(0.2)
             yield from command.run(bot, event, *["diceroll"])
         elif event.text.find("flips a coin") > -1 or event.text.find("flips coin") > -1 or event.text.find("flip coin") > -1 or event.text.find("flipped a coin") > -1:
+            yield from asyncio.sleep(0.2)
             yield from command.run(bot, event, *["coinflip"])
         else:
             pass
