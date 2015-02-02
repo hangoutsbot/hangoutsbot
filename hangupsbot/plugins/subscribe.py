@@ -30,7 +30,8 @@ def _handle_keyword(bot, event, command):
         try:
             if keywords[user.id_.chat_id] and not user.id_.chat_id in event.user.id_.chat_id:
                 for phrase in keywords[user.id_.chat_id]:
-                    if phrase.lower() in event.text.lower():
+                    regexphrase = "\\b" + phrase + "\\b"
+                    if re.search(regexphrase, event.text, re.IGNORECASE):
                         _send_notification(bot, event, phrase, user)
         except KeyError:
             # User probably hasn't subscribed to anything
