@@ -120,7 +120,7 @@ def unsubscribe(bot, event, *args):
             event.conv,"Unsubscribing all keywords")
         keywords[event.user.id_.chat_id] = []
 
-    if keyword in keywords[event.user.id_.chat_id].lower():
+    if keyword in keywords[event.user.id_.chat_id]:
         bot.send_message_parsed(
             event.conv,"Unsubscribing from keyword '{}'".format(keyword))
         keywords[event.user.id_.chat_id].remove(keyword)
