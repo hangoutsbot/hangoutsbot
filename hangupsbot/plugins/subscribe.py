@@ -113,7 +113,7 @@ def unsubscribe(bot, event, *args):
     """Allow users to unsubscribe from phrases"""
     _populate_keywords(bot, event)
 
-#    keyword = ' '.join(args).strip().lower()
+    keyword = ' '.join(args).strip().lower()
 
     if(keyword == ''):
         bot.send_message_parsed(
