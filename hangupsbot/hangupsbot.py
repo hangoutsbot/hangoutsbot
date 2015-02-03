@@ -255,7 +255,8 @@ class HangupsBot(object):
             plugin_list = [ os.path.splitext(f)[0]  # take only base name (no extension)...
                 for f in os.listdir(plugin_path)    # ...by iterating through each node in the plugin_path...
                     if os.path.isfile(os.path.join(plugin_path,f))
-                        and not f.startswith(("_", ".")) ] # ...that does not start with _ .
+                        and not f.startswith(("_", ".")) # ...that does not start with _ .
+                        and f.endswith(".py")] # ...and must end with .py
 
         for module in plugin_list:
             module_path = "plugins.{}".format(module)
