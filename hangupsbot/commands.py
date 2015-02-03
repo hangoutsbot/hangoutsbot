@@ -33,7 +33,7 @@ class CommandDispatcher(object):
         try:
             yield from func(bot, event, *args, **kwds)
         except Exception as e:
-            print(e)
+            print("CommandDispatcher: {}".format(e))
             raise
 
     def register(self, func):
