@@ -74,7 +74,7 @@ def subscribe(bot, event, *args):
 
     keyword = ' '.join(args).strip().lower()
 
-    conv_1on1 = bot.get_1on1_conversation(user.id_.chat_id)
+    conv_1on1 = bot.get_1on1_conversation(event.user.id_.chat_id)
     if not conv_1on1:
         bot.send_message_parsed(
             event.conv,
