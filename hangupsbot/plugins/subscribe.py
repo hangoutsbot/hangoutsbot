@@ -126,17 +126,20 @@ def unsubscribe(bot, event, *args):
     """Allow users to unsubscribe from phrases"""
     _populate_keywords(bot, event)
 
-    keyword = ' '.join(args).strip()
+#    keyword = ' '.join(args).strip().lower()
 
     if(keyword == ''):
         bot.send_message_parsed(
             event.conv,"Unsubscribing all keywords")
         keywords[event.user.id_.chat_id] = []
 
-    if keyword in keywords[event.user.id_.chat_id]:
+    if keyword in keywords[event.user.id_.chat_id].lower():
         bot.send_message_parsed(
-            event.conv,"Unsubscribing from keyword '{}'!".format(keyword))
+            event.conv,"Unsubscribing from keyword '{}'".format(keyword))
         keywords[event.user.id_.chat_id].remove(keyword)
+    else:
+        bot.send_message_parsed(
+            event.conv,"Error: keyword not found")
 
     # Save to file
     bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "keywords"], keywords[event.user.id_.chat_id])

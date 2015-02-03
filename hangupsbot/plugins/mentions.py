@@ -333,6 +333,9 @@ def setnickname(bot, event, *args):
         "jejejeje": "je_je_je_je",
         "rsrsrsrs": "rs_rs_rs_rs",
 
+        "happy birthday": "happy_birthday"
+        "happy new year": "happy_new_year"
+
         "xd": "x_d"
     }
     for original in substitution:
