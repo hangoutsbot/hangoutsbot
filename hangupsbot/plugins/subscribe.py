@@ -49,7 +49,7 @@ def _populate_keywords(bot, event):
                 keywords[userchatid] = []
 
 def _send_notification(bot, event, phrase, user):
-    """Alert a user that a keyword that he subscribed to has been used"""
+    """Alert a user that a keyword that they subscribed to has been used"""
 
     conversation_name = get_conv_name(event.conv, truncate=True);
     logging.info("Keyword found: '{}' in '{}' ({})".format(phrase, conversation_name, event.conv.id_))
@@ -69,10 +69,16 @@ def _send_notification(bot, event, phrase, user):
         logging.warning("user {} ({}) could not be alerted via 1on1".format(user.full_name, user.id_.chat_id))
 
 def subscribe(bot, event, *args):
-    """allow users to subscribe to phrases"""
+    """allow users to subscribe to phrases, only one input at a time"""
     _populate_keywords(bot, event)
 
     keyword = ' '.join(args).strip().lower()
+
+    conv_1on1 = bot.get_1on1_conversation(user.id_.chat_id)
+    if not conv_1on1:
+        bot.send_message_parsed(
+            event.conv,
+            "Note: I am unable to ping you until you start a 1 on 1 conversation with me!")
 
     if(keyword == ''):
         bot.send_message_parsed(
