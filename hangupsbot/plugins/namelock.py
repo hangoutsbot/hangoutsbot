@@ -14,8 +14,13 @@ def _watch_rename(bot, event, command):
     # Don't handle events caused by the bot himself
     if event.user.is_self:
         return
-    if not bot.memory.get_by_path(["conv_data", event.conv_id, "topic"]) == '':
-        yield from bot._client.setchatname(event.conv_id, bot.memory.get_by_path(["conv_data", event.conv_id, "topic"]))
+
+    try:
+        if not bot.memory.get_by_path(["conv_data", event.conv_id, "topic"]) == '':
+            yield from bot._client.setchatname(event.conv_id, bot.memory.get_by_path(["conv_data", event.conv_id, "topic"]))
+    except KeyError:
+        """Could not find the path, continuing"""
+        return
 
 def topic(bot, event, *args):
     """Set a chat topic. If no parameters given, remove the topic
