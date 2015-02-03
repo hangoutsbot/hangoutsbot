@@ -155,7 +155,7 @@ class HangupsBot(object):
         # reduce conversation to the only thing we need: the id
         if isinstance(conversation, (FakeConversation, hangups.conversation.Conversation)):
             conversation_id = conversation.id_
-        elif isinstance(conversation, string):
+        elif isinstance(conversation, str):
             conversation_id = conversation
         else:
             raise ValueError('could not identify conversation id')
