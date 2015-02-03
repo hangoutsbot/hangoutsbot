@@ -213,6 +213,10 @@ configuration in `config.commands_admin`.
 * Works with both 1-on-1 or group conversations.
 * Note: 1-on-1 renames may not reflect their title properly on desktop clients.
 
+`topic <string title>`
+* Works like `rename`
+* Will change the topic back to `<string title>` if anybody attempts to change it
+
 `leave [<conversation id>]`
 * Bot leaves the current hangout if `<conversation id>` not specified.
 
@@ -313,11 +317,13 @@ configuration in `config.commands_admin`.
   box. Note: `/me draw` always draws from "default" if available; to draw from
   another box, `/me draw [a|an] <thing>`
 
-`topic <name>`
-* Bot will set the name of the hangouts
-  * Any attempts to change the name manually will be reverted by the bot
-  * Does not protect against somebody renaming using /bot rename, or using /bot topic again
-    * You should have both these commands locked for admin use only!
+`subscribe <phrase>`
+* Bot will watch the chats that you share with it for any mentions of the keywords you specify
+* Upon mention of a keyword, bot will send you a 1on1 with the context and group
+
+`unsubscribe <phrase>`
+* `<phrase>` is optional, if not specified `unsubscribe` will remove all subscriptions under your name
+* If `<phrase>` is specified, `unsubscribe` will remove that phrase if it was previously subscribed to
 
 # Developers: Debugging
 
