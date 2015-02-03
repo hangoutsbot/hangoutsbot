@@ -54,25 +54,6 @@ def _send_notification(bot, event, phrase, user):
     conversation_name = get_conv_name(event.conv, truncate=True);
     logging.info("Keyword found: '{}' in '{}' ({})".format(phrase, conversation_name, event.conv.id_))
 
-    """pushbullet integration"""
-    pushbullet_integration = bot.get_config_suboption(event.conv.id_, 'pushbullet')
-    if pushbullet_integration is not None:
-        if user.id_.chat_id in pushbullet_integration.keys():
-            pushbullet_config = pushbullet_integration[user.id_.chat_id]
-            if pushbullet_config["api"] is not None:
-                pb = PushBullet(pushbullet_config["api"])
-                success, push = pb.push_note(
-                    "{} mentioned '{}' in {}".format(
-                        event.user.full_name,
-                        phrase,
-                        conversation_name,
-                        event.text))
-                if success:
-                    logging.info("{} ({}) alerted via pushbullet".format(user.full_name, user.id_.chat_id))
-                    return
-                else:
-                    logging.warning("pushbullet alert failed for {} ({})".format(user.full_name, user.id_.chat_id))
-
     """send alert with 1on1 conversation"""
     conv_1on1 = bot.get_1on1_conversation(user.id_.chat_id)
     if conv_1on1:
