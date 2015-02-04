@@ -10,7 +10,6 @@
       "Hello world!"
     ]
   ],
-  "autoreplies_enabled": true,
   "commands_admin": [
     "rename",
     "leave",
