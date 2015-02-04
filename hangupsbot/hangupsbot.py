@@ -62,9 +62,9 @@ class HangupsBot(object):
         self._max_retries = max_retries
 
         # These are populated by on_connect when it's called.
-        self._conv_list = None        # hangups.ConversationList
-        self._user_list = None        # hangups.UserList
-        self._message_handler = None  # MessageHandler
+        self._conv_list = None # hangups.ConversationList
+        self._user_list = None # hangups.UserList
+        self._handlers = None # handlers.py::EventHandler
 
         # Load config file
         self.config = config.Config(config_path)
@@ -164,8 +164,8 @@ class HangupsBot(object):
         broadcast_list = [(conversation_id, segments)]
 
         # handlers from plugins
-        if "sending" in self._message_handler._extra_handlers:
-            for function in self._message_handler._extra_handlers["sending"]:
+        if "sending" in self._handlers.pluggables:
+            for function in self._handlers.pluggables["sending"]:
                 function(self, broadcast_list, context)
 
         # send messages using FakeConversation as a workaround
@@ -285,7 +285,7 @@ class HangupsBot(object):
                 for function in functions_list:
                     function_name = function[0]
                     if function_name ==  "_initialise" or function_name ==  "_initialize":
-                        _return = function[1](self._message_handler)
+                        _return = function[1](self._handlers)
                         if type(_return) is list:
                             print("implements: {}".format(_return))
                             available_commands = _return
@@ -402,7 +402,7 @@ class HangupsBot(object):
     def _on_connect(self, initial_data):
         """Handle connecting for the first time"""
         print('Connected!')
-        self._message_handler = handlers.MessageHandler(self)
+        self._handlers = handlers.EventHandler(self)
 
         self._load_plugins()
 
@@ -427,15 +427,15 @@ class HangupsBot(object):
 
         if isinstance(conv_event, hangups.ChatMessageEvent):
             self._execute_hook("on_chat_message", event)
-            asyncio.async(self._message_handler.handle_chat_message(event))
+            asyncio.async(self._handlers.handle_chat_message(event))
 
         elif isinstance(conv_event, hangups.MembershipChangeEvent):
             self._execute_hook("on_membership_change", event)
-            asyncio.async(self._message_handler.handle_chat_membership(event))
+            asyncio.async(self._handlers.handle_chat_membership(event))
 
         elif isinstance(conv_event, hangups.RenameEvent):
             self._execute_hook("on_rename", event)
-            asyncio.async(self._message_handler.handle_chat_rename(event))
+            asyncio.async(self._handlers.handle_chat_rename(event))
 
     def _execute_hook(self, funcname, parameters=None):
         for hook in self._hooks:
@@ -469,6 +469,7 @@ def main():
     default_log_path = os.path.join(dirs.user_data_dir, 'hangupsbot.log')
     default_cookies_path = os.path.join(dirs.user_data_dir, 'cookies.json')
     default_config_path = os.path.join(dirs.user_data_dir, 'config.json')
+    default_memory_path = os.path.join(dirs.user_data_dir, 'memory.json')
 
     # Configure argument parser
     parser = argparse.ArgumentParser(prog='hangupsbot',
@@ -479,12 +480,14 @@ def main():
                         help='log file path')
     parser.add_argument('--cookies', default=default_cookies_path,
                         help='cookie storage path')
+    parser.add_argument('--memory', default=default_memory_path,
+                        help='memory storage path')
     parser.add_argument('--config', default=default_config_path,
                         help='config storage path')
     args = parser.parse_args()
 
     # Create all necessary directories.
-    for path in [args.log, args.cookies, args.config]:
+    for path in [args.log, args.cookies, args.config, args.memory]:
         directory = os.path.dirname(path)
         if directory and not os.path.isdir(directory):
             try:
@@ -508,12 +511,9 @@ def main():
     # hangups log is quite verbose too, suppress so we can debug the bot
     logging.getLogger('hangups').setLevel(logging.WARNING)
 
-    # allow for persistence of variables across restarts
-    # XXX: used for bot-specific data persistence in lieu of an actual database
-    persist_path = os.path.join(dirs.user_data_dir, 'memory.json')
-
     # initialise the bot
-    bot = HangupsBot(args.cookies, args.config, memory_file=persist_path)
+    bot = HangupsBot(args.cookies, args.config, memory_file=args.memory)
+
     # start the bot
     bot.run()
 

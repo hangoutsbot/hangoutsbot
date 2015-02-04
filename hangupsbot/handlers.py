@@ -8,20 +8,20 @@ from commands import command
 
 from hangups.ui.utils import get_conv_name
 
-class MessageHandler(object):
+class EventHandler(object):
     """Handle Hangups conversation events"""
 
     def __init__(self, bot, bot_command='/bot'):
         self.bot = bot
         self.bot_command = bot_command
 
-        self._extra_handlers = { "message":[], "membership":[], "rename":[], "sending":[] }
+        self.pluggables = { "message":[], "membership":[], "rename":[], "sending":[] }
 
 
     def register_handler(self, function, type="message"):
-        """plugins call this to preload any handlers to be used by MessageHandler"""
+        """plugins call this to preload any handlers to be used by EventHandler"""
         print('register_handler(): "{}" registered for "{}"'.format(function.__name__, type))
-        self._extra_handlers[type].append(function)
+        self.pluggables[type].append(function)
 
 
     @staticmethod
@@ -45,8 +45,8 @@ class MessageHandler(object):
 
         if not event.user.is_self and event.text:
             # handlers from plugins
-            if "message" in self._extra_handlers:
-                for function in self._extra_handlers["message"]:
+            if "message" in self.pluggables:
+                for function in self.pluggables["message"]:
                     yield from function(self.bot, event, command)
 
             # Run command
@@ -140,8 +140,8 @@ class MessageHandler(object):
         """Handle conversation membership change"""
 
         # handlers from plugins
-        if "membership" in self._extra_handlers:
-            for function in self._extra_handlers["membership"]:
+        if "membership" in self.pluggables:
+            for function in self.pluggables["membership"]:
                 yield from function(self.bot, event, command)
 
         # Don't handle events caused by the bot himself
@@ -185,6 +185,6 @@ class MessageHandler(object):
     @asyncio.coroutine
     def handle_chat_rename(self, event):
         # handlers from plugins
-        if "rename" in self._extra_handlers:
-            for function in self._extra_handlers["rename"]:
+        if "rename" in self.pluggables:
+            for function in self.pluggables["rename"]:
                 yield from function(self.bot, event, command)
