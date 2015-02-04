@@ -289,8 +289,10 @@ def pushbulletapi(bot, event, *args):
             bot.send_message_parsed(
                 event.conv,
                 "setting pushbullet api key")
-        bot.config.set_by_path(["pushbullet", event.user.id_.chat_id], { "api": value })
-        bot.config.save()
+
+        bot.initialise_memory(event.user.id_.chat_id, "user_data")
+        bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "pushbullet"], { "api": value })
+        bot.memory.save()
     else:
         bot.send_message_parsed(
             event.conv,
