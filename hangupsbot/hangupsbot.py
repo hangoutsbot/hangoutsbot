@@ -166,7 +166,15 @@ class HangupsBot(object):
         # handlers from plugins
         if "sending" in self._handlers.pluggables:
             for function in self._handlers.pluggables["sending"]:
-                function(self, broadcast_list, context)
+                try:
+                    function(self, broadcast_list, context)
+                except:
+                    print("exception occurred")
+                    logging.warning(
+                        "send_message_segments() pluggable: {}"
+                            .format(function.__name__),
+                            sys.exc_info()[0])
+
 
         # send messages using FakeConversation as a workaround
         for response in broadcast_list:
@@ -285,7 +293,11 @@ class HangupsBot(object):
                 for function in functions_list:
                     function_name = function[0]
                     if function_name ==  "_initialise" or function_name ==  "_initialize":
-                        _return = function[1](self._handlers)
+                        try:
+                            _return = function[1](self._handlers, bot=self)
+                        except TypeError as e:
+                            # implement legacy support for plugins that don't support the bot reference
+                            _return = function[1](self._handlers)
                         if type(_return) is list:
                             print("implements: {}".format(_return))
                             available_commands = _return

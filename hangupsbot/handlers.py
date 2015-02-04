@@ -1,4 +1,4 @@
-import logging, shlex, unicodedata, asyncio
+import logging, shlex, asyncio
 
 import hangups
 
@@ -23,20 +23,6 @@ class EventHandler(object):
         print('register_handler(): "{}" registered for "{}"'.format(function.__name__, type))
         self.pluggables[type].append(function)
 
-
-    @staticmethod
-    def words_in_text(word, text):
-        """Return True if word is in text"""
-        # Transliterate unicode characters to ASCII and make everything lowercase
-        word = unicodedata.normalize('NFKD', word).encode('ascii', 'ignore').decode().lower()
-        text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode().lower()
-
-        # Replace delimiters in text with whitespace
-        for delim in '.,:;!?':
-            text = text.replace(delim, ' ')
-
-        return True if word in text else False
-
     @asyncio.coroutine
     def handle_chat_message(self, event):
         """Handle conversation event"""
@@ -54,9 +40,6 @@ class EventHandler(object):
 
             # Forward messages
             yield from self.handle_forward(event)
-
-            # Send automatic replies
-            yield from self.handle_autoreply(event)
 
 
     @asyncio.coroutine
@@ -119,21 +102,6 @@ class EventHandler(object):
                     segments.extend([hangups.ChatMessageSegment(link, hangups.SegmentType.LINK, link_target=link)
                                      for link in event.conv_event.attachments])
                 self.bot.send_message_segments(conv, segments)
-
-    @asyncio.coroutine
-    def handle_autoreply(self, event):
-        """Handle autoreplies to keywords in messages"""
-        # Test if autoreplies are enabled
-        if not self.bot.get_config_suboption(event.conv_id, 'autoreplies_enabled'):
-            return
-
-        autoreplies_list = self.bot.get_config_suboption(event.conv_id, 'autoreplies')
-        if autoreplies_list:
-            for kwds, sentence in autoreplies_list:
-                for kw in kwds:
-                    if self.words_in_text(kw, event.text) or kw == "*":
-                        self.bot.send_message(event.conv, sentence)
-                        break
 
     @asyncio.coroutine
     def handle_chat_membership(self, event):

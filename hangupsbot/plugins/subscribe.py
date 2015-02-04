@@ -82,7 +82,7 @@ def subscribe(bot, event, *args):
 
     if(keyword == ''):
         bot.send_message_parsed(
-            event.conv,"Usage: /bot subscribe <keyword>")
+            event.conv,"Usage: /bot subscribe [keyword]")
         return
 
     if keywords:
