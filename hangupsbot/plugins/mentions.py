@@ -213,17 +213,16 @@ def mention(bot, event, *args):
             alert_via_1on1 = True
 
             """pushbullet integration"""
-            pushbullet_integration = bot.get_config_suboption(event.conv.id_, 'pushbullet')
-            if pushbullet_integration is not None:
-                if u.id_.chat_id in pushbullet_integration.keys():
-                    pushbullet_config = pushbullet_integration[u.id_.chat_id]
+            if bot.memory.exists(['user_data', u.id_.chat_id, "pushbullet"]):
+                pushbullet_config = bot.memory.get_by_path(['user_data', u.id_.chat_id, "pushbullet"])
+                if pushbullet_config is not None:
                     if pushbullet_config["api"] is not None:
                         pb = PushBullet(pushbullet_config["api"])
                         success, push = pb.push_note(
                             "{} mentioned you in {}".format(
-                                event.user.full_name,
-                                conversation_name,
-                                event.text))
+                                    event.user.full_name,
+                                    conversation_name),
+                                event.text)
                         if success:
                             user_tracking["mentioned"].append(u.full_name)
                             logging.info("{} ({}) alerted via pushbullet".format(u.full_name, u.id_.chat_id))
