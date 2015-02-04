@@ -24,6 +24,8 @@ def _handle_autoreply(bot, event, command):
 def words_in_text(word, text):
     """Return True if word is in text"""
 
+    #TODO: This is identical to regex in line 33 of subscribe.py!
+
     regexword = "\\b" + word + "\\b"
 
     return True if re.search(regexword, text, re.IGNORECASE) else False
