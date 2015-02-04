@@ -469,6 +469,7 @@ def main():
     default_log_path = os.path.join(dirs.user_data_dir, 'hangupsbot.log')
     default_cookies_path = os.path.join(dirs.user_data_dir, 'cookies.json')
     default_config_path = os.path.join(dirs.user_data_dir, 'config.json')
+    default_memory_path = os.path.join(dirs.user_data_dir, 'memory.json')
 
     # Configure argument parser
     parser = argparse.ArgumentParser(prog='hangupsbot',
@@ -479,12 +480,14 @@ def main():
                         help='log file path')
     parser.add_argument('--cookies', default=default_cookies_path,
                         help='cookie storage path')
+    parser.add_argument('--memory', default=default_memory_path,
+                        help='memory storage path')
     parser.add_argument('--config', default=default_config_path,
                         help='config storage path')
     args = parser.parse_args()
 
     # Create all necessary directories.
-    for path in [args.log, args.cookies, args.config]:
+    for path in [args.log, args.cookies, args.config, args.memory]:
         directory = os.path.dirname(path)
         if directory and not os.path.isdir(directory):
             try:
@@ -508,12 +511,9 @@ def main():
     # hangups log is quite verbose too, suppress so we can debug the bot
     logging.getLogger('hangups').setLevel(logging.WARNING)
 
-    # allow for persistence of variables across restarts
-    # XXX: used for bot-specific data persistence in lieu of an actual database
-    persist_path = os.path.join(dirs.user_data_dir, 'memory.json')
-
     # initialise the bot
-    bot = HangupsBot(args.cookies, args.config, memory_file=persist_path)
+    bot = HangupsBot(args.cookies, args.config, memory_file=args.memory)
+
     # start the bot
     bot.run()
 
