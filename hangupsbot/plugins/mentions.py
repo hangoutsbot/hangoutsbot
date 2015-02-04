@@ -16,6 +16,7 @@ def _initialise(Handlers, bot=None):
 
 
 def _migrate_mention_config_to_memory(bot):
+    # migrate pushbullet apikeys to memory.json
     if bot.config.exists(["pushbullet"]):
         api_settings = bot.config.get("pushbullet")
         for user_chat_id in api_settings:
@@ -26,7 +27,16 @@ def _migrate_mention_config_to_memory(bot):
         del bot.config["pushbullet"]
         bot.memory.save()
         bot.config.save()
-        print("migration(): pushbullet config key removed")
+        print("migration(): pushbullet config migrated")
+
+    # migrate DND list to memory.json
+    if bot.config.exists(["donotdisturb"]):
+        dndlist = bot.config.get("donotdisturb")
+        bot.memory.set_by_path(["donotdisturb"], dndlist)
+        del bot.config["donotdisturb"]
+        bot.memory.save()
+        bot.config.save()
+        print("migration(): dnd list migrated")
 
 
 @asyncio.coroutine
@@ -172,9 +182,8 @@ def mention(bot, event, *args):
                 logging.info("suppressing duplicate mention for {} ({})".format(event.user.full_name, event.user.id_.chat_id))
                 continue
 
-            donotdisturb = bot.config.get('donotdisturb')
-            if donotdisturb:
-                """user-configured DND"""
+            if bot.memory.exists(["donotdisturb"]):
+                donotdisturb = bot.memory.get('donotdisturb')
                 if u.id_.chat_id in donotdisturb:
                     logging.info("suppressing @mention for {} ({})".format(u.full_name, u.id_.chat_id))
                     user_tracking["ignored"].append(u.full_name)
@@ -302,21 +311,25 @@ def dnd(bot, event, *args):
     """allow users to toggle DND for ALL conversations (i.e. no @mentions)
         /bot dnd"""
 
+    # ensure dndlist is initialised
+    if not bot.memory.exists(["donotdisturb"]):
+        bot.memory["donotdisturb"] = []
+
     initiator_chat_id = event.user.id_.chat_id
-    dnd_list = bot.config.get_by_path(["donotdisturb"])
-    if not initiator_chat_id in dnd_list:
-        dnd_list.append(initiator_chat_id)
-        bot.send_message_parsed(
-            event.conv,
-            "global DND toggled ON for {}".format(event.user.full_name))
-    else:
+    dnd_list = bot.memory.get("donotdisturb")
+    if initiator_chat_id in dnd_list:
         dnd_list.remove(initiator_chat_id)
         bot.send_message_parsed(
             event.conv,
             "global DND toggled OFF for {}".format(event.user.full_name))
+    else:
+        dnd_list.append(initiator_chat_id)
+        bot.send_message_parsed(
+            event.conv,
+            "global DND toggled ON for {}".format(event.user.full_name))
 
-    bot.config.set_by_path(["donotdisturb"], dnd_list)
-    bot.config.save()
+    bot.memory["donotdisturb"] = dnd_list
+    bot.memory.save()
 
 def setnickname(bot, event, *args):
     """allow users to set a nickname for sync relay
