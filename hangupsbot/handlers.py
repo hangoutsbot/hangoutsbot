@@ -8,20 +8,20 @@ from commands import command
 
 from hangups.ui.utils import get_conv_name
 
-class MessageHandler(object):
+class EventHandler(object):
     """Handle Hangups conversation events"""
 
     def __init__(self, bot, bot_command='/bot'):
         self.bot = bot
         self.bot_command = bot_command
 
-        self.last_event_id = 'none' # recorded last event to avoid re-syncing
-        self.last_user_id = 'none' # recorded last user to allow message compression
-        self.last_chatroom_id = 'none' # recorded last chat room to prevent room crossover
-        self.last_time_id = 0 # recorded timestamp of last chat to 'expire' chats
+        self.pluggables = { "message":[], "membership":[], "rename":[], "sending":[] }
 
-        self._extra_handlers = [];
-        command.attach_extra_handlers(self) 
+
+    def register_handler(self, function, type="message"):
+        """plugins call this to preload any handlers to be used by EventHandler"""
+        print('register_handler(): "{}" registered for "{}"'.format(function.__name__, type))
+        self.pluggables[type].append(function)
 
 
     @staticmethod
@@ -38,27 +38,25 @@ class MessageHandler(object):
         return True if word in text else False
 
     @asyncio.coroutine
-    def handle(self, event):
+    def handle_chat_message(self, event):
         """Handle conversation event"""
         if logging.root.level == logging.DEBUG:
             event.print_debug()
 
         if not event.user.is_self and event.text:
-            if event.text.split()[0].lower() == self.bot_command:
-                # Run command
-                yield from self.handle_command(event)
-            else:
-                # Forward messages
-                yield from self.handle_forward(event)
-
-                # Sync messages
-                yield from self.handle_syncing(event)
-
-                # Send automatic replies
-                yield from self.handle_autoreply(event)
-
-                for function in self._extra_handlers:
+            # handlers from plugins
+            if "message" in self.pluggables:
+                for function in self.pluggables["message"]:
                     yield from function(self.bot, event, command)
+
+            # Run command
+            yield from self.handle_command(event)
+
+            # Forward messages
+            yield from self.handle_forward(event)
+
+            # Send automatic replies
+            yield from self.handle_autoreply(event)
 
 
     @asyncio.coroutine
@@ -68,14 +66,16 @@ class MessageHandler(object):
         if not self.bot.get_config_suboption(event.conv_id, 'commands_enabled'):
             return
 
+        if event.text.split()[0].lower() != self.bot_command:
+            return
+
         # Parse message
         event.text = event.text.replace(u'\xa0', u' ') # convert non-breaking space in Latin1 (ISO 8859-1)
         line_args = shlex.split(event.text, posix=False)
 
         # Test if command length is sufficient
         if len(line_args) < 2:
-            self.bot.send_message(event.conv,
-                                  '{}: missing parameter(s)'.format(event.user.full_name))
+            self.bot.send_message(event.conv, '{}: missing parameter(s)'.format(event.user.full_name))
             return
 
         # Test if user has permissions for running command
@@ -83,101 +83,13 @@ class MessageHandler(object):
         if commands_admin_list and line_args[1].lower() in commands_admin_list:
             admins_list = self.bot.get_config_suboption(event.conv_id, 'admins')
             if event.user_id.chat_id not in admins_list:
-                self.bot.send_message(event.conv,
-                                      '{}: I\'m sorry. I\'m afraid I can\'t do that.'.format(event.user.full_name))
+                self.bot.send_message(event.conv, '{}: Can\'t do that.'.format(event.user.full_name))
                 return
 
         # Run command
+        yield from asyncio.sleep(0.2)
         yield from command.run(self.bot, event, *line_args[1:])
 
-    @asyncio.coroutine
-    def handle_syncing(self, event):
-        """Handle message syncing"""
-        if not self.bot.get_config_option('syncing_enabled'):
-            return
-        sync_room_list = self.bot.get_config_suboption(event.conv_id, 'sync_rooms')
-
-        if not sync_room_list:
-            return # Sync room not configured, returning
-
-        if self.last_event_id == event.conv_event.id_:
-            return # This event has already been synced
-        self.last_event_id = event.conv_event.id_
-
-        if event.conv_id in sync_room_list:
-            print('>> message from synced room');
-            link = 'https://plus.google.com/u/0/{}/about'.format(event.user_id.chat_id)
-
-            ### Deciding how to relay the name across
-
-            # Checking that it hasn't timed out since last message
-            timeout_threshold = 30.0 # Number of seconds to allow the timeout
-            if time.time() - self.last_time_id > timeout_threshold:
-                timeout = True
-            else:
-                timeout = False
-
-            # Checking if the user is the same as the one who sent the previous message
-            if self.last_user_id in event.user_id.chat_id:
-                sameuser = True
-            else:
-                sameuser = False
-
-            # Checking if the room is the same as the room where the last message was sent
-            if self.last_chatroom_id in event.conv_id:
-                sameroom = True
-            else:
-                sameroom = False
-
-            if (not sameroom or timeout or not sameuser) and \
-                (self.bot.memory.exists(['user_data', event.user_id.chat_id, "nickname"])):
-                # Now check if there is a nickname set
-
-                try:
-                    fullname = '{0} ({1})'.format(event.user.full_name.split(' ', 1)[0]
-                        , self.bot.get_memory_suboption(event.user_id.chat_id, 'nickname'))
-                except TypeError:
-                    fullname = event.user.full_name
-            elif sameroom and sameuser and not timeout:
-                fullname = '>>'
-            else:
-                fullname = event.user.full_name
-
-            ### Name decided and put into variable 'fullname'
-
-            segments = [hangups.ChatMessageSegment('{0}'.format(fullname), hangups.SegmentType.LINK,
-                                                   link_target=link, is_bold=True),
-                        hangups.ChatMessageSegment(': ', is_bold=True)]
-
-            # Append links to attachments (G+ photos) to forwarded message
-            if event.conv_event.attachments:
-                segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
-                segments.extend([hangups.ChatMessageSegment(link, hangups.SegmentType.LINK, link_target=link)
-                                 for link in event.conv_event.attachments])
-
-            # Make links hyperlinks and send message
-            URL_RE = re.compile(r'https?://\S+')
-            for segment in event.conv_event.segments:
-                last = 0
-                for match in URL_RE.finditer(segment.text):
-                    if match.start() > last:
-                        segments.append(hangups.ChatMessageSegment(segment.text[last:match.start()]))
-                    segments.append(hangups.ChatMessageSegment(match.group(), link_target=match.group()))
-                    last = match.end()
-                if last != len(segment.text):
-                    segments.append(hangups.ChatMessageSegment(segment.text[last:]))
-
-            for dst in sync_room_list:
-                try:
-                    conv = self.bot._conv_list.get(dst)
-                except KeyError:
-                    continue
-                if not dst == event.conv_id:
-                    self.bot.send_message_segments(conv, segments)
-
-            self.last_user_id = event.user_id.chat_id
-            self.last_time_id = time.time()
-            self.last_chatroom_id = event.conv_id
 
     @asyncio.coroutine
     def handle_forward(self, event):
@@ -222,3 +134,57 @@ class MessageHandler(object):
                     if self.words_in_text(kw, event.text) or kw == "*":
                         self.bot.send_message(event.conv, sentence)
                         break
+
+    @asyncio.coroutine
+    def handle_chat_membership(self, event):
+        """Handle conversation membership change"""
+
+        # handlers from plugins
+        if "membership" in self.pluggables:
+            for function in self.pluggables["membership"]:
+                yield from function(self.bot, event, command)
+
+        # Don't handle events caused by the bot himself
+        if event.user.is_self:
+            return
+
+        sync_room_list = self.bot.get_config_suboption(event.conv_id, 'sync_rooms')
+
+        # Test if watching for membership changes is enabled
+        if not self.bot.get_config_suboption(event.conv_id, 'membership_watching_enabled'):
+            return
+
+        # Generate list of added or removed users
+        event_users = [event.conv.get_user(user_id) for user_id
+                       in event.conv_event.participant_ids]
+        names = ', '.join([user.full_name for user in event_users])
+
+        # JOIN
+        if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
+            self.bot.send_message(event.conv, '{}: Welcome!'.format(names))
+            if event.conv_id in sync_room_list:
+                for dst in sync_room_list:
+                    try:
+                        conv = self.bot._conv_list.get(dst)
+                    except KeyError:
+                        continue
+                    if not dst == event.conv_id:
+                        self.bot.send_message(conv, '{} has added {} to the Syncout'.format(event.user.full_name, names))
+        # LEAVE
+        else:
+            self.bot.send_message(event.conv, 'Goodbye {}! =('.format(names))
+            if event.conv_id in sync_room_list:
+                for dst in sync_room_list:
+                    try:
+                        conv = self.bot._conv_list.get(dst)
+                    except KeyError:
+                        continue
+                    if not dst == event.conv_id:
+                        self.bot.send_message(conv, '{} has left the Syncout'.format(names))
+
+    @asyncio.coroutine
+    def handle_chat_rename(self, event):
+        # handlers from plugins
+        if "rename" in self.pluggables:
+            for function in self.pluggables["rename"]:
+                yield from function(self.bot, event, command)

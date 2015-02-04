@@ -6,6 +6,8 @@ from hangups.ui.utils import get_conv_name
 
 import re, string
 
+nicks = {}
+
 def _initialise(command):
     command.register_handler(_handle_mention)
     return ["mention", "pushbulletapi", "dnd", "setnickname"]
@@ -27,7 +29,7 @@ def mention(bot, event, *args):
 
     """minimum length check for @mention"""
     username = args[0].strip()
-    if len(username) <= 2:
+    if len(username) < 2:
         logging.warning("@mention from {} ({}) too short (== '{}')".format(event.user.full_name, event.user.id_.chat_id, username))
         return
 
@@ -41,6 +43,7 @@ def mention(bot, event, *args):
             for syncedroom in sync_room_list:
                 if event.conv_id not in syncedroom:
                     users_in_chat += bot.get_users_in_conversation(syncedroom)
+            users_in_chat = list(set(users_in_chat)) # make unique
 
     """
     /bot mention <fragment> test
@@ -116,7 +119,10 @@ def mention(bot, event, *args):
         else:
             logging.info("@all in {}: enabled global/per-conversation".format(event.conv.id_))
 
+    for u in users_in_chat: print(u.full_name)
+
     """generate a list of users to be @mentioned"""
+    exact_nickname_matches = []
     mention_list = []
     for u in users_in_chat:
 
@@ -157,8 +163,18 @@ def mention(bot, event, *args):
                     logging.info("suppressing @mention for {} ({})".format(u.full_name, u.id_.chat_id))
                     user_tracking["ignored"].append(u.full_name)
                     continue
+
+            if username_lower == nickname_lower:
+                if u not in exact_nickname_matches:
+                    exact_nickname_matches.append(u)
+
             if u not in mention_list:
                 mention_list.append(u)
+
+    """prioritise exact nickname matches"""
+    if len(exact_nickname_matches) == 1:
+        logging.info("prioritising nickname match for {}".format(exact_nickname_matches[0].full_name))
+        mention_list = exact_nickname_matches
 
     if len(mention_list) > 1 and username_lower != "all":
         if conv_1on1_initiator:
@@ -288,8 +304,9 @@ def dnd(bot, event, *args):
 def setnickname(bot, event, *args):
     """allow users to set a nickname for sync relay
         /bot setnickname <nickname>"""
+
     truncatelength = 16 # What should the maximum length of the nickname be?
-    minlength = 3 # What should the minimum length of the nickname be?
+    minlength = 2 # What should the minimum length of the nickname be?
 
     nickname = ' '.join(args).strip()
 
@@ -316,6 +333,9 @@ def setnickname(bot, event, *args):
         "jejejeje": "je_je_je_je",
         "rsrsrsrs": "rs_rs_rs_rs",
 
+        "happy birthday": "happy_birthday",
+        "happy new year": "happy_new_year",
+
         "xd": "x_d"
     }
     for original in substitution:
@@ -323,9 +343,25 @@ def setnickname(bot, event, *args):
             pattern = re.compile(original, re.IGNORECASE)
             nickname = pattern.sub(substitution[original], nickname)
 
-    bot.initialise_user_memory(event.user.id_.chat_id)
+    # Prevent duplicate nicknames
+    # First, populate list of nicks if not already
+    if not nicks:
+        for userchatid in bot.memory.get_option("user_data"):
+            usernick = bot.memory.get_suboption("user_data", userchatid, "nickname")
+            if usernick:
+                nicks[userchatid] = usernick
+
+    # Now compare the new nickname with current nicks
+    if nickname in nicks.values():
+        bot.send_message_parsed(event.conv, "Error: Nickname already in use by somebody else!")
+        return
+
+    bot.initialise_memory(event.user.id_.chat_id, "user_data")
 
     bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "nickname"], nickname)
+
+    # Update nicks cache with new nickname
+    nicks[event.user.id_.chat_id] = nickname
 
     try:
         label = '{0} ({1})'.format(event.user.full_name.split(' ', 1)[0], nickname)

@@ -20,7 +20,8 @@
     "hangouts",
     "reload",
     "quit",
-    "config"
+    "config",
+    "topic"
   ],
   "spreadsheet_enabled": false,
   "spreadsheet_url": "INSERT_PUBLIC_URL_OF_GSHEET_HERE",
@@ -72,6 +73,12 @@
       "module": "sinks.hubotreceive.post.receiver",
       "name": "127.0.0.1",
       "port": 8081
+    },
+    {
+      "certfile": "/root/server.pem",
+      "module": "sinks.google.scripts.webhookReceiver",
+      "name": "127.0.0.1",
+      "port": 8002
     }
   ],
   "hooks": [
