@@ -8,9 +8,25 @@ import re, string
 
 nicks = {}
 
-def _initialise(command):
-    command.register_handler(_handle_mention)
+def _initialise(Handlers, bot=None):
+    if bot:
+        _migrate_mention_config_to_memory(bot)
+    Handlers.register_handler(_handle_mention, "message")
     return ["mention", "pushbulletapi", "dnd", "setnickname"]
+
+
+def _migrate_mention_config_to_memory(bot):
+    if bot.config.exists(["pushbullet"]):
+        api_settings = bot.config.get("pushbullet")
+        for user_chat_id in api_settings:
+            user_api = api_settings[user_chat_id]
+            print("migration(): {} = {} to memory.json".format(user_chat_id, user_api))
+            bot.initialise_memory(user_chat_id, "user_data")
+            bot.memory.set_by_path(["user_data", user_chat_id, "pushbullet"], user_api)
+        del bot.config["pushbullet"]
+        bot.memory.save()
+        bot.config.save()
+        print("migration(): pushbullet config key removed")
 
 
 @asyncio.coroutine
