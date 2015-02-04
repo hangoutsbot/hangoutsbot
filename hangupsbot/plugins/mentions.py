@@ -123,7 +123,7 @@ def mention(bot, event, *args):
 
                 """initiator is not an admin, check whitelist"""
                 logging.info("@all in {}: user {} ({}) is not admin".format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
-                all_whitelist = bot.get_config_suboption(event.conv_id, 'allwhitelist')
+                all_whitelist = bot.get_config_suboption(event.conv_id, 'mentionallwhitelist')
                 if all_whitelist is None or event.user_id.chat_id not in all_whitelist:
 
                     logging.warning("@all in {}: user {} ({}) blocked".format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
