@@ -1,4 +1,4 @@
-import asyncio, re, logging, unicodedata
+import asyncio, re, logging
 
 from hangups.ui.utils import get_conv_name
 
@@ -23,12 +23,7 @@ def _handle_autoreply(bot, event, command):
 
 def words_in_text(word, text):
     """Return True if word is in text"""
-    # Transliterate unicode characters to ASCII and make everything lowercase
-    word = unicodedata.normalize('NFKD', word).encode('ascii', 'ignore').decode().lower()
-    text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode().lower()
 
-    # Replace delimiters in text with whitespace
-    for delim in '.,:;!?':
-        text = text.replace(delim, ' ')
+    regexword = "\\b" + word + "\\b"
 
-    return True if word in text else False
+    return True if re.search(regexword, text, re.IGNORECASE) else False
