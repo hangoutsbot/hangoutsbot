@@ -62,9 +62,9 @@ class HangupsBot(object):
         self._max_retries = max_retries
 
         # These are populated by on_connect when it's called.
-        self._conv_list = None        # hangups.ConversationList
-        self._user_list = None        # hangups.UserList
-        self._message_handler = None  # MessageHandler
+        self._conv_list = None # hangups.ConversationList
+        self._user_list = None # hangups.UserList
+        self._handlers = None # handlers.py::EventHandler
 
         # Load config file
         self.config = config.Config(config_path)
@@ -164,8 +164,8 @@ class HangupsBot(object):
         broadcast_list = [(conversation_id, segments)]
 
         # handlers from plugins
-        if "sending" in self._message_handler._extra_handlers:
-            for function in self._message_handler._extra_handlers["sending"]:
+        if "sending" in self._handlers.pluggables:
+            for function in self._handlers.pluggables["sending"]:
                 function(self, broadcast_list, context)
 
         # send messages using FakeConversation as a workaround
@@ -285,7 +285,7 @@ class HangupsBot(object):
                 for function in functions_list:
                     function_name = function[0]
                     if function_name ==  "_initialise" or function_name ==  "_initialize":
-                        _return = function[1](self._message_handler)
+                        _return = function[1](self._handlers)
                         if type(_return) is list:
                             print("implements: {}".format(_return))
                             available_commands = _return
@@ -402,7 +402,7 @@ class HangupsBot(object):
     def _on_connect(self, initial_data):
         """Handle connecting for the first time"""
         print('Connected!')
-        self._message_handler = handlers.MessageHandler(self)
+        self._handlers = handlers.EventHandler(self)
 
         self._load_plugins()
 
@@ -427,15 +427,15 @@ class HangupsBot(object):
 
         if isinstance(conv_event, hangups.ChatMessageEvent):
             self._execute_hook("on_chat_message", event)
-            asyncio.async(self._message_handler.handle_chat_message(event))
+            asyncio.async(self._handlers.handle_chat_message(event))
 
         elif isinstance(conv_event, hangups.MembershipChangeEvent):
             self._execute_hook("on_membership_change", event)
-            asyncio.async(self._message_handler.handle_chat_membership(event))
+            asyncio.async(self._handlers.handle_chat_membership(event))
 
         elif isinstance(conv_event, hangups.RenameEvent):
             self._execute_hook("on_rename", event)
-            asyncio.async(self._message_handler.handle_chat_rename(event))
+            asyncio.async(self._handlers.handle_chat_rename(event))
 
     def _execute_hook(self, funcname, parameters=None):
         for hook in self._hooks:
