@@ -271,11 +271,14 @@ class HangupsBot(object):
 
             try:
                 exec("import {}".format(module_path))
-                print("PLUGIN: {}".format(module))
-            except:
-                e = sys.exc_info()[0]
-                print("PLUGIN IMPORT ERROR {} @ {}".format(e, module_path))
+            except Exception as e:
+                message = "{} @ {}".format(e, module_path)
+                print("!PLUGIN IMPORT ERROR! " + message)
+                logging.warning(message)
+
                 continue
+
+            print("PLUGIN: {}".format(module))
 
             functions_list = [o for o in getmembers(sys.modules[module_path], isfunction)]
 
