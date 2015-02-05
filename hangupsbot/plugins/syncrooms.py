@@ -36,7 +36,7 @@ def _handle_syncrooms_broadcast(bot, broadcast_list, context):
                 broadcast_list.append((other_room_id, response))
 
         print("syncroom {}: broadcasting to {} room(s)".format(
-            origin_conversation_id, 
+            origin_conversation_id,
             len(broadcast_list)))
     else:
         print("syncroom {}: not a sync room".format(origin_conversation_id))
@@ -48,87 +48,88 @@ def _handle_incoming_message(bot, event, command):
     if not bot.get_config_option('syncing_enabled'):
         return
 
-    sync_room_list = bot.get_config_suboption(event.conv_id, 'sync_rooms')
+    syncouts = bot.get_config_option('sync_rooms')
 
-    if not sync_room_list:
-        return # Sync room not configured, returning
+    if not syncouts:
+        return # Sync rooms not configured, returning
 
     if _registers.last_event_id == event.conv_event.id_:
         return # This event has already been synced
 
     _registers.last_event_id = event.conv_event.id_
 
-    if event.conv_id in sync_room_list:
-        print('>> message from synced room');
-        link = 'https://plus.google.com/u/0/{}/about'.format(event.user_id.chat_id)
+    for sync_room_list in syncouts:
+        if event.conv_id in sync_room_list:
+            print('>> message from synced room');
+            link = 'https://plus.google.com/u/0/{}/about'.format(event.user_id.chat_id)
 
-        ### Deciding how to relay the name across
+            ### Deciding how to relay the name across
 
-        # Checking that it hasn't timed out since last message
-        timeout_threshold = 30.0 # Number of seconds to allow the timeout
-        if time.time() - _registers.last_time_id > timeout_threshold:
-            timeout = True
-        else:
-            timeout = False
+            # Checking that it hasn't timed out since last message
+            timeout_threshold = 30.0 # Number of seconds to allow the timeout
+            if time.time() - _registers.last_time_id > timeout_threshold:
+                timeout = True
+            else:
+                timeout = False
 
-        # Checking if the user is the same as the one who sent the previous message
-        if _registers.last_user_id in event.user_id.chat_id:
-            sameuser = True
-        else:
-            sameuser = False
+            # Checking if the user is the same as the one who sent the previous message
+            if _registers.last_user_id in event.user_id.chat_id:
+                sameuser = True
+            else:
+                sameuser = False
 
-        # Checking if the room is the same as the room where the last message was sent
-        if _registers.last_chatroom_id in event.conv_id:
-            sameroom = True
-        else:
-            sameroom = False
+            # Checking if the room is the same as the room where the last message was sent
+            if _registers.last_chatroom_id in event.conv_id:
+                sameroom = True
+            else:
+                sameroom = False
 
-        if (not sameroom or timeout or not sameuser) and \
-            (bot.memory.exists(['user_data', event.user_id.chat_id, "nickname"])):
-            # Now check if there is a nickname set
+            if (not sameroom or timeout or not sameuser) and \
+                (bot.memory.exists(['user_data', event.user_id.chat_id, "nickname"])):
+                # Now check if there is a nickname set
 
-            try:
-                fullname = '{0} ({1})'.format(event.user.full_name.split(' ', 1)[0]
-                    , bot.get_memory_suboption(event.user_id.chat_id, 'nickname'))
-            except TypeError:
+                try:
+                    fullname = '{0} ({1})'.format(event.user.full_name.split(' ', 1)[0]
+                        , bot.get_memory_suboption(event.user_id.chat_id, 'nickname'))
+                except TypeError:
+                    fullname = event.user.full_name
+            elif sameroom and sameuser and not timeout:
+                fullname = '>>'
+            else:
                 fullname = event.user.full_name
-        elif sameroom and sameuser and not timeout:
-            fullname = '>>'
-        else:
-            fullname = event.user.full_name
 
-        ### Name decided and put into variable 'fullname'
+            ### Name decided and put into variable 'fullname'
 
-        segments = [hangups.ChatMessageSegment('{0}'.format(fullname), hangups.SegmentType.LINK,
-                                               link_target=link, is_bold=True),
-                    hangups.ChatMessageSegment(': ', is_bold=True)]
+            segments = [hangups.ChatMessageSegment('{0}'.format(fullname), hangups.SegmentType.LINK,
+                                                   link_target=link, is_bold=True),
+                        hangups.ChatMessageSegment(': ', is_bold=True)]
 
-        # Append links to attachments (G+ photos) to forwarded message
-        if event.conv_event.attachments:
-            segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
-            segments.extend([hangups.ChatMessageSegment(link, hangups.SegmentType.LINK, link_target=link)
-                             for link in event.conv_event.attachments])
+            # Append links to attachments (G+ photos) to forwarded message
+            if event.conv_event.attachments:
+                segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+                segments.extend([hangups.ChatMessageSegment(link, hangups.SegmentType.LINK, link_target=link)
+                                 for link in event.conv_event.attachments])
 
-        # Make links hyperlinks and send message
-        URL_RE = re.compile(r'https?://\S+')
-        for segment in event.conv_event.segments:
-            last = 0
-            for match in URL_RE.finditer(segment.text):
-                if match.start() > last:
-                    segments.append(hangups.ChatMessageSegment(segment.text[last:match.start()]))
-                segments.append(hangups.ChatMessageSegment(match.group(), link_target=match.group()))
-                last = match.end()
-            if last != len(segment.text):
-                segments.append(hangups.ChatMessageSegment(segment.text[last:]))
+            # Make links hyperlinks and send message
+            URL_RE = re.compile(r'https?://\S+')
+            for segment in event.conv_event.segments:
+                last = 0
+                for match in URL_RE.finditer(segment.text):
+                    if match.start() > last:
+                        segments.append(hangups.ChatMessageSegment(segment.text[last:match.start()]))
+                    segments.append(hangups.ChatMessageSegment(match.group(), link_target=match.group()))
+                    last = match.end()
+                if last != len(segment.text):
+                    segments.append(hangups.ChatMessageSegment(segment.text[last:]))
 
-        for dst in sync_room_list:
-            try:
-                conv = bot._conv_list.get(dst)
-            except KeyError:
-                continue
-            if not dst == event.conv_id:
-                bot.send_message_segments(conv, segments, context="no_syncrooms_handler")
+            for dst in sync_room_list:
+                try:
+                    conv = bot._conv_list.get(dst)
+                except KeyError:
+                    continue
+                if not dst == event.conv_id:
+                    bot.send_message_segments(conv, segments, context="no_syncrooms_handler")
 
-        _registers.last_user_id = event.user_id.chat_id
-        _registers.last_time_id = time.time()
-        _registers.last_chatroom_id = event.conv_id
+            _registers.last_user_id = event.user_id.chat_id
+            _registers.last_time_id = time.time()
+            _registers.last_chatroom_id = event.conv_id
