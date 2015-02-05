@@ -504,6 +504,17 @@ class HangupsBot(object):
         print('sending parsed message, conversation name:', get_conv_name(conversation))
         self.send_message_parsed(conversation, html)
 
+    def send_html_to_conversation(self, conversation_id, html):
+        """Deprecates external_send_message_parsed()"""
+        conversation = self._conv_list.get(conversation_id)
+        print('sending parsed message, conversation name:', get_conv_name(conversation))
+        self.send_message_parsed(conversation, html)
+
+    def send_html_to_user(self, user_id, html):
+        conversation = get_1on1_conversation(user_id)
+        print('sending parsed message, user id: {}', user_id)
+        self.send_message_parsed(conversation, html)
+
 def main():
     """Main entry point"""
     # Build default paths for files.
