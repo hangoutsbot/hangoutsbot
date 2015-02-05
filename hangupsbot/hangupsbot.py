@@ -72,7 +72,7 @@ class HangupsBot(object):
         # load in previous memory, or create new one
         self.memory = None
         if memory_file:
-            print("HangupsBot: memory file will be used")
+            print("HangupsBot: memory file will be used: {}".format(memory_file))
             self.memory = config.Config(memory_file)
             if not os.path.isfile(memory_file):
                 try:
@@ -210,6 +210,20 @@ class HangupsBot(object):
 
     def get_memory_suboption(self, user_id, option):
         return self.memory.get_suboption("user_data", user_id, option)
+
+    def user_memory_set(self, chat_id, keyname, keyvalue):
+        self.initialise_memory(chat_id, "user_data")
+        self.memory.set_by_path(["user_data", chat_id, keyname], keyvalue)
+        self.memory.save()
+
+    def user_memory_get(self, chat_id, keyname):
+        value = None
+        try:
+            self.initialise_memory(chat_id, "user_data")
+            value = self.memory.get_by_path(["user_data", chat_id, keyname])
+        except KeyError:
+            pass
+        return value
 
     def print_conversations(self):
         print('Conversations:')
