@@ -510,8 +510,18 @@ class HangupsBot(object):
 
     def send_html_to_user(self, user_id, html):
         conversation = get_1on1_conversation(user_id)
+        if not conversation:
+            print('Tried to send parsed message but failed. 1to1 conversation not found')
+            return False
         print('sending parsed message, user id: {}', user_id)
         self.send_message_parsed(conversation, html)
+        return True
+
+    def send_html_to_user_or_conversation(self, user_id_or_conversation_id, html):
+        """Attempts send_html_to_user. If failed, attempts send_html_to_conversation"""
+        # NOTE: Assumption that a conversation_id will never match a user_id
+        if not send_html_to_user(user_id_or_conversation_id, html):
+            send_html_to_conversation(user_id_or_conversation_id, html)
 
 def main():
     """Main entry point"""
