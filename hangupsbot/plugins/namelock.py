@@ -18,8 +18,8 @@ def _watch_rename(bot, event, command):
     try:
         if not bot.memory.get_by_path(["conv_data", event.conv_id, "topic"]) == '':
             yield from bot._client.setchatname(event.conv_id, bot.memory.get_by_path(["conv_data", event.conv_id, "topic"]))
-    except KeyError:
-        """Could not find the path, continuing"""
+    except TypeError:
+        """Memory file blank, continuing"""
         return
 
 def topic(bot, event, *args):
