@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, sys, argparse, logging, shutil, asyncio, time, signal, traceback
+import os, sys, argparse, logging, shutil, asyncio, time, signal
 
 import appdirs
 import hangups

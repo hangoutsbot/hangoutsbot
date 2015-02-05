@@ -33,8 +33,10 @@ class CommandDispatcher(object):
         try:
             yield from func(bot, event, *args, **kwds)
         except Exception as e:
-            print("CommandDispatcher: {}".format(e))
-            raise
+            message = "CommandDispatcher.run: {}".format(func.__name__)
+            print("EXCEPTION in " + message)
+            logging.exception(message)
+
 
     def register(self, func):
         """Decorator for registering command"""
