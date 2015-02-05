@@ -21,6 +21,9 @@ def _watch_rename(bot, event, command):
     except TypeError:
         """Memory file blank, continuing"""
         return
+    except KeyError:
+        """Path not specified, continuing"""
+        return
 
 def topic(bot, event, *args):
     """Set a chat topic. If no parameters given, remove the topic
