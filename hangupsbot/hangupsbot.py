@@ -495,17 +495,15 @@ class HangupsBot(object):
         print('Connection lost!')
 
     def external_send_message(self, conversation_id, text):
-        conversation = self._conv_list.get(conversation_id)
-        print('sending message, conversation name:', get_conv_name(conversation))
-        self.send_message(conversation, text)
+        print('WARNING: external_send_message() is deprecated! Please move to using send_html_to_conversation()')
+        self.send_html_to_conversation(conversation, text)
 
     def external_send_message_parsed(self, conversation_id, html):
-        conversation = self._conv_list.get(conversation_id)
-        print('sending parsed message, conversation name:', get_conv_name(conversation))
-        self.send_message_parsed(conversation, html)
+        print('WARNING: external_send_message_parsed() is deprecated! Please move to using send_html_to_conversation()')
+        self.send_html_to_conversation(conversation, html)
 
     def send_html_to_conversation(self, conversation_id, html):
-        """Deprecates external_send_message_parsed()"""
+        """Deprecates external_send_message_parsed() and external_send_message()"""
         conversation = self._conv_list.get(conversation_id)
         print('sending parsed message, conversation name:', get_conv_name(conversation))
         self.send_message_parsed(conversation, html)
