@@ -495,15 +495,13 @@ class HangupsBot(object):
         print('Connection lost!')
 
     def external_send_message(self, conversation_id, text):
-        conversation = self.get_1on1_conversation(conversation_id)
-        if not conversation:
-            conversation = self._conv_list.get(conversation_id)
+        conversation = self._conv_list.get(conversation_id)
+        print('sending message, conversation name:', get_conv_name(conversation))
         self.send_message(conversation, text)
 
     def external_send_message_parsed(self, conversation_id, html):
-        conversation = self.get_1on1_conversation(conversation_id)
-        if not conversation:
-            conversation = self._conv_list.get(conversation_id)
+        conversation = self._conv_list.get(conversation_id)
+        print('sending parsed message, conversation name:', get_conv_name(conversation))
         self.send_message_parsed(conversation, html)
 
 def main():
