@@ -10,7 +10,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
         path = path.split("/")
         conversation_id = path[1]
         if conversation_id is None:
-            print("conversation id must be provided as part of path") 
+            print("conversation id must be provided as part of path")
             return
 
         if "repository" in payload and "commits" in payload and "pusher" in payload:
@@ -23,7 +23,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
 
     def _github_push(self, conversation_id, json):
         html = '<b>{0}</b> has <a href="{2}">pushed</a> {1} commit(s)<br />'.format(
-          json["pusher"]["name"], 
+          json["pusher"]["name"],
           len(json["commits"]),
           json["repository"]["url"])
 
@@ -35,7 +35,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
               commit["timestamp"],
               commit["id"])
 
-        webhookReceiver._bot.external_send_message_parsed(conversation_id, html)
+        webhookReceiver._bot.send_html_to_conversation(conversation_id, html)
 
 
     def do_POST(self):

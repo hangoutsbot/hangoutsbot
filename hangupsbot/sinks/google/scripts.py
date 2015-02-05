@@ -22,7 +22,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
         print("handler finished")
 
     def _scripts_push(self, conversation_id, payload):
-        webhookReceiver._bot.external_send_message_parsed(conversation_id, payload)
+        webhookReceiver._bot.send_html_to_conversation(conversation_id, payload)
 
     def do_POST(self):
         """

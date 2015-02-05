@@ -10,7 +10,7 @@ class receiver(BaseHTTPRequestHandler):
         path = path.split("/")
         conversation_id = path[1]
         if conversation_id is None:
-            print("conversation id must be provided as part of path") 
+            print("conversation id must be provided as part of path")
             return
 
         # send to one room, or to many? [sync_rooms support]
@@ -21,7 +21,7 @@ class receiver(BaseHTTPRequestHandler):
                 broadcast_list = sync_room_list
 
         for conversation_id in broadcast_list:
-            receiver._bot.external_send_message_parsed(conversation_id, payload["message"])
+            receiver._bot.send_html_to_conversation(conversation_id, payload["message"])
 
     def do_POST(self):
         """

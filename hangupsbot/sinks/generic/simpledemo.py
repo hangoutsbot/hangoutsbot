@@ -10,7 +10,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
         path = path.split("/")
         conversation_id = path[1]
         if conversation_id is None:
-            print("conversation id must be provided as part of path") 
+            print("conversation id must be provided as part of path")
             return
 
         if "echo" in payload:
@@ -18,7 +18,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
         else:
             html = "<b>hello world</b>"
 
-        webhookReceiver._bot.external_send_message_parsed(conversation_id, html)
+        webhookReceiver._bot.send_html_to_conversation(conversation_id, html)
 
     def do_POST(self):
         """
