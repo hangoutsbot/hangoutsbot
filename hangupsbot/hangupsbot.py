@@ -326,7 +326,7 @@ class HangupsBot(object):
                             # implement legacy support for plugins that don't support the bot reference
                             _return = function[1](self._handlers)
                         if type(_return) is list:
-                            print("implements: {}".format(_return))
+                            print("implements: {}".format(", ".join(_return)))
                             available_commands = _return
                     elif function_name.startswith("_"):
                         pass
@@ -339,11 +339,13 @@ class HangupsBot(object):
                 continue
 
             """pass 2: register filtered functions"""
+            added_commands = []
             for function in candidate_commands:
                 function_name = function[0]
                 if available_commands is False or function_name in available_commands:
                     command.register(function[1])
-                    print("command: {}".format(function_name))
+                    added_commands.append(function_name)
+            print("added: {}".format(", ".join(added_commands)))
 
 
     def _start_sinks(self, shared_loop):
