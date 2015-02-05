@@ -27,7 +27,6 @@ class FakeConversation(object):
 
     @asyncio.coroutine
     def send_message(self, segments):
-        print("FakeConversation: sendchatmessage({})".format(self.id_))
         yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments])
 
 class ConversationEvent(object):
