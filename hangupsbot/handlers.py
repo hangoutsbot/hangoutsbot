@@ -33,7 +33,12 @@ class EventHandler(object):
             # handlers from plugins
             if "message" in self.pluggables:
                 for function in self.pluggables["message"]:
-                    yield from function(self.bot, event, command)
+                    try:
+                        yield from function(self.bot, event, command)
+                    except:
+                        message = "pluggables.message.{}".format(function.__name__)
+                        print("EXCEPTION in " + format(message))
+                        logging.exception(message)
 
             # Run command
             yield from self.handle_command(event)
@@ -110,7 +115,12 @@ class EventHandler(object):
         # handlers from plugins
         if "membership" in self.pluggables:
             for function in self.pluggables["membership"]:
-                yield from function(self.bot, event, command)
+                try:
+                    yield from function(self.bot, event, command)
+                except:
+                    message = "pluggables.membership.{}".format(function.__name__)
+                    print("EXCEPTION in " + format(message))
+                    logging.exception(message)
 
         # Don't handle events caused by the bot himself
         if event.user.is_self:
@@ -155,4 +165,9 @@ class EventHandler(object):
         # handlers from plugins
         if "rename" in self.pluggables:
             for function in self.pluggables["rename"]:
-                yield from function(self.bot, event, command)
+                try:
+                    yield from function(self.bot, event, command)
+                except:
+                    message = "pluggables.rename.{}".format(function.__name__)
+                    print("EXCEPTION in " + format(message))
+                    logging.exception(message)

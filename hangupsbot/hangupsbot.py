@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, sys, argparse, logging, shutil, asyncio, time, signal
+import os, sys, argparse, logging, shutil, asyncio, time, signal, traceback
 
 import appdirs
 import hangups
@@ -169,12 +169,9 @@ class HangupsBot(object):
                 try:
                     function(self, broadcast_list, context)
                 except:
-                    print("exception occurred")
-                    logging.warning(
-                        "send_message_segments() pluggable: {}"
-                            .format(function.__name__),
-                            sys.exc_info()[0])
-
+                    message = "pluggables.sending.{}".format(function.__name__)
+                    print("EXCEPTION in " + format(message))
+                    logging.exception(message)
 
         # send messages using FakeConversation as a workaround
         for response in broadcast_list:
@@ -191,7 +188,7 @@ class HangupsBot(object):
             convs = _all_conversations
             logging.info("list_conversations() returned {} conversation(s)".format(len(convs)))
         except Exception as e:
-            logging.warning("list_conversations()", e)
+            logging.exception("list_conversations()")
             raise
 
         return convs
@@ -274,8 +271,7 @@ class HangupsBot(object):
             except Exception as e:
                 message = "{} @ {}".format(e, module_path)
                 print("!PLUGIN IMPORT ERROR! " + message)
-                logging.warning(message)
-
+                logging.exception(message)
                 continue
 
             print("PLUGIN: {}".format(module))
@@ -308,9 +304,10 @@ class HangupsBot(object):
                         pass
                     else:
                         candidate_commands.append(function)
-            except:
-                e = sys.exc_info()[0]
-                print("PLUGIN PASS1 FAIL {} @ {}".format(e, module_path))
+            except Exception as e:
+                message = "{} @ {}".format(e, module_path)
+                print("!PLUGIN INIT ERROR! " + message)
+                logging.exception(message)
                 continue
 
             """pass 2: register filtered functions"""
@@ -460,8 +457,8 @@ class HangupsBot(object):
                     method(parameters)
                 except Exception as e:
                     message = "_execute_hooks()", hook, e
-                    logging.warning(message)
                     print(message)
+                    logging.exception(message)
 
     def _on_disconnect(self):
         """Handle disconnecting"""
