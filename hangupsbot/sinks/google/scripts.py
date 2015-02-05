@@ -13,7 +13,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
             print("conversation id must be provided as part of path")
             return
 
-        if "message=" in payload:
+        if "message" in payload:
             self._scripts_push(conversation_id, payload)
         else:
             print(payload)
