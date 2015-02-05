@@ -29,6 +29,7 @@ class FakeConversation(object):
     def send_message(self, segments):
         yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments])
 
+
 class ConversationEvent(object):
     """Conversation event"""
     def __init__(self, bot, conv_event):
@@ -43,14 +44,14 @@ class ConversationEvent(object):
 
     def print_debug(self):
         """Print informations about conversation event"""
-        print('Conversation ID: {}'.format(self.conv_id))
-        print('Conversation name: {}'.format(get_conv_name(self.conv, truncate=True)))
-        print('Event ID: {}'.format(self.event_id))
-        print('User ID: {}'.format(self.user_id))
-        print('User name: {}'.format(self.user.full_name))
-        print('Timestamp: {}'.format(self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
-        print('Text: {}'.format(self.text))
-        print()
+        print('eid/dtime: {}/{}'.format(self.event_id, self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
+        print('cid/cname: {}/{}'.format(self.conv_id, get_conv_name(self.conv, truncate=True)))
+        if(self.user_id.chat_id == self.user_id.gaia_id):
+            print('uid/uname: {}/{}'.format(self.user_id.chat_id, self.user.full_name))
+        else:
+            print('uid/uname: {}!{}/{}'.format(self.user_id.chat_id, self.user_id.gaia_id, self.user.full_name))
+        print('txtlen/tx: {}/{}'.format(len(self.text), self.text))
+        print('eventdump: completed --8<--')
 
 
 class HangupsBot(object):
