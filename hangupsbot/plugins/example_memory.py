@@ -4,7 +4,7 @@ example plugin that uses bot.user_memory_get and bot.user_memory_set
 
 """user memory"""
 
-def rememberthis(bot, event, *args):    
+def rememberthisforme(bot, event, *args):    
     text = bot.user_memory_get(event.user.id_.chat_id, 'test_memory')
     if text is None:
         bot.user_memory_set(event.user.id_.chat_id, 'test_memory', ' '.join(args))
@@ -19,7 +19,7 @@ def rememberthis(bot, event, *args):
                 event.user.full_name))
 
 
-def whatwasit(bot, event, *args):
+def whatwasitforme(bot, event, *args):
     text = bot.user_memory_get(event.user.id_.chat_id, 'test_memory')
     if text is None:
         bot.send_message_parsed(
@@ -33,7 +33,7 @@ def whatwasit(bot, event, *args):
                 event.user.full_name, text))
 
 
-def forgetaboutit(bot, event, *args):
+def forgetaboutitforme(bot, event, *args):
     text = bot.user_memory_get(event.user.id_.chat_id, 'test_memory')
     if text is None:
         bot.send_message_parsed(
@@ -49,7 +49,7 @@ def forgetaboutit(bot, event, *args):
 
 """conversation memory"""
 
-def conversationrememberthis(bot, event, *args):    
+def rememberthisforchat(bot, event, *args):    
     text = bot.conversation_memory_get(event.conv_id, 'test_memory')
     if text is None:
         bot.conversation_memory_set(event.conv_id, 'test_memory', ' '.join(args))
@@ -64,7 +64,7 @@ def conversationrememberthis(bot, event, *args):
                 event.user.full_name))
 
 
-def conversationwhatwasit(bot, event, *args):
+def whatwasitforchat(bot, event, *args):
     text = bot.conversation_memory_get(event.conv_id, 'test_memory')
     if text is None:
         bot.send_message_parsed(
@@ -77,7 +77,7 @@ def conversationwhatwasit(bot, event, *args):
             "<b>{}</b> asked me to remember <i>\"{}\" for this conversation</i>".format(
                 event.user.full_name, text))
 
-def conversationforgetaboutit(bot, event, *args):
+def forgetaboutitforchat(bot, event, *args):
     text = bot.conversation_memory_get(event.conv_id, 'test_memory')
     if text is None:
         bot.send_message_parsed(
