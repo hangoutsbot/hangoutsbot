@@ -14,7 +14,6 @@ class webhookReceiver(BaseHTTPRequestHandler):
             return
 
         if "message=" in payload:
-            payload = payload[8:].replace("+", " ")
             self._scripts_push(conversation_id, payload)
         else:
             print(payload)
@@ -22,7 +21,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
         print("handler finished")
 
     def _scripts_push(self, conversation_id, payload):
-        webhookReceiver._bot.send_html_to_conversation(conversation_id, payload)
+        webhookReceiver._bot.send_html_to_user_or_conversation(conversation_id, payload)
 
     def do_POST(self):
         """
@@ -45,8 +44,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
 
         print("incoming path: {}".format(path))
 
-        print(data_string)
-
         # parse incoming data
-        payload = data_string
+        payload = json.loads(data_string)
+
         self._handle_incoming(path, query_string, payload)
