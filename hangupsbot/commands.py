@@ -76,7 +76,7 @@ def help(bot, event, cmd=None, *args):
         if conv_1on1_initiator.id_ != event.conv_id:
             bot.send_message_parsed(event.conv, "{}, I've sent you some help ;)".format(event.user.full_name))
     else:
-        bot.send_message_parsed(event.conv, "{}, before I can help you, you need to private message me and say hi .".format(event.user.full_name))
+        bot.send_message_parsed(event.conv, "{}, before I can help you, you need to private message me and say hi.".format(event.user.full_name))
 
 
 @command.register
