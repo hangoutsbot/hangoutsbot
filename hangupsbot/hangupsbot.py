@@ -225,6 +225,20 @@ class HangupsBot(object):
             pass
         return value
 
+    def conversation_memory_set(self, conv_id, keyname, keyvalue):
+        self.initialise_memory(conv_id, "conv_data")
+        self.memory.set_by_path(["conv_data", conv_id, keyname], keyvalue)
+        self.memory.save()
+
+    def conversation_memory_get(self, conv_id, keyname):
+        value = None
+        try:
+            self.initialise_memory(conv_id, "conv_data")
+            value = self.memory.get_by_path(["conv_data", conv_id, keyname])
+        except KeyError:
+            pass
+        return value
+
     def print_conversations(self):
         print('Conversations:')
         for c in self.list_conversations():
