@@ -518,12 +518,9 @@ class HangupsBot(object):
 
     def send_html_to_user_or_conversation(self, user_id_or_conversation_id, html):
         """Attempts send_html_to_user. If failed, attempts send_html_to_conversation"""
-        try:
-            # NOTE: Assumption that a conversation_id will never match a user_id
-            send_html_to_user(user_id_or_conversation_id, html)
-            send_html_to_conversation(user_id_or_conversation_id, html)
-        except KeyError:
-            print("Conv_id/User_id could not be found!")
+        # NOTE: Assumption that a conversation_id will never match a user_id
+        send_html_to_user(user_id_or_conversation_id, html)
+        send_html_to_conversation(user_id_or_conversation_id, html)
 
 def main():
     """Main entry point"""
