@@ -53,6 +53,9 @@ pip3 install -r requirements.txt
 
 # Users: Quickstart
 
+Requires plugin: [**mentions**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/mentions.py)
+
 1. You need to open a 1-on-1 conversation with the bot first and say "hello"
    (or anything!)
 2. Then give yourself a @mention in another HO where the bot is participating
@@ -63,6 +66,9 @@ No seriously, the above steps are **required** to authorise two-way
 communication between the bot and your own account.
 
 ## Usage of @mentions
+
+Requires plugin: [**mentions**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/mentions.py)
 
 Some general rules:
 * If `mentionquidproquo` is ON, only users who have already said something to
@@ -103,6 +109,9 @@ To find out how to get your user id, read on!
 
 ### first time admins with no existing bot
 
+Requires plugin: [**default**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/default.py)
+
 1. start the bot with a valid gmail account (not your actual account!)
 2. open a hangout with the bot (using your actual account), say anything to it
 3. login into the bot's gmail account and ensure chat is activated
@@ -111,6 +120,9 @@ To find out how to get your user id, read on!
 6. find your actual account user name, the chat_id will be listed next to it
 
 ### with an existing bot
+
+Requires plugin: [**default**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/default.py)
 
 join a group with an existing bot and issue this command `/bot whoami`, your
 chat_id will be displayed
@@ -126,6 +138,9 @@ Most configuration directives can be specified **globally** or **per-conversatio
 * Per-conversation directives override global settings, if both are set.
 
 ## Mentions
+
+Requires plugin: [**mentions**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/mentions.py)
 
 `mentionquidproquo`
 * default: `true`
@@ -155,7 +170,8 @@ Most configuration directives can be specified **globally** or **per-conversatio
 
 # Syncing Chats (Syncout / Syncrooms)
 
-Requires plugin: [**syncrooms**](https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/syncrooms.py)
+Requires plugin: [**syncrooms**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/syncrooms.py)
 
 Chats can be synced together, called a 'syncout'. If a person says something in chat A, that message will be relayed into chat B by the bot, and vice versa, allowing multiple rooms to have conversations with each other. The primary use for this is to have more than 150 (the hangout limit) users talking to each other in the same room.
 
@@ -214,6 +230,9 @@ the future:
 
 # User Triggers (`/me` prefix)
 
+Requires plugin: [**chance**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/chance.py)
+
 Special `/me` triggers are available when the [**chance** plugin]
 (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/chance.py) is loaded.
 All these must be prefixed by `/me`, as in `/me <trigger>`.
@@ -244,6 +263,9 @@ All bot commands must be prefixed by `/bot`, as in `/bot <command>`.
 These are commands that can only be executed by admins, based on the default
 configuration in `config.commands_admin`.
 
+Requires plugin: [**default**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/default.py)
+
 `users`
 * Bot lists all users in current conversation.
 * List will contain user G+ profile link and email (if available).
@@ -263,16 +285,8 @@ configuration in `config.commands_admin`.
 * Works with both 1-on-1 or group conversations.
 * Note: 1-on-1 renames may not reflect their title properly on desktop clients.
 
-`topic <string title>`
-* Works like `rename`
-* Will change the topic back to `<string title>` if anybody attempts to change it
-
 `leave [<conversation id>]`
 * Bot leaves the current hangout if `<conversation id>` not specified.
-
-`easteregg <ponies|pitchforks|bikeshed|shydino> <number> <period>`
-* Bot activates Hangouts easter-egg animation (varies by client).
-* `<number>` is the amount of repetition with delay of `<period>` in seconds.
 
 `quit`
 * Kills the running bot process on the server with a disconnection.
@@ -303,10 +317,26 @@ configuration in `config.commands_admin`.
 * WARNING: This command is low-level and can scramble the configuration.
 * DEVELOPERS: This command is **DEPRECATED**
 
+Requires plugin: [**namelock**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/namelock.py)
+
+`topic <string title>`
+* Works like `rename`
+* Will change the topic back to `<string title>` if anybody attempts to change it
+
+Requires plugin: [**easteregg**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/easteregg.py)
+
+`easteregg <ponies|pitchforks|bikeshed|shydino> <number> <period>`
+* Bot activates Hangouts easter-egg animation (varies by client).
+* `<number>` is the amount of repetition with delay of `<period>` in seconds.
+
 ## Standard Commands
 
 These are commands that can be executed by any user, based on the default
 configuration in `config.commands_admin`.
+
+Requires plugin: **none** (in-built)
 
 `help`
 * Bot lists all supported commands in a private message with the user
@@ -316,9 +346,15 @@ configuration in `config.commands_admin`.
 `ping`
 * Bot replies with a `pong`.
 
+Requires plugin: [**default**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/default.py)
+
 `echo <string anything>`
 * Bot replies with `<string anything>` as the message.
 * Spaces are allowed.
+
+Requires plugin: [**mentions**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/mentions.py)
 
 `pushbulletapi <apikey|false|0|-1>`
 * Sets/unsets the pushbullet api key for current user.
@@ -336,14 +372,6 @@ configuration in `config.commands_admin`.
 * `/whoami` will return the current nickname
 * Call it again to re-set the `<nickname>` as preferred
 
-`whoami`
-* Bot replies with the current user information:
-  * first name, nickname and `chat_id`, OR
-  * full name and `chat_id`
-
-`whereami`
-* Bot replies with the conversation name and `conversation id`.
-
 `mention <name fragment> [test]`
 * Alias for @<name fragment>.
 * Triggers the same mechanism for @mentions.
@@ -352,12 +380,29 @@ configuration in `config.commands_admin`.
   inside the current conversation when attempting to alert users. This
   can be used to check for any @mention errors with specific users.
 
+Requires plugin: [**default**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/default.py)
+
+`whoami`
+* Bot replies with the current user information:
+  * first name, nickname and `chat_id`, OR
+  * full name and `chat_id`
+
+`whereami`
+* Bot replies with the conversation name and `conversation id`.
+
+Requires plugin: [**lookup**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/lookup.py)
+
 `lookup <keyword>`
 * Used in conjunction with a published Google Spreadsheet
 * Need to enable in config: `spreadsheet_enabled`, `spreadsheet_url` and
   `spreadsheet_table_class`
 * Will look up each row of a spreadsheet and if the keyword is found will
   return the whole row
+
+Requires plugin: [**lottery**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/lottery.py)
 
 `prepare [<things>] <listdef>`
 * Bot prepares a list of `<things>` and puts them in a virtual box for lottery
@@ -371,6 +416,9 @@ configuration in `config.commands_admin`.
 * Each user must issue `/me draws` (or similar) to get a random item from the
   box. Note: `/me draw` always draws from "default" if available; to draw from
   another box, `/me draw [a|an] <thing>`
+
+Requires plugin: [**subscribe**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/subscribe.py)
 
 `subscribe <phrase>`
 * Bot will watch the chats that you share with it for any mentions of the keywords you specify
