@@ -1,10 +1,8 @@
-import asyncio,logging
+import asyncio, logging, re, string
 
 from pushbullet import PushBullet
 
 from hangups.ui.utils import get_conv_name
-
-import re, string
 
 nicks = {}
 
@@ -145,8 +143,6 @@ def mention(bot, event, *args):
         else:
             logging.info("@all in {}: enabled global/per-conversation".format(event.conv.id_))
 
-    for u in users_in_chat: print(u.full_name)
-
     """generate a list of users to be @mentioned"""
     exact_nickname_matches = []
     mention_list = []
@@ -203,16 +199,16 @@ def mention(bot, event, *args):
 
     if len(mention_list) > 1 and username_lower != "all":
         if conv_1on1_initiator:
-            html = '{} users would be mentioned with "@{}"! Be more specific. List of matching users:<br />'.format(
+            text_html = '{} users would be mentioned with "@{}"! Be more specific. List of matching users:<br />'.format(
                 len(mention_list), username, conversation_name)
 
             for u in mention_list:
-                html += u.full_name
+                text_html += u.full_name
                 if bot.memory.exists(['user_data', u.id_.chat_id, "nickname"]):
-                    html += ' (' + bot.memory.get_by_path(['user_data', u.id_.chat_id, "nickname"]) + ')'
-                html += '<br />'
+                    text_html += ' (' + bot.memory.get_by_path(['user_data', u.id_.chat_id, "nickname"]) + ')'
+                text_html += '<br />'
 
-            bot.send_message_parsed(conv_1on1_initiator, html)
+            bot.send_message_parsed(conv_1on1_initiator, text_html)
 
         logging.info("@{} not sent due to multiple recipients".format(username_lower))
         return #SHORT-CIRCUIT
@@ -249,7 +245,7 @@ def mention(bot, event, *args):
                         "<b>{}</b> @mentioned you in <i>{}</i>:<br />{}".format(
                             event.user.full_name,
                             conversation_name,
-                            event.text))
+                            event.text)) # prevent internal parser from removing <tags>
                     mention_chat_ids.append(u.id_.chat_id)
                     user_tracking["mentioned"].append(u.full_name)
                     logging.info("{} ({}) alerted via 1on1 ({})".format(u.full_name, u.id_.chat_id, conv_1on1.id_))
@@ -263,22 +259,22 @@ def mention(bot, event, *args):
                     logging.warning("user {} ({}) could not be alerted via 1on1".format(u.full_name, u.id_.chat_id))
 
     if noisy_mention_test:
-        html = "<b>@mentions:</b><br />"
+        text_html = "<b>@mentions:</b><br />"
         if len(user_tracking["failed"]["one2one"]) > 0:
-            html = html + "1-to-1 fail: <i>{}</i><br />".format(", ".join(user_tracking["failed"]["one2one"]))
+            text_html = text_html + "1-to-1 fail: <i>{}</i><br />".format(", ".join(user_tracking["failed"]["one2one"]))
         if len(user_tracking["failed"]["pushbullet"]) > 0:
-            html = html + "PushBullet fail: <i>{}</i><br />".format(", ".join(user_tracking["failed"]["pushbullet"]))
+            text_html = text_html + "PushBullet fail: <i>{}</i><br />".format(", ".join(user_tracking["failed"]["pushbullet"]))
         if len(user_tracking["ignored"]) > 0:
-            html = html + "Ignored (DND): <i>{}</i><br />".format(", ".join(user_tracking["ignored"]))
+            text_html = text_html + "Ignored (DND): <i>{}</i><br />".format(", ".join(user_tracking["ignored"]))
         if len(user_tracking["mentioned"]) > 0:
-            html = html + "Alerted: <i>{}</i><br />".format(", ".join(user_tracking["mentioned"]))
+            text_html = text_html + "Alerted: <i>{}</i><br />".format(", ".join(user_tracking["mentioned"]))
         else:
-            html = html + "Nobody was successfully @mentioned ;-(<br />"
+            text_html = text_html + "Nobody was successfully @mentioned ;-(<br />"
 
         if len(user_tracking["failed"]["one2one"]) > 0:
-            html = html + "Users failing 1-to-1 need to say something to me privately first.<br />"
+            text_html = text_html + "Users failing 1-to-1 need to say something to me privately first.<br />"
 
-        bot.send_message_parsed(event.conv, html)
+        bot.send_message_parsed(event.conv, text_html)
 
 def pushbulletapi(bot, event, *args):
     """allow users to configure pushbullet integration with api key
