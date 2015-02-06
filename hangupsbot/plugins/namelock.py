@@ -38,9 +38,9 @@ def topic(bot, event, *args):
     bot.memory.save()
 
     if(topic == ''):
-        bot.send_message_parsed(event.conv, "Removing topic")
+        bot.send_message(event.conv, "Removing topic")
     else:
-        bot.send_message_parsed(
+        bot.send_message(
             event.conv,
             "Setting topic to '{}'".format(topic))
 
