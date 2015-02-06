@@ -153,11 +153,11 @@ Most configuration directives can be specified **globally** or **per-conversatio
 * allow listed chat_ids to use @all in mentions regardless of
   global/per-conversation `mentionall` setting
 
-# Syncing Chats (Syncout/syncrooms)
+# Syncing Chats (Syncout / Syncrooms)
 
 Requires plugin: [**syncrooms**](https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/syncrooms.py)
 
-Chats can be synced together, called a 'Syncout'. If a person says something in chat A, that message will be relayed into chat B by the bot, and vice versa, allowing multiple rooms to have conversations with each other. The primary use for this is to have more than 150 (the hangout limit) users talking to each other in the same room.
+Chats can be synced together, called a 'syncout'. If a person says something in chat A, that message will be relayed into chat B by the bot, and vice versa, allowing multiple rooms to have conversations with each other. The primary use for this is to have more than 150 (the hangout limit) users talking to each other in the same room.
 
 Syncouts/syncrooms only has two `config.json` keys, documented in the following section:
 
