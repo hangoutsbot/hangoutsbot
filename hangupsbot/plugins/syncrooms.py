@@ -12,11 +12,34 @@ class __registers(object):
 
 _registers=__registers()
 
-def _initialise(command):
-    command.register_handler(_handle_syncrooms_broadcast, type="sending")
-    command.register_handler(_handle_incoming_message, type="message")
+def _initialise(Handlers, bot=None):
+    _migrate_syncroom_v1(bot)
+    Handlers.register_handler(_handle_syncrooms_broadcast, type="sending")
+    Handlers.register_handler(_handle_incoming_message, type="message")
     return [] # implements no commands
 
+def _migrate_syncroom_v1(bot):
+    if bot.config.exists(["conversations"]):
+        _config2 = []
+        _newdict = {}
+        _oldlist = bot.config.get_by_path(["conversations"])
+        for conv_id in _oldlist:
+            parameters = _oldlist[conv_id]
+            if "sync_rooms" in parameters:
+                old_sync_rooms = parameters["sync_rooms"]
+                old_sync_rooms.append(conv_id)
+                old_sync_rooms = list(set(old_sync_rooms))
+                old_sync_rooms.sort()
+                ref_key = "-".join(old_sync_rooms)
+                _newdict[ref_key] = old_sync_rooms # prevent duplicates
+
+                del parameters["sync_rooms"]
+                bot.config.set_by_path(["conversations", conv_id], parameters)
+
+        _config2 = list(_newdict.values())
+        bot.config.set_by_path(["sync_rooms"], _config2)
+        bot.config.save()
+        print("_migrate_syncroom_v1(): config-v2 = {}".format(_config2))
 
 def _handle_syncrooms_broadcast(bot, broadcast_list, context):
     if not bot.get_config_option('syncing_enabled'):
