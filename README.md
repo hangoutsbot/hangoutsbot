@@ -105,7 +105,7 @@ A @mention matches the following:
 ```
 To find out how to get your user id, read on!
 
-## Getting Your User ID
+## Getting your User ID
 
 ### first time admins with no existing bot
 
@@ -127,17 +127,32 @@ Requires plugin: [**default**]
 join a group with an existing bot and issue this command `/bot whoami`, your
 chat_id will be displayed
 
-# Admins: Configuration
+# Admins: General Configuration
 
 Configuration directives can be specified in `config.json`.
 
-Most configuration directives can be specified **globally** or **per-conversation**.
+Most configuration directives are specified **globally** 
 * Global directives are always specified in the "root" of `config.json`.
 * To specify a per-conversation directive, the same configuration option should
   be defined as `config.conversations[<conversation-id>].<configuration option>`.
 * Per-conversation directives override global settings, if both are set.
+* Manually-configured per-conversation directives are DEPRECATED.
 
-## Mentions
+## Admins: Configuring Plugins
+
+The `plugins` key in `config.json` allows you to optionally specify a list of plugins
+  that will be loaded by the bot on startup. If this option is left as `null`, then
+  all available plugins will be loaded.
+
+To specify the plugins to be loaded, first ensure that the correct `.py` files are 
+  inside your `hangupsbot/plugin/` directory, then modify the `plugins` key in
+  `config.json` to reflect which plugins/files you want to load e.g.
+    `plugins: ["mentions", "default", "chance", "syncrooms"]`
+
+Some plugins may require extra configuration as documented in this README. 
+  `config.json` is the the configuration provider for the bot and its plugins.
+
+## Admins: @mentions Configuration
 
 Requires plugin: [**mentions**]
   (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/mentions.py)
@@ -168,7 +183,7 @@ Requires plugin: [**mentions**]
 * allow listed chat_ids to use @all in mentions regardless of
   global/per-conversation `mentionall` setting
 
-# Syncing Chats (Syncout / Syncrooms)
+## Admins: Syncing Chats with Syncout / Syncrooms
 
 Requires plugin: [**syncrooms**]
   (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/syncrooms.py)
@@ -198,7 +213,7 @@ Syncouts/syncrooms only has two `config.json` keys, documented in the following 
 * a list containing another set of lists, which contains conversation IDs to sync, this allows
   the bot to support multiple separately-synced chats e.g. rooms A, B, C and D, E separately.
 
-## Special note for legacy syncouts configuration
+### Special note for legacy syncouts configuration
 
 Older bots would be configured using the legacy syncout configuration. The plugin will 
 **automatically migrate** these old configurations to the new format by rewriting your
