@@ -1,6 +1,7 @@
 import hangups
 import re
 import importlib
+import html
 
 from html.parser import HTMLParser
 from html.entities import name2codepoint
@@ -76,10 +77,24 @@ class simpleHTMLParser(HTMLParser):
                 "\n", 
                 hangups.SegmentType.LINE_BREAK))
 
+    def handle_entityref(self, name):
+        print("simpleHTMLParser(): encountered entityref {}".format(name))
+        if self._flags["link_target"] is not None:
+            self._link_text += "&" + name 
+        else:
+            self._segments.append(
+              hangups.ChatMessageSegment(
+                html.unescape("&" + name), 
+                is_bold=self._flags["bold"], 
+                is_italic=self._flags["italic"], 
+                is_underline=self._flags["underline"], 
+                link_target=self._flags["link_target"]))
+
     def handle_data(self, data):
         if self._flags["link_target"] is not None:
             self._link_text += data 
         else:
+            print("simpleHTMLParser(): data \"{}\"".format(data))
             self._segments.append(
               hangups.ChatMessageSegment(
                 data, 
@@ -89,6 +104,7 @@ class simpleHTMLParser(HTMLParser):
                 link_target=self._flags["link_target"]))
 
 def simple_parse_to_segments(html):
+    html = '<html>' + html + '</html>' # html.parser seems to ignore the final entityref without html closure
     html = fix_urls(html)
     parser = simpleHTMLParser()
     return parser.feed(html)
