@@ -7,7 +7,7 @@ keywords = {}
 
 def _initialise(command):
     command.register_handler(_handle_autoreply)
-    return
+    return []
 
 @asyncio.coroutine
 def _handle_autoreply(bot, event, command):

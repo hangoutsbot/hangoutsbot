@@ -1,12 +1,27 @@
 # Introduction
+
 Hangupsbot is a bot designed for working with Google Hangouts.
-* **Mentions:** If somebody mentions you in a room, receive a private hangout from the bot with details on the mention, including context, room and person who mentioned you.
-* **Syncouts:** A syncout is two Hangout group chats that have their messages forwarded to each other, allowing seamless interaction between the two rooms. Primarily used to beat the 150 member chat limit, but it can also be used for temporarily connecting teams together to interact.
-* **Hubot Integration:** Hangupsbot will allow you to connect to [Hubot](https://hubot.github.com/), instantly providing you access to hundreds of developed chat tools and plugins.
-* **Lookups:** Google Sheets can be attached to the bot, which allows you to look up data in the spreadsheet instantly with just a few keywords.
-* **Pushbullet API:** [Pushbullet](https://www.pushbullet.com/) is integrated.
-* **Hooks and Sinks:** The bot has instructions for developing and attaching your own hooks and sinks, allowing the bot to interact with external services such as your company website, Google API's and much more.
-* *And many additional features!* Eastereggs, games, nickname functionalities, the list goes on!
+* **Mentions** :
+  If somebody mentions you in a room, receive a private hangout from the bot with details onthe mention, 
+  including context, room and person who mentioned you.
+* **Syncouts** : 
+  A syncout is two Hangout group chats that have their messages forwarded to each other, allowing seamless 
+  interaction between the two rooms. Primarily used to beat the 150-member chat limit, but it can also be
+  used for temporarily connecting teams together to interact.
+* [**Hubot Integration**](https://github.com/nylonee/hangupsbot/wiki/Hubot-Integration) :
+  Hangupsbot allows you to connect to [Hubot](https://hubot.github.com/), instantly providing you access 
+  to hundreds of developed chat tools and plugins.
+* **Lookups** :
+  Google Sheets can be attached to the bot, which allows you to look up data in the 
+  spreadsheet instantly with just a few keywords.
+* **Pushbullet API** :
+  [Pushbullet](https://www.pushbullet.com/) support for mentions is available.
+* **Plugins, sinks and hooks** : 
+  The bot has [instructions for developing your own plugins, sinks and hooks]
+  (https://github.com/nylonee/hangupsbot/wiki/Authoring-Bot-Extensions), allowing the bot to interact 
+  with external services such as your company website, Google APIs and much more.
+* **Plugin mania** : 
+  eastereggs, games, nickname support - the list goes on!
 
 # IMPORTANT
 
@@ -38,6 +53,9 @@ pip3 install -r requirements.txt
 
 # Users: Quickstart
 
+Requires plugin: [**mentions**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/mentions.py)
+
 1. You need to open a 1-on-1 conversation with the bot first and say "hello"
    (or anything!)
 2. Then give yourself a @mention in another HO where the bot is participating
@@ -48,6 +66,9 @@ No seriously, the above steps are **required** to authorise two-way
 communication between the bot and your own account.
 
 ## Usage of @mentions
+
+Requires plugin: [**mentions**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/mentions.py)
 
 Some general rules:
 * If `mentionquidproquo` is ON, only users who have already said something to
@@ -84,9 +105,12 @@ A @mention matches the following:
 ```
 To find out how to get your user id, read on!
 
-## Getting Your User ID
+## Getting your User ID
 
 ### first time admins with no existing bot
+
+Requires plugin: [**default**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/default.py)
 
 1. start the bot with a valid gmail account (not your actual account!)
 2. open a hangout with the bot (using your actual account), say anything to it
@@ -97,20 +121,41 @@ To find out how to get your user id, read on!
 
 ### with an existing bot
 
+Requires plugin: [**default**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/default.py)
+
 join a group with an existing bot and issue this command `/bot whoami`, your
 chat_id will be displayed
 
-# Admins: Configuration
+# Admins: General Configuration
 
 Configuration directives can be specified in `config.json`.
 
-Most configuration directives can be specified **globally** or **per-conversation**.
+Most configuration directives are specified **globally** 
 * Global directives are always specified in the "root" of `config.json`.
 * To specify a per-conversation directive, the same configuration option should
   be defined as `config.conversations[<conversation-id>].<configuration option>`.
 * Per-conversation directives override global settings, if both are set.
+* Manually-configured per-conversation directives are DEPRECATED.
 
-## Mentions
+## Admins: Configuring Plugins
+
+The `plugins` key in `config.json` allows you to optionally specify a list of plugins
+  that will be loaded by the bot on startup. If this option is left as `null`, then
+  all available plugins will be loaded.
+
+To specify the plugins to be loaded, first ensure that the correct `.py` files are 
+  inside your `hangupsbot/plugin/` directory, then modify the `plugins` key in
+  `config.json` to reflect which plugins/files you want to load e.g.
+    `plugins: ["mentions", "default", "chance", "syncrooms"]`
+
+Some plugins may require extra configuration as documented in this README. 
+  `config.json` is the the configuration provider for the bot and its plugins.
+
+## Admins: @mentions Configuration
+
+Requires plugin: [**mentions**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/mentions.py)
 
 `mentionquidproquo`
 * default: `true`
@@ -138,34 +183,73 @@ Most configuration directives can be specified **globally** or **per-conversatio
 * allow listed chat_ids to use @all in mentions regardless of
   global/per-conversation `mentionall` setting
 
-# Syncing Chats (Syncout)
+## Admins: Syncing Chats with Syncout / Syncrooms
 
-Chats can be synced together, called a 'Syncout'. If a person says something in chat A, that message will be relayed into chat B by the bot, and vice versa, allowing multiple rooms to have conversations with each other. The primary use for this is to have more than 150 (the hangout limit) users talking to each other in the same room.
+Requires plugin: [**syncrooms**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/syncrooms.py)
+
+Chats can be synced together, called a 'syncout'. If a person says something in chat A, that message will be relayed into chat B by the bot, and vice versa, allowing multiple rooms to have conversations with each other. The primary use for this is to have more than 150 (the hangout limit) users talking to each other in the same room.
+
+Syncouts/syncrooms only has two `config.json` keys, documented in the following section:
 
 `syncing_enabled`
-* default: false
-* If enabled, will look for synced rooms and start relaying chats across the rooms
+* default: `not set`
+* If `true`, will look for `config.sync_rooms` and start relaying chats across configured rooms
 * Can only be enabled/disabled globally
 
-`sync_rooms`
-* a list of group ChatID's that the bot will attempt to keep synced
-* it is possible to have more than one syncout instance per bot by having in your config.json:
 ```
-"CONV1_ID": {  
-  "sync_rooms": ["CONV1_ID", "CONV2_ID", ...]  
-},  
-"CONV2_ID": {  
-  "sync_rooms": ["CONV1_ID", "CONV2_ID", ...]
-},  
-"CONV3_ID": {  
-  "sync_rooms": ["CONV3_ID", "CONV4_ID", ...]  
-}  
+"sync_rooms": [
+  [
+      "CONVERSATION_1_ID",
+      "CONVERSATION_2_ID"
+  ],
+  [
+      "CONVERSATION_3_ID",
+      "CONVERSATION_4_ID",
+      "CONVERSATION_5_ID"
+  ]
+]
 ```
-* NOTE: You will have to put the convID into the sync_room of that convID too (to allow for backward compatibility with a deprecated method). I know that this is highly redundant for now, but stick to this method and you won't have any problems in the future when the code is improved (I hope).
+* a list containing another set of lists, which contains conversation IDs to sync, this allows
+  the bot to support multiple separately-synced chats e.g. rooms A, B, C and D, E separately.
+
+### Special note for legacy syncouts configuration
+
+Older bots would be configured using the legacy syncout configuration. The plugin will 
+**automatically migrate** these old configurations to the new format by rewriting your
+`config.json` file. Other keys in `config.conversations` will not be affected by the 
+migration to preserve compatibility with older features.
+
+The legacy configuration is provided here for reference purposes - it may be removed in
+the future:
+```
+"conversations":
+{
+  "CONVERSATION_1_ID": {  
+    "sync_rooms": ["CONVERSATION_1_ID", "CONVERSATION_2_ID"]  
+  },  
+  "CONVERSATION_2_ID": {  
+    "sync_rooms": ["CONVERSATION_1_ID", "CONVERSATION_2_ID"]
+  },  
+  "CONVERSATION_3_ID": {  
+    "sync_rooms": ["CONVERSATION_3_ID", "CONVERSATION_4_ID", "CONVERSATION_5_ID"]  
+  },
+  "CONVERSATION_4_ID": {  
+    "sync_rooms": ["CONVERSATION_3_ID", "CONVERSATION_4_ID", "CONVERSATION_5_ID"]  
+  },
+  "CONVERSATION_5_ID": {  
+    "sync_rooms": ["CONVERSATION_3_ID", "CONVERSATION_4_ID", "CONVERSATION_5_ID"]  
+  }
+}
+```
 
 # User Triggers (`/me` prefix)
 
-Special `/me` triggers are available to any user.
+Requires plugin: [**chance**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/chance.py)
+
+Special `/me` triggers are available when the [**chance** plugin]
+(https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/chance.py) is loaded.
 All these must be prefixed by `/me`, as in `/me <trigger>`.
 
 `roll[s] [a] dice`
@@ -194,6 +278,9 @@ All bot commands must be prefixed by `/bot`, as in `/bot <command>`.
 These are commands that can only be executed by admins, based on the default
 configuration in `config.commands_admin`.
 
+Requires plugin: [**default**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/default.py)
+
 `users`
 * Bot lists all users in current conversation.
 * List will contain user G+ profile link and email (if available).
@@ -213,16 +300,8 @@ configuration in `config.commands_admin`.
 * Works with both 1-on-1 or group conversations.
 * Note: 1-on-1 renames may not reflect their title properly on desktop clients.
 
-`topic <string title>`
-* Works like `rename`
-* Will change the topic back to `<string title>` if anybody attempts to change it
-
 `leave [<conversation id>]`
 * Bot leaves the current hangout if `<conversation id>` not specified.
-
-`easteregg <ponies|pitchforks|bikeshed|shydino> <number> <period>`
-* Bot activates Hangouts easter-egg animation (varies by client).
-* `<number>` is the amount of repetition with delay of `<period>` in seconds.
 
 `quit`
 * Kills the running bot process on the server with a disconnection.
@@ -235,6 +314,7 @@ configuration in `config.commands_admin`.
 * `<value>` must be enclosed in double-quotes and is interpreted as JSON.
 * Changes are saved instantly into `config.json`.
 * WARNING: This command is low-level and can scramble the configuration.
+* DEVELOPERS: This command is **DEPRECATED**
 
 `config append <key> [<subkey> [...]] "<value>"`
 * Bot appends <value> to list at `config.<key>[.<subkey>...]`
@@ -242,6 +322,7 @@ configuration in `config.commands_admin`.
 * Only works if the key pointed at is an actual list.
 * Usually used to add administrator ids to `config.admins`
 * WARNING: This command is low-level and can scramble the configuration.
+* DEVELOPERS: This command is **DEPRECATED**
 
 `config remove <key> [<subkey> [...]] "<value>"`
 * Bot removes specified <value> from list at `config.<key>[.<subkey>...]`
@@ -249,21 +330,46 @@ configuration in `config.commands_admin`.
 * Only works if the key pointed at is an actual list.
 * Usually used to remove administrator ids from `config.admins`
 * WARNING: This command is low-level and can scramble the configuration.
+* DEVELOPERS: This command is **DEPRECATED**
+
+Requires plugin: [**namelock**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/namelock.py)
+
+`topic <string title>`
+* Works like `rename`
+* Will change the topic back to `<string title>` if anybody attempts to change it
+
+Requires plugin: [**easteregg**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/easteregg.py)
+
+`easteregg <ponies|pitchforks|bikeshed|shydino> <number> <period>`
+* Bot activates Hangouts easter-egg animation (varies by client).
+* `<number>` is the amount of repetition with delay of `<period>` in seconds.
 
 ## Standard Commands
 
 These are commands that can be executed by any user, based on the default
 configuration in `config.commands_admin`.
 
+Requires plugin: **none** (in-built)
+
 `help`
-* Bot lists all supported commands.
+* Bot lists all supported commands in a private message with the user
+* If the user does not have a 1-on-1 channel open, it will publicly tell 
+  the user to PM the bot and say hi.
 
 `ping`
 * Bot replies with a `pong`.
 
+Requires plugin: [**default**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/default.py)
+
 `echo <string anything>`
 * Bot replies with `<string anything>` as the message.
 * Spaces are allowed.
+
+Requires plugin: [**mentions**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/mentions.py)
 
 `pushbulletapi <apikey|false|0|-1>`
 * Sets/unsets the pushbullet api key for current user.
@@ -281,14 +387,6 @@ configuration in `config.commands_admin`.
 * `/whoami` will return the current nickname
 * Call it again to re-set the `<nickname>` as preferred
 
-`whoami`
-* Bot replies with the current user information:
-  * first name, nickname and `chat_id`, OR
-  * full name and `chat_id`
-
-`whereami`
-* Bot replies with the conversation name and `conversation id`.
-
 `mention <name fragment> [test]`
 * Alias for @<name fragment>.
 * Triggers the same mechanism for @mentions.
@@ -297,12 +395,29 @@ configuration in `config.commands_admin`.
   inside the current conversation when attempting to alert users. This
   can be used to check for any @mention errors with specific users.
 
+Requires plugin: [**default**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/default.py)
+
+`whoami`
+* Bot replies with the current user information:
+  * first name, nickname and `chat_id`, OR
+  * full name and `chat_id`
+
+`whereami`
+* Bot replies with the conversation name and `conversation id`.
+
+Requires plugin: [**lookup**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/lookup.py)
+
 `lookup <keyword>`
 * Used in conjunction with a published Google Spreadsheet
 * Need to enable in config: `spreadsheet_enabled`, `spreadsheet_url` and
   `spreadsheet_table_class`
 * Will look up each row of a spreadsheet and if the keyword is found will
   return the whole row
+
+Requires plugin: [**lottery**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/lottery.py)
 
 `prepare [<things>] <listdef>`
 * Bot prepares a list of `<things>` and puts them in a virtual box for lottery
@@ -316,6 +431,9 @@ configuration in `config.commands_admin`.
 * Each user must issue `/me draws` (or similar) to get a random item from the
   box. Note: `/me draw` always draws from "default" if available; to draw from
   another box, `/me draw [a|an] <thing>`
+
+Requires plugin: [**subscribe**]
+  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/subscribe.py)
 
 `subscribe <phrase>`
 * Bot will watch the chats that you share with it for any mentions of the keywords you specify
@@ -337,214 +455,13 @@ configuration in `config.commands_admin`.
 
 # Developers: Extending the Bot
 
-## Adding Hooks
-
-Hooks allow extension of bot functionality by adding modular packages which
-contain class methods. These methods are called on common chat events:
-* `init`, called when the hook is first loaded (one-time per run)
-* `on_chat_message`
-* `on_membership_change`
-* `on_rename`
-
-A fully-functional chat logger is provided as part of the repo, and can be
-found in `hangoutsbot/hooks/chatlogger/writer.php`. The chat logger logs each
-chat the bot is operating in inside separate text files.
-
-Note that hooks can use `config.json` as a configuration source as well. In
-the case of the example chat logger, the following configuration is necessary:
-```
-...,
-"hooks": [
-{
-  "module": "hooks.chatlogger.writer.logger",
-  "config":
-  {
-    "storage_path": "<location to store chat log files>"
-  }
-}
-],
-...
-```
-
-## Adding your own (Web-Hook) Sinks
-
-Sinks allow the bot to receive external events in the form of JSON-based web
-requests. Presently the bot comes pre-packaged with several sinks:
-* GitLab-compatible web hook sink that post git pushes in a hangout
-* GitHub-compatible web hook sink that post git pushes in a hangout
-* demo implementation that works with `hangupsbot/tests/send.py`
-
-The sink/receiver is based on `BaseHTTPRequestHandler` -
-`hangoutsbot/sinks/generic/simpledemo.py` is a very basic example.
-Some recommendations:
-* Always use SSL/TLS, a self-signed certificate is better than nothing
-* Setting `config.jsonrpc[].name` to "127.0.0.1" will start the sink but only
-  allow connections from localhost - use this to debug potentially unsafe sinks.
-
-### GitLab Users: Web Hook Sink/Receiver
-
-As noted previously, a GitLab-compatible sink is available for posting pushes into
-a hangout - these are the configuration instructions:
-
-#### configuring and starting the sink
-
-Important: Still under development, subject to change
-
-1. Generate a .pem file for SSL/TLS. It can be generated anywhere
-   accessible to the script. **This is a mandatory step** as the sink will refuse
-   to start without SSL/TLS. A self-signed certificate will do:
-   ```
-   openssl req -new -x509 -keyout server.pem -out server.pem -days 365 -nodes
-   ```
-
-2. Open the bot's `config.json` file and modify the `jsonrpc` key as follows:
-   ```
-   ...,
-   "jsonrpc": [
-     {
-       "module": "sinks.gitlab.simplepush.webhookReceiver",
-       "certfile": "<location of .pem file>",
-       "port": 8000
-     }
-   ],
-   ...
-   ```
-
-3. (Re-)start the bot
-
-#### configuring gitlab
-
-1. Determine which group hangout you want to receive GitLab events. In that
-   hangout, execute `/bot whereami` - the bot will message the id for that
-   specific hangout. Record the conversation id.
-2. In your GitLab instance, access Project Settings > Web Hooks
-3. Select which project events you want to be notified of and specify this URL:
-   ```
-   https://<your bot ip/domain name>:8000/<conversation id>/
-   ```
-
-4. After entering the above, **Add Web Hook**, then test the hook.
-
-### Google Script users: Webhook Sink
-
-A Google Script sink can be configured, for the user to be able to send messages
-from Google Scripts directly to the bot. These are the configuration instructions:
-
-#### configuring and starting the sink
-
-Important: Still under development, subject to change
-
-1. Generate a .pem file. See the gitlab tutorial above
-
-2. Open the bot's `config.json` file and modify the `jsonrpc` key as follows:
-```
-...,
-"jsonrpc": [
-{
-  "certfile": "/root/server.pem",
-  "module": "sinks.google.scripts.webhookReceiver",
-  "name": "INSERT_SERVER_IP",
-  "port": 8002
-}
-],
-...
-```
-
-3. (Re-)start the bot
-
-#### configuring Google Scripts
-
-1. Open up Google Scripts and paste the following:
-```
-function sendToHangupsBot(conv_id, message) {
-
-  var serveraddress = 'INSERT_YOUR_SERVER_ADDRESS';
-
-  var url = 'https://' + serveraddress + ':8002/' + conv_id + '/';
-  var options = {
-    'method': 'post',
-    'contentType': 'text/html; charset=utf-8',
-    'validateHttpsCertificates': false,
-    'payload': {'message':message}
-  };
-
-  UrlFetchApp.fetch(url, options);
-}
-```
-2. When you need to send a message to a particular hangout, call sendToHangupsBot()
-with conv_id as the name of the conversation (use /bot whereami to find that out within hangouts)
-and message as the message that you'd like to send.
+Please see https://github.com/nylonee/hangupsbot/wiki/Authoring-Bot-Extensions
 
 # Developers: TODO
 
-* easier setup/configuration
-* run as service ([cron](http://www.raspberrypi-spy.co.uk/2013/07/running-a-python-script-at-boot-using-cron/) works too!)
-* better debug output
-
-# Hubot Integration
-
-## Requirements
-
-* A functional (and running!) version of [hubot](https://github.com/github/hubot).
-  Configuring this is beyond the scope of this document. Please refer to the
-  installation instructions on the GitHub repo.
-* A functional (also running!) copy of hangupsbot.
-
-## Recommendations
-
-* Both hubot and hangupsbot should run on the same server to reduce network
-  connectivity issues
-
-## Setup
-
-1. `git clone` ALL THE THINGS (as usual).
-2. `git submodule update --init hubot-web` to retrieve the forked copy of
-   hubot-web that is compatible with hangupsbot.
-3. Proceed to your hubot folder, and execute `npm install hubot-web` - this
-   acquires the dependencies for [hubot-web](https://www.npmjs.com/package/hubot-web)
-   and installs the npm version (which we will modify shortly).
-4. Important: Overwrite the installed version of
-   `hubot/node_modules/hubot-web/index.coffee` with `hubot-web/index.coffee`
-   from the forked version inside the submodule.
-5. Modify your working hangupsbot config.json and add the following
-   sinks/hooks:
-```
-"hooks": [
-    {
-        "config": {
-            "HUBOT_URL": "http://127.0.0.1:8080/receive/"
-        },
-        "module": "hooks.hubotsend.post.sender"
-    }
-]
-```
-  and
-```
-"jsonrpc": [
-    {
-        "certfile": "/root/server.pem",
-        "module": "sinks.hubotreceive.post.receiver",
-        "name": "127.0.0.1",
-        "port": 8081
-    }
-]
-```
-
-5. On the console in the hubot server, use the following configuration:
-```
-export HUBOT_HTML_RESPONSE="true"
-export HUBOT_REST_SEND_URL="https://127.0.0.1:8081/"
-```
-
-6. Restart hubot with `bin/hubot --adapter web`. You will not get a shell
-   prompt, the server will just start and become non-interactive.
-7. Restart hangupsbot, and ensure that the new sink and hook starts properly.
-
-## Testing
-
-Open your hangout with hangupsbot, and type a standard hubot command
-  e.g. `hubot time`, `hubot ping`. After a brief lag, you should see hubot's
-  responses in the hangout.
+* run as service
+  * alternatively [cron](http://www.raspberrypi-spy.co.uk/2013/07/running-a-python-script-at-boot-using-cron/)
+    and a [bash script](https://gist.github.com/endofline/34fc36cfbd149bcc7d15) works great too!
 
 ---
 

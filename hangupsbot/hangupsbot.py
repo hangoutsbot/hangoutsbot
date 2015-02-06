@@ -17,7 +17,7 @@ from sinks.listener import start_listening
 from inspect import getmembers, isfunction
 
 
-__version__ = '1.1'
+__version__ = '2.1'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
 class FakeConversation(object):
@@ -27,8 +27,8 @@ class FakeConversation(object):
 
     @asyncio.coroutine
     def send_message(self, segments):
-        print("FakeConversation: sendchatmessage({})".format(self.id_))
         yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments])
+
 
 class ConversationEvent(object):
     """Conversation event"""
@@ -44,14 +44,14 @@ class ConversationEvent(object):
 
     def print_debug(self):
         """Print informations about conversation event"""
-        print('Conversation ID: {}'.format(self.conv_id))
-        print('Conversation name: {}'.format(get_conv_name(self.conv, truncate=True)))
-        print('Event ID: {}'.format(self.event_id))
-        print('User ID: {}'.format(self.user_id))
-        print('User name: {}'.format(self.user.full_name))
-        print('Timestamp: {}'.format(self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
-        print('Text: {}'.format(self.text))
-        print()
+        print('eid/dtime: {}/{}'.format(self.event_id, self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
+        print('cid/cname: {}/{}'.format(self.conv_id, get_conv_name(self.conv, truncate=True)))
+        if(self.user_id.chat_id == self.user_id.gaia_id):
+            print('uid/uname: {}/{}'.format(self.user_id.chat_id, self.user.full_name))
+        else:
+            print('uid/uname: {}!{}/{}'.format(self.user_id.chat_id, self.user_id.gaia_id, self.user.full_name))
+        print('txtlen/tx: {}/{}'.format(len(self.text), self.text))
+        print('eventdump: completed --8<--')
 
 
 class HangupsBot(object):
@@ -72,7 +72,7 @@ class HangupsBot(object):
         # load in previous memory, or create new one
         self.memory = None
         if memory_file:
-            print("HangupsBot: memory file will be used")
+            print("HangupsBot: memory file will be used: {}".format(memory_file))
             self.memory = config.Config(memory_file)
             if not os.path.isfile(memory_file):
                 try:
@@ -169,12 +169,9 @@ class HangupsBot(object):
                 try:
                     function(self, broadcast_list, context)
                 except:
-                    print("exception occurred")
-                    logging.warning(
-                        "send_message_segments() pluggable: {}"
-                            .format(function.__name__),
-                            sys.exc_info()[0])
-
+                    message = "pluggables.sending.{}".format(function.__name__)
+                    print("EXCEPTION in " + format(message))
+                    logging.exception(message)
 
         # send messages using FakeConversation as a workaround
         for response in broadcast_list:
@@ -191,7 +188,7 @@ class HangupsBot(object):
             convs = _all_conversations
             logging.info("list_conversations() returned {} conversation(s)".format(len(convs)))
         except Exception as e:
-            logging.warning("list_conversations()", e)
+            logging.exception("list_conversations()")
             raise
 
         return convs
@@ -213,6 +210,34 @@ class HangupsBot(object):
 
     def get_memory_suboption(self, user_id, option):
         return self.memory.get_suboption("user_data", user_id, option)
+
+    def user_memory_set(self, chat_id, keyname, keyvalue):
+        self.initialise_memory(chat_id, "user_data")
+        self.memory.set_by_path(["user_data", chat_id, keyname], keyvalue)
+        self.memory.save()
+
+    def user_memory_get(self, chat_id, keyname):
+        value = None
+        try:
+            self.initialise_memory(chat_id, "user_data")
+            value = self.memory.get_by_path(["user_data", chat_id, keyname])
+        except KeyError:
+            pass
+        return value
+
+    def conversation_memory_set(self, conv_id, keyname, keyvalue):
+        self.initialise_memory(conv_id, "conv_data")
+        self.memory.set_by_path(["conv_data", conv_id, keyname], keyvalue)
+        self.memory.save()
+
+    def conversation_memory_get(self, conv_id, keyname):
+        value = None
+        try:
+            self.initialise_memory(conv_id, "conv_data")
+            value = self.memory.get_by_path(["conv_data", conv_id, keyname])
+        except KeyError:
+            pass
+        return value
 
     def print_conversations(self):
         print('Conversations:')
@@ -271,11 +296,13 @@ class HangupsBot(object):
 
             try:
                 exec("import {}".format(module_path))
-                print("PLUGIN: {}".format(module))
-            except:
-                e = sys.exc_info()[0]
-                print("PLUGIN IMPORT ERROR {} @ {}".format(e, module_path))
+            except Exception as e:
+                message = "{} @ {}".format(e, module_path)
+                print("!PLUGIN IMPORT ERROR! " + message)
+                logging.exception(message)
                 continue
+
+            print("PLUGIN: {}".format(module))
 
             functions_list = [o for o in getmembers(sys.modules[module_path], isfunction)]
 
@@ -299,23 +326,26 @@ class HangupsBot(object):
                             # implement legacy support for plugins that don't support the bot reference
                             _return = function[1](self._handlers)
                         if type(_return) is list:
-                            print("implements: {}".format(_return))
+                            print("implements: {}".format(", ".join(_return)))
                             available_commands = _return
                     elif function_name.startswith("_"):
                         pass
                     else:
                         candidate_commands.append(function)
-            except:
-                e = sys.exc_info()[0]
-                print("PLUGIN PASS1 FAIL {} @ {}".format(e, module_path))
+            except Exception as e:
+                message = "{} @ {}".format(e, module_path)
+                print("!PLUGIN INIT ERROR! " + message)
+                logging.exception(message)
                 continue
 
             """pass 2: register filtered functions"""
+            added_commands = []
             for function in candidate_commands:
                 function_name = function[0]
                 if available_commands is False or function_name in available_commands:
                     command.register(function[1])
-                    print("command: {}".format(function_name))
+                    added_commands.append(function_name)
+            print("added: {}".format(", ".join(added_commands)))
 
 
     def _start_sinks(self, shared_loop):
@@ -457,22 +487,42 @@ class HangupsBot(object):
                     method(parameters)
                 except Exception as e:
                     message = "_execute_hooks()", hook, e
-                    logging.warning(message)
                     print(message)
+                    logging.exception(message)
 
     def _on_disconnect(self):
         """Handle disconnecting"""
         print('Connection lost!')
 
     def external_send_message(self, conversation_id, text):
-        conversation = self._conv_list.get(conversation_id)
-        print('sending message, conversation name:', get_conv_name(conversation))
-        self.send_message(conversation, text)
+        print('WARNING: external_send_message() is deprecated! Please move to using send_html_to_conversation()')
+        self.send_html_to_conversation(conversation, text)
 
     def external_send_message_parsed(self, conversation_id, html):
+        print('WARNING: external_send_message_parsed() is deprecated! Please move to using send_html_to_conversation()')
+        self.send_html_to_conversation(conversation, html)
+
+    def send_html_to_conversation(self, conversation_id, html):
+        """Deprecates external_send_message_parsed() and external_send_message()"""
         conversation = self._conv_list.get(conversation_id)
         print('sending parsed message, conversation name:', get_conv_name(conversation))
         self.send_message_parsed(conversation, html)
+
+    def send_html_to_user(self, user_id, html):
+        conversation = self.get_1on1_conversation(user_id)
+        if not conversation:
+            print('Tried to send parsed message but failed. 1to1 conversation not found')
+            return False
+        print('sending parsed message, user id: {}', user_id)
+        self.send_message_parsed(conversation, html)
+        return True
+
+
+    def send_html_to_user_or_conversation(self, user_id_or_conversation_id, html):
+        """Attempts send_html_to_user. If failed, attempts send_html_to_conversation"""
+        # NOTE: Assumption that a conversation_id will never match a user_id
+        if not self.send_html_to_user(user_id_or_conversation_id, html):
+            self.send_html_to_conversation(user_id_or_conversation_id, html)
 
 def main():
     """Main entry point"""

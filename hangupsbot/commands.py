@@ -33,8 +33,10 @@ class CommandDispatcher(object):
         try:
             yield from func(bot, event, *args, **kwds)
         except Exception as e:
-            print("CommandDispatcher: {}".format(e))
-            raise
+            message = "CommandDispatcher.run: {}".format(func.__name__)
+            print("EXCEPTION in " + message)
+            logging.exception(message)
+
 
     def register(self, func):
         """Decorator for registering command"""
@@ -67,7 +69,14 @@ def help(bot, event, cmd=None, *args):
             yield from command.unknown_command(bot, event)
             return
 
-    bot.send_message_segments(event.conv, segments)
+    # help can get pretty long, so we send a short message publicly, and the actual help privately
+    conv_1on1_initiator = bot.get_1on1_conversation(event.user.id_.chat_id)
+    if conv_1on1_initiator:
+        bot.send_message_segments(conv_1on1_initiator, segments)
+        if conv_1on1_initiator.id_ != event.conv_id:
+            bot.send_message_parsed(event.conv, "{}, I've sent you some help ;)".format(event.user.full_name))
+    else:
+        bot.send_message_parsed(event.conv, "{}, before I can help you, you need to private message me and say hi.".format(event.user.full_name))
 
 
 @command.register
