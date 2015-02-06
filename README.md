@@ -159,11 +159,11 @@ Requires plugin: [**syncrooms**](https://github.com/nylonee/hangupsbot/blob/mast
 
 Chats can be synced together, called a 'Syncout'. If a person says something in chat A, that message will be relayed into chat B by the bot, and vice versa, allowing multiple rooms to have conversations with each other. The primary use for this is to have more than 150 (the hangout limit) users talking to each other in the same room.
 
-Syncouts/syncrooms only has two `config.json` keys, documented in the following sections:
+Syncouts/syncrooms only has two `config.json` keys, documented in the following section:
 
 `syncing_enabled`
 * default: `not set`
-* If `true`, will look `config.sync_rooms` and start relaying chats across configured rooms
+* If `true`, will look for `config.sync_rooms` and start relaying chats across configured rooms
 * Can only be enabled/disabled globally
 
 ```
