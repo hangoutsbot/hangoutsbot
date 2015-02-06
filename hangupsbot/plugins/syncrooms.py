@@ -20,6 +20,7 @@ def _initialise(Handlers, bot=None):
 
 def _migrate_syncroom_v1(bot):
     if bot.config.exists(["conversations"]):
+        write_config = False
         _config2 = []
         _newdict = {}
         _oldlist = bot.config.get_by_path(["conversations"])
@@ -35,11 +36,13 @@ def _migrate_syncroom_v1(bot):
 
                 del parameters["sync_rooms"] # remove old config
                 bot.config.set_by_path(["conversations", conv_id], parameters)
+                write_config = True
 
-        _config2 = list(_newdict.values())
-        bot.config.set_by_path(["sync_rooms"], _config2) # write new config
-        bot.config.save()
-        print("_migrate_syncroom_v1(): config-v2 = {}".format(_config2))
+        if write_config:
+            _config2 = list(_newdict.values())
+            bot.config.set_by_path(["sync_rooms"], _config2) # write new config
+            bot.config.save()
+            print("_migrate_syncroom_v1(): config-v2 = {}".format(_config2))
 
 def _handle_syncrooms_broadcast(bot, broadcast_list, context):
     if not bot.get_config_option('syncing_enabled'):
