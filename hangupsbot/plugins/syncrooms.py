@@ -23,23 +23,25 @@ def _handle_syncrooms_broadcast(bot, broadcast_list, context):
         return
 
     if context is "no_syncrooms_handler":
-        print("syncroom handler disabled by context")
+        print("SYNCROOMS: handler disabled by context")
         return
 
     origin_conversation_id = broadcast_list[0][0]
     response = broadcast_list[0][1]
 
-    sync_room_list = bot.get_config_suboption(origin_conversation_id, 'sync_rooms')
-    if sync_room_list:
-        for other_room_id in sync_room_list:
-            if origin_conversation_id != other_room_id:
-                broadcast_list.append((other_room_id, response))
+    syncouts = bot.get_config_option('sync_rooms')
+    if syncouts:
+        for sync_room_list in syncouts:
+            if origin_conversation_id in sync_room_list:
+                for other_room_id in sync_room_list:
+                    if origin_conversation_id != other_room_id:
+                        broadcast_list.append((other_room_id, response))
 
-        print("syncroom {}: broadcasting to {} room(s)".format(
-            origin_conversation_id,
-            len(broadcast_list)))
-    else:
-        print("syncroom {}: not a sync room".format(origin_conversation_id))
+                print("SYNCROOMS: broadcasting to {} room(s)".format(
+                    origin_conversation_id,
+                    len(broadcast_list)))
+            else:
+                print("SYNCROOMS: not a sync room".format(origin_conversation_id))
 
 
 @asyncio.coroutine
@@ -60,7 +62,7 @@ def _handle_incoming_message(bot, event, command):
 
     for sync_room_list in syncouts:
         if event.conv_id in sync_room_list:
-            print('>> message from synced room');
+            print('SYNCROOMS: incoming message');
             link = 'https://plus.google.com/u/0/{}/about'.format(event.user_id.chat_id)
 
             ### Deciding how to relay the name across
