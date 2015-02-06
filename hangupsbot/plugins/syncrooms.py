@@ -33,11 +33,11 @@ def _migrate_syncroom_v1(bot):
                 ref_key = "-".join(old_sync_rooms)
                 _newdict[ref_key] = old_sync_rooms # prevent duplicates
 
-                del parameters["sync_rooms"]
+                del parameters["sync_rooms"] # remove old config
                 bot.config.set_by_path(["conversations", conv_id], parameters)
 
         _config2 = list(_newdict.values())
-        bot.config.set_by_path(["sync_rooms"], _config2)
+        bot.config.set_by_path(["sync_rooms"], _config2) # write new config
         bot.config.save()
         print("_migrate_syncroom_v1(): config-v2 = {}".format(_config2))
 
