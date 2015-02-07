@@ -495,28 +495,33 @@ class HangupsBot(object):
         print('Connection lost!')
 
     def external_send_message(self, conversation_id, text):
-        print('WARNING: external_send_message() is deprecated! Please move to using send_html_to_conversation()')
-        self.send_html_to_conversation(conversation, text)
+        """
+        LEGACY
+            use send_html_to_conversation()
+        """
+        print('DEPRECATED: external_send_message(), use send_html_to_conversation()')
+        self.send_html_to_conversation(conversation_id, text)
 
     def external_send_message_parsed(self, conversation_id, html):
-        print('WARNING: external_send_message_parsed() is deprecated! Please move to using send_html_to_conversation()')
-        self.send_html_to_conversation(conversation, html)
+        """
+        LEGACY
+            use send_html_to_conversation()
+        """
+        print('DEPRECATED: external_send_message_parsed(), use send_html_to_conversation()')
+        self.send_html_to_conversation(conversation_id, html)
 
     def send_html_to_conversation(self, conversation_id, html):
-        """Deprecates external_send_message_parsed() and external_send_message()"""
-        conversation = self._conv_list.get(conversation_id)
-        print('sending parsed message, conversation name:', get_conv_name(conversation))
-        self.send_message_parsed(conversation, html)
+        print('send_html_to_conversation(): sending to {}'.format(conversation_id))
+        self.send_message_parsed(conversation_id, html)
 
     def send_html_to_user(self, user_id, html):
         conversation = self.get_1on1_conversation(user_id)
         if not conversation:
-            print('Tried to send parsed message but failed. 1to1 conversation not found')
+            print('send_html_to_user(): 1-to-1 conversation not found')
             return False
-        print('sending parsed message, user id: {}', user_id)
+        print('send_html_to_user(): sending to {}'.format(user_id))
         self.send_message_parsed(conversation, html)
         return True
-
 
     def send_html_to_user_or_conversation(self, user_id_or_conversation_id, html):
         """Attempts send_html_to_user. If failed, attempts send_html_to_conversation"""
