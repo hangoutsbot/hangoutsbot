@@ -88,44 +88,6 @@ class EventHandler(object):
                     print("EXCEPTION in " + format(message))
                     logging.exception(message)
 
-        # Don't handle events caused by the bot himself
-        if event.user.is_self:
-            return
-
-        sync_room_list = self.bot.get_config_suboption(event.conv_id, 'sync_rooms')
-
-        # Test if watching for membership changes is enabled
-        if not self.bot.get_config_suboption(event.conv_id, 'membership_watching_enabled'):
-            return
-
-        # Generate list of added or removed users
-        event_users = [event.conv.get_user(user_id) for user_id
-                       in event.conv_event.participant_ids]
-        names = ', '.join([user.full_name for user in event_users])
-
-        # JOIN
-        if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
-            self.bot.send_message(event.conv, '{}: Welcome!'.format(names))
-            if event.conv_id in sync_room_list:
-                for dst in sync_room_list:
-                    try:
-                        conv = self.bot._conv_list.get(dst)
-                    except KeyError:
-                        continue
-                    if not dst == event.conv_id:
-                        self.bot.send_message(conv, '{} has added {} to the Syncout'.format(event.user.full_name, names))
-        # LEAVE
-        else:
-            self.bot.send_message(event.conv, 'Goodbye {}! =('.format(names))
-            if event.conv_id in sync_room_list:
-                for dst in sync_room_list:
-                    try:
-                        conv = self.bot._conv_list.get(dst)
-                    except KeyError:
-                        continue
-                    if not dst == event.conv_id:
-                        self.bot.send_message(conv, '{} has left the Syncout'.format(names))
-
     @asyncio.coroutine
     def handle_chat_rename(self, event):
         # handlers from plugins
