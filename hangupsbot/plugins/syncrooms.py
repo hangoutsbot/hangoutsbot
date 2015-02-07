@@ -1,7 +1,6 @@
-import asyncio
+import asyncio, re, time
+
 import hangups
-import re
-import time
 
 class __registers(object):
     def __init__(self):
@@ -16,6 +15,7 @@ def _initialise(Handlers, bot=None):
     _migrate_syncroom_v1(bot)
     Handlers.register_handler(_handle_syncrooms_broadcast, type="sending")
     Handlers.register_handler(_handle_incoming_message, type="message")
+    Handlers.register_handler(_handle_syncrooms_membership_change, type="membership")
     return [] # implements no commands
 
 def _migrate_syncroom_v1(bot):
@@ -64,7 +64,6 @@ def _handle_syncrooms_broadcast(bot, broadcast_list, context):
                         broadcast_list.append((other_room_id, response))
 
                 print("SYNCROOMS: broadcasting to {} room(s)".format(
-                    origin_conversation_id,
                     len(broadcast_list)))
             else:
                 print("SYNCROOMS: not a sync room".format(origin_conversation_id))
@@ -150,14 +149,46 @@ def _handle_incoming_message(bot, event, command):
                 if last != len(segment.text):
                     segments.append(hangups.ChatMessageSegment(segment.text[last:]))
 
-            for dst in sync_room_list:
-                try:
-                    conv = bot._conv_list.get(dst)
-                except KeyError:
-                    continue
-                if not dst == event.conv_id:
-                    bot.send_message_segments(conv, segments, context="no_syncrooms_handler")
+            for _conv_id in sync_room_list:
+                if not _conv_id == event.conv_id:
+                    bot.send_message_segments(_conv_id, segments, context="no_syncrooms_handler")
 
             _registers.last_user_id = event.user_id.chat_id
             _registers.last_time_id = time.time()
             _registers.last_chatroom_id = event.conv_id
+
+@asyncio.coroutine
+def _handle_syncrooms_membership_change(bot, event, command):
+    if not bot.get_config_option('syncing_enabled'):
+        return
+
+    # Don't handle events caused by the bot himself
+    if event.user.is_self:
+        return
+
+    syncouts = bot.get_config_option('sync_rooms')
+
+    if not syncouts:
+        return # Sync rooms not configured, returning
+
+    # are we in a sync room?
+    sync_room_list = None
+    for _rooms in syncouts:
+        if event.conv_id in _rooms:
+            print("SYNCROOMS: membership change")
+            sync_room_list = _rooms
+            break
+    if sync_room_list is None:
+        return
+
+    # Generate list of added or removed users
+    event_users = [event.conv.get_user(user_id) for user_id
+                   in event.conv_event.participant_ids]
+    names = ', '.join([user.full_name for user in event_users])
+
+    # JOIN
+    if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
+        bot.send_message(event.conv, '{} has added {} to the Syncout'.format(event.user.full_name, names))
+    # LEAVE
+    else:
+        bot.send_message(event.conv, '{} has left the Syncout'.format(names))
