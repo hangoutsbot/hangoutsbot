@@ -149,13 +149,9 @@ def _handle_incoming_message(bot, event, command):
                 if last != len(segment.text):
                     segments.append(hangups.ChatMessageSegment(segment.text[last:]))
 
-            for dst in sync_room_list:
-                try:
-                    conv = bot._conv_list.get(dst)
-                except KeyError:
-                    continue
-                if not dst == event.conv_id:
-                    bot.send_message_segments(conv, segments, context="no_syncrooms_handler")
+            for _conv_id in sync_room_list:
+                if not _conv_id == event.conv_id:
+                    bot.send_message_segments(_conv_id, segments, context="no_syncrooms_handler")
 
             _registers.last_user_id = event.user_id.chat_id
             _registers.last_time_id = time.time()
