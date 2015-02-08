@@ -160,9 +160,24 @@ def fix_urls(text):
     tokens = text.split() # "a  b" => (a,b)
     urlified = []
     for token in tokens:
-        # analyse each token for a url-like pattern
+        pretoken = ""
+        posttoken = ""
+        # consume a token looking for a url-like pattern...
+        while len(token)>10: # stop below shortest possible domain http://g.cn length
+            if token.startswith(("http://", "https://")):
+                break;
+            if token[0:1] in ('"', '=', "'", "<"):
+                # stop if any consumed character matches possible tag fragment
+                break
+            pretoken = pretoken + token[0:1]
+            token = token[1:]
         if token.startswith(("http://", "https://")):
+            while token.endswith((")", ".", ">", "]", "!", "*")):
+                # consume extra symbols at end
+                posttoken = token[-1] + posttoken
+                token = token[0:-1]
             token = '<a href="' + token + '">' + token + '</a>'
+        token = pretoken + token + posttoken
         urlified.append(token)
     text = " ".join(urlified)
     return text
@@ -231,7 +246,16 @@ def test_parser():
             [3]],
         ['http://i.imgur.com/E3gxs.gif',
             '<a href="http://i.imgur.com/E3gxs.gif">http://i.imgur.com/E3gxs.gif</a>',
-            [1]]
+            [1]],
+        ['(http://i.imgur.com/E3gxs.gif)',
+            '(<a href="http://i.imgur.com/E3gxs.gif">http://i.imgur.com/E3gxs.gif</a>)',
+            [3]],
+        ['(http://i.imgur.com/E3gxs.gif).',
+            '(<a href="http://i.imgur.com/E3gxs.gif">http://i.imgur.com/E3gxs.gif</a>).',
+            [3]],
+        ['XXXXXXXXXXXXXXXXXXXhttp://i.imgur.com/E3gxs.gif)........',
+            'XXXXXXXXXXXXXXXXXXX<a href="http://i.imgur.com/E3gxs.gif">http://i.imgur.com/E3gxs.gif</a>)........',
+            [3]]
     ]
 
     print("*** TEST: utils.fix_urls() ***")
