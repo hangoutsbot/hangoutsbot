@@ -136,13 +136,14 @@ class simpleHTMLParser(HTMLParser):
             if (previous_segment.is_bold != self._flags["bold"] or
                     previous_segment.is_italic != self._flags["italic"] or
                     previous_segment.is_underline != self._flags["underline"] or
+                    previous_segment.link_target != self._flags["link_target"] or
                     previous_segment.text == "\n"):
                 self.segments_extend(text, type, forceNew=True)
             else:
                 previous_segment.text += text
 
 def simple_parse_to_segments(html, debug=False, **kwargs):
-    html = fix_urls(html, debug)
+    html = fix_urls(html)
     html = '<html>' + html + '</html>' # html.parser seems to ignore the final entityref without html closure
     parser = simpleHTMLParser(debug)
     return parser.feed(html)
@@ -155,59 +156,122 @@ def class_from_name(module_name, class_name):
     c = getattr(m, class_name)
     return c
 
-def fix_urls(text, debug=False):
-    """adapted from http://stackoverflow.com/a/1071240"""
-    pat_url = re.compile(  r'''
-                     (?x)( # verbose identify URLs within text
-   (http|https|ftp|gopher) # make sure we find a resource type
-                       :// # ...needs to be followed by colon-slash-slash
-            (\w+[:.]?){2,} # at least two domain groups, e.g. (gnosis.)(cx)
-                      (/?| # could be just the domain name (maybe w/ slash)
-                [^ \n\r"]+ # or stuff then space, newline, tab, quote
-                    [\w/]) # resource name ends in alphanumeric or slash
-       $|(?=[\s\.,>)'"\]]) # EOL or assert: followed by white or clause ending
-                         ) # end of match group
-                           ''')
-
-    for url in re.findall(pat_url, text):
-       if url[0]:
-        text = text.replace(url[0], '<a href="%(url)s">%(url)s</a>' % {"url" : url[0]})
-
-    if debug: print("fix_urls(): {}".format(text))
-
+def fix_urls(text):
+    tokens = text.split() # "a  b" => (a,b)
+    urlified = []
+    for token in tokens:
+        # analyse each token for a url-like pattern
+        if token.startswith(("http://", "https://")):
+            token = '<a href="' + token + '">' + token + '</a>'
+        urlified.append(token)
+    text = " ".join(urlified)
     return text
 
 def test_parser():
-    print("PARSER TEST")
     test_strings = [
-        "hello world",
-        "http://www.google.com/",
-        "https://www.google.com/?a=b&c=d&e=f",
-        "&lt;html-encoded test&gt;",
-        "A&B&C&D&E",
-        "A&<b>B</b>&C&D&E",
-        "A&amp;B&amp;C&amp;D&amp;E",
-        "C&L",
-        "go here: http://www.google.com/",
-        'go here: <a href="http://google.com/">http://www.google.com/</a>',
-        "<in a fake tag>",
-        '<img src="hello" abc />',
-        '<in "a"="abc" fake tag>',
-        '<in a=abc fake tag>',
-        "abc <some@email.com>",
-        '</in "a"="xyz" fake tag>', # XXX: fails due to HTMLParser limitations
-        '<html><html><b></html></b><b>ABC</b>', # XXX: </html> is consumed
+        ["hello world", 
+            'hello world', # expected return by fix_urls()
+            [1]], # expected number of segments returned by simple_parse_to_segments()
+        ["http://www.google.com/",
+            '<a href="http://www.google.com/">http://www.google.com/</a>',
+            [1]],
+        ["https://www.google.com/?a=b&c=d&e=f",
+            '<a href="https://www.google.com/?a=b&c=d&e=f">https://www.google.com/?a=b&c=d&e=f</a>',
+            [1]],
+        ["&lt;html-encoded test&gt;",
+            '&lt;html-encoded test&gt;',
+            [1]],
+        ["A&B&C&D&E",
+            'A&B&C&D&E',
+            [1]],
+        ["A&<b>B</b>&C&D&E",
+            'A&<b>B</b>&C&D&E',
+            [3]],
+        ["A&amp;B&amp;C&amp;D&amp;E",
+            'A&amp;B&amp;C&amp;D&amp;E',
+            [1]],
+        ["C&L",
+            'C&L',
+            [1]],
+        ["<in a fake tag>",
+            '<in a fake tag>',
+            [1]],
+        ['<img src="http://i.imgur.com/E3gxs.gif"/>',
+            '<img src="http://i.imgur.com/E3gxs.gif"/>',
+            [1]],
+        ['<img src="http://i.imgur.com/E3gxs.gif" />',
+            '<img src="http://i.imgur.com/E3gxs.gif" />',
+            [1]],
+        ['<img src="http://i.imgur.com/E3gxs.gif" abc />',
+            '<img src="http://i.imgur.com/E3gxs.gif" abc />',
+            [1]],
+        ['<in "a"="abc" fake tag>',
+            '<in "a"="abc" fake tag>',
+            [1]],
+        ['<in a=abc fake tag>',
+            '<in a=abc fake tag>',
+            [1]],
+        ["abc <some@email.com>",
+            'abc <some@email.com>',
+            [1]],
+        ['</in "a"="xyz" fake tag>', # XXX: fails due to HTMLParser limitations
+            '</in "a"="xyz" fake tag>',
+            [1]],
+        ['<html><html><b></html></b><b>ABC</b>', # XXX: </html> is consumed
+            '<html><html><b></html></b><b>ABC</b>',
+            [2]],
+        ["go here: http://www.google.com/",
+            'go here: <a href="http://www.google.com/">http://www.google.com/</a>',
+            [2]],
+        ['go here: <a href="http://google.com/">http://www.google.com/</a>',
+            'go here: <a href="http://google.com/">http://www.google.com/</a>',
+            [2]],
+        ["go here: http://www.google.com/ abc",
+            'go here: <a href="http://www.google.com/">http://www.google.com/</a> abc',
+            [3]],
+        ['http://i.imgur.com/E3gxs.gif',
+            '<a href="http://i.imgur.com/E3gxs.gif">http://i.imgur.com/E3gxs.gif</a>',
+            [1]]
     ]
+
+    print("*** TEST: utils.fix_urls() ***")
+    DEVIATION = False
     for test in test_strings:
-        print("TEST STRING: {}".format(test))
-        segments = simple_parse_to_segments(test, debug=True)
-        for segment in segments:
-            is_bold = 0
-            is_link = 0
-            if segment.is_bold: is_bold = 1
-            if segment.link_target: is_link = 1
-            print("segment: {} {} {}".format(is_bold, is_link, segment.text))
-        print("-----")
+        original = test[0]
+        expected_urlified = test[1]
+        actual_urlified = fix_urls(original)
+
+        if actual_urlified != expected_urlified:
+            print("ORIGINAL: {}".format(original))
+            print("EXPECTED: {}".format(expected_urlified))
+            print(" RESULTS: {}".format(actual_urlified))
+            print()
+            DEVIATION = True
+    if DEVIATION is False:
+        print("*** TEST: utils.fix_urls(): PASS ***")
+
+    if DEVIATION is False:
+        print("*** TEST: simple_parse_to_segments() ***")
+        for test in test_strings:
+            original = test[0]
+            expected_segment_count = test[2][0]
+
+            segments = simple_parse_to_segments(original)
+            actual_segment_count = len(segments)
+
+            if expected_segment_count != actual_segment_count:
+                print("ORIGINAL: {}".format(original))
+                print("EXPECTED/ACTUAL COUNT: {}/{}".format(expected_segment_count, actual_segment_count))
+                for segment in segments:
+                    is_bold = 0
+                    is_link = 0
+                    if segment.is_bold: is_bold = 1
+                    if segment.link_target: is_link = 1
+                    print(" B L TXT: {} {} {}".format(is_bold, is_link, segment.text))
+                print()
+                DEVIATION = True
+    if DEVIATION is False:
+        print("*** TEST: simple_parse_to_segments(): PASS ***")
 
 if __name__ == '__main__':
     test_parser()
