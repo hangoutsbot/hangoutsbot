@@ -5,7 +5,7 @@ from hangups.ui.utils import get_conv_name
 
 def _initialise(Handlers, bot=None):
     Handlers.register_handler(_check_if_admin_added_me, type="membership")
-    return []
+    return ["allowbotadd", "removebotadd"]
 
 @asyncio.coroutine
 def _check_if_admin_added_me(bot, event, command):
@@ -30,3 +30,34 @@ def _check_if_admin_added_me(bot, event, command):
 
                 yield from asyncio.sleep(1.0)
                 yield from command.run(bot, event, *["leave", "quietly"])
+
+def allowbotadd(bot, event, user_id, *args):
+    if not bot.memory.exists(["allowbotadd"]):
+        bot.memory["allowbotadd"] = []
+
+    allowbotadd = bot.memory.get("allowbotadd")
+    allowbotadd.append(user_id)
+    bot.send_message_parsed(
+        event.conv,
+        "user id {} authorised to add bot in any conversations".format(user_id))
+
+    bot.memory["allowbotadd"] = allowbotadd
+    bot.memory.save()
+
+def removebotadd(bot, event, user_id, *args):
+    if not bot.memory.exists(["allowbotadd"]):
+        bot.memory["allowbotadd"] = []
+
+    allowbotadd = bot.memory.get("allowbotadd")
+    if user_id in allowbotadd:
+        allowbotadd.remove(user_id)
+        bot.send_message_parsed(
+            event.conv,
+            "user id {} authorisation to add bot in any conversations removed".format(user_id))
+
+        bot.memory["allowbotadd"] = allowbotadd
+        bot.memory.save()
+    else:
+        bot.send_message_parsed(
+            event.conv,
+            "user id {} is not authorised".format(user_id))
