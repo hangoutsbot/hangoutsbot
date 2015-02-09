@@ -91,9 +91,15 @@ def rename(bot, event, *args):
 
 def leave(bot, event, conversation=None, *args):
     """exits current or other specified hangout"""
+
+    leave_quietly = False
     convs = []
+
     if not conversation:
         convs.append(event.conv)
+    elif conversation=="quietly":
+        convs.append(event.conv)
+        leave_quietly = True
     else:
         conversation = conversation.strip().lower()
         for c in bot.list_conversations():
@@ -101,9 +107,10 @@ def leave(bot, event, conversation=None, *args):
                 convs.append(c)
 
     for c in convs:
-        yield from c.send_message([
-            hangups.ChatMessageSegment('I\'ll be back!')
-        ])
+        if not leave_quietly:
+            yield from c.send_message([
+                hangups.ChatMessageSegment('I\'ll be back!')
+            ])
         yield from bot._conv_list.leave_conversation(c.id_)
 
 
