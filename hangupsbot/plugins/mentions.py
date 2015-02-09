@@ -80,10 +80,7 @@ def mention(bot, event, *args):
     quidproquo: users can only @mention if they themselves are @mentionable (i.e. have a 1-on-1 with the bot)
     """
 
-    if bot.memory.exists(["donotdisturb"]):
-        donotdisturb = bot.memory.get('donotdisturb')
-        if event.user.id_.chat_id not in donotdisturb:
-            conv_1on1_initiator = bot.get_1on1_conversation(event.user.id_.chat_id)
+    conv_1on1_initiator = bot.get_1on1_conversation(event.user.id_.chat_id)
 
     if bot.get_config_option("mentionquidproquo"):
         if conv_1on1_initiator:
@@ -96,6 +93,12 @@ def mention(bot, event, *args):
                     "<b>{}</b> cannot @mention anyone until they say something to me first.".format(
                         event.user.full_name))
             return
+
+    if bot.memory.exists(["donotdisturb"]):
+        donotdisturb = bot.memory.get('donotdisturb')
+        if event.user.id_.chat_id not in donotdisturb:
+            # Remove 1on1 data if dnd is on
+            conv_1on1_initiator = None
 
     """track mention statistics"""
     user_tracking = {
