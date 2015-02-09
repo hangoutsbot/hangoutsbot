@@ -20,7 +20,8 @@ def _handle_message(bot, event, command):
             raw_text = raw_text.replace(language_marker, "").strip()
             translate_target = [iso_language, text_language]
 
-    yield from _translate(bot, event, raw_text, translate_target[0], translate_target[1])
+    if translate_target is not None:
+        yield from _translate(bot, event, raw_text, translate_target[0], translate_target[1])
 
 @asyncio.coroutine
 def _translate(bot, event, text, iso_language, text_language):
