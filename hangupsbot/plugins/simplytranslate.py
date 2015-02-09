@@ -8,41 +8,19 @@ def _initialise(command):
 
 @asyncio.coroutine
 def _handle_message(bot, event, command):
-    language_map = {
-        "chinese": "zh",
-        "german": "de",
-        "arabic": "ar",
-        "malay": "ms",
-        "french": "fr",
-        "hindi": "hi",
-        "indonesian": "id",
-        "tamil": "ta",
-        "russian": "ru",
-        "ukrainian": "uk",
-        "thai": "th",
-        "swahili": "sw",
-        "japanese": "ja",
-        "italian": "it",
-        "sinhala": "si",
-        "english": "en",
-        "esperanto": "eo",
-        "turkmen": "tk",
-        "tatar": "tt",
-        "vietnamese": "vi",
-        "hebrew": "he",
-        "dutch": "ni",
-        "latin": "la",
-        "yiddish": "yi",
-        "zulu": "zu",
-        "welsh": "cy",
-    }
-    for language_token in language_map:
-        language_marker = "/" + language_token
-        if language_marker in event.text:
-            iso_language = language_map[language_token]
-            bare_text = event.text.replace(language_marker, "").strip()
+    language_map = gs.get_languages()
+    raw_text = event.text.lower()
+    translate_target = None
 
-            yield from _translate(bot, event, bare_text, iso_language, language_token)
+    for iso_language in language_map:
+        text_language = language_map[iso_language].lower()
+
+        language_marker = "/" + text_language
+        if language_marker in raw_text:
+            raw_text = raw_text.replace(language_marker, "").strip()
+            translate_target = [iso_language, text_language]
+
+    yield from _translate(bot, event, raw_text, translate_target[0], translate_target[1])
 
 @asyncio.coroutine
 def _translate(bot, event, text, iso_language, text_language):
