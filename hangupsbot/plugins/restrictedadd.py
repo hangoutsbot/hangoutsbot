@@ -15,9 +15,18 @@ def _check_if_admin_added_me(bot, event, command):
             # bot was part of the event
             initiator_user_id = event.user_id.chat_id
             admins_list = bot.get_config_suboption(event.conv_id, 'admins')
+            if bot.memory.exists(["allowbotadd"]):
+                allowbotadd = bot.memory.get("allowbotadd")
+            else:
+                allowbotadd = []
+
             if initiator_user_id in admins_list:
                 # bot added by an admin
                 print("RESTRICTEDADD: admin added me to {}".format(
+                    event.conv_id))
+            elif initiator_user_id in allowbotadd:
+                # bot added by an admin
+                print("RESTRICTEDADD: authorised user added me to {}".format(
                     event.conv_id))
             else:
                 print("RESTRICTEDADD: user {} tried to add me to {}".format(
