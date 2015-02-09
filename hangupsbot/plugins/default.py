@@ -58,17 +58,30 @@ def user(bot, event, username, *args):
 def hangouts(bot, event, *args):
     """list all active hangouts the bot is participating in
         details: c ... commands, f ... forwarding, a ... autoreplies"""
-    segments = [hangups.ChatMessageSegment('list of active hangouts:', is_bold=True),
-                hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
-    for c in bot.list_conversations():
-        s = '{} [c: {:d}, f: {:d}, a: {:d}]'.format(get_conv_name(c, truncate=True),
-                                                    bot.get_config_suboption(c.id_, 'commands_enabled'),
-                                                    bot.get_config_suboption(c.id_, 'forwarding_enabled'),
-                                                    bot.get_config_suboption(c.id_, 'autoreplies_enabled'))
-        segments.append(hangups.ChatMessageSegment(s))
-        segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
 
-    bot.send_message_segments(event.conv, segments)
+    line = "<b>list of active hangouts:</b><br />"
+
+    for c in bot.list_conversations():
+        line = line + "{}".format(get_conv_name(c, truncate=True))
+
+        suboptions = []
+
+        _value = bot.get_config_suboption(c.id_, 'commands_enabled')
+        if _value:
+            suboptions.append("c")
+        _value = bot.get_config_suboption(c.id_, 'forwarding_enabled')
+        if _value:
+            suboptions.append("f")
+        _value = bot.get_config_suboption(c.id_, 'autoreplies_enabled')
+        if _value:
+            suboptions.append("a")
+
+        if len(suboptions) > 0:
+            line = line + ' [ ' + ', '.join(suboptions) + ' ]'
+
+        line = line + "<br />"
+
+    bot.send_message_parsed(event.conv, line)
 
 
 def rename(bot, event, *args):
