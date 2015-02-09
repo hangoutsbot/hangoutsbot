@@ -79,7 +79,12 @@ def mention(bot, event, *args):
     """
     quidproquo: users can only @mention if they themselves are @mentionable (i.e. have a 1-on-1 with the bot)
     """
-    conv_1on1_initiator = bot.get_1on1_conversation(event.user.id_.chat_id)
+
+    if bot.memory.exists(["donotdisturb"]):
+        donotdisturb = bot.memory.get('donotdisturb')
+        if event.user.id_.chat_id not in donotdisturb:
+            conv_1on1_initiator = bot.get_1on1_conversation(event.user.id_.chat_id)
+
     if bot.get_config_option("mentionquidproquo"):
         if conv_1on1_initiator:
             logging.info("quidproquo: user {} ({}) has 1-on-1".format(event.user.full_name, event.user.id_.chat_id))
@@ -178,8 +183,7 @@ def mention(bot, event, *args):
                 logging.info("suppressing duplicate mention for {} ({})".format(event.user.full_name, event.user.id_.chat_id))
                 continue
 
-            if bot.memory.exists(["donotdisturb"]):
-                donotdisturb = bot.memory.get('donotdisturb')
+            if donotdisturb:
                 if u.id_.chat_id in donotdisturb:
                     logging.info("suppressing @mention for {} ({})".format(u.full_name, u.id_.chat_id))
                     user_tracking["ignored"].append(u.full_name)
