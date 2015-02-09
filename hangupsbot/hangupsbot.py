@@ -125,6 +125,7 @@ class HangupsBot(object):
                     loop.run_until_complete(self._client.connect())
                     sys.exit(0)
                 except Exception as e:
+                    logging.exception("unrecoverable low-level error")
                     print('Client unexpectedly disconnected:\n{}'.format(e))
                     print('Waiting {} seconds...'.format(5 + retry * 5))
                     time.sleep(5 + retry * 5)
@@ -439,7 +440,7 @@ class HangupsBot(object):
         try:
             future.result()
         except hangups.NetworkError:
-            print('Failed to send message!')
+            print('_on_message_sent(): failed to send message')
 
     def _on_connect(self, initial_data):
         """Handle connecting for the first time"""
