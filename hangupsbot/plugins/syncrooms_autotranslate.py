@@ -13,7 +13,6 @@ def _initialise(Handlers, bot=None):
 
 def _translate_message(bot, broadcast_list, context):
     if context and "autotranslate" in context:
-        print(len(broadcast_list))
         _autotranslate = context["autotranslate"]
         origin_language = _get_room_language(bot, _autotranslate["conv_id"])
         for send in broadcast_list:
