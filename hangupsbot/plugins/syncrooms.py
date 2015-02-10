@@ -16,6 +16,7 @@ def _initialise(Handlers, bot=None):
     Handlers.register_handler(_handle_syncrooms_broadcast, type="sending")
     Handlers.register_handler(_handle_incoming_message, type="message")
     Handlers.register_handler(_handle_syncrooms_membership_change, type="membership")
+    return [] # implements no commands
 
 def _migrate_syncroom_v1(bot):
     if bot.config.exists(["conversations"]):
