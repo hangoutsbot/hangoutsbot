@@ -158,6 +158,8 @@ def _handle_incoming_message(bot, event, command):
             for _conv_id in sync_room_list:
                 if not _conv_id == event.conv_id:
 
+                    _cloned_segments = list(segments)
+
                     _context = {}
                     _context["explicit_relay"] = True
 
@@ -166,7 +168,7 @@ def _handle_incoming_message(bot, event, command):
                             "conv_id" : event.conv_id,
                             "event_text" : event.text }
 
-                    bot.send_message_segments(_conv_id, segments, context=_context)
+                    bot.send_message_segments(_conv_id, _cloned_segments, context=_context)
 
             _registers.last_user_id = event.user_id.chat_id
             _registers.last_time_id = time.time()
