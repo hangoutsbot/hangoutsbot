@@ -1,8 +1,6 @@
 import asyncio, re, time
 
-import goslate
 import hangups
-
 
 class __registers(object):
     def __init__(self):
@@ -13,13 +11,11 @@ class __registers(object):
 
 _registers=__registers()
 
-
 def _initialise(Handlers, bot=None):
     _migrate_syncroom_v1(bot)
     Handlers.register_handler(_handle_syncrooms_broadcast, type="sending")
     Handlers.register_handler(_handle_incoming_message, type="message")
     Handlers.register_handler(_handle_syncrooms_membership_change, type="membership")
-
 
 def _migrate_syncroom_v1(bot):
     if bot.config.exists(["conversations"]):
@@ -46,7 +42,6 @@ def _migrate_syncroom_v1(bot):
             bot.config.set_by_path(["sync_rooms"], _config2) # write new config
             bot.config.save()
             print("_migrate_syncroom_v1(): config-v2 = {}".format(_config2))
-
 
 def _handle_syncrooms_broadcast(bot, broadcast_list, context):
     """
