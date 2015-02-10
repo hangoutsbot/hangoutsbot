@@ -90,5 +90,6 @@
   "mentionallwhitelist": [],
   "mentionquidproquo": false,
   "donotdisturb": [],
-  "plugins": null
+  "plugins": null,
+  "strict_botkeeper_check": false
 }
