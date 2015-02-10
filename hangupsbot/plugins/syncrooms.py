@@ -3,9 +3,6 @@ import asyncio, re, time
 import goslate
 import hangups
 
-from hangups.ui.utils import get_conv_name
-
-gs = goslate.Goslate()
 
 class __registers(object):
     def __init__(self):
@@ -16,12 +13,13 @@ class __registers(object):
 
 _registers=__registers()
 
+
 def _initialise(Handlers, bot=None):
     _migrate_syncroom_v1(bot)
     Handlers.register_handler(_handle_syncrooms_broadcast, type="sending")
     Handlers.register_handler(_handle_incoming_message, type="message")
     Handlers.register_handler(_handle_syncrooms_membership_change, type="membership")
-    return ['synclanguage'] # implements no commands
+
 
 def _migrate_syncroom_v1(bot):
     if bot.config.exists(["conversations"]):
@@ -49,11 +47,18 @@ def _migrate_syncroom_v1(bot):
             bot.config.save()
             print("_migrate_syncroom_v1(): config-v2 = {}".format(_config2))
 
+
 def _handle_syncrooms_broadcast(bot, broadcast_list, context):
+    """
+    handles non-syncroom messages, i.e. messages from other plugins
+
+    for messages explicitly relayed by _handle_syncrooms_broadcast(), this
+    handler actually doesn't run
+    """
     if not bot.get_config_option('syncing_enabled'):
         return
 
-    if context is "no_syncrooms_handler":
+    if context and "explicit_relay" in context:
         print("SYNCROOMS: handler disabled by context")
         return
 
@@ -154,26 +159,23 @@ def _handle_incoming_message(bot, event, command):
                 if last != len(segment.text):
                     segments.append(hangups.ChatMessageSegment(segment.text[last:]))
 
-            origin_language = _get_syncroom_language(bot, event.conv_id)
-
             for _conv_id in sync_room_list:
                 if not _conv_id == event.conv_id:
 
-                    cloned_segments = list(segments) # we need this for multi-language
+                    _context = {}
+                    _context["explicit_relay"] = True
 
-                    target_language = _get_syncroom_language(bot, _conv_id)
-                    if origin_language != target_language:
-                        translated = gs.translate(event.text, target_language)
-                        if event.text != translated:
-                            cloned_segments.extend([
-                                hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-                                hangups.ChatMessageSegment('(' + translated + ')')])
+                    if not event.text.startswith(("/bot ", "/me ")):
+                        _context["autotranslate"] = { 
+                            "conv_id" : event.conv_id,
+                            "event_text" : event.text }
 
-                    bot.send_message_segments(_conv_id, cloned_segments, context="no_syncrooms_handler")
+                    bot.send_message_segments(_conv_id, segments, context=_context)
 
             _registers.last_user_id = event.user_id.chat_id
             _registers.last_time_id = time.time()
             _registers.last_chatroom_id = event.conv_id
+
 
 @asyncio.coroutine
 def _handle_syncrooms_membership_change(bot, event, command):
@@ -211,33 +213,3 @@ def _handle_syncrooms_membership_change(bot, event, command):
     else:
         print("SYNCROOMS: members left")
         bot.send_message(event.conv, '{} has left the Syncout'.format(names))
-
-
-def _get_syncroom_language(bot, conversation_id, default="en"):
-    syncroom_language = bot.conversation_memory_get(conversation_id, 'syncroom_language')
-    if syncroom_language is None:
-        return default
-    else:
-        return syncroom_language
-
-
-def synclanguage(bot, event, iso_language=None, *args):
-    language_map = gs.get_languages()
-
-    if iso_language is None:
-        bot.send_message_parsed(
-            event.conv,
-            '<i>syncroom "{}" language is {}</i>'.format(
-                get_conv_name(event.conv),
-                language_map[_get_syncroom_language(bot, event.conv_id)]))
-
-    if iso_language in language_map:
-        text_language = language_map[iso_language]
-
-        bot.conversation_memory_set(event.conv_id, 'syncroom_language', iso_language)
-
-        bot.send_message_parsed(
-            event.conv,
-            '<i>syncroom "{}" language set to {}</i>'.format(
-                get_conv_name(event.conv),
-                text_language))
