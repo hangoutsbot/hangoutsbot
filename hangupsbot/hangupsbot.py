@@ -311,7 +311,11 @@ class HangupsBot(object):
             """
             pass 1: run _initialise()/_initialize() and filter out "hidden" functions
 
-            legacy: _initialise()/_initialize() can optionally return a list of user-available functions
+            legacy notice: 
+            older plugins will return a list of user-available functions via _initialise/_initialize().
+            this LEGACY behaviour will continue to be supported. however, it is HIGHLY RECOMMENDED to
+            use register_user_command(<LIST command_names>) and register_admin_command(<LIST command_names>) 
+            for better security
             """
             available_commands = False # default: ALL
             try:
@@ -329,7 +333,6 @@ class HangupsBot(object):
                         pass
                     else:
                         candidate_commands.append((function_name, the_function))
-
                 if available_commands is False:
                     # implicit init, legacy support: assume all candidate_commands are user-available
                     self._handlers.register_user_command([function_name for function_name, function in candidate_commands])
