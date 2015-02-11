@@ -172,10 +172,13 @@ def fix_urls(text):
             pretoken = pretoken + token[0:1]
             token = token[1:]
         if token.startswith(("http://", "https://")):
-            while token.endswith((")", ".", ">", "]", "!", "*")):
-                # consume extra symbols at end
-                posttoken = token[-1] + posttoken
-                token = token[0:-1]
+            _i = 0
+            for c in token:
+                if c in (")", ">", "]", "!", "*", "<"):
+                    posttoken = token[_i:]
+                    token = token[0:_i]
+                    break
+                _i = _i + 1
             token = '<a href="' + token + '">' + token + '</a>'
         token = pretoken + token + posttoken
         urlified.append(token)
