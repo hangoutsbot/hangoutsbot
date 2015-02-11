@@ -56,9 +56,21 @@ command = CommandDispatcher()
 def help(bot, event, cmd=None, *args):
     """list supported commands"""
     if not cmd:
-        segments = [hangups.ChatMessageSegment('Supported commands:', is_bold=True),
+        admins_list = bot.get_config_suboption(event.conv_id, 'admins')
+
+        commands_all = command.commands.keys()
+        commands_admin = bot._handlers.get_admin_commands(event.conv_id)
+        commands_nonadmin = list(set(commands_all) - set(commands_admin))
+
+        segments = [hangups.ChatMessageSegment('User commands:', is_bold=True),
                     hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-                    hangups.ChatMessageSegment(', '.join(sorted(command.commands.keys())))]
+                    hangups.ChatMessageSegment(', '.join(sorted(commands_nonadmin)))]
+
+        if event.user_id.chat_id in admins_list:
+            segments.extend([hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
+                             hangups.ChatMessageSegment('Admin commands:', is_bold=True),
+                             hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
+                             hangups.ChatMessageSegment(', '.join(sorted(commands_admin)))])
     else:
         try:
             command_fn = command.commands[cmd]
