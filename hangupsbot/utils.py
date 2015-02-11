@@ -31,9 +31,9 @@ class simpleHTMLParser(HTMLParser):
 
         self._debug = debug
 
-        self._flags = {"bold" : False, 
+        self._flags = {"bold" : False,
                        "italic" : False,
-                       "underline" : False, 
+                       "underline" : False,
                        "link_target" : None}
 
         self._link_text = None
@@ -91,8 +91,8 @@ class simpleHTMLParser(HTMLParser):
                 self._link_text,
                 hangups.SegmentType.LINK,
                 link_target=self._flags["link_target"],
-                is_bold=self._flags["bold"], 
-                is_italic=self._flags["italic"], 
+                is_bold=self._flags["bold"],
+                is_italic=self._flags["italic"],
                 is_underline=self._flags["underline"]))
             self._flags["link_target"] = None
         else:
@@ -102,7 +102,7 @@ class simpleHTMLParser(HTMLParser):
     def handle_entityref(self, name):
         if self._flags["link_target"] is not None:
             if(self._debug): print("simpleHTMLParser(): [LINK] entityref {}".format(name))
-            self._link_text += "&" + name 
+            self._link_text += "&" + name
         else:
             _unescaped = html.unescape("&" + name)
             self.segments_extend(_unescaped, "entityref")
@@ -110,14 +110,14 @@ class simpleHTMLParser(HTMLParser):
     def handle_data(self, data):
         if self._flags["link_target"] is not None:
             if(self._debug): print("simpleHTMLParser(): [LINK] data \"{}\"".format(data))
-            self._link_text += data 
+            self._link_text += data
         else:
             self.segments_extend(data, "data")
 
     def segments_linebreak(self):
         self._segments.append(
             hangups.ChatMessageSegment(
-                "\n", 
+                "\n",
                 hangups.SegmentType.LINE_BREAK))
 
     def segments_extend(self, text, type, forceNew=False):
@@ -126,9 +126,9 @@ class simpleHTMLParser(HTMLParser):
             self._segments.append(
               hangups.ChatMessageSegment(
                 text,
-                is_bold=self._flags["bold"], 
-                is_italic=self._flags["italic"], 
-                is_underline=self._flags["underline"], 
+                is_bold=self._flags["bold"],
+                is_italic=self._flags["italic"],
+                is_underline=self._flags["underline"],
                 link_target=self._flags["link_target"]))
         else:
             if(self._debug): print("simpleHTMLParser(): [APPEND] {} {}".format(type, text))
@@ -172,10 +172,13 @@ def fix_urls(text):
             pretoken = pretoken + token[0:1]
             token = token[1:]
         if token.startswith(("http://", "https://")):
-            while token.endswith((")", ".", ">", "]", "!", "*")):
-                # consume extra symbols at end
-                posttoken = token[-1] + posttoken
-                token = token[0:-1]
+            _i = 0
+            for c in token:
+                if c in (")", ">", "]", "!", "*", "<"):
+                    posttoken = token[_i:]
+                    token = token[0:_i]
+                    break
+                _i = _i + 1
             token = '<a href="' + token + '">' + token + '</a>'
         token = pretoken + token + posttoken
         urlified.append(token)
@@ -184,7 +187,7 @@ def fix_urls(text):
 
 def test_parser():
     test_strings = [
-        ["hello world", 
+        ["hello world",
             'hello world', # expected return by fix_urls()
             [1]], # expected number of segments returned by simple_parse_to_segments()
         ["http://www.google.com/",
@@ -255,7 +258,10 @@ def test_parser():
             [3]],
         ['XXXXXXXXXXXXXXXXXXXhttp://i.imgur.com/E3gxs.gif)........',
             'XXXXXXXXXXXXXXXXXXX<a href="http://i.imgur.com/E3gxs.gif">http://i.imgur.com/E3gxs.gif</a>)........',
-            [3]]
+            [3]],
+        ["https://www.google.com<br />",
+            '<a href="https://www.google.com">https://www.google.com</a><br />',
+            [2]]
     ]
 
     print("*** TEST: utils.fix_urls() ***")
