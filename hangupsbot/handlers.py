@@ -52,7 +52,7 @@ class EventHandler(object):
         if not isinstance(command_names, list):
             command_names = [command_names] # wrap into a list for consistent processing
         self._plugin_register_command("admin", command_names)
-        self.plugin_registered_admin_commands.extend(command_names)
+        self.explicit_admin_commands.extend(command_names)
 
     def register_handler(self, function, type="message"):
         """call during plugin init to register a handler for a specific bot event"""
@@ -64,7 +64,7 @@ class EventHandler(object):
         commands_admin_list = self.bot.get_config_suboption(conversation_id, 'commands_admin')
         if not commands_admin_list:
             commands_admin_list = []
-        commands_admin_list = commands_admin_list + self.plugin_registered_admin_commands
+        commands_admin_list = commands_admin_list + self.explicit_admin_commands
         return commands_admin_list
 
     @asyncio.coroutine
