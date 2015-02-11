@@ -175,7 +175,6 @@ def _handle_syncrooms_membership_change(bot, event, command):
     sync_room_list = None
     for _rooms in syncouts:
         if event.conv_id in _rooms:
-            print("SYNCROOMS: membership change")
             sync_room_list = _rooms
             break
     if sync_room_list is None:
@@ -188,7 +187,9 @@ def _handle_syncrooms_membership_change(bot, event, command):
 
     # JOIN
     if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
+        print("SYNCROOMS: members added")
         bot.send_message(event.conv, '{} has added {} to the Syncout'.format(event.user.full_name, names))
     # LEAVE
     else:
+        print("SYNCROOMS: members left")
         bot.send_message(event.conv, '{} has left the Syncout'.format(names))
