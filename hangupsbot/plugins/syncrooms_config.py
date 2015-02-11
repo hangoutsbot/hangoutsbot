@@ -1,5 +1,6 @@
 def _initialise(Handlers, bot=None):
     Handlers.register_admin_command(["attachsyncout", "detachsyncout"])
+    return []
 
 
 def attachsyncout(bot, event, *args):

@@ -8,6 +8,7 @@ import hangups
 def _initialise(Handlers, bot=None):
     Handlers.register_handler(_watch_rename, type="rename")
     Handlers.register_admin_command(["topic"])
+    return []
 
 
 @asyncio.coroutine

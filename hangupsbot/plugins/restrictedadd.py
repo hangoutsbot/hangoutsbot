@@ -16,6 +16,7 @@ def _initialise(Handlers, bot=None):
     Handlers.register_handler(_check_if_admin_added_me, type="membership")
     Handlers.register_handler(_verify_botkeeper_presence, type="message")
     Handlers.register_admin_command(["allowbotadd", "removebotadd"])
+    return []
 
 
 @asyncio.coroutine
