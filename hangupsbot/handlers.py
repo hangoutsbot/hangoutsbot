@@ -15,13 +15,30 @@ class EventHandler(object):
         self.bot = bot
         self.bot_command = bot_command
 
+        self.plugin_registered_admin_commands = []
+
         self.pluggables = { "message":[], "membership":[], "rename":[], "sending":[] }
 
+    def register_admin_command(self, command_names):
+        """call during plugin init to make command(s) admin only"""
+        if not isinstance(command_names, list):
+            command_names = [command_names] # wrap into a list for consistent processing
+        for command in command_names:
+            # print('register_admin_command(): "{}" made admin-only'.format(command))
+            self.plugin_registered_admin_commands.append(command)
 
     def register_handler(self, function, type="message"):
-        """plugins call this to preload any handlers to be used by EventHandler"""
-        print('register_handler(): "{}" registered for "{}"'.format(function.__name__, type))
+        """call during plugin init to register a handler for a specific bot event"""
+        # print('register_handler(): "{}" registered for "{}"'.format(function.__name__, type))
         self.pluggables[type].append(function)
+
+    def get_admin_commands(self, conversation_id):
+        # get list of commands that are admin-only, set in config.json OR plugin-registered
+        commands_admin_list = self.bot.get_config_suboption(conversation_id, 'commands_admin')
+        if not commands_admin_list:
+            commands_admin_list = []
+        commands_admin_list = commands_admin_list + self.plugin_registered_admin_commands
+        return commands_admin_list
 
     @asyncio.coroutine
     def handle_chat_message(self, event):
@@ -62,10 +79,11 @@ class EventHandler(object):
             self.bot.send_message(event.conv, '{}: missing parameter(s)'.format(event.user.full_name))
             return
 
-        # Test if user has permissions for running command
-        commands_admin_list = self.bot.get_config_suboption(event.conv_id, 'commands_admin')
+        commands_admin_list = self.get_admin_commands(event.conv_id)
+
         if commands_admin_list and line_args[1].lower() in commands_admin_list:
             admins_list = self.bot.get_config_suboption(event.conv_id, 'admins')
+            # verify user is an admin
             if event.user_id.chat_id not in admins_list:
                 self.bot.send_message(event.conv, '{}: Can\'t do that.'.format(event.user.full_name))
                 return

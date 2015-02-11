@@ -299,11 +299,11 @@ class HangupsBot(object):
                 exec("import {}".format(module_path))
             except Exception as e:
                 message = "{} @ {}".format(e, module_path)
-                print("!PLUGIN IMPORT ERROR! " + message)
+                print("EXCEPTION during plugin import: " + message)
                 logging.exception(message)
                 continue
 
-            print("PLUGIN: {}".format(module))
+            print("plugin: {}".format(module))
 
             functions_list = [o for o in getmembers(sys.modules[module_path], isfunction)]
 
@@ -327,7 +327,6 @@ class HangupsBot(object):
                             # implement legacy support for plugins that don't support the bot reference
                             _return = function[1](self._handlers)
                         if type(_return) is list:
-                            print("implements: {}".format(", ".join(_return)))
                             available_commands = _return
                     elif function_name.startswith("_"):
                         pass
@@ -335,7 +334,7 @@ class HangupsBot(object):
                         candidate_commands.append(function)
             except Exception as e:
                 message = "{} @ {}".format(e, module_path)
-                print("!PLUGIN INIT ERROR! " + message)
+                print("EXCEPTION during plugin init: " + message)
                 logging.exception(message)
                 continue
 
@@ -346,7 +345,9 @@ class HangupsBot(object):
                 if available_commands is False or function_name in available_commands:
                     command.register(function[1])
                     added_commands.append(function_name)
-            print("added: {}".format(", ".join(added_commands)))
+
+            if added_commands:
+                print("  cmds: {}".format(", ".join(added_commands)))
 
 
     def _start_sinks(self, shared_loop):
