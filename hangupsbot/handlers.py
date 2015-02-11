@@ -15,9 +15,7 @@ class EventHandler(object):
         self.bot = bot
         self.bot_command = bot_command
 
-        self._current_plugin = {}
-
-        self.plugin_registered_admin_commands = []
+        self.explicit_admin_commands = [] # plugins can force some commands to be admin-only via register_admin_command()
 
         self.pluggables = { "message":[], "membership":[], "rename":[], "sending":[] }
 
@@ -55,7 +53,6 @@ class EventHandler(object):
             command_names = [command_names] # wrap into a list for consistent processing
         self._plugin_register_command("admin", command_names)
         self.plugin_registered_admin_commands.extend(command_names)
-
 
     def register_handler(self, function, type="message"):
         """call during plugin init to register a handler for a specific bot event"""
