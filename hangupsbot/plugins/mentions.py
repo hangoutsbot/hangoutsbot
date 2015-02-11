@@ -95,6 +95,11 @@ def mention(bot, event, *args):
         if conv_1on1_initiator:
             if initiator_has_dnd:
                 logging.info("quidproquo: user {} ({}) has DND active".format(event.user.full_name, event.user.id_.chat_id))
+                if noisy_mention_test or bot.get_config_suboption(event.conv_id, 'mentionerrors'):
+                    bot.send_message_parsed(
+                        event.conv,
+                        "<b>{}</b>, you cannot @mention anyone until your DND status is toggled off.".format(
+                            event.user.full_name))
                 return
             else:
                 logging.info("quidproquo: user {} ({}) has 1-on-1".format(event.user.full_name, event.user.id_.chat_id))
