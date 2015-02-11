@@ -6,10 +6,9 @@ import asyncio
 import hangups
 
 def _initialise(Handlers, bot=None):
-    admin_commands = ["topic"]
     Handlers.register_handler(_watch_rename, type="rename")
-    Handlers.register_admin_command(admin_commands)
-    return admin_commands
+    Handlers.register_admin_command(["topic"])
+
 
 @asyncio.coroutine
 def _watch_rename(bot, event, command):

@@ -9,9 +9,8 @@ note: all commands are admin-only to prevent clutter in normal user's /bot help
 """
 
 def _initialise(Handlers, bot=None):
-    admin_commands = ["rememberthisforme", "whatwasitforme", "forgetaboutitforme", "rememberthisforchat", "whatwasitforchat", "forgetaboutitforchat"]
-    Handlers.register_admin_command(admin_commands)
-    return admin_commands
+    Handlers.register_admin_command(["rememberthisforme", "whatwasitforme", "forgetaboutitforme", "rememberthisforchat", "whatwasitforchat", "forgetaboutitforchat"])
+
 
 """user memory"""
 
@@ -57,6 +56,7 @@ def forgetaboutitforme(bot, event, *args):
             event.conv,
             "<b>{}</b>, forgotten!".format(
                 event.user.full_name))
+
 
 """conversation memory"""
 
