@@ -299,54 +299,72 @@ class HangupsBot(object):
                 exec("import {}".format(module_path))
             except Exception as e:
                 message = "{} @ {}".format(e, module_path)
-                print("!PLUGIN IMPORT ERROR! " + message)
+                print("EXCEPTION during plugin import: " + message)
                 logging.exception(message)
                 continue
 
-            print("PLUGIN: {}".format(module))
+            print("plugin: {}".format(module))
+            public_functions = [o for o in getmembers(sys.modules[module_path], isfunction)]
 
-            functions_list = [o for o in getmembers(sys.modules[module_path], isfunction)]
-
-            available_commands = False # default: ALL
             candidate_commands = []
 
             """
             pass 1: run _initialise()/_initialize() and filter out "hidden" functions
 
-            optionally, _initialise()/_initialize() can return a list of functions available to the user,
-                use this return value when importing functions from external libraries
-
+            legacy notice: 
+            older plugins will return a list of user-available functions via _initialise/_initialize().
+            this LEGACY behaviour will continue to be supported. however, it is HIGHLY RECOMMENDED to
+            use register_user_command(<LIST command_names>) and register_admin_command(<LIST command_names>) 
+            for better security
             """
+            available_commands = False # default: ALL
             try:
-                for function in functions_list:
-                    function_name = function[0]
+                self._handlers.plugin_preinit_stats()
+                for function_name, the_function in public_functions:
                     if function_name ==  "_initialise" or function_name ==  "_initialize":
                         try:
-                            _return = function[1](self._handlers, bot=self)
+                            _return = the_function(self._handlers, bot=self)
                         except TypeError as e:
                             # implement legacy support for plugins that don't support the bot reference
-                            _return = function[1](self._handlers)
+                            _return = the_function(self._handlers)
                         if type(_return) is list:
-                            print("implements: {}".format(", ".join(_return)))
                             available_commands = _return
                     elif function_name.startswith("_"):
                         pass
                     else:
-                        candidate_commands.append(function)
+                        candidate_commands.append((function_name, the_function))
+                if available_commands is False:
+                    # implicit init, legacy support: assume all candidate_commands are user-available
+                    self._handlers.register_user_command([function_name for function_name, function in candidate_commands])
+                elif available_commands is []:
+                    # explicit init, no user-available commands
+                    pass
+                else:
+                    # explicit init, legacy support: _initialise() returned user-available commands
+                    self._handlers.register_user_command(available_commands)
             except Exception as e:
                 message = "{} @ {}".format(e, module_path)
-                print("!PLUGIN INIT ERROR! " + message)
+                print("EXCEPTION during plugin init: " + message)
                 logging.exception(message)
-                continue
+                continue # skip this, attempt next plugin
 
-            """pass 2: register filtered functions"""
-            added_commands = []
-            for function in candidate_commands:
-                function_name = function[0]
-                if available_commands is False or function_name in available_commands:
-                    command.register(function[1])
-                    added_commands.append(function_name)
-            print("added: {}".format(", ".join(added_commands)))
+            """
+            pass 2: register filtered functions
+            """
+            plugin_tracking = self._handlers.plugin_get_stats()
+            explicit_admin_commands = plugin_tracking["commands"]["admin"]
+            all_commands = plugin_tracking["commands"]["all"]
+            registered_commands = []
+            for function_name, the_function in candidate_commands:
+                if function_name in all_commands:
+                    command.register(the_function)
+                    text_function_name = function_name
+                    if function_name in explicit_admin_commands:
+                        text_function_name = "*" + text_function_name
+                    registered_commands.append(text_function_name)
+
+            if registered_commands:
+                print("added: {}".format(", ".join(registered_commands)))
 
 
     def _start_sinks(self, shared_loop):

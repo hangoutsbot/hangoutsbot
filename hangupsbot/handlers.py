@@ -15,13 +15,57 @@ class EventHandler(object):
         self.bot = bot
         self.bot_command = bot_command
 
+        self.explicit_admin_commands = [] # plugins can force some commands to be admin-only via register_admin_command()
+
         self.pluggables = { "message":[], "membership":[], "rename":[], "sending":[] }
 
+    def plugin_preinit_stats(self):
+        """ 
+        hacky implementation for tracking commands a plugin registers
+        manually called by Hangupsbot._load_plugins() at start of each plugin load
+        """
+        self._current_plugin = {
+            "commands": {
+                "admin": [],
+                "user": []
+            }
+        }
+
+    def plugin_get_stats(self):
+        self._current_plugin["commands"]["all"] = list(set(self._current_plugin["commands"]["admin"] + 
+                                                           self._current_plugin["commands"]["user"]))
+        return self._current_plugin
+
+    def _plugin_register_command(self, type, command_names):
+        """call during plugin init to register commands"""
+        self._current_plugin["commands"][type].extend(command_names)
+        self._current_plugin["commands"][type] = list(set(self._current_plugin["commands"][type]))
+
+    def register_user_command(self, command_names):
+        """call during plugin init to register user commands"""
+        if not isinstance(command_names, list):
+            command_names = [command_names] # wrap into a list for consistent processing
+        self._plugin_register_command("user", command_names)
+
+    def register_admin_command(self, command_names):
+        """call during plugin init to register admin commands"""
+        if not isinstance(command_names, list):
+            command_names = [command_names] # wrap into a list for consistent processing
+        self._plugin_register_command("admin", command_names)
+        self.explicit_admin_commands.extend(command_names)
 
     def register_handler(self, function, type="message"):
-        """plugins call this to preload any handlers to be used by EventHandler"""
-        print('register_handler(): "{}" registered for "{}"'.format(function.__name__, type))
+        """call during plugin init to register a handler for a specific bot event"""
+        # print('register_handler(): "{}" registered for "{}"'.format(function.__name__, type))
         self.pluggables[type].append(function)
+
+    def get_admin_commands(self, conversation_id):
+        # get list of commands that are admin-only, set in config.json OR plugin-registered
+        commands_admin_list = self.bot.get_config_suboption(conversation_id, 'commands_admin')
+        if not commands_admin_list:
+            commands_admin_list = []
+        commands_admin_list = commands_admin_list + self.explicit_admin_commands
+        return commands_admin_list
 
     @asyncio.coroutine
     def handle_chat_message(self, event):
@@ -62,10 +106,11 @@ class EventHandler(object):
             self.bot.send_message(event.conv, '{}: missing parameter(s)'.format(event.user.full_name))
             return
 
-        # Test if user has permissions for running command
-        commands_admin_list = self.bot.get_config_suboption(event.conv_id, 'commands_admin')
+        commands_admin_list = self.get_admin_commands(event.conv_id)
+
         if commands_admin_list and line_args[1].lower() in commands_admin_list:
             admins_list = self.bot.get_config_suboption(event.conv_id, 'admins')
+            # verify user is an admin
             if event.user_id.chat_id not in admins_list:
                 self.bot.send_message(event.conv, '{}: Can\'t do that.'.format(event.user.full_name))
                 return
