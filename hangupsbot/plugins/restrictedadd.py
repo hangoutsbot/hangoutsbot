@@ -13,9 +13,11 @@ _internal = __internal_vars()
 
 
 def _initialise(Handlers, bot=None):
+    admin_commands = ["allowbotadd", "removebotadd"]
     Handlers.register_handler(_check_if_admin_added_me, type="membership")
     Handlers.register_handler(_verify_botkeeper_presence, type="message")
-    return ["allowbotadd", "removebotadd"]
+    Handlers.register_admin_command(admin_commands)
+    return admin_commands
 
 
 @asyncio.coroutine
