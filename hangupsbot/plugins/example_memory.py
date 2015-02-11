@@ -1,6 +1,17 @@
 """
-example plugin that uses bot.user_memory_get and bot.user_memory_set
+example plugin:
+    bot.user_memory_get
+    bot.user_memory_set
+    bot.conversation_memory_get
+    bot.conversation_memory_set
+
+note: all commands are admin-only to prevent clutter in normal user's /bot help
 """
+
+def _initialise(Handlers, bot=None):
+    admin_commands = ["rememberthisforme", "whatwasitforme", "forgetaboutitforme", "rememberthisforchat", "whatwasitforchat", "forgetaboutitforchat"]
+    Handlers.register_admin_command(admin_commands)
+    return admin_commands
 
 """user memory"""
 
