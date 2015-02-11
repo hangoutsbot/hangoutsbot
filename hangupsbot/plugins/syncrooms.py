@@ -45,10 +45,16 @@ def _migrate_syncroom_v1(bot):
             print("_migrate_syncroom_v1(): config-v2 = {}".format(_config2))
 
 def _handle_syncrooms_broadcast(bot, broadcast_list, context):
+    """
+    handles non-syncroom messages, i.e. messages from other plugins
+
+    for messages explicitly relayed by _handle_syncrooms_broadcast(), this
+    handler actually doesn't run
+    """
     if not bot.get_config_option('syncing_enabled'):
         return
 
-    if context is "no_syncrooms_handler":
+    if context and "explicit_relay" in context:
         print("SYNCROOMS: handler disabled by context")
         return
 
@@ -151,11 +157,23 @@ def _handle_incoming_message(bot, event, command):
 
             for _conv_id in sync_room_list:
                 if not _conv_id == event.conv_id:
-                    bot.send_message_segments(_conv_id, segments, context="no_syncrooms_handler")
+
+                    _cloned_segments = list(segments)
+
+                    _context = {}
+                    _context["explicit_relay"] = True
+
+                    if not event.text.startswith(("/bot ", "/me ")):
+                        _context["autotranslate"] = { 
+                            "conv_id" : event.conv_id,
+                            "event_text" : event.text }
+
+                    bot.send_message_segments(_conv_id, _cloned_segments, context=_context)
 
             _registers.last_user_id = event.user_id.chat_id
             _registers.last_time_id = time.time()
             _registers.last_chatroom_id = event.conv_id
+
 
 @asyncio.coroutine
 def _handle_syncrooms_membership_change(bot, event, command):
