@@ -5,13 +5,22 @@ from hangups.ui.utils import get_conv_name
 
 from utils import text_to_segments
 
-def _initialise(command):
-    return ["users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whoami", "whereami", "echo"]
+def _initialise(Handlers, bot=None):
+    if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
+        Handlers.register_admin_command(["users", "user", "hangouts", "hangout", "rename", "leave", "reload", "quit", "config", "whereami"])
+        Handlers.register_user_command(["whoami", "echo"])
+        return []
+    else:
+        print("DEFAULT: LEGACY FRAMEWORK MODE")
+        return ["users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whoami", "whereami", "echo", "hangout"]
 
 
 def echo(bot, event, *args):
     """echo back requested text"""
-    bot.send_message(event.conv, '{}'.format(' '.join(args)))
+    text = ' '.join(args)
+    if text.lower().strip().startswith("/bot "):
+        text = "NOPE! Some things aren't worth repeating."
+    bot.send_message(event.conv, text)
 
 
 def users(bot, event, *args):
@@ -82,6 +91,21 @@ def hangouts(bot, event, *args):
         line = line + "<br />"
 
     bot.send_message_parsed(event.conv, line)
+
+
+def hangout(bot, event, *args):
+    """list all hangouts matching search text"""
+    text_search = ' '.join(args)
+    if not text_search:
+        return
+    text_message = '<b>results for hangouts named "{}"</b><br />'.format(text_search)
+    for conv in bot.list_conversations():
+        conv_name = get_conv_name(conv)
+        if text_search.lower() in conv_name.lower():
+            text_message = text_message + "<i>" + conv_name + "</i>"
+            text_message = text_message + " ... " + conv.id_
+            text_message = text_message + "<br />"
+    bot.send_message_parsed(event.conv.id_, text_message)
 
 
 def rename(bot, event, *args):
