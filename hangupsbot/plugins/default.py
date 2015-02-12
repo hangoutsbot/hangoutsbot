@@ -11,7 +11,10 @@ def _initialise(command):
 
 def echo(bot, event, *args):
     """echo back requested text"""
-    bot.send_message(event.conv, '{}'.format(' '.join(args)))
+    text = ' '.join(args)
+    if text.lower().strip().startswith("/bot "):
+        text = "NOPE! Some things aren't worth repeating."
+    bot.send_message(event.conv, text)
 
 
 def users(bot, event, *args):
