@@ -87,6 +87,10 @@ def subscribe(bot, event, *args):
     if not keyword:
         bot.send_message_parsed(
             event.conv,"Usage: /bot subscribe [keyword]")
+        if _internal.keywords[event.user.id_.chat_id]:
+            bot.send_message_parsed(
+                event.conv,
+                "Subscribed to: {}".format(', '.join(_internal.keywords[event.user.id_.chat_id])))
         return
 
     if event.user.id_.chat_id in _internal.keywords:
