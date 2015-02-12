@@ -48,6 +48,15 @@ def _handle_mention(bot, event, command):
             yield from command.run(bot, event, *["mention", cleaned_name])
 
 
+def _user_has_dnd(bot, user_id):
+    initiator_has_dnd = False
+    if bot.memory.exists(["donotdisturb"]):
+        donotdisturb = bot.memory.get('donotdisturb')
+        if user_id in donotdisturb:
+            initiator_has_dnd = True
+    return initiator_has_dnd
+
+
 def mention(bot, event, *args):
     """alert a @mentioned user"""
 
@@ -76,15 +85,24 @@ def mention(bot, event, *args):
     if len(args) == 2 and args[1] == "test":
         noisy_mention_test = True
 
+    initiator_has_dnd = _user_has_dnd(bot, event.user.id_.chat_id)
+
     """
     quidproquo: users can only @mention if they themselves are @mentionable (i.e. have a 1-on-1 with the bot)
     """
-
     conv_1on1_initiator = bot.get_1on1_conversation(event.user.id_.chat_id)
-
     if bot.get_config_option("mentionquidproquo"):
         if conv_1on1_initiator:
-            logging.info("quidproquo: user {} ({}) has 1-on-1".format(event.user.full_name, event.user.id_.chat_id))
+            if initiator_has_dnd:
+                logging.info("quidproquo: user {} ({}) has DND active".format(event.user.full_name, event.user.id_.chat_id))
+                if noisy_mention_test or bot.get_config_suboption(event.conv_id, 'mentionerrors'):
+                    bot.send_message_parsed(
+                        event.conv,
+                        "<b>{}</b>, you cannot @mention anyone until your DND status is toggled off.".format(
+                            event.user.full_name))
+                return
+            else:
+                logging.info("quidproquo: user {} ({}) has 1-on-1".format(event.user.full_name, event.user.id_.chat_id))
         else:
             logging.warning("quidproquo: user {} ({}) has no 1-on-1".format(event.user.full_name, event.user.id_.chat_id))
             if noisy_mention_test or bot.get_config_suboption(event.conv_id, 'mentionerrors'):
@@ -93,12 +111,6 @@ def mention(bot, event, *args):
                     "<b>{}</b> cannot @mention anyone until they say something to me first.".format(
                         event.user.full_name))
             return
-
-    if bot.memory.exists(["donotdisturb"]):
-        donotdisturb = bot.memory.get('donotdisturb')
-        if event.user.id_.chat_id not in donotdisturb:
-            # Remove 1on1 data if dnd is on
-            conv_1on1_initiator = None
 
     """track mention statistics"""
     user_tracking = {
@@ -186,8 +198,8 @@ def mention(bot, event, *args):
                 logging.info("suppressing duplicate mention for {} ({})".format(event.user.full_name, event.user.id_.chat_id))
                 continue
 
-            if donotdisturb:
-                if u.id_.chat_id in donotdisturb:
+            if bot.memory.exists(["donotdisturb"]):
+                if _user_has_dnd(bot, u.id_.chat_id):
                     logging.info("suppressing @mention for {} ({})".format(u.full_name, u.id_.chat_id))
                     user_tracking["ignored"].append(u.full_name)
                     continue
