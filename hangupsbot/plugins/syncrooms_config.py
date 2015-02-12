@@ -9,6 +9,7 @@ def _initialise(Handlers, bot=None):
 
 def attachsyncout(bot, event, *args):
     if len(args) <= 0:
+        bot.send_message_parsed(event.conv, "<b>Syntax:</b> /bot attachsyncout <conversation_id>")
         return
 
     conversation_ids = list(args)
