@@ -2,8 +2,12 @@ import asyncio,re,logging
 
 from hangups.ui.utils import get_conv_name
 
-""" Cache to keep track of what keywords are being watched. Listed by user_id """
-keywords = {}
+class __internal_vars():
+    def __init__(self):
+        """ Cache to keep track of what keywords are being watched. Listed by user_id """
+        self.keywords = {}
+
+_internal = __internal_vars()
 
 def _initialise(command):
     command.register_handler(_handle_keyword)
@@ -28,8 +32,8 @@ def _handle_keyword(bot, event, command):
 
     for user in users_in_chat:
         try:
-            if keywords[user.id_.chat_id] and not user.id_.chat_id in event.user.id_.chat_id:
-                for phrase in keywords[user.id_.chat_id]:
+            if _internal.keywords[user.id_.chat_id] and not user.id_.chat_id in event.user.id_.chat_id:
+                for phrase in _internal.keywords[user.id_.chat_id]:
                     regexphrase = "\\b" + phrase + "\\b"
                     if re.search(regexphrase, event.text, re.IGNORECASE):
                         _send_notification(bot, event, phrase, user)
@@ -39,14 +43,14 @@ def _handle_keyword(bot, event, command):
 
 def _populate_keywords(bot, event):
     # Pull the keywords from file if not already
-    if not keywords:
+    if not _internal.keywords:
         bot.initialise_memory(event.user.id_.chat_id, "user_data")
         for userchatid in bot.memory.get_option("user_data"):
             userkeywords = bot.memory.get_suboption("user_data", userchatid, "keywords")
             if userkeywords:
-                keywords[userchatid] = userkeywords
+                _internal.keywords[userchatid] = userkeywords
             else:
-                keywords[userchatid] = []
+                _internal.keywords[userchatid] = []
 
 def _send_notification(bot, event, phrase, user):
     """Alert a user that a keyword that they subscribed to has been used"""
@@ -80,34 +84,46 @@ def subscribe(bot, event, *args):
             event.conv,
             "Note: I am unable to ping you until you start a 1 on 1 conversation with me!")
 
-    if(keyword == ''):
+    if not keyword:
         bot.send_message_parsed(
             event.conv,"Usage: /bot subscribe [keyword]")
+        if _internal.keywords[event.user.id_.chat_id]:
+            bot.send_message_parsed(
+                event.conv,
+                "Subscribed to: {}".format(', '.join(_internal.keywords[event.user.id_.chat_id])))
         return
 
-    if keywords:
-        if keyword in keywords[event.user.id_.chat_id]:
+    if event.user.id_.chat_id in _internal.keywords:
+        if keyword in _internal.keywords[event.user.id_.chat_id]:
             # Duplicate!
             bot.send_message_parsed(
                 event.conv,"Already subscribed to '{}'!".format(keyword))
             return
-        elif not keywords[event.user.id_.chat_id]:
-            # First keyword!
-            keywords[event.user.id_.chat_id] = [keyword]
-            bot.send_message_parsed(
-                event.conv,
-                "Note: You will not be able to trigger your own subscriptions. To test, please ask somebody else to test this for you.")
         else:
-            # Not the first keyword
-            keywords[event.user.id_.chat_id].append(keyword)
+            # Not a duplicate, proceeding
+            if not _internal.keywords[event.user.id_.chat_id]:
+                # First keyword!
+                _internal.keywords[event.user.id_.chat_id] = [keyword]
+                bot.send_message_parsed(
+                    event.conv,
+                    "Note: You will not be able to trigger your own subscriptions. To test, please ask somebody else to test this for you.")
+            else:
+                # Not the first keyword!
+                _internal.keywords[event.user.id_.chat_id].append(keyword)
+    else:
+        _internal.keywords[event.user.id_.chat_id] = [keyword]
+        bot.send_message_parsed(
+            event.conv,
+            "Note: You will not be able to trigger your own subscriptions. To test, please ask somebody else to test this for you.")
+
 
     # Save to file
-    bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "keywords"], keywords[event.user.id_.chat_id])
+    bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "keywords"], _internal.keywords[event.user.id_.chat_id])
     bot.memory.save()
 
     bot.send_message_parsed(
         event.conv,
-        "Subscribed to: {}".format(', '.join(keywords[event.user.id_.chat_id])))
+        "Subscribed to: {}".format(', '.join(_internal.keywords[event.user.id_.chat_id])))
 
 def unsubscribe(bot, event, *args):
     """Allow users to unsubscribe from phrases"""
@@ -115,19 +131,18 @@ def unsubscribe(bot, event, *args):
 
     keyword = ' '.join(args).strip().lower()
 
-    if(keyword == ''):
+    if not keyword:
         bot.send_message_parsed(
             event.conv,"Unsubscribing all keywords")
-        keywords[event.user.id_.chat_id] = []
-
-    if keyword in keywords[event.user.id_.chat_id]:
+        _internal.keywords[event.user.id_.chat_id] = []
+    elif keyword in _internal.keywords[event.user.id_.chat_id]:
         bot.send_message_parsed(
             event.conv,"Unsubscribing from keyword '{}'".format(keyword))
-        keywords[event.user.id_.chat_id].remove(keyword)
+        _internal.keywords[event.user.id_.chat_id].remove(keyword)
     else:
         bot.send_message_parsed(
             event.conv,"Error: keyword not found")
 
     # Save to file
-    bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "keywords"], keywords[event.user.id_.chat_id])
+    bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "keywords"], _internal.keywords[event.user.id_.chat_id])
     bot.memory.save()
