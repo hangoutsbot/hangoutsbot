@@ -1,5 +1,4 @@
-# Introduction
-Dekrizifier - Powered by Hangupsbot
+#Dekrizifier - Powered by Hangupsbot
 
 Hangupsbot is a bot designed for working with Google Hangouts.
 * **Mentions** :
