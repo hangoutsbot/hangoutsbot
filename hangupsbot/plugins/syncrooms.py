@@ -2,6 +2,8 @@ import asyncio, re, time
 
 import hangups
 
+from hangups.ui.utils import get_conv_name
+
 class __registers(object):
     def __init__(self):
         self.last_event_id = '' # recorded last event to avoid re-syncing
@@ -198,16 +200,25 @@ def _handle_syncrooms_membership_change(bot, event, command):
     if sync_room_list is None:
         return
 
-    # Generate list of added or removed users
+    # Generate list of added or removed users for current ROOM (NOT SYNCROOMS!)
     event_users = [event.conv.get_user(user_id) for user_id
                    in event.conv_event.participant_ids]
     names = ', '.join([user.full_name for user in event_users])
 
-    # JOIN
+    syncroom_name = '<b>' + get_conv_name(event.conv) + '</b>'
+
+    # JOIN a specific room
     if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
-        print("SYNCROOMS: members added")
-        bot.send_message(event.conv, '{} has added {} to the Syncout'.format(event.user.full_name, names))
-    # LEAVE
+        print("SYNCROOMS: {} user(s) added to {}".format(len(event_users), event.conv_id))
+        if syncroom_name:
+            bot.send_message_parsed(event.conv, '<i>{} has added {} to {}</i>'.format(
+                event.user.full_name, 
+                names,
+                syncroom_name))
+    # LEAVE a specific room
     else:
-        print("SYNCROOMS: members left")
-        bot.send_message(event.conv, '{} has left the Syncout'.format(names))
+        print("SYNCROOMS: {} user(s) left {}".format(len(event_users), event.conv_id))
+        if syncroom_name:
+            bot.send_message_parsed(event.conv, '<i>{} has left {}</i>'.format(
+                names,
+                syncroom_name))
