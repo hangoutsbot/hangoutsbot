@@ -51,16 +51,6 @@ Install dependencies
 pip3 install -r requirements.txt
 ```
 
-# Users: Quickstart
-
-If the mentions plugin is available, please see:
-  https://github.com/nylonee/hangupsbot/wiki/Mentions-Plugin#users-quickstart
-
-## Usage of @mentions
-
-Documentation has been moved to the wiki @ [Mentions Plugin]
-  (https://github.com/nylonee/hangupsbot/wiki/Mentions-Plugin)
-
 # Admins: Quick Installation & Configuration
 
 * `config.json` is found in two places:
@@ -80,10 +70,10 @@ To find out how to get your user id, read on!
 
 ## Getting your User ID
 
-### first time admins with no existing bot
-
 Requires plugin: [**default**]
-  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/default.py)
+  (https://github.com/nylonee/hangupsbot/wiki/Default-Commands-Plugin)
+
+### first time admins with no existing bot
 
 1. start the bot with a valid gmail account (not your actual account!)
 2. open a hangout with the bot (using your actual account), say anything to it
@@ -93,9 +83,6 @@ Requires plugin: [**default**]
 6. find your actual account user name, the chat_id will be listed next to it
 
 ### with an existing bot
-
-Requires plugin: [**default**]
-  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/default.py)
 
 join a group with an existing bot and issue this command `/bot whoami`, your
 chat_id will be displayed
@@ -140,7 +127,19 @@ The syncouts/syncrooms family of plugins include:
 Documentation has been moved to the wiki @ [Syncouts Plugin]
   (https://github.com/nylonee/hangupsbot/wiki/Syncouts-Plugin)
 
-# User Triggers (`/me` prefix)
+# Interacting with the Bot
+
+## Users: Quickstart
+
+If the mentions plugin is available, please see:
+  https://github.com/nylonee/hangupsbot/wiki/Mentions-Plugin#users-quickstart
+
+### Guidelines for @mentions 
+
+Documentation has been moved to the wiki @ [Mentions Plugin]
+  (https://github.com/nylonee/hangupsbot/wiki/Mentions-Plugin)
+
+## Users: `/me` Triggers
 
 Plugins that implement `/me` triggers:
 
@@ -149,11 +148,11 @@ Plugins that implement `/me` triggers:
 * [lottery](https://github.com/nylonee/hangupsbot/wiki/Lottery-Plugin)
   users can draw from a randomised list of "things" from admin-setup "lotteries"  
 
-# Bot Commands
+## `/bot` Commands
 
 All bot commands must be prefixed by `/bot`, as in `/bot <command>`.
 
-## Administrative Commands
+### Admin-only Commands
 
 Plugins which implement administrative commands:
 * [default](https://github.com/nylonee/hangupsbot/wiki/Default-Commands-Plugin)
@@ -165,7 +164,7 @@ Plugins which implement administrative commands:
 * [lottery](https://github.com/nylonee/hangupsbot/wiki/Lottery-Plugin)
   admins can prepare lotteries for users to draw from   
 
-## User Commands
+### User Commands
 
 These are commands that can be executed by any user, based on the default
 configuration in `config.commands_admin`.
