@@ -76,12 +76,22 @@ The wiki has a more comprehensive **[list of plugins]
 # Interacting with the Bot
 
 There are three general types of interactions with the bot:
-* **bot commands** begin with `/bot` e.g. `/bot dosomething`
+* **`/bot` commands** begin with `/bot` e.g. `/bot dosomething`
   * some bot commands are admin-only
 * **`/me` triggers** begin with `/me` and frequently form a complete sentence e.g.
   `/me rolls a dice`
   * these kind of triggers are generally accessible to all users
 * custom interactions (usage and acessibility varies by plugin)
+
+**Without any plugins**, the bot only recognises the following two `/bot` commands:
+
+`/bot help`
+* Bot lists all supported commands in a private message with the user
+* If the user does not have a 1-on-1 channel open, it will publicly tell 
+  the user to PM the bot and say hi.
+
+`/bot ping`
+* Bot replies with a `pong`.
 
 Please see the wiki for the **[list of plugins]
   (https://github.com/nylonee/hangupsbot/wiki/Plugin-List)** to find out more
