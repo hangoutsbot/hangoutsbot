@@ -1,9 +1,13 @@
+"""
+example plugin which watches rename events
+"""
+
 import asyncio
 
-from random import randint
 
-def _initialise(command):
-    command.register_handler(_watch_rename, type="rename")
+def _initialise(Handlers, bot=None):
+    Handlers.register_handler(_watch_rename, type="rename")
+    return []
 
 
 @asyncio.coroutine
@@ -14,6 +18,6 @@ def _watch_rename(bot, event, command):
 
     # Only print renames for now...
     if event.conv_event.new_name == '':
-        print('{} cleared the conversation name'.format(event.user.first_name))
+        print('EXAMPLE_PRINTRENAMES: {} cleared the conversation name'.format(event.user.first_name))
     else:
-        print('{} renamed the conversation to {}'.format(event.user.first_name, event.conv_event.new_name))
+        print('EXAMPLE_PRINTRENAMES: {} renamed the conversation to {}'.format(event.user.first_name, event.conv_event.new_name))

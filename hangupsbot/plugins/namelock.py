@@ -5,9 +5,11 @@ import asyncio
 
 import hangups
 
-def _initialise(command):
-    command.register_handler(_watch_rename, type="rename")
-    return ["topic"]
+def _initialise(Handlers, bot=None):
+    Handlers.register_handler(_watch_rename, type="rename")
+    Handlers.register_admin_command(["topic"])
+    return []
+
 
 @asyncio.coroutine
 def _watch_rename(bot, event, command):
@@ -26,8 +28,7 @@ def _watch_rename(bot, event, command):
         return
 
 def topic(bot, event, *args):
-    """Set a chat topic. If no parameters given, remove the topic
-    NOTE: Highly recommended that you make both 'topic' and 'rename' an admin command!"""
+    """locks a conversation title. if no parameters supplied, clear and unlock the title"""
 
     topic = ' '.join(args).strip()
 
