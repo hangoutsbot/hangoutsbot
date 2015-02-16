@@ -53,40 +53,13 @@ pip3 install -r requirements.txt
 
 # Users: Quickstart
 
-Requires plugin: [**mentions**]
-  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/mentions.py)
-
-1. You need to open a 1-on-1 conversation with the bot first and say "hello"
-   (or anything!)
-2. Then give yourself a @mention in another HO where the bot is participating
-   as a group member
-
-This procedure is necessary to let the bot know you're alive ;P
-No seriously, the above steps are **required** to authorise two-way
-communication between the bot and your own account.
+If the mentions plugin is available, please see:
+  https://github.com/nylonee/hangupsbot/wiki/Mentions-Plugin#users-quickstart
 
 ## Usage of @mentions
 
-Requires plugin: [**mentions**]
-  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/mentions.py)
-
-Some general rules:
-* If `mentionquidproquo` is ON, only users who have already said something to
-  the bot in private will be able to @mention others.
-* If a @mention matches multiple users, the bot will privately warn the user
-  that too many users were selected. A list of all matching users will be
-  provided as a guide to the user.
-* A @mention must be at least 3 characters or longer (not counting the `@`)
-
-A @mention matches the following:
-* A part of the combined first name and last name of the user
-  e.g. `@abc` matches `AB Chin` (bot sees `abchin`)
-* A part of the combined first name and last name with spaces replaced by
-  the underscore
-  e.g. `@ab_c` matches `AB Chin` (bot sees `AB_Chin`)
-* An exact match with a user nickname, if the user has previously has
-  previously `/bot set nickname abc`
-  e.g. `@abc` matches nickname `abc` but NOT nicknames `abcd` or `zabc`
+Documentation has been moved to the wiki @ [Mentions Plugin]
+  (https://github.com/nylonee/hangupsbot/wiki/Mentions-Plugin)
 
 # Admins: Quick Installation & Configuration
 
@@ -154,34 +127,8 @@ Some plugins may require extra configuration as documented in this README.
 
 ## Admins: @mentions Configuration
 
-Requires plugin: [**mentions**]
-  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/mentions.py)
-
-`mentionquidproquo`
-* default: `true`
-* only users who have already initiated a 1-on-1 dialog with the bot will be
-  able to use @mentions and alert other users
-
-`mentionerrors`
-* default: `false`
-* outputs any problems with a @mention to the current conversation
-* verbose output and should only be used for debugging
-* alternative is to use `/bot mention <name-fragment> test`
-  (see bot command below)
-
-`mentionall`
-* default: `true`
-* enables/disables @all for mentions
-* when set to `false`, admins and chat ids listed in `mentionallwhitelist`
-  can still use **@all**
-* users who are blocked from using @mentions (`mentionall == false`;
-  not an admin; not whitelisted) will be notified privately if the bot
-  already has a 1-on-1 with them
-
-`mentionallwhitelist`
-* default: `[]`
-* allow listed chat_ids to use @all in mentions regardless of
-  global/per-conversation `mentionall` setting
+Documentation has been moved to the wiki @ [Mentions Plugin]
+  (https://github.com/nylonee/hangupsbot/wiki/Mentions-Plugin)
 
 ## Admins: Syncing Chats with Syncout / Syncrooms
 
@@ -190,34 +137,17 @@ The syncouts/syncrooms family of plugins include:
 * Configuring syncouts via bot commands (syncrooms_config)
 * Automatic translation via Google Translate of relayed messages (syncrooms_autotranslate)
 
-Documentation has been moved to the wiki @ [Chat Relays with Syncouts]
-  (https://github.com/nylonee/hangupsbot/wiki/Chat-Relays-with-Syncouts)
+Documentation has been moved to the wiki @ [Syncouts Plugin]
+  (https://github.com/nylonee/hangupsbot/wiki/Syncouts-Plugin)
 
 # User Triggers (`/me` prefix)
 
-Requires plugin: [**chance**]
-  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/chance.py)
+Plugins that implement `/me` triggers:
 
-Special `/me` triggers are available when the [**chance** plugin]
-(https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/chance.py) is loaded.
-All these must be prefixed by `/me`, as in `/me <trigger>`.
-
-`roll[s] [a] dice`
-* Bot will (virtually) roll a dice and return the number **1-6**
-
-`flip[s] [a] coin`
-* Bot will (virtually) flip a coin and return **heads** or **tails**.
-
-`draw[s] [a|an] <thing>`
-* Bot will get a random <thing> from a box.
-* The box must be "prepared" first (see Bot Commands below).
-* Used for user lotteries
-* `draw`-ing without a `<thing>` will always fetch an item from the
-  **default** lottery/box (if its prepared). To draw from another box,
-  `<thing>` must be supplied.
-* Bot keeps tracks of people who have already participated in the draw.
-  * Trying to draw again will make the bot remind you of your previous results.
-  * WARNING: Records are not persisted between bot restarts!
+* [chance](https://github.com/nylonee/hangupsbot/wiki/Chance-Plugin)
+  users can roll a dice and flip coins
+* [lottery](https://github.com/nylonee/hangupsbot/wiki/Lottery-Plugin)
+  users can draw from a randomised list of "things" from admin-setup "lotteries"  
 
 # Bot Commands
 
@@ -225,83 +155,20 @@ All bot commands must be prefixed by `/bot`, as in `/bot <command>`.
 
 ## Administrative Commands
 
-These are commands that can only be executed by admins, based on the default
-configuration in `config.commands_admin`.
+Plugins which implement administrative commands:
+* [default](https://github.com/nylonee/hangupsbot/wiki/Default-Commands-Plugin)
+  standard set of commands useful for bot management
+* [namelock](https://github.com/nylonee/hangupsbot/wiki/Namelock-Plugin)
+  allows admins to lock the title of a conversation
+* [easteregg](https://github.com/nylonee/hangupsbot/wiki/Hangouts-Easter-eggs-Plugin)
+  delight (annoy) users with ponies and pitchforks!
+* [lottery](https://github.com/nylonee/hangupsbot/wiki/Lottery-Plugin)
+  admins can prepare lotteries for users to draw from   
 
-Requires plugin: [**default**]
-  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/default.py)
-
-`users`
-* Bot lists all users in current conversation.
-* List will contain user G+ profile link and email (if available).
-
-`user <string name>`
-* Bot searches for users whose names contain `<string name>` in internal user list.
-* Spaces are not allowed.
-* The bot will search all users in all participating conversations.
-
-`hangouts`
-* Bot lists all participating conversations with additional details.
-* Legend: `c` = commands enabled; `f` = forwarding enabled; `a` = auto-replies.
-
-`rename <string title>`
-* Bot renames the current conversation.
-* Spaces in the title are allowed.
-* Works with both 1-on-1 or group conversations.
-* Note: 1-on-1 renames may not reflect their title properly on desktop clients.
-
-`leave [<conversation id>]`
-* Bot leaves the current hangout if `<conversation id>` not specified.
-
-`quit`
-* Kills the running bot process on the server with a disconnection.
-
-`config get <key> [<subkey> [...]]`
-* Bot reads config.json and displays contents of `config.<key>[.<subkey>...]`
-
-`config set <key> [<subkey> [...]] "<value>"`
-* Bot sets contents of `config.<key>[.<subkey>...]` to `<value>`
-* `<value>` must be enclosed in double-quotes and is interpreted as JSON.
-* Changes are saved instantly into `config.json`.
-* WARNING: This command is low-level and can scramble the configuration.
-* DEVELOPERS: This command is **DEPRECATED**
-
-`config append <key> [<subkey> [...]] "<value>"`
-* Bot appends <value> to list at `config.<key>[.<subkey>...]`
-* `<value>` must be enclosed in double-quotes and is interpreted as JSON.
-* Only works if the key pointed at is an actual list.
-* Usually used to add administrator ids to `config.admins`
-* WARNING: This command is low-level and can scramble the configuration.
-* DEVELOPERS: This command is **DEPRECATED**
-
-`config remove <key> [<subkey> [...]] "<value>"`
-* Bot removes specified <value> from list at `config.<key>[.<subkey>...]`
-* `<value>` must be enclosed in double-quotes and is interpreted as JSON.
-* Only works if the key pointed at is an actual list.
-* Usually used to remove administrator ids from `config.admins`
-* WARNING: This command is low-level and can scramble the configuration.
-* DEVELOPERS: This command is **DEPRECATED**
-
-Requires plugin: [**namelock**]
-  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/namelock.py)
-
-`topic <string title>`
-* Works like `rename`
-* Will change the topic back to `<string title>` if anybody attempts to change it
-
-Requires plugin: [**easteregg**]
-  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/easteregg.py)
-
-`easteregg <ponies|pitchforks|bikeshed|shydino> <number> <period>`
-* Bot activates Hangouts easter-egg animation (varies by client).
-* `<number>` is the amount of repetition with delay of `<period>` in seconds.
-
-## Standard Commands
+## User Commands
 
 These are commands that can be executed by any user, based on the default
 configuration in `config.commands_admin`.
-
-Requires plugin: **none** (in-built)
 
 `help`
 * Bot lists all supported commands in a private message with the user
@@ -311,87 +178,15 @@ Requires plugin: **none** (in-built)
 `ping`
 * Bot replies with a `pong`.
 
-Requires plugin: [**default**]
-  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/default.py)
-
-`echo <string anything>`
-* Bot replies with `<string anything>` as the message.
-* Spaces are allowed.
-
-Requires plugin: [**mentions**]
-  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/mentions.py)
-
-`pushbulletapi <apikey|false|0|-1>`
-* Sets/unsets the pushbullet api key for current user.
-* When user is @mentioned, bot will alert user through PushBullet.
-* If the push fails, bot will revert to normal hangouts-based alert.
-* `false`, `0` or `-1` Disables pushbullet integration for current user.
-
-`dnd`
-* Toggles global DND (Do Not Disturb) for current user.
-* Bot will message user whether DND is toggled on or off.
-* User will not receive alerts for @mentions.
-
-`setnickname <nickname>`
-* Bot sets the nickname for the current user
-* `/whoami` will return the current nickname
-* Call it again to re-set the `<nickname>` as preferred
-
-`mention <name fragment> [test]`
-* Alias for @<name fragment>.
-* Triggers the same mechanism for @mentions.
-* `<name fragment>` cannot contain spaces.
-* Adding optional second parameter `test` will show additional log information
-  inside the current conversation when attempting to alert users. This
-  can be used to check for any @mention errors with specific users.
-
-Requires plugin: [**default**]
-  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/default.py)
-
-`whoami`
-* Bot replies with the current user information:
-  * first name, nickname and `chat_id`, OR
-  * full name and `chat_id`
-
-`whereami`
-* Bot replies with the conversation name and `conversation id`.
-
-Requires plugin: [**lookup**]
-  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/lookup.py)
-
-`lookup <keyword>`
-* Used in conjunction with a published Google Spreadsheet
-* Need to enable in config: `spreadsheet_enabled`, `spreadsheet_url` and
-  `spreadsheet_table_class`
-* Will look up each row of a spreadsheet and if the keyword is found will
-  return the whole row
-
-Requires plugin: [**lottery**]
-  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/lottery.py)
-
-`prepare [<things>] <listdef>`
-* Bot prepares a list of `<things>` and puts them in a virtual box for lottery
-  drawings.
-  * If `<things>` is not supplied, then "default" will be used.
-  * WARNING: Records are not persisted between bot restarts!
-* `<listdef>` can be:
-  * comma-separated list of values (no spaces!) e.g. `abc,ghi,xyz`
-  * range of numbers e.g. 50-100
-  * "numberTokens" e.g. 9long1short
-* Each user must issue `/me draws` (or similar) to get a random item from the
-  box. Note: `/me draw` always draws from "default" if available; to draw from
-  another box, `/me draw [a|an] <thing>`
-
-Requires plugin: [**subscribe**]
-  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/subscribe.py)
-
-`subscribe <phrase>`
-* Bot will watch the chats that you share with it for any mentions of the keywords you specify
-* Upon mention of a keyword, bot will send you a 1on1 with the context and group
-
-`unsubscribe <phrase>`
-* `<phrase>` is optional, if not specified `unsubscribe` will remove all subscriptions under your name
-* If `<phrase>` is specified, `unsubscribe` will remove that phrase if it was previously subscribed to
+Plugins which implement user commands:
+* [default](https://github.com/nylonee/hangupsbot/wiki/Default-Commands-Plugin)
+  standard set of commands useful for bot testing
+* [mentions](https://github.com/nylonee/hangupsbot/wiki/Mentions-Plugin)
+  set pushbullet api key, do-not-disturb status and test mentions
+* [lookup](https://github.com/nylonee/hangupsbot/wiki/Lookup-Plugin)
+  lookup an entry in a linked google spreadsheet
+* [subscribe](https://github.com/nylonee/hangupsbot/wiki/Subscribe-Plugin)
+  be alerted when certain words are said inside a chat
 
 # Developers: Debugging
 
