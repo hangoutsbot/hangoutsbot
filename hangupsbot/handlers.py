@@ -64,7 +64,7 @@ class EventHandler(object):
         commands_admin_list = self.bot.get_config_suboption(conversation_id, 'commands_admin')
         if not commands_admin_list:
             commands_admin_list = []
-        commands_admin_list = commands_admin_list + self.explicit_admin_commands
+        commands_admin_list = list(set(commands_admin_list + self.explicit_admin_commands))
         return commands_admin_list
 
     @asyncio.coroutine
