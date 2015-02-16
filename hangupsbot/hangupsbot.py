@@ -548,6 +548,22 @@ class HangupsBot(object):
         if not self.send_html_to_user(user_id_or_conversation_id, html):
             self.send_html_to_conversation(user_id_or_conversation_id, html)
 
+    def user_self(self):
+        myself = {
+            "chat_id": None,
+            "full_name": None,
+            "email": None
+        }
+        User = self._user_list._self_user
+
+        myself["chat_id"] = User.id_.chat_id
+
+        if User.full_name: myself["full_name"] = User.full_name
+        if User.emails and User.emails[0]: myself["email"] = User.emails[0]
+
+        return myself
+
+
 def main():
     """Main entry point"""
     # Build default paths for files.
