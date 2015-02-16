@@ -57,80 +57,37 @@ To specify the plugins to be loaded, first ensure that the correct `.py` files a
 Some plugins may require extra configuration as documented in this README. 
   `config.json` is the the configuration provider for the bot and its plugins.
 
-The wiki contains the most updated [list of plugins]
-  (https://github.com/nylonee/hangupsbot/wiki/Plugin-List)
-
 Some interesting plugins:
-* mentions plugin
+* [mentions plugin]
+  (https://github.com/nylonee/hangupsbot/wiki/Mentions-Plugin)
   * alert users when their names are mentioned in a chat
-* subscribe
+* [subscribe plugin]
+  (https://github.com/nylonee/hangupsbot/wiki/Subscribe-Plugin)
   * alert users when keywords they are subscribed to are said in a chat 
-* syncout / syncrooms
+* [syncout / syncrooms plugins]
+  (https://github.com/nylonee/hangupsbot/wiki/Syncouts-Plugin)
   * relay chat messages between different hangout group conversations (syncrooms)
   * configure via bot commands (syncrooms_config)
   * automated translation via Google Translate of relayed messages (syncrooms_autotranslate)
 
+The wiki has a more comprehensive **[list of plugins]
+  (https://github.com/nylonee/hangupsbot/wiki/Plugin-List)**...
+
 # Interacting with the Bot
 
-## Users: Quickstart
+There are three general types of interactions with the bot:
+* **bot commands** begin with `/bot` e.g. `/bot dosomething`
+  * some bot commands are admin-only
+* **`/me` triggers** begin with `/me` and frequently form a complete sentence e.g.
+  `/me rolls a dice`
+  * these kind of triggers are generally accessible to all users
+* custom interactions (usage and acessibility varies by plugin)
 
-If the mentions plugin is available, please see:
-  https://github.com/nylonee/hangupsbot/wiki/Mentions-Plugin#users-quickstart
+Please see the wiki for the **[list of plugins]
+  (https://github.com/nylonee/hangupsbot/wiki/Plugin-List)** to find out more
+  about each plugin and their usage.
 
-### Guidelines for @mentions 
-
-Documentation has been moved to the wiki @ [Mentions Plugin]
-  (https://github.com/nylonee/hangupsbot/wiki/Mentions-Plugin)
-
-## Users: `/me` Triggers
-
-Plugins that implement `/me` triggers:
-
-* [chance](https://github.com/nylonee/hangupsbot/wiki/Chance-Plugin)
-  users can roll a dice and flip coins
-* [lottery](https://github.com/nylonee/hangupsbot/wiki/Lottery-Plugin)
-  users can draw from a randomised list of "things" from admin-setup "lotteries"  
-
-## `/bot` Commands
-
-All bot commands must be prefixed by `/bot`, as in `/bot <command>`.
-
-### Admin-only Commands
-
-Plugins which implement administrative commands:
-* [default](https://github.com/nylonee/hangupsbot/wiki/Default-Commands-Plugin)
-  standard set of commands useful for bot management
-* [namelock](https://github.com/nylonee/hangupsbot/wiki/Namelock-Plugin)
-  allows admins to lock the title of a conversation
-* [easteregg](https://github.com/nylonee/hangupsbot/wiki/Hangouts-Easter-eggs-Plugin)
-  delight (annoy) users with ponies and pitchforks!
-* [lottery](https://github.com/nylonee/hangupsbot/wiki/Lottery-Plugin)
-  admins can prepare lotteries for users to draw from   
-
-### User Commands
-
-These are commands that can be executed by any user, based on the default
-configuration in `config.commands_admin`.
-
-`help`
-* Bot lists all supported commands in a private message with the user
-* If the user does not have a 1-on-1 channel open, it will publicly tell 
-  the user to PM the bot and say hi.
-
-`ping`
-* Bot replies with a `pong`.
-
-Plugins which implement user commands:
-* [default](https://github.com/nylonee/hangupsbot/wiki/Default-Commands-Plugin)
-  standard set of commands useful for bot testing
-* [mentions](https://github.com/nylonee/hangupsbot/wiki/Mentions-Plugin)
-  set pushbullet api key, do-not-disturb status and test mentions
-* [lookup](https://github.com/nylonee/hangupsbot/wiki/Lookup-Plugin)
-  lookup an entry in a linked google spreadsheet
-* [subscribe](https://github.com/nylonee/hangupsbot/wiki/Subscribe-Plugin)
-  be alerted when certain words are said inside a chat
-
-# Developers: Debugging
+# Debugging
 
 * Run the bot with the `-d` parameter e.g. `python3 hangupsbot.py -d` - this
   lowers the log level to `INFO` for a more verbose and informative log file.
@@ -140,15 +97,9 @@ Plugins which implement user commands:
 * Console output (STDOUT) is fairly limited whatever the log level, so rely
   on the output of the log file instead.
 
-# Developers: Extending the Bot
+# Extending
 
 Please see https://github.com/nylonee/hangupsbot/wiki/Authoring-Bot-Extensions
-
-# Developers: TODO
-
-* run as service
-  * alternatively [cron](http://www.raspberrypi-spy.co.uk/2013/07/running-a-python-script-at-boot-using-cron/)
-    and a [bash script](https://gist.github.com/endofline/34fc36cfbd149bcc7d15) works great too!
 
 ---
 
