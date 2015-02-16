@@ -185,63 +185,13 @@ Requires plugin: [**mentions**]
 
 ## Admins: Syncing Chats with Syncout / Syncrooms
 
-Requires plugin: [**syncrooms**]
-  (https://github.com/nylonee/hangupsbot/blob/master/hangupsbot/plugins/syncrooms.py)
+The syncouts/syncrooms family of plugins include:
+* Relaying chat messages between different hangout group conversations (syncrooms)
+* Configuring syncouts via bot commands (syncrooms_config)
+* Automatic translation via Google Translate of relayed messages (syncrooms_autotranslate)
 
-Chats can be synced together, called a 'syncout'. If a person says something in chat A, that message will be relayed into chat B by the bot, and vice versa, allowing multiple rooms to have conversations with each other. The primary use for this is to have more than 150 (the hangout limit) users talking to each other in the same room.
-
-Syncouts/syncrooms only has two `config.json` keys, documented in the following section:
-
-`syncing_enabled`
-* default: `not set`
-* If `true`, will look for `config.sync_rooms` and start relaying chats across configured rooms
-* Can only be enabled/disabled globally
-
-```
-"sync_rooms": [
-  [
-      "CONVERSATION_1_ID",
-      "CONVERSATION_2_ID"
-  ],
-  [
-      "CONVERSATION_3_ID",
-      "CONVERSATION_4_ID",
-      "CONVERSATION_5_ID"
-  ]
-]
-```
-* a list containing another set of lists, which contains conversation IDs to sync, this allows
-  the bot to support multiple separately-synced chats e.g. rooms A, B, C and D, E separately.
-
-### Special note for legacy syncouts configuration
-
-Older bots would be configured using the legacy syncout configuration. The plugin will 
-**automatically migrate** these old configurations to the new format by rewriting your
-`config.json` file. Other keys in `config.conversations` will not be affected by the 
-migration to preserve compatibility with older features.
-
-The legacy configuration is provided here for reference purposes - it may be removed in
-the future:
-```
-"conversations":
-{
-  "CONVERSATION_1_ID": {  
-    "sync_rooms": ["CONVERSATION_1_ID", "CONVERSATION_2_ID"]  
-  },  
-  "CONVERSATION_2_ID": {  
-    "sync_rooms": ["CONVERSATION_1_ID", "CONVERSATION_2_ID"]
-  },  
-  "CONVERSATION_3_ID": {  
-    "sync_rooms": ["CONVERSATION_3_ID", "CONVERSATION_4_ID", "CONVERSATION_5_ID"]  
-  },
-  "CONVERSATION_4_ID": {  
-    "sync_rooms": ["CONVERSATION_3_ID", "CONVERSATION_4_ID", "CONVERSATION_5_ID"]  
-  },
-  "CONVERSATION_5_ID": {  
-    "sync_rooms": ["CONVERSATION_3_ID", "CONVERSATION_4_ID", "CONVERSATION_5_ID"]  
-  }
-}
-```
+Documentation has been moved to [Chat Relays with Syncouts]
+  (https://github.com/nylonee/hangupsbot/wiki/Chat-Relays-with-Syncouts)
 
 # User Triggers (`/me` prefix)
 
