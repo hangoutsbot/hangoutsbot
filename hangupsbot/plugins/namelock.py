@@ -28,8 +28,7 @@ def _watch_rename(bot, event, command):
         return
 
 def topic(bot, event, *args):
-    """Set a chat topic. If no parameters given, remove the topic
-    NOTE: Highly recommended that you make both 'topic' and 'rename' an admin command!"""
+    """locks a conversation title. if no parameters supplied, clear and unlock the title"""
 
     topic = ' '.join(args).strip()
 

@@ -108,6 +108,11 @@ def _leave_the_chat_quietly(bot, event, command):
 
 
 def allowbotadd(bot, event, user_id, *args):
+    """add supplied user id as a botkeeper. 
+    botkeepers are allowed to add bots into a conversation and their continued presence in a 
+    conversation keeps the bot from leaving.
+    """
+
     if not bot.memory.exists(["allowbotadd"]):
         bot.memory["allowbotadd"] = []
 
@@ -123,6 +128,12 @@ def allowbotadd(bot, event, user_id, *args):
 
 
 def removebotadd(bot, event, user_id, *args):
+    """remove supplied user id as a botkeeper. 
+    botkeepers are allowed to add bots into a conversation and their continued presence in a 
+    conversation keeps the bot from leaving. warning: removing a botkeeper may cause the bot to 
+    leave conversations where the current botkeeper is present, if no other botkeepers are present.
+    """
+
     if not bot.memory.exists(["allowbotadd"]):
         bot.memory["allowbotadd"] = []
 

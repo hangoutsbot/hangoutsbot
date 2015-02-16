@@ -60,6 +60,12 @@ def normalize_newlines(text):
 
 
 def urbandict(bot, event, *args):
+    """lookup a term on Urban Dictionary.
+    supplying no parameters will get you a random term. 
+    DISCLAIMER: all definitions are from http://www.urbandictionary.com/ - the bot and its 
+    creators/maintainers take no responsibility for any hurt feelings.
+    """
+
     term = " ".join(args)
     if not term:
         url = "http://www.urbandictionary.com/random.php"

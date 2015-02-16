@@ -13,9 +13,11 @@ def _initialise(Handlers, bot=None):
     return []
 
 
-"""user memory"""
+def rememberthisforme(bot, event, *args):
+    """remember value for current user, memory must be empty.
+    use /bot forgetaboutitforme to clear previous storage
+    """
 
-def rememberthisforme(bot, event, *args):    
     text = bot.user_memory_get(event.user.id_.chat_id, 'test_memory')
     if text is None:
         bot.user_memory_set(event.user.id_.chat_id, 'test_memory', ' '.join(args))
@@ -31,6 +33,8 @@ def rememberthisforme(bot, event, *args):
 
 
 def whatwasitforme(bot, event, *args):
+    """reply with value stored for current user"""
+
     text = bot.user_memory_get(event.user.id_.chat_id, 'test_memory')
     if text is None:
         bot.send_message_parsed(
@@ -45,6 +49,8 @@ def whatwasitforme(bot, event, *args):
 
 
 def forgetaboutitforme(bot, event, *args):
+    """forget stored value for current user"""
+
     text = bot.user_memory_get(event.user.id_.chat_id, 'test_memory')
     if text is None:
         bot.send_message_parsed(
@@ -61,7 +67,11 @@ def forgetaboutitforme(bot, event, *args):
 
 """conversation memory"""
 
-def rememberthisforchat(bot, event, *args):    
+def rememberthisforchat(bot, event, *args):
+    """remember value for current conversation, memory must be empty.
+    use /bot forgetaboutitforchat to clear previous storage
+    """
+
     text = bot.conversation_memory_get(event.conv_id, 'test_memory')
     if text is None:
         bot.conversation_memory_set(event.conv_id, 'test_memory', ' '.join(args))
@@ -77,6 +87,8 @@ def rememberthisforchat(bot, event, *args):
 
 
 def whatwasitforchat(bot, event, *args):
+    """reply with stored value for current conversation"""
+
     text = bot.conversation_memory_get(event.conv_id, 'test_memory')
     if text is None:
         bot.send_message_parsed(
@@ -89,7 +101,10 @@ def whatwasitforchat(bot, event, *args):
             "<b>{}</b> asked me to remember <i>\"{}\" for this conversation</i>".format(
                 event.user.full_name, text))
 
+
 def forgetaboutitforchat(bot, event, *args):
+    """forget stored value for current conversation"""
+
     text = bot.conversation_memory_get(event.conv_id, 'test_memory')
     if text is None:
         bot.send_message_parsed(
