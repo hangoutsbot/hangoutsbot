@@ -65,8 +65,9 @@ def user(bot, event, username, *args):
 
 
 def hangouts(bot, event, *args):
-    """list all active hangouts the bot is participating in
-        details: c ... commands, f ... forwarding, a ... autoreplies"""
+    """list all active hangouts.
+    key: c = commands enabled, f = forwarding enabled
+    """
 
     line = "<b>list of active hangouts:</b><br />"
 
@@ -81,10 +82,6 @@ def hangouts(bot, event, *args):
         _value = bot.get_config_suboption(c.id_, 'forwarding_enabled')
         if _value:
             suboptions.append("f")
-        _value = bot.get_config_suboption(c.id_, 'autoreplies_enabled')
-        if _value:
-            suboptions.append("a")
-
         if len(suboptions) > 0:
             line = line + ' [ ' + ', '.join(suboptions) + ' ]'
 
@@ -109,7 +106,7 @@ def hangout(bot, event, *args):
 
 
 def rename(bot, event, *args):
-    """Rename Hangout"""
+    """rename Hangout"""
     yield from bot._client.setchatname(event.conv_id, ' '.join(args))
 
 
@@ -134,7 +131,7 @@ def leave(bot, event, conversation_id=None, *args):
 
 
 def reload(bot, event, *args):
-    """Reload config"""
+    """reload config"""
     bot.config.load()
 
 
@@ -146,7 +143,7 @@ def quit(bot, event, *args):
 
 
 def config(bot, event, cmd=None, *args):
-    """Displays or modifies the configuration
+    """displays or modifies the configuration
         Parameters: /bot config get [key] [subkey] [...]
                     /bot config set [key] [subkey] [...] [value]
                     /bot config append [key] [subkey] [...] [value]
@@ -206,7 +203,7 @@ def config(bot, event, cmd=None, *args):
 
 
 def whoami(bot, event, *args):
-    """whoami: get user id"""
+    """get your user id"""
 
     if bot.memory.exists(['user_data', event.user_id.chat_id, "nickname"]):
         try:
@@ -221,7 +218,8 @@ def whoami(bot, event, *args):
 
 
 def whereami(bot, event, *args):
-    """whereami: get conversation id"""
+    """get current conversation id"""
+
     bot.send_message_parsed(
       event.conv,
       "You are at <b>{}</b>, conv_id = <i>{}</i>".format(
