@@ -21,7 +21,8 @@ Hangupsbot is a bot designed for working with Google Hangouts.
   (https://github.com/nylonee/hangupsbot/wiki/Authoring-Bot-Extensions), allowing the bot to interact 
   with external services such as your company website, Google APIs and much more.
 * **Plugin mania** : 
-  eastereggs, games, nickname support - the list goes on!
+  eastereggs, games, nickname support - **[the list goes on]
+    (https://github.com/nylonee/hangupsbot/wiki/Plugin-List)**!
 
 # IMPORTANT
 
