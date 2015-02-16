@@ -190,7 +190,7 @@ The syncouts/syncrooms family of plugins include:
 * Configuring syncouts via bot commands (syncrooms_config)
 * Automatic translation via Google Translate of relayed messages (syncrooms_autotranslate)
 
-Documentation has been moved to [Chat Relays with Syncouts]
+Documentation has been moved to the wiki @ [Chat Relays with Syncouts]
   (https://github.com/nylonee/hangupsbot/wiki/Chat-Relays-with-Syncouts)
 
 # User Triggers (`/me` prefix)
