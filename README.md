@@ -32,7 +32,7 @@ This is a [fork](https://gitlab.sabah.io/eol/mogunsamang) of a [fork](https://gi
 * Please see the original documentation which is reproduced below
   (after the TODO section)
 
-# Admins: General Configuration
+# General Configuration for Administrators
 
 Configuration directives can be specified in `config.json`.
 
@@ -43,7 +43,7 @@ Most configuration directives are specified **globally**
 * Per-conversation directives override global settings, if both are set.
 * Manually-configured per-conversation directives are DEPRECATED.
 
-## Admins: Configuring Plugins
+## Plugins
 
 The `plugins` key in `config.json` allows you to optionally specify a list of plugins
   that will be loaded by the bot on startup. If this option is left as `null`, then
@@ -57,20 +57,18 @@ To specify the plugins to be loaded, first ensure that the correct `.py` files a
 Some plugins may require extra configuration as documented in this README. 
   `config.json` is the the configuration provider for the bot and its plugins.
 
-## Admins: @mentions Configuration
+The wiki contains the most updated [list of plugins]
+  (https://github.com/nylonee/hangupsbot/wiki/Plugin-List)
 
-Documentation has been moved to the wiki @ [Mentions Plugin]
-  (https://github.com/nylonee/hangupsbot/wiki/Mentions-Plugin)
-
-## Admins: Syncing Chats with Syncout / Syncrooms
-
-The syncouts/syncrooms family of plugins include:
-* Relaying chat messages between different hangout group conversations (syncrooms)
-* Configuring syncouts via bot commands (syncrooms_config)
-* Automatic translation via Google Translate of relayed messages (syncrooms_autotranslate)
-
-Documentation has been moved to the wiki @ [Syncouts Plugin]
-  (https://github.com/nylonee/hangupsbot/wiki/Syncouts-Plugin)
+Some interesting plugins:
+* mentions plugin
+  * alert users when their names are mentioned in a chat
+* subscribe
+  * alert users when keywords they are subscribed to are said in a chat 
+* syncout / syncrooms
+  * relay chat messages between different hangout group conversations (syncrooms)
+  * configure via bot commands (syncrooms_config)
+  * automated translation via Google Translate of relayed messages (syncrooms_autotranslate)
 
 # Interacting with the Bot
 
