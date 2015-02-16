@@ -1,11 +1,5 @@
 """
-example plugin:
-    bot.user_memory_get
-    bot.user_memory_set
-    bot.conversation_memory_get
-    bot.conversation_memory_set
-
-note: all commands are admin-only to prevent clutter in normal user's /bot help
+example plugin which demonstrates user and conversation memory
 """
 
 def _initialise(Handlers, bot=None):

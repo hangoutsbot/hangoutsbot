@@ -1,10 +1,14 @@
+"""
+example plugin which watches join and leave events
+"""
+
 import asyncio
 import hangups
 
-from random import randint
 
 def _initialise(Handlers, bot=None):
     Handlers.register_handler(_watch_membership_change, type="membership")
+    return []
 
 
 @asyncio.coroutine
@@ -16,7 +20,7 @@ def _watch_membership_change(bot, event, command):
 
     # JOIN
     if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
-        print('{} has added {}'.format(event.user.full_name, names))
+        print('EXAMPLE_WATCHMEMBERS: {} has added {}'.format(event.user.full_name, names))
     # LEAVE
     else:
-        print('{} has left'.format(names))
+        print('EXAMPLE_WATCHMEMBERS: {} has left'.format(names))
