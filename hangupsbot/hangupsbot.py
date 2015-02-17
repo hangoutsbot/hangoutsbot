@@ -194,11 +194,20 @@ class HangupsBot(object):
 
         return convs
 
-    def get_users_in_conversation(self, conv_id):
-        """List all users in conv_id"""
-        for c in self.list_conversations():
-            if conv_id in c.id_:
-                return c.users
+    def get_users_in_conversation(self, conv_ids):
+        """list all users in supplied conv_id(s).
+        supply many conv_id as a list.
+        """
+        if isinstance(conv_ids, str):
+            conv_ids = [conv_ids]
+        all_users = []
+        conv_ids = list(set(conv_ids)) 
+        for conversation in self.list_conversations():
+            for room_id in conv_ids:
+                if room_id in conversation.id_:
+                    all_users += conversation.users
+        all_users = list(set(all_users))
+        return all_users
 
     def get_config_option(self, option):
         return self.config.get_option(option)
