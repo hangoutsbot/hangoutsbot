@@ -6,7 +6,7 @@ from random import shuffle
 def _initialise(Handlers, bot=None):
     Handlers.register_handler(_handle_me_action)
     if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
-        Handlers.register_admin_command(["prepare"])
+        Handlers.register_admin_command(["prepare", "perform_drawing"])
         return []
     else:
         print("LOTTERY: LEGACY FRAMEWORK MODE")
@@ -19,6 +19,7 @@ def _handle_me_action(bot, event, command):
     #   do more complex checking later
     if event.text.startswith('/me draw'):
         yield from command.run(bot, event, *["perform_drawing"])
+
 
 def _get_global_lottery_name(bot, conversation_id, listname):
     # support for syncrooms plugin
