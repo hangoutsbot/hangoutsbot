@@ -144,7 +144,7 @@ def perform_drawing(bot, event, *args):
 
     draw_lists = _load_lottery_state(bot) # load in any existing lotteries
 
-    pattern = re.compile("/me draws?( +(a +|an +)?([a-z0-9\-_]+))?$", re.IGNORECASE)
+    pattern = re.compile("/me draws?( +(a +|an +|from +)?([a-z0-9\-_]+))?$", re.IGNORECASE)
     if pattern.match(event.text):
         listname = "default"
 
