@@ -15,27 +15,33 @@ make install
 pip3 install -r requirements.txt
 ```
 
+**git clone the respository**
+```
+git clone <repository url>
+```
+
 # First-Run
 
 You need to **run the bot for the first time**. You will need at least 
-two gmail accounts: one is your actual account, the other will be your 
-bot account.
+  two gmail accounts: one is your actual account, the other will be your 
+  bot account.
 
 The basic syntax for running the bot (assuming you are in the root 
-of the cloned repository) is:
+  of the cloned repository) is:
 ```
 python3 hangupsbot/hangupsbot.py
 ```
 
 If you are having problems starting the bot, appending a `-d` at the
-end will dump more details into the bot logs e.g. 
-`python3 hangupsbot/hangupsbot.py -d`
+  end will dump more details into the bot logs e.g. 
+  `python3 hangupsbot/hangupsbot.py -d` - more configuration 
+  directives can be found at the end of the README file.
 
 You will be prompted for your gmail username and password. Use your
-bot account credentials. If the login is sucessful, you will see
-additional logs about plugins being loaded. The credentials will be
-saved so that running the bot again will not prompt you for username
-and password again.
+  bot account credentials. If the login is sucessful, you will see
+  additional logs about plugins being loaded. The credentials will be
+  saved so that running the bot again will not prompt you for username
+  and password again.
 
 To quit the bot from the console, press CTRL-C
 
@@ -44,7 +50,7 @@ To quit the bot from the console, press CTRL-C
 You will need to add your actual Hangouts user as a bot administrator.
 
 This will be accomplished using the supplied **starter** plugin with
-the default configuration.
+  the default supplied configuration.
 
 1. Using a hangouts client and your actual gmail account, open a 
    hangout with the bot account.
