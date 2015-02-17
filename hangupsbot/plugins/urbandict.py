@@ -84,9 +84,9 @@ def urbandict(bot, event, *args):
         the_definition = urbanDictParser.translations[0]
         html_text += '<b>"' + the_definition["word"] + '"</b><br /><br />'
         if "def" in the_definition:
-            html_text += "<b>definition:</b> " + the_definition["def"] + "<br />"
+            html_text += "<b>definition:</b> " + the_definition["def"].strip().replace("\n", "<br />") + '<br /><br />'
         if "example" in the_definition:
-            html_text += "<b>example:</b> " + the_definition["example"].replace("\n", "<br />") + "<br />"
+            html_text += "<b>example:</b> " + the_definition["example"].strip().replace("\n", "<br />")
 
         bot.send_message_parsed(event.conv, html_text)
 
