@@ -159,7 +159,10 @@ def _handle_incoming_message(bot, event, command):
                     segments.append(hangups.ChatMessageSegment(match.group(), link_target=match.group()))
                     last = match.end()
                 if last != len(segment.text):
-                    segments.append(hangups.ChatMessageSegment(segment.text[last:]))
+                    if segment.type_ is hangups.SegmentType.LINE_BREAK:
+                        segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+                    else:
+                        segments.append(hangups.ChatMessageSegment(segment.text[last:]))
 
             for _conv_id in sync_room_list:
                 if not _conv_id == event.conv_id:
