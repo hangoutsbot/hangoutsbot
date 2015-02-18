@@ -8,7 +8,12 @@ gs = goslate.Goslate()
 
 def _initialise(Handlers, bot=None):
     Handlers.register_handler(_translate_message, type="sending")
-    return ['roomlanguage']
+    if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
+        Handlers.register_admin_command(['roomlanguage'])
+        return []
+    else:
+        print("SYNCROOMS_AUTOTRANSLATE: LEGACY FRAMEWORK MODE")
+        return ['roomlanguage']
 
 
 def _translate_message(bot, broadcast_list, context):
@@ -38,6 +43,11 @@ def _get_room_language(bot, conversation_id, default="en"):
 
 
 def roomlanguage(bot, event, *args):
+    """sets the current room language
+    supply parameter as either ISO639-1 2-letter language code or fulltext/fragment of language 
+    to set (e.g. "chinese", "hebr", "swahili", etc).
+    """
+
     language_map = gs.get_languages()
 
     language = " ".join(args)

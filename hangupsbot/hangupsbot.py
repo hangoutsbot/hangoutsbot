@@ -194,11 +194,20 @@ class HangupsBot(object):
 
         return convs
 
-    def get_users_in_conversation(self, conv_id):
-        """List all users in conv_id"""
-        for c in self.list_conversations():
-            if conv_id in c.id_:
-                return c.users
+    def get_users_in_conversation(self, conv_ids):
+        """list all users in supplied conv_id(s).
+        supply many conv_id as a list.
+        """
+        if isinstance(conv_ids, str):
+            conv_ids = [conv_ids]
+        all_users = []
+        conv_ids = list(set(conv_ids)) 
+        for conversation in self.list_conversations():
+            for room_id in conv_ids:
+                if room_id in conversation.id_:
+                    all_users += conversation.users
+        all_users = list(set(all_users))
+        return all_users
 
     def get_config_option(self, option):
         return self.config.get_option(option)
@@ -547,6 +556,22 @@ class HangupsBot(object):
         # NOTE: Assumption that a conversation_id will never match a user_id
         if not self.send_html_to_user(user_id_or_conversation_id, html):
             self.send_html_to_conversation(user_id_or_conversation_id, html)
+
+    def user_self(self):
+        myself = {
+            "chat_id": None,
+            "full_name": None,
+            "email": None
+        }
+        User = self._user_list._self_user
+
+        myself["chat_id"] = User.id_.chat_id
+
+        if User.full_name: myself["full_name"] = User.full_name
+        if User.emails and User.emails[0]: myself["email"] = User.emails[0]
+
+        return myself
+
 
 def main():
     """Main entry point"""

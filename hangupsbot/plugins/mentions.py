@@ -394,16 +394,17 @@ def setnickname(bot, event, *args):
         for userchatid in bot.memory.get_option("user_data"):
             usernick = bot.memory.get_suboption("user_data", userchatid, "nickname")
             if usernick:
-                nicks[userchatid] = usernick
+                nicks[userchatid] = usernick.lower()
 
     # is the user trying to re-set his own nickname? - don't do anything if that is the case
     if event.user.id_.chat_id in nicks:
-        if nickname == nicks[event.user.id_.chat_id]:
-            bot.send_message_parsed(event.conv, '<i>Your nickname is already "' + nickname + '".</i>')
+        if nickname.lower() == nicks[event.user.id_.chat_id].lower():
+            actual_nickname = bot.memory.get_suboption("user_data", event.user.id_.chat_id, "nickname")
+            bot.send_message_parsed(event.conv, '<i>Your nickname is already "' + actual_nickname + '".</i>')
             return
 
     # check whether another user has the same nickname
-    if nickname in nicks.values():
+    if nickname.lower() in nicks.values():
         bot.send_message_parsed(event.conv, '<i>Nickname "' + nickname + '" is already in use by another user.</i>')
         return
 
