@@ -90,9 +90,18 @@ class EventHandler(object):
     @asyncio.coroutine
     def handle_command(self, event):
         """Handle command messages"""
+
+        # verify user is an admin
+        admins_list = self.bot.get_config_suboption(event.conv_id, 'admins')
+        initiator_is_admin = False
+        if event.user_id.chat_id in admins_list:
+            initiator_is_admin = True
+
         # Test if command handling is enabled
-        if not self.bot.get_config_suboption(event.conv_id, 'commands_enabled'):
-            return
+        # note: admins always bypass this check
+        if not initiator_is_admin:
+            if not self.bot.get_config_suboption(event.conv_id, 'commands_enabled'):
+                return
 
         if event.text.split()[0].lower() != self.bot_command:
             return
@@ -106,12 +115,10 @@ class EventHandler(object):
             self.bot.send_message(event.conv, '{}: missing parameter(s)'.format(event.user.full_name))
             return
 
+        # only admins can run admin commands
         commands_admin_list = self.get_admin_commands(event.conv_id)
-
         if commands_admin_list and line_args[1].lower() in commands_admin_list:
-            admins_list = self.bot.get_config_suboption(event.conv_id, 'admins')
-            # verify user is an admin
-            if event.user_id.chat_id not in admins_list:
+            if not initiator_is_admin:
                 self.bot.send_message(event.conv, '{}: Can\'t do that.'.format(event.user.full_name))
                 return
 
