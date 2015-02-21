@@ -158,15 +158,18 @@ class HangupsBot(object):
             self._client.disconnect()
         ).add_done_callback(lambda future: future.result())
 
-    def send_message(self, conversation, text):
+    def send_message(self, conversation, text, context=None):
         """"Send simple chat message"""
-        self.send_message_segments(conversation, [hangups.ChatMessageSegment(text)])
+        self.send_message_segments(
+            conversation, 
+            [hangups.ChatMessageSegment(text)], 
+            context)
 
-    def send_message_parsed(self, conversation, html):
+    def send_message_parsed(self, conversation, html, context=None):
         segments = simple_parse_to_segments(html)
-        self.send_message_segments(conversation, segments)
+        self.send_message_segments(conversation, segments, context)
 
-    def send_message_segments(self, conversation, segments, context=None, sync_room_support=True):
+    def send_message_segments(self, conversation, segments, context=None):
         """Send chat message segments"""
         # Ignore if the user hasn't typed a message.
         if len(segments) == 0:
@@ -562,24 +565,24 @@ class HangupsBot(object):
         print('DEPRECATED: external_send_message_parsed(), use send_html_to_conversation()')
         self.send_html_to_conversation(conversation_id, html)
 
-    def send_html_to_conversation(self, conversation_id, html):
+    def send_html_to_conversation(self, conversation_id, html, context=None):
         print('send_html_to_conversation(): sending to {}'.format(conversation_id))
-        self.send_message_parsed(conversation_id, html)
+        self.send_message_parsed(conversation_id, html, context)
 
-    def send_html_to_user(self, user_id, html):
+    def send_html_to_user(self, user_id, html, context=None):
         conversation = self.get_1on1_conversation(user_id)
         if not conversation:
             print('send_html_to_user(): 1-to-1 conversation not found')
             return False
         print('send_html_to_user(): sending to {}'.format(user_id))
-        self.send_message_parsed(conversation, html)
+        self.send_message_parsed(conversation, html, context)
         return True
 
-    def send_html_to_user_or_conversation(self, user_id_or_conversation_id, html):
+    def send_html_to_user_or_conversation(self, user_id_or_conversation_id, html, context=None):
         """Attempts send_html_to_user. If failed, attempts send_html_to_conversation"""
         # NOTE: Assumption that a conversation_id will never match a user_id
-        if not self.send_html_to_user(user_id_or_conversation_id, html):
-            self.send_html_to_conversation(user_id_or_conversation_id, html)
+        if not self.send_html_to_user(user_id_or_conversation_id, html, context):
+            self.send_html_to_conversation(user_id_or_conversation_id, html, context)
 
     def user_self(self):
         myself = {
