@@ -20,6 +20,23 @@ from inspect import getmembers, isfunction
 __version__ = '2.1'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
+
+class SuppressHandler(Exception):
+    pass
+
+class SuppressAllHandlers(Exception):
+    pass
+
+class SuppressEventHandling(Exception):
+    pass
+
+class HangupsBotExceptions:
+    def __init__(self):
+        self.SuppressHandler = SuppressHandler
+        self.SuppressAllHandlers = SuppressAllHandlers
+        self.SuppressEventHandling = SuppressEventHandling
+
+
 class FakeConversation(object):
     def __init__(self, _client, id_):
         self._client = _client
@@ -57,6 +74,8 @@ class ConversationEvent(object):
 class HangupsBot(object):
     """Hangouts bot listening on all conversations"""
     def __init__(self, cookies_path, config_path, max_retries=5, memory_file=None):
+        self.Exceptions = HangupsBotExceptions()
+
         self._client = None
         self._cookies_path = cookies_path
         self._max_retries = max_retries
@@ -164,22 +183,25 @@ class HangupsBot(object):
         # by default, a response always goes into a single conversation only
         broadcast_list = [(conversation_id, segments)]
 
-        # handlers from plugins
-        if "sending" in self._handlers.pluggables:
-            for function in self._handlers.pluggables["sending"]:
-                try:
-                    function(self, broadcast_list, context)
-                except:
-                    message = "pluggables.sending.{}".format(function.__name__)
-                    print("EXCEPTION in " + format(message))
-                    logging.exception(message)
+        asyncio.async(
+            self._begin_message_sending(broadcast_list, context)
+        ).add_done_callback(self._on_message_sent)
+
+
+    @asyncio.coroutine
+    def _begin_message_sending(self, broadcast_list, context):
+        try:
+            yield from self._handlers.run_pluggable_omnibus("sending", self, broadcast_list, context)
+        except self.Exceptions.SuppressEventHandling:
+            print("_begin_message_sending(): SuppressEventHandling")
+            return
+        except:
+            raise
 
         # send messages using FakeConversation as a workaround
         for response in broadcast_list:
             _fc = FakeConversation(self._client, response[0])
-            asyncio.async(
-                _fc.send_message(response[1])
-            ).add_done_callback(self._on_message_sent)
+            yield from _fc.send_message(response[1])
 
 
     def list_conversations(self):
@@ -328,7 +350,7 @@ class HangupsBot(object):
             """
             available_commands = False # default: ALL
             try:
-                self._handlers.plugin_preinit_stats()
+                self._handlers.plugin_preinit_stats((module, module_path))
                 for function_name, the_function in public_functions:
                     if function_name ==  "_initialise" or function_name ==  "_initialize":
                         try:
@@ -374,6 +396,8 @@ class HangupsBot(object):
 
             if registered_commands:
                 print("added: {}".format(", ".join(registered_commands)))
+
+        self._handlers.all_plugins_loaded()
 
 
     def _start_sinks(self, shared_loop):
