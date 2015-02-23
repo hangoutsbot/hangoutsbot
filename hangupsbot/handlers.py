@@ -64,6 +64,10 @@ class EventHandler(object):
         self._plugin_register_command("admin", command_names)
         self.explicit_admin_commands.extend(command_names)
 
+    def register_object(self, id, objectref):
+        """registers a shared object into bot.shared"""
+        self.bot.register_shared(id, objectref)
+
     def register_handler(self, function, type="message", priority=50):
         """call during plugin init to register a handler for a specific bot event"""
         self.pluggables[type].append((function, priority, self._current_plugin["metadata"]))

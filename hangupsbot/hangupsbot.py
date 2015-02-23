@@ -76,6 +76,8 @@ class HangupsBot(object):
     def __init__(self, cookies_path, config_path, max_retries=5, memory_file=None):
         self.Exceptions = HangupsBotExceptions()
 
+        self.shared = {} # safe place to store references to objects
+
         self._client = None
         self._cookies_path = cookies_path
         self._max_retries = max_retries
@@ -109,6 +111,18 @@ class HangupsBot(object):
                 loop.add_signal_handler(signum, lambda: self.stop())
         except NotImplementedError:
             pass
+
+    def register_shared(self, id, objectref):
+        if id in self.shared:
+            raise RuntimeError("{} already registered in shared".format(id))
+        self.shared[id] = objectref
+
+    def call_shared(self, id, *args, **kwargs):
+        object = self.shared[id]
+        if hasattr(object, '__call__'):
+            return object(*args, **kwargs)
+        else:
+            return object
 
     def login(self, cookies_path):
         """Login to Google account"""
