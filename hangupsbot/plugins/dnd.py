@@ -2,8 +2,7 @@ import functools
 import time
 
 def _initialise(Handlers, bot=None):
-    if bot:
-        _migrate_dnd_config_to_memory(bot)
+    _migrate_dnd_config_to_memory(bot)
     Handlers.register_object('dnd.user_check', functools.partial(_user_has_dnd, bot))
     Handlers.register_user_command(["dnd"])
     return []
@@ -48,6 +47,9 @@ def dnd(bot, event, *args):
         seconds_to_expire = int(args[0]) * 3600
     else:
         seconds_to_expire = 6 * 3600 # default: 6-hours expiry
+
+    if seconds_to_expire > 259200:
+        seconds_to_expire = 259200 # max: 3 days (72 hours)
 
     initiator_chat_id = event.user.id_.chat_id
     donotdisturb = bot.memory.get("donotdisturb")
