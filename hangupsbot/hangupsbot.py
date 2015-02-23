@@ -175,6 +175,11 @@ class HangupsBot(object):
         if len(segments) == 0:
             return
 
+        # add default context if none exists
+        if not context:
+            context = {}
+        context["base"] = self._messagecontext_legacy()
+
         # reduce conversation to the only thing we need: the id
         if isinstance(conversation, (FakeConversation, hangups.conversation.Conversation)):
             conversation_id = conversation.id_
@@ -201,8 +206,18 @@ class HangupsBot(object):
         except:
             raise
 
-        # send messages using FakeConversation as a workaround
+        debug_sending = False
+        if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+            debug_sending = True
+
+        if debug_sending:
+            print("_begin_message_sending(): global context: {}".format(context))
+
         for response in broadcast_list:
+            if debug_sending:
+                print("_begin_message_sending(): {} {} segments(s)".format(response[0], len(response[1])))
+
+            # send messages using FakeConversation as a workaround
             _fc = FakeConversation(self._client, response[0])
             yield from _fc.send_message(response[1])
 
@@ -314,6 +329,16 @@ class HangupsBot(object):
         if not self.memory.exists([datatype, chat_id]):
             # create the memory
             self.memory.set_by_path([datatype, chat_id], {})
+
+    def messagecontext(self, source, importance, tags):
+        return {
+            "source": source,
+            "importance": importance,
+            "tags": tags
+        }
+
+    def _messagecontext_legacy(self):
+        return self.messagecontext("unknown", 50, ["legacy"])
 
     def _load_plugins(self):
         plugin_list = self.get_config_option('plugins')
