@@ -9,7 +9,7 @@ def wiki(bot, event, *args):
         return
 
     try:
-        page = wikipedia.page(term)
+        page = wikipedia.page(term, auto_suggest=False)
 
         summary = page.summary.strip()
         summary = summary.replace('\r\n', '\n').replace('\r', '\n')
