@@ -133,6 +133,7 @@ def leave(bot, event, conversation_id=None, *args):
 def reload(bot, event, *args):
     """reload config"""
     bot.config.load()
+    bot.memory.load()
 
 
 def quit(bot, event, *args):
