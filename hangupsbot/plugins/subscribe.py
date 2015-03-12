@@ -56,21 +56,24 @@ def _send_notification(bot, event, phrase, user):
     """Alert a user that a keyword that they subscribed to has been used"""
 
     conversation_name = get_conv_name(event.conv, truncate=True);
-    logging.info("Keyword found: '{}' in '{}' ({})".format(phrase, conversation_name, event.conv.id_))
+    logging.info("subscribe: keyword '{}' in '{}' ({})".format(phrase, conversation_name, event.conv.id_))
 
     """send alert with 1on1 conversation"""
     conv_1on1 = bot.get_1on1_conversation(user.id_.chat_id)
     if conv_1on1:
-        bot.send_message_parsed(
-            conv_1on1,
-            "<b>{}</b> mentioned '{}' in <i>{}</i>:<br />{}".format(
-                event.user.full_name,
-                phrase,
-                conversation_name,
-                event.text))
-        logging.info("{} ({}) alerted via 1on1 ({})".format(user.full_name, user.id_.chat_id, conv_1on1.id_))
+        if not bot.call_shared("dnd.user_check", user.id_.chat_id): # shared dnd check
+            bot.send_message_parsed(
+                conv_1on1,
+                "<b>{}</b> mentioned '{}' in <i>{}</i>:<br />{}".format(
+                    event.user.full_name,
+                    phrase,
+                    conversation_name,
+                    event.text))
+            logging.info("subscribe: {} ({}) alerted via 1on1 ({})".format(user.full_name, user.id_.chat_id, conv_1on1.id_))
+        else:
+            logging.info("subscribe: {} ({}) has dnd".format(user.full_name, user.id_.chat_id))
     else:
-        logging.warning("user {} ({}) could not be alerted via 1on1".format(user.full_name, user.id_.chat_id))
+        logging.warning("subscribe: user {} ({}) could not be alerted via 1on1".format(user.full_name, user.id_.chat_id))
 
 def subscribe(bot, event, *args):
     """allow users to subscribe to phrases, only one input at a time"""

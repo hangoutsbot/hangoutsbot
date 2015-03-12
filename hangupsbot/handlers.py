@@ -19,22 +19,32 @@ class EventHandler(object):
 
         self.pluggables = { "message":[], "membership":[], "rename":[], "sending":[] }
 
-    def plugin_preinit_stats(self):
+    def plugin_preinit_stats(self, plugin_metadata):
         """ 
         hacky implementation for tracking commands a plugin registers
-        manually called by Hangupsbot._load_plugins() at start of each plugin load
+        called automatically by Hangupsbot._load_plugins() at start of each plugin load
         """
         self._current_plugin = {
             "commands": {
                 "admin": [],
                 "user": []
-            }
+            },
+            "metadata": plugin_metadata
         }
 
     def plugin_get_stats(self):
-        self._current_plugin["commands"]["all"] = list(set(self._current_plugin["commands"]["admin"] + 
-                                                           self._current_plugin["commands"]["user"]))
+        """called automatically by Hangupsbot._load_plugins()"""
+        self._current_plugin["commands"]["all"] = list(
+            set(self._current_plugin["commands"]["admin"] + 
+                self._current_plugin["commands"]["user"]))
         return self._current_plugin
+
+    def all_plugins_loaded(self):
+        """called automatically by HangupsBot._load_plugins() after everything is done.
+        used to finish plugins loading and to do any house-keeping
+        """
+        for type in self.pluggables:
+            self.pluggables[type].sort(key=lambda tup: tup[1])
 
     def _plugin_register_command(self, type, command_names):
         """call during plugin init to register commands"""
@@ -54,10 +64,13 @@ class EventHandler(object):
         self._plugin_register_command("admin", command_names)
         self.explicit_admin_commands.extend(command_names)
 
-    def register_handler(self, function, type="message"):
+    def register_object(self, id, objectref):
+        """registers a shared object into bot.shared"""
+        self.bot.register_shared(id, objectref)
+
+    def register_handler(self, function, type="message", priority=50):
         """call during plugin init to register a handler for a specific bot event"""
-        # print('register_handler(): "{}" registered for "{}"'.format(function.__name__, type))
-        self.pluggables[type].append(function)
+        self.pluggables[type].append((function, priority, self._current_plugin["metadata"]))
 
     def get_admin_commands(self, conversation_id):
         # get list of commands that are admin-only, set in config.json OR plugin-registered
@@ -75,14 +88,7 @@ class EventHandler(object):
 
         if not event.user.is_self and event.text:
             # handlers from plugins
-            if "message" in self.pluggables:
-                for function in self.pluggables["message"]:
-                    try:
-                        yield from function(self.bot, event, command)
-                    except:
-                        message = "pluggables.message.{}".format(function.__name__)
-                        print("EXCEPTION in " + format(message))
-                        logging.exception(message)
+            yield from self.run_pluggable_omnibus("message", self.bot, event, command)
 
             # Run command
             yield from self.handle_command(event)
@@ -90,9 +96,18 @@ class EventHandler(object):
     @asyncio.coroutine
     def handle_command(self, event):
         """Handle command messages"""
+
+        # verify user is an admin
+        admins_list = self.bot.get_config_suboption(event.conv_id, 'admins')
+        initiator_is_admin = False
+        if event.user_id.chat_id in admins_list:
+            initiator_is_admin = True
+
         # Test if command handling is enabled
-        if not self.bot.get_config_suboption(event.conv_id, 'commands_enabled'):
-            return
+        # note: admins always bypass this check
+        if not initiator_is_admin:
+            if not self.bot.get_config_suboption(event.conv_id, 'commands_enabled'):
+                return
 
         if event.text.split()[0].lower() != self.bot_command:
             return
@@ -106,12 +121,10 @@ class EventHandler(object):
             self.bot.send_message(event.conv, '{}: missing parameter(s)'.format(event.user.full_name))
             return
 
+        # only admins can run admin commands
         commands_admin_list = self.get_admin_commands(event.conv_id)
-
         if commands_admin_list and line_args[1].lower() in commands_admin_list:
-            admins_list = self.bot.get_config_suboption(event.conv_id, 'admins')
-            # verify user is an admin
-            if event.user_id.chat_id not in admins_list:
+            if not initiator_is_admin:
                 self.bot.send_message(event.conv, '{}: Can\'t do that.'.format(event.user.full_name))
                 return
 
@@ -121,26 +134,52 @@ class EventHandler(object):
 
     @asyncio.coroutine
     def handle_chat_membership(self, event):
-        """Handle conversation membership change"""
-
-        # handlers from plugins
-        if "membership" in self.pluggables:
-            for function in self.pluggables["membership"]:
-                try:
-                    yield from function(self.bot, event, command)
-                except:
-                    message = "pluggables.membership.{}".format(function.__name__)
-                    print("EXCEPTION in " + format(message))
-                    logging.exception(message)
+        """handle conversation membership change"""
+        yield from self.run_pluggable_omnibus("membership", self.bot, event, command)
 
     @asyncio.coroutine
     def handle_chat_rename(self, event):
-        # handlers from plugins
-        if "rename" in self.pluggables:
-            for function in self.pluggables["rename"]:
-                try:
-                    yield from function(self.bot, event, command)
-                except:
-                    message = "pluggables.rename.{}".format(function.__name__)
-                    print("EXCEPTION in " + format(message))
-                    logging.exception(message)
+        """handle conversation name change"""
+        yield from self.run_pluggable_omnibus("rename", self.bot, event, command)
+
+
+    @asyncio.coroutine
+    def run_pluggable_omnibus(self, name, *args, **kwargs):
+        if name in self.pluggables:
+            try:
+                for function, priority, plugin_metadata in self.pluggables[name]:
+                    message = ["{}: {}.{}".format(
+                                name, 
+                                plugin_metadata[1],
+                                function.__name__)]
+
+                    try:
+                        if asyncio.iscoroutinefunction(function):
+                            message.append("coroutine")
+                            print(" : ".join(message))
+                            yield from function(*args, **kwargs)
+                        else:
+                            message.append("function")
+                            print(" : ".join(message))
+                            function(*args, **kwargs)
+                    except self.bot.Exceptions.SuppressHandler:
+                        # skip this pluggable, continue with next
+                        message.append("SuppressHandler")
+                        print(" : ".join(message))
+                        pass
+                    except (self.bot.Exceptions.SuppressEventHandling, 
+                            self.bot.Exceptions.SuppressAllHandlers):
+                        # skip all pluggables, decide whether to handle event at next level
+                        raise
+                    except:
+                        message = " : ".join(message)
+                        print("EXCEPTION in " + format(message))
+                        logging.exception(message)
+
+            except self.bot.Exceptions.SuppressAllHandlers:
+                # skip all other pluggables, but let the event continue
+                message.append("SuppressAllHandlers")
+                print(" : ".join(message))
+                pass
+            except:
+                raise
