@@ -87,6 +87,8 @@ class HangupsBot(object):
         self._user_list = None # hangups.UserList
         self._handlers = None # handlers.py::EventHandler
 
+        self._cache_event_id = {} # workaround for duplicate events
+
         # Load config file
         self.config = config.Config(config_path)
 
@@ -558,6 +560,16 @@ class HangupsBot(object):
         """Handle conversation events"""
 
         self._execute_hook("on_event", conv_event)
+
+        # workaround for duplicate events
+        self._cache_event_id = {k: v for k, v in self._cache_event_id.items() if v > time.time()-5}
+        if conv_event.id_ in self._cache_event_id:
+            message = "_on_event(): ignoring duplicate event {}".format(conv_event.id_)
+            print(message)
+            logging.warning(message)
+            return
+        self._cache_event_id[conv_event.id_] = time.time()
+        print("{} {}".format(conv_event.id_, conv_event.timestamp))
 
         event = ConversationEvent(self, conv_event)
 
