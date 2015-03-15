@@ -141,11 +141,6 @@ class HangupsBot(object):
         """Connect to Hangouts and run bot"""
         cookies = self.login(self._cookies_path)
         if cookies:
-            # Create Hangups client
-            self._client = hangups.Client(cookies)
-            self._client.on_connect.add_observer(self._on_connect)
-            self._client.on_disconnect.add_observer(self._on_disconnect)
-
             # Start asyncio event loop
             loop = asyncio.get_event_loop()
 
@@ -157,6 +152,11 @@ class HangupsBot(object):
             # If we are forcefully disconnected, try connecting again
             for retry in range(self._max_retries):
                 try:
+                    # create Hangups client (recreate if its a retry)
+                    self._client = hangups.Client(cookies)
+                    self._client.on_connect.add_observer(self._on_connect)
+                    self._client.on_disconnect.add_observer(self._on_disconnect)
+
                     loop.run_until_complete(self._client.connect())
                     sys.exit(0)
                 except Exception as e:
