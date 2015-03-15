@@ -561,15 +561,15 @@ class HangupsBot(object):
 
         self._execute_hook("on_event", conv_event)
 
-        # workaround for duplicate events
-        self._cache_event_id = {k: v for k, v in self._cache_event_id.items() if v > time.time()-5}
-        if conv_event.id_ in self._cache_event_id:
-            message = "_on_event(): ignoring duplicate event {}".format(conv_event.id_)
-            print(message)
-            logging.warning(message)
-            return
-        self._cache_event_id[conv_event.id_] = time.time()
-        print("{} {}".format(conv_event.id_, conv_event.timestamp))
+        if self.get_config_option('workaround.duplicate-events'):
+            if conv_event.id_ in self._cache_event_id:
+                message = "_on_event(): ignoring duplicate event {}".format(conv_event.id_)
+                print(message)
+                logging.warning(message)
+                return
+            self._cache_event_id = {k: v for k, v in self._cache_event_id.items() if v > time.time()-3}
+            self._cache_event_id[conv_event.id_] = time.time()
+            print("{} {}".format(conv_event.id_, conv_event.timestamp))
 
         event = ConversationEvent(self, conv_event)
 
