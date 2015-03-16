@@ -109,7 +109,11 @@ class EventHandler(object):
             if not self.bot.get_config_suboption(event.conv_id, 'commands_enabled'):
                 return
 
-        if event.text.split()[0].lower() != self.bot_command:
+        if not isinstance(self.bot_command, list):
+            # always a list
+            self.bot_command = [self.bot_command]
+
+        if not event.text.split()[0].lower() in self.bot_command:
             return
 
         # Parse message

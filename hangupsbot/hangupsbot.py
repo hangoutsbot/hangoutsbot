@@ -542,8 +542,6 @@ class HangupsBot(object):
         print('Connected!')
         self._handlers = handlers.EventHandler(self)
 
-        self._load_plugins()
-
         self._user_list = hangups.UserList(self._client,
                                            initial_data.self_entity,
                                            initial_data.entities,
@@ -554,7 +552,7 @@ class HangupsBot(object):
                                                    initial_data.sync_timestamp)
         self._conv_list.on_event.add_observer(self._on_event)
 
-        #self.print_conversations()
+        self._load_plugins()
 
     def _on_event(self, conv_event):
         """Handle conversation events"""
