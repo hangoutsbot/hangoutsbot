@@ -10,12 +10,13 @@ def _initialise(command):
 def _handle_message(bot, event, command):
     language_map = gs.get_languages()
     raw_text = event.text.lower()
+    raw_text = ' '.join(raw_text.split())
     translate_target = None
 
     for iso_language in language_map:
         text_language = language_map[iso_language].lower()
 
-        language_marker = "/" + text_language
+        language_marker = " /" + text_language
         if raw_text.endswith(language_marker):
             raw_text = raw_text.replace(language_marker, "").strip()
             translate_target = [iso_language, text_language]
