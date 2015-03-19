@@ -17,7 +17,7 @@ from sinks.listener import start_listening
 from inspect import getmembers, isfunction
 
 
-__version__ = '2.2'
+__version__ = '2.3'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
 
