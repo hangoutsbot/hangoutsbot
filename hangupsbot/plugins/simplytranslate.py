@@ -10,6 +10,7 @@ def _initialise(command):
 def _handle_message(bot, event, command):
     language_map = gs.get_languages()
     raw_text = event.text.lower()
+    raw_text = ' '.join(raw_text.split())
     translate_target = None
 
     for iso_language in language_map:
