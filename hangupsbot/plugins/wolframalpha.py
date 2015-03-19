@@ -34,7 +34,7 @@ def ask(bot, event, *args):
         if pod.title:
             html += "<b>{}:</b> ".format(pod.title)
 
-        if pod.text:
+        if pod.text and pod.text.strip():
             html += pod.text.strip().replace("\n", "<br />") + "<br />"
             has_content = True
         else:
