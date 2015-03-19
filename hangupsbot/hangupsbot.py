@@ -17,7 +17,7 @@ from sinks.listener import start_listening
 from inspect import getmembers, isfunction
 
 
-__version__ = '2.2'
+__version__ = '2.3'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
 
@@ -87,6 +87,8 @@ class HangupsBot(object):
         self._user_list = None # hangups.UserList
         self._handlers = None # handlers.py::EventHandler
 
+        self._cache_event_id = {} # workaround for duplicate events
+
         # Load config file
         self.config = config.Config(config_path)
 
@@ -139,11 +141,6 @@ class HangupsBot(object):
         """Connect to Hangouts and run bot"""
         cookies = self.login(self._cookies_path)
         if cookies:
-            # Create Hangups client
-            self._client = hangups.Client(cookies)
-            self._client.on_connect.add_observer(self._on_connect)
-            self._client.on_disconnect.add_observer(self._on_disconnect)
-
             # Start asyncio event loop
             loop = asyncio.get_event_loop()
 
@@ -155,6 +152,11 @@ class HangupsBot(object):
             # If we are forcefully disconnected, try connecting again
             for retry in range(self._max_retries):
                 try:
+                    # create Hangups client (recreate if its a retry)
+                    self._client = hangups.Client(cookies)
+                    self._client.on_connect.add_observer(self._on_connect)
+                    self._client.on_disconnect.add_observer(self._on_disconnect)
+
                     loop.run_until_complete(self._client.connect())
                     sys.exit(0)
                 except Exception as e:
@@ -540,8 +542,6 @@ class HangupsBot(object):
         print('Connected!')
         self._handlers = handlers.EventHandler(self)
 
-        self._load_plugins()
-
         self._user_list = hangups.UserList(self._client,
                                            initial_data.self_entity,
                                            initial_data.entities,
@@ -552,12 +552,22 @@ class HangupsBot(object):
                                                    initial_data.sync_timestamp)
         self._conv_list.on_event.add_observer(self._on_event)
 
-        #self.print_conversations()
+        self._load_plugins()
 
     def _on_event(self, conv_event):
         """Handle conversation events"""
 
         self._execute_hook("on_event", conv_event)
+
+        if self.get_config_option('workaround.duplicate-events'):
+            if conv_event.id_ in self._cache_event_id:
+                message = "_on_event(): ignoring duplicate event {}".format(conv_event.id_)
+                print(message)
+                logging.warning(message)
+                return
+            self._cache_event_id = {k: v for k, v in self._cache_event_id.items() if v > time.time()-3}
+            self._cache_event_id[conv_event.id_] = time.time()
+            print("{} {}".format(conv_event.id_, conv_event.timestamp))
 
         event = ConversationEvent(self, conv_event)
 

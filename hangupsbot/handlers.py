@@ -64,9 +64,15 @@ class EventHandler(object):
         self._plugin_register_command("admin", command_names)
         self.explicit_admin_commands.extend(command_names)
 
-    def register_object(self, id, objectref):
+    def register_object(self, id, objectref, forgiving=True):
         """registers a shared object into bot.shared"""
-        self.bot.register_shared(id, objectref)
+        try:
+            self.bot.register_shared(id, objectref)
+        except RuntimeError:
+            if forgiving:
+                print("register_object(): {} already registered".format(id))
+            else:
+                raise
 
     def register_handler(self, function, type="message", priority=50):
         """call during plugin init to register a handler for a specific bot event"""
@@ -109,7 +115,11 @@ class EventHandler(object):
             if not self.bot.get_config_suboption(event.conv_id, 'commands_enabled'):
                 return
 
-        if event.text.split()[0].lower() != self.bot_command:
+        if not isinstance(self.bot_command, list):
+            # always a list
+            self.bot_command = [self.bot_command]
+
+        if not event.text.split()[0].lower() in self.bot_command:
             return
 
         # Parse message
