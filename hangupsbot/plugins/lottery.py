@@ -3,8 +3,14 @@ import asyncio,re
 from random import shuffle
 
 
-def _initialise(command):
-    command.register_handler(_handle_me_action)
+def _initialise(Handlers, bot=None):
+    Handlers.register_handler(_handle_me_action)
+    if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
+        Handlers.register_admin_command(["prepare", "perform_drawing"])
+        return []
+    else:
+        print("LOTTERY: LEGACY FRAMEWORK MODE")
+        return ["prepare"]
 
 
 @asyncio.coroutine
@@ -13,6 +19,7 @@ def _handle_me_action(bot, event, command):
     #   do more complex checking later
     if event.text.startswith('/me draw'):
         yield from command.run(bot, event, *["perform_drawing"])
+
 
 def _get_global_lottery_name(bot, conversation_id, listname):
     # support for syncrooms plugin
@@ -46,18 +53,15 @@ def _save_lottery_state(bot, draw_lists):
 
 
 def prepare(bot, event, *args):
-    """prepares a bundle of things for a random draw
-        /bot prepare numbers 1-8
-            "numbers" = [1,2,3,4,5,6,7,8]
-        /bot prepare numbers 42,74,98,3
-            "numbers" = [42,74,98,3]
-        /bot prepare sticks 3long1short
-            "stick" = [long,long,long,short]
-        /bot prepare 1-3
-            "default" = [1,2,3]
-
-        note: see /me draw for user lottery/drawings
+    """prepares a bundle of "things" for a random lottery.
+    parameter: optional "things", draw definitions. if "things" is not specified, "default" will 
+    be used. draw definitions can be a simple range such as 1-8; a specific list of things to draw 
+    such as a,b,c,d,e; or a shorthand list such as 2abc1xyz (which prepares list abc,abc,xyz). any
+    user can draw once from the default lottery with command /me draws. if multiple lotteries 
+    (non-default) are active, the user should use: /me draws a "thing". special keywords for
+    draw definitions: COMPASS creates list based on the cardinal and ordinal directions.
     """
+
     max_items = 100
 
     listname = "default"
@@ -140,7 +144,7 @@ def perform_drawing(bot, event, *args):
 
     draw_lists = _load_lottery_state(bot) # load in any existing lotteries
 
-    pattern = re.compile("/me draws?( +(a +|an +)?([a-z0-9\-_]+))?$", re.IGNORECASE)
+    pattern = re.compile("/me draws?( +(a +|an +|from +)?([a-z0-9\-_]+))?$", re.IGNORECASE)
     if pattern.match(event.text):
         listname = "default"
 

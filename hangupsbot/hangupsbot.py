@@ -17,8 +17,25 @@ from sinks.listener import start_listening
 from inspect import getmembers, isfunction
 
 
-__version__ = '2.1'
+__version__ = '2.3'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+
+
+class SuppressHandler(Exception):
+    pass
+
+class SuppressAllHandlers(Exception):
+    pass
+
+class SuppressEventHandling(Exception):
+    pass
+
+class HangupsBotExceptions:
+    def __init__(self):
+        self.SuppressHandler = SuppressHandler
+        self.SuppressAllHandlers = SuppressAllHandlers
+        self.SuppressEventHandling = SuppressEventHandling
+
 
 class FakeConversation(object):
     def __init__(self, _client, id_):
@@ -57,6 +74,10 @@ class ConversationEvent(object):
 class HangupsBot(object):
     """Hangouts bot listening on all conversations"""
     def __init__(self, cookies_path, config_path, max_retries=5, memory_file=None):
+        self.Exceptions = HangupsBotExceptions()
+
+        self.shared = {} # safe place to store references to objects
+
         self._client = None
         self._cookies_path = cookies_path
         self._max_retries = max_retries
@@ -65,6 +86,8 @@ class HangupsBot(object):
         self._conv_list = None # hangups.ConversationList
         self._user_list = None # hangups.UserList
         self._handlers = None # handlers.py::EventHandler
+
+        self._cache_event_id = {} # workaround for duplicate events
 
         # Load config file
         self.config = config.Config(config_path)
@@ -91,6 +114,18 @@ class HangupsBot(object):
         except NotImplementedError:
             pass
 
+    def register_shared(self, id, objectref):
+        if id in self.shared:
+            raise RuntimeError("{} already registered in shared".format(id))
+        self.shared[id] = objectref
+
+    def call_shared(self, id, *args, **kwargs):
+        object = self.shared[id]
+        if hasattr(object, '__call__'):
+            return object(*args, **kwargs)
+        else:
+            return object
+
     def login(self, cookies_path):
         """Login to Google account"""
         # Authenticate Google user and save auth cookies
@@ -106,11 +141,6 @@ class HangupsBot(object):
         """Connect to Hangouts and run bot"""
         cookies = self.login(self._cookies_path)
         if cookies:
-            # Create Hangups client
-            self._client = hangups.Client(cookies)
-            self._client.on_connect.add_observer(self._on_connect)
-            self._client.on_disconnect.add_observer(self._on_disconnect)
-
             # Start asyncio event loop
             loop = asyncio.get_event_loop()
 
@@ -122,6 +152,11 @@ class HangupsBot(object):
             # If we are forcefully disconnected, try connecting again
             for retry in range(self._max_retries):
                 try:
+                    # create Hangups client (recreate if its a retry)
+                    self._client = hangups.Client(cookies)
+                    self._client.on_connect.add_observer(self._on_connect)
+                    self._client.on_disconnect.add_observer(self._on_disconnect)
+
                     loop.run_until_complete(self._client.connect())
                     sys.exit(0)
                 except Exception as e:
@@ -139,19 +174,27 @@ class HangupsBot(object):
             self._client.disconnect()
         ).add_done_callback(lambda future: future.result())
 
-    def send_message(self, conversation, text):
+    def send_message(self, conversation, text, context=None):
         """"Send simple chat message"""
-        self.send_message_segments(conversation, [hangups.ChatMessageSegment(text)])
+        self.send_message_segments(
+            conversation, 
+            [hangups.ChatMessageSegment(text)], 
+            context)
 
-    def send_message_parsed(self, conversation, html):
+    def send_message_parsed(self, conversation, html, context=None):
         segments = simple_parse_to_segments(html)
-        self.send_message_segments(conversation, segments)
+        self.send_message_segments(conversation, segments, context)
 
-    def send_message_segments(self, conversation, segments, context=None, sync_room_support=True):
+    def send_message_segments(self, conversation, segments, context=None):
         """Send chat message segments"""
         # Ignore if the user hasn't typed a message.
         if len(segments) == 0:
             return
+
+        # add default context if none exists
+        if not context:
+            context = {}
+        context["base"] = self._messagecontext_legacy()
 
         # reduce conversation to the only thing we need: the id
         if isinstance(conversation, (FakeConversation, hangups.conversation.Conversation)):
@@ -164,22 +207,35 @@ class HangupsBot(object):
         # by default, a response always goes into a single conversation only
         broadcast_list = [(conversation_id, segments)]
 
-        # handlers from plugins
-        if "sending" in self._handlers.pluggables:
-            for function in self._handlers.pluggables["sending"]:
-                try:
-                    function(self, broadcast_list, context)
-                except:
-                    message = "pluggables.sending.{}".format(function.__name__)
-                    print("EXCEPTION in " + format(message))
-                    logging.exception(message)
+        asyncio.async(
+            self._begin_message_sending(broadcast_list, context)
+        ).add_done_callback(self._on_message_sent)
 
-        # send messages using FakeConversation as a workaround
+
+    @asyncio.coroutine
+    def _begin_message_sending(self, broadcast_list, context):
+        try:
+            yield from self._handlers.run_pluggable_omnibus("sending", self, broadcast_list, context)
+        except self.Exceptions.SuppressEventHandling:
+            print("_begin_message_sending(): SuppressEventHandling")
+            return
+        except:
+            raise
+
+        debug_sending = False
+        if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+            debug_sending = True
+
+        if debug_sending:
+            print("_begin_message_sending(): global context: {}".format(context))
+
         for response in broadcast_list:
+            if debug_sending:
+                print("_begin_message_sending(): {} {} segments(s)".format(response[0], len(response[1])))
+
+            # send messages using FakeConversation as a workaround
             _fc = FakeConversation(self._client, response[0])
-            asyncio.async(
-                _fc.send_message(response[1])
-            ).add_done_callback(self._on_message_sent)
+            yield from _fc.send_message(response[1])
 
 
     def list_conversations(self):
@@ -194,11 +250,20 @@ class HangupsBot(object):
 
         return convs
 
-    def get_users_in_conversation(self, conv_id):
-        """List all users in conv_id"""
-        for c in self.list_conversations():
-            if conv_id in c.id_:
-                return c.users
+    def get_users_in_conversation(self, conv_ids):
+        """list all users in supplied conv_id(s).
+        supply many conv_id as a list.
+        """
+        if isinstance(conv_ids, str):
+            conv_ids = [conv_ids]
+        all_users = []
+        conv_ids = list(set(conv_ids)) 
+        for conversation in self.list_conversations():
+            for room_id in conv_ids:
+                if room_id in conversation.id_:
+                    all_users += conversation.users
+        all_users = list(set(all_users))
+        return all_users
 
     def get_config_option(self, option):
         return self.config.get_option(option)
@@ -281,6 +346,16 @@ class HangupsBot(object):
             # create the memory
             self.memory.set_by_path([datatype, chat_id], {})
 
+    def messagecontext(self, source, importance, tags):
+        return {
+            "source": source,
+            "importance": importance,
+            "tags": tags
+        }
+
+    def _messagecontext_legacy(self):
+        return self.messagecontext("unknown", 50, ["legacy"])
+
     def _load_plugins(self):
         plugin_list = self.get_config_option('plugins')
         if plugin_list is None:
@@ -319,7 +394,7 @@ class HangupsBot(object):
             """
             available_commands = False # default: ALL
             try:
-                self._handlers.plugin_preinit_stats()
+                self._handlers.plugin_preinit_stats((module, module_path))
                 for function_name, the_function in public_functions:
                     if function_name ==  "_initialise" or function_name ==  "_initialize":
                         try:
@@ -365,6 +440,8 @@ class HangupsBot(object):
 
             if registered_commands:
                 print("added: {}".format(", ".join(registered_commands)))
+
+        self._handlers.all_plugins_loaded()
 
 
     def _start_sinks(self, shared_loop):
@@ -465,8 +542,6 @@ class HangupsBot(object):
         print('Connected!')
         self._handlers = handlers.EventHandler(self)
 
-        self._load_plugins()
-
         self._user_list = hangups.UserList(self._client,
                                            initial_data.self_entity,
                                            initial_data.entities,
@@ -477,12 +552,22 @@ class HangupsBot(object):
                                                    initial_data.sync_timestamp)
         self._conv_list.on_event.add_observer(self._on_event)
 
-        #self.print_conversations()
+        self._load_plugins()
 
     def _on_event(self, conv_event):
         """Handle conversation events"""
 
         self._execute_hook("on_event", conv_event)
+
+        if self.get_config_option('workaround.duplicate-events'):
+            if conv_event.id_ in self._cache_event_id:
+                message = "_on_event(): ignoring duplicate event {}".format(conv_event.id_)
+                print(message)
+                logging.warning(message)
+                return
+            self._cache_event_id = {k: v for k, v in self._cache_event_id.items() if v > time.time()-3}
+            self._cache_event_id[conv_event.id_] = time.time()
+            print("{} {}".format(conv_event.id_, conv_event.timestamp))
 
         event = ConversationEvent(self, conv_event)
 
@@ -529,24 +614,40 @@ class HangupsBot(object):
         print('DEPRECATED: external_send_message_parsed(), use send_html_to_conversation()')
         self.send_html_to_conversation(conversation_id, html)
 
-    def send_html_to_conversation(self, conversation_id, html):
+    def send_html_to_conversation(self, conversation_id, html, context=None):
         print('send_html_to_conversation(): sending to {}'.format(conversation_id))
-        self.send_message_parsed(conversation_id, html)
+        self.send_message_parsed(conversation_id, html, context)
 
-    def send_html_to_user(self, user_id, html):
+    def send_html_to_user(self, user_id, html, context=None):
         conversation = self.get_1on1_conversation(user_id)
         if not conversation:
             print('send_html_to_user(): 1-to-1 conversation not found')
             return False
         print('send_html_to_user(): sending to {}'.format(user_id))
-        self.send_message_parsed(conversation, html)
+        self.send_message_parsed(conversation, html, context)
         return True
 
-    def send_html_to_user_or_conversation(self, user_id_or_conversation_id, html):
+    def send_html_to_user_or_conversation(self, user_id_or_conversation_id, html, context=None):
         """Attempts send_html_to_user. If failed, attempts send_html_to_conversation"""
         # NOTE: Assumption that a conversation_id will never match a user_id
-        if not self.send_html_to_user(user_id_or_conversation_id, html):
-            self.send_html_to_conversation(user_id_or_conversation_id, html)
+        if not self.send_html_to_user(user_id_or_conversation_id, html, context):
+            self.send_html_to_conversation(user_id_or_conversation_id, html, context)
+
+    def user_self(self):
+        myself = {
+            "chat_id": None,
+            "full_name": None,
+            "email": None
+        }
+        User = self._user_list._self_user
+
+        myself["chat_id"] = User.id_.chat_id
+
+        if User.full_name: myself["full_name"] = User.full_name
+        if User.emails and User.emails[0]: myself["email"] = User.emails[0]
+
+        return myself
+
 
 def main():
     """Main entry point"""
