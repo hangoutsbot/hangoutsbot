@@ -25,7 +25,7 @@ def _watch_image_link(bot, event, command):
         
         print(event.conv.id_)
         print("yo yo") 
-        bot.send_message_parsed(event.conv,"dekrizifying....")
+        #bot.send_message_parsed(event.conv,"dekrizifying....")
         #bot.zSend(event.conv.id_)
         #This uploads and posts the image as I dont fully undrstand returns/yields/etc.
         photoID = yield from asyncio.async(uploadPhoto(event.text))
