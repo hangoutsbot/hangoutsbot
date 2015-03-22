@@ -1,5 +1,8 @@
 #Dekrizifier - Powered by Hangupsbot
 
+**UPDATES**
+Very simplistic and hacky image upload to google plus along with the posting of images.  See plugins/dekriz.py.  testUpload.py is also my trial and error for uploading to Google Plus.  All of this needs to be overhauled.
+
 Hangupsbot is a bot designed for working with Google Hangouts.
 * **Mentions** :
   If somebody mentions you in a room, receive a private hangout from the bot with details onthe mention, 
