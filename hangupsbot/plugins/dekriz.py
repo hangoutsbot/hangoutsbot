@@ -21,7 +21,8 @@ def _watch_image_link(bot, event, command):
     # Don't handle events caused by the bot himself
     if event.user.is_self:
         return
-    if ".jpg" in event.text:
+    if ".jpg" in event.text or ".png" in event.text or ".gif" in event.text or ".gifv" in event.text:
+        
         print(event.conv.id_)
         print("yo yo") 
         bot.send_message_parsed(event.conv,"dekrizifying....")
@@ -32,6 +33,7 @@ def _watch_image_link(bot, event, command):
         bot.testsendchatmessage(event.conv.id_,photoID)
 
 def uploadPhoto(downloadURL):
+    downloadURL = downloadURL.replace(".gifv",".gif")
     epoch_time = int(time.time())
     epoch_time = str(epoch_time)+"000"
     print(epoch_time)
