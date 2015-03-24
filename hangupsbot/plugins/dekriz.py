@@ -21,7 +21,7 @@ def _watch_image_link(bot, event, command):
     # Don't handle events caused by the bot himself
     if event.user.is_self:
         return
-    if ".jpg" in event.text or ".png" in event.text or ".gif" in event.text or ".gifv" in event.text:
+    if (".jpg" in event.text or ".png" in event.text or ".gif" in event.text or ".gifv" in event.text) and "googleusercontent" not in event.text:
         
         print(event.conv.id_)
         print("yo yo") 
