@@ -64,15 +64,15 @@ def user(bot, event, username, *args):
     bot.send_message_segments(event.conv, segments)
 
 
-def hangouts(bot, event, *args):
-    """list all active hangouts.
-    key: c = commands enabled, f = forwarding enabled
+def hangouts(bot, event, showid=None, *args):
+    """list all active hangouts. Use '/bot hangouts id' to return the conv_id too
+    key: c = commands enabled
     """
 
     line = "<b>list of active hangouts:</b><br />"
 
     for c in bot.list_conversations():
-        line = line + "{}".format(get_conv_name(c, truncate=True))
+        line += "<b>{}</b>: <i>{}</i>".format(get_conv_name(c, truncate=True), c.id_)
 
         suboptions = []
 
@@ -80,9 +80,9 @@ def hangouts(bot, event, *args):
         if _value:
             suboptions.append("c")
         if len(suboptions) > 0:
-            line = line + ' [ ' + ', '.join(suboptions) + ' ]'
+            line += ' [ ' + ', '.join(suboptions) + ' ]'
 
-        line = line + "<br />"
+        line += "<br />"
 
     bot.send_message_parsed(event.conv, line)
 
