@@ -1,7 +1,6 @@
-# Installation
+# Preparing your Environment
 
-Install python 3.4 from source
-
+**install python 3.4 from source**
 ```
 wget https://www.python.org/ftp/python/3.4.2/Python-3.4.2.tgz
 tar xvf Python-3.4.2.tgz
@@ -11,41 +10,78 @@ make
 make install
 ```
 
-Install dependencies
-
+**install dependencies**
 ```
 pip3 install -r requirements.txt
 ```
 
-# Admins: Quick Installation & Configuration
-
-* `config.json` is found in two places:
-  * one folder below `hangupsbot.py`;and later,
-  * ...in `/root/.local/share/hangupsbot/` after first successful run
-* add (or replace) your *user id* into the `admins` array in config.json
-
+**git clone the respository**
 ```
-{
-  "admins": [
-    "104821221116551390464"
-  ],
-  "autoreplies": [
-  ...
+git clone <repository url>
 ```
-To find out how to get your user id, read on!
 
-## Getting your User ID
+# First-Run
 
-### first time admins with no existing bot
+You need to **run the bot for the first time**. You will need at least 
+  two gmail accounts: one is your actual account, the other will be your 
+  bot account.
 
-1. start the bot with a valid gmail account (not your actual account!)
-2. open a hangout with the bot (using your actual account), say anything to it
-3. login into the bot's gmail account and ensure chat is activated
-4. open up invites, and accept your incoming invite (from your actual account)
-5. restart the bot and it will dump out a conversation and users list
-6. find your actual account user name, the chat_id will be listed next to it
+The basic syntax for running the bot (assuming you are in the root 
+  of the cloned repository) is:
+```
+python3 hangupsbot/hangupsbot.py
+```
 
-### with an existing bot
+If you are having problems starting the bot, appending a `-d` at the
+  end will dump more details into the bot logs e.g. 
+  `python3 hangupsbot/hangupsbot.py -d` - more configuration 
+  directives can be found at the end of the README file.
 
-join a group with an existing bot and issue this command `/bot whoami`, your
-chat_id will be displayed
+You will be prompted for your gmail username and password. Use your
+  bot account credentials. If the login is sucessful, you will see
+  additional logs about plugins being loaded. The credentials will be
+  saved so that running the bot again will not prompt you for username
+  and password again.
+
+To quit the bot from the console, press CTRL-C
+
+# Initial Configuration
+
+You will need to add your actual Hangouts user as a bot administrator.
+
+This will be accomplished using the supplied **starter** plugin with
+  the default supplied configuration.
+
+1. Using a hangouts client and your actual gmail account, open a 
+   hangout with the bot account.
+2. Send any message to the bot.
+3. On a browser, login into the bot's gmail account and ensure chat 
+   is activated. Accept the invite from your actual account.
+4. Back on your hangouts client, send the following message:
+   `/bot iamspartacus`
+5. The bot should reply with "configuring first admin" or a similar
+   message.
+
+# Additional Configuration
+
+After the first successful run of the bot, it should generate a 
+  `config.json` somewhere in your user directory.
+
+You should be able to find it in: 
+  `/<username>/.local/share/hangupsbot/`, where <username> is your
+  operating system username.
+
+You can edit this file and restart the bot to load any new configs.
+
+For further information, please see the README file and wiki.
+
+# Troubleshooting
+
+* For console output when the bot is starting, errors messages always
+  start in ALLCAPS e.g. "EXCEPTION in ..."
+* Additional logs can be found in: 
+  `/<username>/.local/share/hangupsbot/hangupsbot.log` - 
+  note: this file is more useful for developers and may be quite verbose
+* You can verify the location of your active `config.json` by sending
+  the following command to the bot via hangouts: `/bot files` (with
+  the **starter** plugin active)
