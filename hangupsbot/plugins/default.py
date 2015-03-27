@@ -79,9 +79,6 @@ def hangouts(bot, event, *args):
         _value = bot.get_config_suboption(c.id_, 'commands_enabled')
         if _value:
             suboptions.append("c")
-        _value = bot.get_config_suboption(c.id_, 'forwarding_enabled')
-        if _value:
-            suboptions.append("f")
         if len(suboptions) > 0:
             line = line + ' [ ' + ', '.join(suboptions) + ' ]'
 
@@ -122,7 +119,7 @@ def leave(bot, event, conversation_id=None, *args):
         convs.append(event.conv.id_)
         leave_quietly = True
     else:
-        convs.append(conversation_id) 
+        convs.append(conversation_id)
 
     for c_id in convs:
         if not leave_quietly:
