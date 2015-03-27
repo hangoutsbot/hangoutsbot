@@ -64,7 +64,7 @@ def user(bot, event, username, *args):
     bot.send_message_segments(event.conv, segments)
 
 
-def hangouts(bot, event, showid=None, *args):
+def hangouts(bot, event, *args):
     """list all active hangouts. Use '/bot hangouts id' to return the conv_id too
     key: c = commands enabled
     """
