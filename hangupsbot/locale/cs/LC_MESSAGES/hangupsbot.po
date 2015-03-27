@@ -1,0 +1,295 @@
+# Copyright (C) YEAR ORGANIZATION
+#
+# Michal Krenek (Mikos) <m.krenek@gmail.com>, 2015.
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"POT-Creation-Date: 2015-03-27 01:34+CET\n"
+"PO-Revision-Date: 2015-03-27 11:28+0100\n"
+"Last-Translator: Michal Krenek (Mikos) <m.krenek@gmail.com>\n"
+"Language-Team: Czech <>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: ENCODING\n"
+"Generated-By: pygettext.py 1.5\n"
+"Language: cs\n"
+"Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
+"X-Generator: Lokalize 1.5\n"
+
+#: hangupsbot/commands/default.py:12
+#, docstring
+msgid "Unknown command handler"
+msgstr "Neznámý příkaz"
+
+#: hangupsbot/commands/default.py:14
+msgid "{}: Unknown command!"
+msgstr "{}: Ja ne znaju, ne ponimaju!"
+
+#: hangupsbot/commands/default.py:19
+#, docstring
+msgid ""
+"Help me, Obi-Wan Kenobi. You're my only hope.\n"
+"       Usage: /bot help [command]"
+msgstr ""
+"Help me, Obi-Wan Kenobi. You're my only hope.\n"
+"       Použití: /bot help [command]"
+
+#: hangupsbot/commands/default.py:22
+msgid "Supported commands:"
+msgstr "Podporované příkazy:"
+
+#: hangupsbot/commands/default.py:40
+#, docstring
+msgid "Let's play ping pong!"
+msgstr "Zahrajem si ping pong!"
+
+#: hangupsbot/commands/default.py:46
+#, docstring
+msgid ""
+"Monkey see, monkey do!\n"
+"       Usage: /bot echo text"
+msgstr ""
+"Pojďme se opičit!\n"
+"       Použití: /bot echo text"
+
+#: hangupsbot/commands/default.py:53
+#, docstring
+msgid ""
+"List all participants in current conversation (including G+ accounts and "
+"emails)"
+msgstr "Výpis všech uživatelů v aktuálním Hangoutu (včetně G+ účtů a emailů)"
+
+#: hangupsbot/commands/default.py:54
+msgid "List of participants ({} total):"
+msgstr "Seznam uživatelů (celkem {}):"
+
+#: hangupsbot/commands/default.py:72
+#, docstring
+msgid ""
+"Find user by name\n"
+"       Usage: /bot user user_name"
+msgstr ""
+"Vyhledá uživatele podle jména\n"
+"       Použití: /bot user user_name"
+
+#: hangupsbot/commands/default.py:75
+msgid "Search results for user name \"{}\":"
+msgstr "Výsledky hledání uživatelů jménem \"{}\":"
+
+#: hangupsbot/commands/default.py:97
+#, docstring
+msgid ""
+"List all conversations where bot is wreaking havoc\n"
+"       Legend: c ... commands, f ... forwarding, a ... autoreplies"
+msgstr ""
+"Výpis všech aktivních Hangoutů, v kterých řádí bot\n"
+"       Vysvětlivky: c ... commands, f ... forwarding, a ... autoreplies"
+
+#: hangupsbot/commands/default.py:99
+msgid "Active conversations:"
+msgstr "Seznam aktivních Hangoutů:"
+
+#: hangupsbot/commands/default.py:114
+#, docstring
+msgid ""
+"Rename current conversation\n"
+"       Usage: /bot rename new_conversation_name"
+msgstr ""
+"Přejmenuje aktuální Hangout\n"
+"       Použití: /bot rename new_conversation_name"
+
+#: hangupsbot/commands/default.py:121
+#, docstring
+msgid ""
+"Leave current (or specified) conversation\n"
+"       Usage: /bot leave [conversation_name]"
+msgstr ""
+"Opustí aktuální nebo jiný specifikovaný Hangout\n"
+"       Použití: /bot leave [conversation_name]"
+
+#: hangupsbot/commands/default.py:134
+msgid "I'll be back!"
+msgstr "I'll be back!"
+
+#: hangupsbot/commands/default.py:141
+#, docstring
+msgid ""
+"Annoy people with easter egg combo!\n"
+"       Usage: /bot easteregg easter_egg_type [count] [period]\n"
+"       Supported easter eggs: ponies, pitchforks, bikeshed, shydino"
+msgstr ""
+"Spustí combo velikonočních vajíček!\n"
+"       Použití: /bot easteregg easter_egg_type [count] [period]\n"
+"       Podporovaná velikonoční vajíčka: ponies, pitchforks, bikeshed, shydino"
+
+#: hangupsbot/commands/default.py:152
+#, docstring
+msgid ""
+"Spoof IngressBot on specified GPS coordinates\n"
+"       Usage: /bot spoof latitude,longitude [hack|fire|deploy|mod] [level] "
+"[count]"
+msgstr ""
+"Spoofne instanci IngressBota na určené GPS souřadnice\n"
+"       Použití: /bot spoof latitude,longitude [hack|fire|deploy|mod] [level] "
+"[count]"
+
+#: hangupsbot/commands/default.py:154 hangupsbot/handlers/membership.py:26
+msgid "!!! WARNING !!!"
+msgstr "!!! POZOR !!!"
+
+#: hangupsbot/commands/default.py:156
+msgid "Agent {} ("
+msgstr "Uživatel {} ("
+
+#: hangupsbot/commands/default.py:160
+msgid ") has been reported to Niantic for attempted spoofing!"
+msgstr ") byl právě reportován Nianticu za pokus o spoofing!"
+
+#: hangupsbot/commands/default.py:166
+#, docstring
+msgid "Reload bot configuration from file"
+msgstr "Znovu načte konfiguraci bota ze souboru"
+
+#: hangupsbot/commands/default.py:172
+#, docstring
+msgid "Oh my God! They killed Kenny! You bastards!"
+msgstr "Nech bota žít!"
+
+#: hangupsbot/commands/default.py:173
+msgid "HangupsBot killed by user {} from conversation {}"
+msgstr "HangupsBot byl ukončen uživatelem {} z konverzace {}"
+
+#: hangupsbot/commands/default.py:180
+#, docstring
+msgid ""
+"Show or change bot configuration\n"
+"       Usage: /bot config [get|set] [key] [subkey] [...] [value]"
+msgstr ""
+"Zobrazí nebo upraví konfiguraci bota\n"
+"       Použití: /bot config [get|set] [key] [subkey] [...] [value]"
+
+#: hangupsbot/commands/default.py:200
+msgid "Key not found!"
+msgstr "Klíč nenalezen!"
+
+#: hangupsbot/handlers/__init__.py:25
+msgid "Conversation ID: {}"
+msgstr "ID konverzace: {}"
+
+#: hangupsbot/handlers/__init__.py:26
+msgid "Conversation name: {}"
+msgstr "Jméno konverzace: {}"
+
+#: hangupsbot/handlers/__init__.py:27
+msgid "User ID: {}"
+msgstr "ID uživatele: {}"
+
+#: hangupsbot/handlers/__init__.py:28
+msgid "User name: {}"
+msgstr "Jméno uživatele: {}"
+
+#: hangupsbot/handlers/__init__.py:29
+msgid "Timestamp: {}"
+msgstr "Časová značka: {}"
+
+#: hangupsbot/handlers/__init__.py:30
+msgid "Text: {}"
+msgstr "Text: {}"
+
+#: hangupsbot/handlers/commands.py:29
+msgid "{}: How may I serve you?"
+msgstr "{}: Co si bude pán ráčit?"
+
+#: hangupsbot/handlers/commands.py:38
+msgid "{}: I'm sorry, Dave. I'm afraid I can't do that."
+msgstr "{}: I'm sorry, Dave. I'm afraid I can't do that."
+
+#: hangupsbot/handlers/membership.py:24
+msgid "{}: Welcome!"
+msgstr "{}: Ahoj, vítej mezi nás!"
+
+#: hangupsbot/handlers/membership.py:28
+msgid "{} invited user {} without authorization!"
+msgstr "{} neoprávněně přidal do tohoto Hangoutu uživatele {}!"
+
+#: hangupsbot/handlers/membership.py:32
+msgid "{}: Please leave this conversation immediately!"
+msgstr "{}: Opusťte prosím urychleně tento Hangout!"
+
+#: hangupsbot/handlers/membership.py:37
+msgid "{} has jilted us :-( Hasta la vista, baby!"
+msgstr "{} nám dal košem :-( Řekněte pá pá!"
+
+#: hangupsbot/handlers/rename.py:15
+msgid "{} cleared the conversation name"
+msgstr "{} odstranil nastavené jméno konverzace"
+
+#: hangupsbot/handlers/rename.py:17
+msgid "{} renamed the conversation to {}"
+msgstr "{} přejmenoval konverzaci na {}"
+
+#: hangupsbot/hangupsbot.py:50
+msgid "Login failed ({})"
+msgstr "Přihlášení selhalo ({})"
+
+#: hangupsbot/hangupsbot.py:70
+msgid ""
+"Client unexpectedly disconnected:\n"
+"{}"
+msgstr ""
+"Klient byl neočekávaně odpojen od serveru:\n"
+"{}"
+
+#: hangupsbot/hangupsbot.py:71
+msgid "Waiting {} seconds..."
+msgstr "Čekám {} sekund..."
+
+#: hangupsbot/hangupsbot.py:73
+msgid "Trying to connect again (try {} of {})..."
+msgstr "Pokouším se znovu připojit (pokus {} z {})..."
+
+#: hangupsbot/hangupsbot.py:74
+msgid "Maximum number of retries reached! Exiting..."
+msgstr "Dosažen maximální počet pokusů o připojení! Ukončuji..."
+
+#: hangupsbot/hangupsbot.py:120
+msgid "Failed to send message!"
+msgstr "Nepodařilo se odeslat zprávu!"
+
+#: hangupsbot/hangupsbot.py:124
+msgid "Connected!"
+msgstr "Připojen!"
+
+#: hangupsbot/hangupsbot.py:135
+msgid "Conversations:"
+msgstr "Konverzace:"
+
+#: hangupsbot/hangupsbot.py:146
+msgid "Connection lost!"
+msgstr "Připojení ztraceno!"
+
+#: hangupsbot/hangupsbot.py:161
+msgid "log detailed debugging messages"
+msgstr "ukládat do logu podrobné debugovací zprávy"
+
+#: hangupsbot/hangupsbot.py:163
+msgid "log file path"
+msgstr "cesta k souboru logu"
+
+#: hangupsbot/hangupsbot.py:165
+msgid "cookie storage path"
+msgstr "cesta k souboru cookies"
+
+#: hangupsbot/hangupsbot.py:167
+msgid "config storage path"
+msgstr "cesta ke konfiguračnímu souboru"
+
+#: hangupsbot/hangupsbot.py:177
+msgid "Failed to create directory: {}"
+msgstr "Nepodařilo se vytvořit adresář: {}"
+
+#: hangupsbot/hangupsbot.py:185
+msgid "Failed to copy default config file: {}"
+msgstr "Nepodařilo se zkopírovat výchozí konfigurační soubor: {}"
+
+

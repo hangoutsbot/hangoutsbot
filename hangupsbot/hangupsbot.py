@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 import os, sys, argparse, logging, shutil, asyncio, time, signal
+
+import gettext
+gettext.install('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'))
+
 import appdirs
 import hangups
 from threading import Thread
@@ -132,7 +136,7 @@ class HangupsBot(object):
             cookies = hangups.auth.get_auth_stdin(cookies_path)
             return cookies
         except hangups.GoogleAuthError as e:
-            print('Login failed ({})'.format(e))
+            print(_('Login failed ({})').format(e))
             return False
 
     def run(self):
@@ -158,12 +162,12 @@ class HangupsBot(object):
                     loop.run_until_complete(self._client.connect())
                     sys.exit(0)
                 except Exception as e:
-                    logging.exception("unrecoverable low-level error")
-                    print('Client unexpectedly disconnected:\n{}'.format(e))
-                    print('Waiting {} seconds...'.format(5 + retry * 5))
+                    logging.exception(_("unrecoverable low-level error"))
+                    print(_('Client unexpectedly disconnected:\n{}').format(e))
+                    print(_('Waiting {} seconds...').format(5 + retry * 5))
                     time.sleep(5 + retry * 5)
-                    print('Trying to connect again (try {} of {})...'.format(retry + 1, self._max_retries))
-            print('Maximum number of retries reached! Exiting...')
+                    print(_('Trying to connect again (try {} of {})...').format(retry + 1, self._max_retries))
+            print(_('Maximum number of retries reached! Exiting...'))
         sys.exit(1)
 
     def stop(self):
@@ -531,13 +535,12 @@ class HangupsBot(object):
         try:
             future.result()
         except hangups.NetworkError:
-            print('_on_message_sent(): failed to send message')
+            print(_('_on_message_sent(): failed to send message'))
 
     def _on_connect(self, initial_data):
         """Handle connecting for the first time"""
-        print('Connected!')
+        print(_('Connected!'))
         self._handlers = handlers.EventHandler(self)
-
         self._user_list = hangups.UserList(self._client,
                                            initial_data.self_entity,
                                            initial_data.entities,
@@ -592,7 +595,7 @@ class HangupsBot(object):
 
     def _on_disconnect(self):
         """Handle disconnecting"""
-        print('Connection lost!')
+        print(_('Connection lost!'))
 
     def external_send_message(self, conversation_id, text):
         """
@@ -658,18 +661,17 @@ def main():
     parser = argparse.ArgumentParser(prog='hangupsbot',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-d', '--debug', action='store_true',
-                        help='log detailed debugging messages')
+                        help=_('log detailed debugging messages'))
     parser.add_argument('--log', default=default_log_path,
-                        help='log file path')
+                        help=_('log file path'))
     parser.add_argument('--cookies', default=default_cookies_path,
-                        help='cookie storage path')
+                        help=_('cookie storage path'))
     parser.add_argument('--memory', default=default_memory_path,
-                        help='memory storage path')
+                        help=_('memory storage path'))
     parser.add_argument('--config', default=default_config_path,
-                        help='config storage path')
+                        help=_('config storage path'))
     parser.add_argument('--version', action='version', version='%(prog)s {}'.format(version.__version__),
-                        help='show program\'s version number and exit')
-
+                        help=_('show program\'s version number and exit'))
     args = parser.parse_args()
 
     # Create all necessary directories.
@@ -679,7 +681,7 @@ def main():
             try:
                 os.makedirs(directory)
             except OSError as e:
-                sys.exit('Failed to create directory: {}'.format(e))
+                sys.exit(_('Failed to create directory: {}').format(e))
 
     # If there is no config file in user data directory, copy default one there
     if not os.path.isfile(args.config):
@@ -687,7 +689,7 @@ def main():
             shutil.copy(os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), 'config.json')),
                         args.config)
         except (OSError, IOError) as e:
-            sys.exit('Failed to copy default config file: {}'.format(e))
+            sys.exit(_('Failed to copy default config file: {}').format(e))
 
     # Configure logging
     log_level = logging.DEBUG if args.debug else logging.INFO
