@@ -10,14 +10,13 @@ from hangups.ui.utils import get_conv_name
 
 import config
 import handlers
+import version
 from commands import command
 
 from sinks.listener import start_listening
 
 from inspect import getmembers, isfunction
 
-
-__version__ = '2.3'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
 
@@ -177,8 +176,8 @@ class HangupsBot(object):
     def send_message(self, conversation, text, context=None):
         """"Send simple chat message"""
         self.send_message_segments(
-            conversation, 
-            [hangups.ChatMessageSegment(text)], 
+            conversation,
+            [hangups.ChatMessageSegment(text)],
             context)
 
     def send_message_parsed(self, conversation, html, context=None):
@@ -257,7 +256,7 @@ class HangupsBot(object):
         if isinstance(conv_ids, str):
             conv_ids = [conv_ids]
         all_users = []
-        conv_ids = list(set(conv_ids)) 
+        conv_ids = list(set(conv_ids))
         for conversation in self.list_conversations():
             for room_id in conv_ids:
                 if room_id in conversation.id_:
@@ -386,10 +385,10 @@ class HangupsBot(object):
             """
             pass 1: run _initialise()/_initialize() and filter out "hidden" functions
 
-            legacy notice: 
+            legacy notice:
             older plugins will return a list of user-available functions via _initialise/_initialize().
             this LEGACY behaviour will continue to be supported. however, it is HIGHLY RECOMMENDED to
-            use register_user_command(<LIST command_names>) and register_admin_command(<LIST command_names>) 
+            use register_user_command(<LIST command_names>) and register_admin_command(<LIST command_names>)
             for better security
             """
             available_commands = False # default: ALL
@@ -671,6 +670,9 @@ def main():
                         help='memory storage path')
     parser.add_argument('--config', default=default_config_path,
                         help='config storage path')
+    parser.add_argument('--version', action='version', version='%(prog)s {}'.format(version.__version__),
+                        help='show program\'s version number and exit')
+
     args = parser.parse_args()
 
     # Create all necessary directories.
