@@ -6,3 +6,4 @@ pushbullet.py
 beautifulsoup4
 goslate
 wikipedia
+wolframalpha
