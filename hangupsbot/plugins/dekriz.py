@@ -32,10 +32,6 @@ def _watch_image_link(bot, event, command):
         newFile = open(fileName,'wb')
         newFile.write(raw)
 
-        segments = [hangups.ChatMessageSegment('Image Uploaded', is_bold=True)]
-
         photoID = yield from bot._client.upload_image(fileName)
-        print("Filename: {}, photoID: {}".format(fileName, photoID))
 
-
-        yield from bot._client.sendchatmessage(event.conv.id_, segments, imageID=photoID)
+        yield from bot._client.sendchatmessage(event.conv.id_, None, imageID=photoID)
