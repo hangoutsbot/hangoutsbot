@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 import os, sys, argparse, logging, shutil, asyncio, time, signal
-import json
-import random
 import appdirs
 import hangups
 from threading import Thread
@@ -213,7 +211,6 @@ class HangupsBot(object):
 
     @asyncio.coroutine
     def _begin_message_sending(self, broadcast_list, context):
-        print("hey hey hey")
         try:
             yield from self._handlers.run_pluggable_omnibus("sending", self, broadcast_list, context)
         except self.Exceptions.SuppressEventHandling:
@@ -234,7 +231,6 @@ class HangupsBot(object):
                 print("_begin_message_sending(): {} {} segments(s)".format(response[0], len(response[1])))
 
             # send messages using FakeConversation as a workaround
-            print("FakeMessage")
             _fc = FakeConversation(self._client, response[0])
             yield from _fc.send_message(response[1])
 
