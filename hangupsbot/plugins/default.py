@@ -65,27 +65,24 @@ def user(bot, event, username, *args):
 
 
 def hangouts(bot, event, *args):
-    """list all active hangouts.
-    key: c = commands enabled, f = forwarding enabled
+    """list all active hangouts. Use '/bot hangouts id' to return the conv_id too
+    key: c = commands enabled
     """
 
     line = "<b>list of active hangouts:</b><br />"
 
     for c in bot.list_conversations():
-        line = line + "{}".format(get_conv_name(c, truncate=True))
+        line += "<b>{}</b>: <i>{}</i>".format(get_conv_name(c, truncate=True), c.id_)
 
         suboptions = []
 
         _value = bot.get_config_suboption(c.id_, 'commands_enabled')
         if _value:
             suboptions.append("c")
-        _value = bot.get_config_suboption(c.id_, 'forwarding_enabled')
-        if _value:
-            suboptions.append("f")
         if len(suboptions) > 0:
-            line = line + ' [ ' + ', '.join(suboptions) + ' ]'
+            line += ' [ ' + ', '.join(suboptions) + ' ]'
 
-        line = line + "<br />"
+        line += "<br />"
 
     bot.send_message_parsed(event.conv, line)
 
@@ -122,7 +119,7 @@ def leave(bot, event, conversation_id=None, *args):
         convs.append(event.conv.id_)
         leave_quietly = True
     else:
-        convs.append(conversation_id) 
+        convs.append(conversation_id)
 
     for c_id in convs:
         if not leave_quietly:
