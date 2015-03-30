@@ -211,39 +211,6 @@ class HangupsBot(object):
             self._begin_message_sending(broadcast_list, context)
         ).add_done_callback(self._on_message_sent)
 
-    def testsendchatmessage(self, conversation_id, imageID):
-        """Send a chat message to a conversation.
-        conversation_id must be a valid conversation ID. segments must be a
-        list of message segments to send, in pblite format.
-        Raises hangups.NetworkError if the request fails.
-        """
-        print("woohooImagePost")
-        print(self._client._get_request_header())
-        client_generated_id = random.randint(0, 2**32)
-        body = [
-            self._client._get_request_header(),
-            None, None, None, [],
-            [
-                [],[]
-            ],
-            [[imageID,False]],
-            [
-                [conversation_id], client_generated_id, 2
-            ],
-            None, None, None, []
-        ]
-        print("body")
-        print(body)
-        asyncio.async(self._client._request('conversations/sendchatmessage', body))
-
-        print("hi again")
-        res = json.loads(res.body.decode())
-        self.send_html_to_conversation(conversation_id, res)
-        res_status = res['response_header']['status']
-        if res_status != 'OK':
-            raise exceptions.NetworkError('Unexpected status: {}'
-                                          .format(res_status))
-
     @asyncio.coroutine
     def _begin_message_sending(self, broadcast_list, context):
         print("hey hey hey")
