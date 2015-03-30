@@ -1,11 +1,4 @@
 import asyncio
-import re
-import logging
-import json
-import hangups
-import random
-
-from hangups.ui.utils import get_conv_name
 
 def _initialise(Handlers, bot=None):
     Handlers.register_admin_command(["addusers", "createconversation"])
