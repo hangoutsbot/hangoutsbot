@@ -178,8 +178,8 @@ class HangupsBot(object):
     def send_message(self, conversation, text, context=None):
         """"Send simple chat message"""
         self.send_message_segments(
-            conversation, 
-            [hangups.ChatMessageSegment(text)], 
+            conversation,
+            [hangups.ChatMessageSegment(text)],
             context)
 
     def send_message_parsed(self, conversation, html, context=None):
@@ -211,14 +211,8 @@ class HangupsBot(object):
         asyncio.async(
             self._begin_message_sending(broadcast_list, context)
         ).add_done_callback(self._on_message_sent)
-    
-    #@asyncio.coroutine    
-    def zSend(self,conversation_id):
-        print("zSend") 
-        print(hangups.ChatMessageSegment("hi").serialize())
-        asyncio.async(self._client.sendchatmessage(conversation_id, [hangups.ChatMessageSegment("hi").serialize()]))
-    #@asyncio.coroutine
-    def testsendchatmessage(self, conversation_id,imageID):
+
+    def testsendchatmessage(self, conversation_id, imageID):
         """Send a chat message to a conversation.
         conversation_id must be a valid conversation ID. segments must be a
         list of message segments to send, in pblite format.
@@ -242,14 +236,15 @@ class HangupsBot(object):
         print("body")
         print(body)
         asyncio.async(self._client._request('conversations/sendchatmessage', body))
-        """print("1234")# sendchatmessage can return 200 but still contain an error
+
         print("hi again")
         res = json.loads(res.body.decode())
+        self.send_html_to_conversation(conversation_id, res)
         res_status = res['response_header']['status']
         if res_status != 'OK':
             raise exceptions.NetworkError('Unexpected status: {}'
                                           .format(res_status))
-       """ 
+
     @asyncio.coroutine
     def _begin_message_sending(self, broadcast_list, context):
         print("hey hey hey")
@@ -296,7 +291,7 @@ class HangupsBot(object):
         if isinstance(conv_ids, str):
             conv_ids = [conv_ids]
         all_users = []
-        conv_ids = list(set(conv_ids)) 
+        conv_ids = list(set(conv_ids))
         for conversation in self.list_conversations():
             for room_id in conv_ids:
                 if room_id in conversation.id_:
@@ -425,10 +420,10 @@ class HangupsBot(object):
             """
             pass 1: run _initialise()/_initialize() and filter out "hidden" functions
 
-            legacy notice: 
+            legacy notice:
             older plugins will return a list of user-available functions via _initialise/_initialize().
             this LEGACY behaviour will continue to be supported. however, it is HIGHLY RECOMMENDED to
-            use register_user_command(<LIST command_names>) and register_admin_command(<LIST command_names>) 
+            use register_user_command(<LIST command_names>) and register_admin_command(<LIST command_names>)
             for better security
             """
             available_commands = False # default: ALL
