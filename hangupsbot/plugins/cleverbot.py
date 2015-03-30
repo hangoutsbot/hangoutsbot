@@ -1,10 +1,12 @@
 import hangups
-import hashlib
+import hashlib, asyncio
 import urllib
 try:
     import urllib.request as urllib2
 except ImportError:
     import urllib2
+
+from random import randrange
 
 __cleverbots = dict()
 
@@ -153,12 +155,24 @@ class Cleverbot:
 
 def _initialise(Handlers, bot=None):
 
+    Handlers.register_handler(_handle_incoming_message, type="message")
+
     if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
         Handlers.register_admin_command([])
         Handlers.register_user_command(["chat"])
         return []
 
+@asyncio.coroutine
+def _handle_incoming_message(bot, event, context):
+    """Handle random message intercepting"""
 
+    if not bot.get_config_option('cleverbot_percentage_replies'):
+        return
+
+    percentage = bot.get_config_option('cleverbot_percentage_replies')
+
+    if randrange(0, 101, 2) < float(percentage):
+        chat(bot, event, event.text)
 
 def chat(bot, event, *args):
     """Cleverbot for Hangupsbot"""
