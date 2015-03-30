@@ -85,5 +85,6 @@
   "mentionquidproquo": false,
   "donotdisturb": [],
   "plugins": null,
-  "strict_botkeeper_check": false
+  "strict_botkeeper_check": false,
+  "cleverbot_percentage_replies": "2"
 }
