@@ -4,15 +4,16 @@ import hangups
 from hangups.ui.utils import get_conv_name
 
 from utils import text_to_segments
+from version import __version__
 
 def _initialise(Handlers, bot=None):
     if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
         Handlers.register_admin_command(["users", "user", "hangouts", "hangout", "rename", "leave", "reload", "quit", "config", "whereami"])
-        Handlers.register_user_command(["whoami", "echo"])
+        Handlers.register_user_command(["whoami", "echo", "version"])
         return []
     else:
         print("DEFAULT: LEGACY FRAMEWORK MODE")
-        return ["users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whoami", "whereami", "echo", "hangout"]
+        return ["users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whoami", "whereami", "echo", "hangout" ,"version"]
 
 
 def echo(bot, event, *args):
@@ -223,3 +224,8 @@ def whereami(bot, event, *args):
       "You are at <b>{}</b>, conv_id = <i>{}</i>".format(
         get_conv_name(event.conv, truncate=True),
         event.conv.id_))
+
+def version(bot, event, *args):
+    """ Return the current version of the bot """
+
+    bot.send_message_parsed(event.conv, "<b>Bot Version:</b> {}".format(__version__))
