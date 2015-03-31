@@ -26,7 +26,7 @@ def addusers(bot, event, *args):
                 list_add.append(parameter)
             elif state[-1] == "targetconv":
                 target_conv = parameter
-                state[-1] = "adduser"
+                state.pop()
             else:
                 raise ValueError("UNKNOWN STATE: {}".format(state[-1]))
 
@@ -45,7 +45,8 @@ def createconversation(bot, event, *args):
 
 
 def refresh(bot, event, *args):
-    parameters = list(set(args))
+    parameters = list(args)
+
     if _externals["authorisation"] not in parameters:
         _externals["authorisation"] = False
         initiator_1on1 = bot.get_1on1_conversation(event.user.id_.chat_id)
@@ -58,16 +59,21 @@ def refresh(bot, event, *args):
         parameters.remove(_externals["authorisation"])
         _externals["authorisation"] = False
 
+        target_conv = False
         list_remove = []
         list_add = []
 
         state = ["adduser"]
+
+        print("refresh: {}".format(parameters))
 
         for parameter in parameters:
             if parameter == "without":
                 state.append("removeuser")
             elif parameter == "add":
                 state.append("adduser")
+            elif parameter == "conversation":
+                state.append("conversation")
             else:
                 if state[-1] == "adduser":
                     list_add.append(parameter)
@@ -79,18 +85,33 @@ def refresh(bot, event, *args):
                     if parameter in list_add:
                         list_add.remove(parameter)
 
+                elif state[-1] == "conversation":
+                    target_conv = parameter
+                    state.pop()
+
                 else:
                     raise ValueError("UNKNOWN STATE: {}".format(state[-1]))
 
         list_remove = list(set(list_remove))
-        list_add = list(set(list_add))
 
-        for u in sorted(event.conv.users, key=lambda x: x.full_name.split()[-1]):
-            if not u.id_.chat_id in user_ids_to_remove:
+        if not target_conv:
+            print("REFRESH: conversation must be supplied")
+            return
+
+        list_all_users = bot.get_users_in_conversation(target_conv)
+        print("refresh: conversation {} has {} users".format(target_conv, len(list_all_users)))
+
+        for u in list_all_users:
+            if not u.id_.chat_id in list_remove:
                 list_add.append(u.id_.chat_id)
 
-        response = yield from bot._client.createconversation(list_add)
+        list_add = list(set(list_add))
 
-        new_conversation_id = response['conversation']['id']['id']
-        bot.send_html_to_conversation(new_conversation_id, _("<i>new conversation created</i><br /><b>leave the old one</b>"))
-        bot.send_html_to_conversation(event.conv_id, _("<b>PLEASE LEAVE THIS HANGOUT</b>"))
+        print("refresh: from conversation {} removed {} added {} {}".format(target_conv, list_remove, len(list_add), list_add))
+
+        if len(list_add) > 1:
+            response = yield from bot._client.createconversation(list_add)
+
+            new_conversation_id = response['conversation']['id']['id']
+            bot.send_html_to_conversation(new_conversation_id, _("<i>group refreshed</i><br />"))
+            bot.send_html_to_conversation(event.conv_id, _("<b>group obsoleted</b>"))
