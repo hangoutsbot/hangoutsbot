@@ -19,15 +19,15 @@ def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webh
           server_side=True)
 
         sa = httpd.socket.getsockname()
-        print("listener: {} : sink on {}, port {}...".format(friendlyName, sa[0], sa[1]))
+        print(_("listener: {} : sink on {}, port {}...").format(friendlyName, sa[0], sa[1]))
 
         httpd.serve_forever()
     except IOError:
         # do not run sink without https!
-        print("listener: {} : pem file possibly missing or broken (== '{}')".format(friendlyName, certfile))
+        print(_("listener: {} : pem file possibly missing or broken (== '{}')").format(friendlyName, certfile))
         httpd.socket.close()
     except OSError as e:
         # Could not connect to HTTPServer!
-        print("listener: {} : requested access could not be assigned. Is something else using that port? (== '{}:{}')".format(friendlyName, name, port))
+        print(_("listener: {} : requested access could not be assigned. Is something else using that port? (== '{}:{}')").format(friendlyName, name, port))
     except KeyboardInterrupt:
         httpd.socket.close()

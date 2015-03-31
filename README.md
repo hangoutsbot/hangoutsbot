@@ -157,3 +157,4 @@ Help
                          ~/.local/share/hangupsbot/cookies.json)
       --config CONFIG    config storage path (default:
                          ~/.local/share/hangupsbot/config.json)
+

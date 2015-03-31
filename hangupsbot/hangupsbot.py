@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 import os, sys, argparse, logging, shutil, asyncio, time, signal
 
+import gettext
+gettext.install('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'))
+
 import appdirs
 import hangups
 from threading import Thread
@@ -60,14 +63,14 @@ class ConversationEvent(object):
 
     def print_debug(self):
         """Print informations about conversation event"""
-        print('eid/dtime: {}/{}'.format(self.event_id, self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
-        print('cid/cname: {}/{}'.format(self.conv_id, get_conv_name(self.conv, truncate=True)))
+        print(_('eid/dtime: {}/{}').format(self.event_id, self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
+        print(_('cid/cname: {}/{}').format(self.conv_id, get_conv_name(self.conv, truncate=True)))
         if(self.user_id.chat_id == self.user_id.gaia_id):
-            print('uid/uname: {}/{}'.format(self.user_id.chat_id, self.user.full_name))
+            print(_('uid/uname: {}/{}').format(self.user_id.chat_id, self.user.full_name))
         else:
-            print('uid/uname: {}!{}/{}'.format(self.user_id.chat_id, self.user_id.gaia_id, self.user.full_name))
-        print('txtlen/tx: {}/{}'.format(len(self.text), self.text))
-        print('eventdump: completed --8<--')
+            print(_('uid/uname: {}!{}/{}').format(self.user_id.chat_id, self.user_id.gaia_id, self.user.full_name))
+        print(_('txtlen/tx: {}/{}').format(len(self.text), self.text))
+        print(_('eventdump: completed --8<--'))
 
 
 class HangupsBot(object):
@@ -94,15 +97,15 @@ class HangupsBot(object):
         # load in previous memory, or create new one
         self.memory = None
         if memory_file:
-            print("HangupsBot: memory file will be used: {}".format(memory_file))
+            print(_("HangupsBot: memory file will be used: {}").format(memory_file))
             self.memory = config.Config(memory_file)
             if not os.path.isfile(memory_file):
                 try:
-                    print("creating memory file: {}".format(memory_file))
+                    print(_("creating memory file: {}").format(memory_file))
                     self.memory.force_taint()
                     self.memory.save()
                 except (OSError, IOError) as e:
-                    sys.exit('failed to create default memory file: {}'.format(e))
+                    sys.exit(_('failed to create default memory file: {}').format(e))
 
         # Handle signals on Unix
         # (add_signal_handler is not implemented on Windows)
@@ -115,7 +118,7 @@ class HangupsBot(object):
 
     def register_shared(self, id, objectref):
         if id in self.shared:
-            raise RuntimeError("{} already registered in shared".format(id))
+            raise RuntimeError(_("{} already registered in shared").format(id))
         self.shared[id] = objectref
 
     def call_shared(self, id, *args, **kwargs):
@@ -133,7 +136,7 @@ class HangupsBot(object):
             cookies = hangups.auth.get_auth_stdin(cookies_path)
             return cookies
         except hangups.GoogleAuthError as e:
-            print('Login failed ({})'.format(e))
+            print(_('Login failed ({})').format(e))
             return False
 
     def run(self):
@@ -159,12 +162,12 @@ class HangupsBot(object):
                     loop.run_until_complete(self._client.connect())
                     sys.exit(0)
                 except Exception as e:
-                    logging.exception("unrecoverable low-level error")
-                    print('Client unexpectedly disconnected:\n{}'.format(e))
-                    print('Waiting {} seconds...'.format(5 + retry * 5))
+                    logging.exception(_("unrecoverable low-level error"))
+                    print(_('Client unexpectedly disconnected:\n{}').format(e))
+                    print(_('Waiting {} seconds...').format(5 + retry * 5))
                     time.sleep(5 + retry * 5)
-                    print('Trying to connect again (try {} of {})...'.format(retry + 1, self._max_retries))
-            print('Maximum number of retries reached! Exiting...')
+                    print(_('Trying to connect again (try {} of {})...').format(retry + 1, self._max_retries))
+            print(_('Maximum number of retries reached! Exiting...'))
         sys.exit(1)
 
     def stop(self):
@@ -201,7 +204,7 @@ class HangupsBot(object):
         elif isinstance(conversation, str):
             conversation_id = conversation
         else:
-            raise ValueError('could not identify conversation id')
+            raise ValueError(_('could not identify conversation id'))
 
         # by default, a response always goes into a single conversation only
         broadcast_list = [(conversation_id, segments)]
@@ -210,13 +213,12 @@ class HangupsBot(object):
             self._begin_message_sending(broadcast_list, context)
         ).add_done_callback(self._on_message_sent)
 
-
     @asyncio.coroutine
     def _begin_message_sending(self, broadcast_list, context):
         try:
             yield from self._handlers.run_pluggable_omnibus("sending", self, broadcast_list, context)
         except self.Exceptions.SuppressEventHandling:
-            print("_begin_message_sending(): SuppressEventHandling")
+            print(_("_begin_message_sending(): SuppressEventHandling"))
             return
         except:
             raise
@@ -226,25 +228,24 @@ class HangupsBot(object):
             debug_sending = True
 
         if debug_sending:
-            print("_begin_message_sending(): global context: {}".format(context))
+            print(_("_begin_message_sending(): global context: {}").format(context))
 
         for response in broadcast_list:
             if debug_sending:
-                print("_begin_message_sending(): {} {} segments(s)".format(response[0], len(response[1])))
+                print(_("_begin_message_sending(): {} {} segments(s)").format(response[0], len(response[1])))
 
             # send messages using FakeConversation as a workaround
             _fc = FakeConversation(self._client, response[0])
             yield from _fc.send_message(response[1])
-
 
     def list_conversations(self):
         """List all active conversations"""
         try:
             _all_conversations = self._conv_list.get_all()
             convs = _all_conversations
-            logging.info("list_conversations() returned {} conversation(s)".format(len(convs)))
+            logging.info(_("list_conversations() returned {} conversation(s)").format(len(convs)))
         except Exception as e:
-            logging.exception("list_conversations()")
+            logging.exception(_("list_conversations()"))
             raise
 
         return convs
@@ -305,7 +306,7 @@ class HangupsBot(object):
         return value
 
     def print_conversations(self):
-        print('Conversations:')
+        print(_('Conversations:'))
         for c in self.list_conversations():
             print('  {} ({}) u:{}'.format(get_conv_name(c, truncate=True), c.id_, len(c.users)))
             for u in c.users:
@@ -320,7 +321,7 @@ class HangupsBot(object):
         if self.memory.exists(["user_data", chat_id, "1on1"]):
             conversation_id = self.memory.get_by_path(["user_data", chat_id, "1on1"])
             conversation = FakeConversation(self._client, conversation_id)
-            logging.info("memory: {} is 1on1 with {}".format(conversation_id, chat_id))
+            logging.info(_("memory: {} is 1on1 with {}").format(conversation_id, chat_id))
         else:
             for c in self.list_conversations():
                 if len(c.users) == 2:
@@ -358,7 +359,7 @@ class HangupsBot(object):
     def _load_plugins(self):
         plugin_list = self.get_config_option('plugins')
         if plugin_list is None:
-            print("HangupsBot: config.plugins is not defined, using ALL")
+            print(_("HangupsBot: config.plugins is not defined, using ALL"))
             plugin_path = os.path.dirname(os.path.realpath(sys.argv[0])) + os.sep + "plugins"
             plugin_list = [ os.path.splitext(f)[0]  # take only base name (no extension)...
                 for f in os.listdir(plugin_path)    # ...by iterating through each node in the plugin_path...
@@ -373,11 +374,11 @@ class HangupsBot(object):
                 exec("import {}".format(module_path))
             except Exception as e:
                 message = "{} @ {}".format(e, module_path)
-                print("EXCEPTION during plugin import: " + message)
+                print(_("EXCEPTION during plugin import: {}").format(message))
                 logging.exception(message)
                 continue
 
-            print("plugin: {}".format(module))
+            print(_("plugin: {}").format(module))
             public_functions = [o for o in getmembers(sys.modules[module_path], isfunction)]
 
             candidate_commands = []
@@ -418,7 +419,7 @@ class HangupsBot(object):
                     self._handlers.register_user_command(available_commands)
             except Exception as e:
                 message = "{} @ {}".format(e, module_path)
-                print("EXCEPTION during plugin init: " + message)
+                print(_("EXCEPTION during plugin init: {}").format(message))
                 logging.exception(message)
                 continue # skip this, attempt next plugin
 
@@ -438,7 +439,7 @@ class HangupsBot(object):
                     registered_commands.append(text_function_name)
 
             if registered_commands:
-                print("added: {}".format(", ".join(registered_commands)))
+                print(_("added: {}").format(", ".join(registered_commands)))
 
         self._handlers.all_plugins_loaded()
 
@@ -455,27 +456,27 @@ class HangupsBot(object):
                 try:
                     module = sinkConfig["module"].split(".")
                     if len(module) < 4:
-                        print("config.jsonrpc[{}].module should have at least 4 packages {}".format(itemNo, module))
+                        print(_("config.jsonrpc[{}].module should have at least 4 packages {}").format(itemNo, module))
                         continue
                     module_name = ".".join(module[0:-1])
                     class_name = ".".join(module[-1:])
                     if not module_name or not class_name:
-                        print("config.jsonrpc[{}].module must be a valid package name".format(itemNo))
+                        print(_("config.jsonrpc[{}].module must be a valid package name").format(itemNo))
                         continue
 
                     certfile = sinkConfig["certfile"]
                     if not certfile:
-                        print("config.jsonrpc[{}].certfile must be configured".format(itemNo))
+                        print(_("config.jsonrpc[{}].certfile must be configured").format(itemNo))
                         continue
 
                     name = sinkConfig["name"]
                     port = sinkConfig["port"]
                 except KeyError as e:
-                    print("config.jsonrpc[{}] missing keyword".format(itemNo), e)
+                    print(_("config.jsonrpc[{}] missing keyword").format(itemNo), e)
                     continue
 
                 # start up rpc listener in a separate thread
-                print("_start_sinks(): {}".format(module))
+                print(_("_start_sinks(): {}").format(module))
                 t = Thread(target=start_listening, args=(
                   self,
                   shared_loop,
@@ -490,7 +491,7 @@ class HangupsBot(object):
 
                 threads.append(t)
 
-        message = "_start_sinks(): {} sink thread(s) started".format(len(threads))
+        message = _("_start_sinks(): {} sink thread(s) started").format(len(threads))
         logging.info(message)
 
     def _load_hooks(self):
@@ -503,15 +504,15 @@ class HangupsBot(object):
                 try:
                     module = hook_config["module"].split(".")
                     if len(module) < 4:
-                        print("config.hooks[{}].module should have at least 4 packages {}".format(itemNo, module))
+                        print(_("config.hooks[{}].module should have at least 4 packages {}").format(itemNo, module))
                         continue
                     module_name = ".".join(module[0:-1])
                     class_name = ".".join(module[-1:])
                     if not module_name or not class_name:
-                        print("config.hooks[{}].module must be a valid package name".format(itemNo))
+                        print(_("config.hooks[{}].module must be a valid package name").format(itemNo))
                         continue
                 except KeyError as e:
-                    print("config.hooks[{}] missing keyword".format(itemNo), e)
+                    print(_("config.hooks[{}] missing keyword").format(itemNo), e)
                     continue
 
                 theClass = class_from_name(module_name, class_name)
@@ -521,12 +522,12 @@ class HangupsBot(object):
                     theClass._config = hook_config["config"]
 
                 if theClass.init():
-                    print("_load_hooks(): {}".format(module))
+                    print(_("_load_hooks(): {}").format(module))
                     self._hooks.append(theClass)
                 else:
-                    print("_load_hooks(): hook failed to initialise")
+                    print(_("_load_hooks(): hook failed to initialise"))
 
-        message = "_load_hooks(): {} hook(s) loaded".format(len(self._hooks))
+        message = _("_load_hooks(): {} hook(s) loaded").format(len(self._hooks))
         logging.info(message)
 
     def _on_message_sent(self, future):
@@ -534,13 +535,12 @@ class HangupsBot(object):
         try:
             future.result()
         except hangups.NetworkError:
-            print('_on_message_sent(): failed to send message')
+            print(_('_on_message_sent(): failed to send message'))
 
     def _on_connect(self, initial_data):
         """Handle connecting for the first time"""
-        print('Connected!')
+        print(_('Connected!'))
         self._handlers = handlers.EventHandler(self)
-
         self._user_list = hangups.UserList(self._client,
                                            initial_data.self_entity,
                                            initial_data.entities,
@@ -560,7 +560,7 @@ class HangupsBot(object):
 
         if self.get_config_option('workaround.duplicate-events'):
             if conv_event.id_ in self._cache_event_id:
-                message = "_on_event(): ignoring duplicate event {}".format(conv_event.id_)
+                message = _("_on_event(): ignoring duplicate event {}").format(conv_event.id_)
                 print(message)
                 logging.warning(message)
                 return
@@ -589,20 +589,20 @@ class HangupsBot(object):
                 try:
                     method(parameters)
                 except Exception as e:
-                    message = "_execute_hooks()", hook, e
+                    message = _("_execute_hooks()"), hook, e
                     print(message)
                     logging.exception(message)
 
     def _on_disconnect(self):
         """Handle disconnecting"""
-        print('Connection lost!')
+        print(_('Connection lost!'))
 
     def external_send_message(self, conversation_id, text):
         """
         LEGACY
             use send_html_to_conversation()
         """
-        print('DEPRECATED: external_send_message(), use send_html_to_conversation()')
+        print(_('DEPRECATED: external_send_message(), use send_html_to_conversation()'))
         self.send_html_to_conversation(conversation_id, text)
 
     def external_send_message_parsed(self, conversation_id, html):
@@ -610,19 +610,19 @@ class HangupsBot(object):
         LEGACY
             use send_html_to_conversation()
         """
-        print('DEPRECATED: external_send_message_parsed(), use send_html_to_conversation()')
+        print(_('DEPRECATED: external_send_message_parsed(), use send_html_to_conversation()'))
         self.send_html_to_conversation(conversation_id, html)
 
     def send_html_to_conversation(self, conversation_id, html, context=None):
-        print('send_html_to_conversation(): sending to {}'.format(conversation_id))
+        print(_('send_html_to_conversation(): sending to {}').format(conversation_id))
         self.send_message_parsed(conversation_id, html, context)
 
     def send_html_to_user(self, user_id, html, context=None):
         conversation = self.get_1on1_conversation(user_id)
         if not conversation:
-            print('send_html_to_user(): 1-to-1 conversation not found')
+            print(_('send_html_to_user(): 1-to-1 conversation not found'))
             return False
-        print('send_html_to_user(): sending to {}'.format(user_id))
+        print(_('send_html_to_user(): sending to {}').format(user_id))
         self.send_message_parsed(conversation, html, context)
         return True
 
@@ -661,18 +661,17 @@ def main():
     parser = argparse.ArgumentParser(prog='hangupsbot',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-d', '--debug', action='store_true',
-                        help='log detailed debugging messages')
+                        help=_('log detailed debugging messages'))
     parser.add_argument('--log', default=default_log_path,
-                        help='log file path')
+                        help=_('log file path'))
     parser.add_argument('--cookies', default=default_cookies_path,
-                        help='cookie storage path')
+                        help=_('cookie storage path'))
     parser.add_argument('--memory', default=default_memory_path,
-                        help='memory storage path')
+                        help=_('memory storage path'))
     parser.add_argument('--config', default=default_config_path,
-                        help='config storage path')
+                        help=_('config storage path'))
     parser.add_argument('--version', action='version', version='%(prog)s {}'.format(version.__version__),
-                        help='show program\'s version number and exit')
-
+                        help=_('show program\'s version number and exit'))
     args = parser.parse_args()
 
     # Create all necessary directories.
@@ -682,7 +681,7 @@ def main():
             try:
                 os.makedirs(directory)
             except OSError as e:
-                sys.exit('Failed to create directory: {}'.format(e))
+                sys.exit(_('Failed to create directory: {}').format(e))
 
     # If there is no config file in user data directory, copy default one there
     if not os.path.isfile(args.config):
@@ -690,7 +689,7 @@ def main():
             shutil.copy(os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), 'config.json')),
                         args.config)
         except (OSError, IOError) as e:
-            sys.exit('Failed to copy default config file: {}'.format(e))
+            sys.exit(_('Failed to copy default config file: {}').format(e))
 
     # Configure logging
     log_level = logging.DEBUG if args.debug else logging.INFO

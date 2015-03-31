@@ -26,6 +26,6 @@ def _handle_message(bot, event, command):
 
 @asyncio.coroutine
 def _translate(bot, event, text, iso_language, text_language):
-    print('TRANSLATE: "{}" to {}'.format(text, iso_language))
+    print(_('TRANSLATE: "{}" to {}').format(text, iso_language))
     translated = gs.translate(text, iso_language)
     bot.send_message_parsed(event.conv, "<i>" + text_language + "</i> : " + translated)

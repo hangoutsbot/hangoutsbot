@@ -61,8 +61,8 @@ def normalize_newlines(text):
 
 def urbandict(bot, event, *args):
     """lookup a term on Urban Dictionary.
-    supplying no parameters will get you a random term. 
-    DISCLAIMER: all definitions are from http://www.urbandictionary.com/ - the bot and its 
+    supplying no parameters will get you a random term.
+    DISCLAIMER: all definitions are from http://www.urbandictionary.com/ - the bot and its
     creators/maintainers take no responsibility for any hurt feelings.
     """
 
@@ -84,9 +84,9 @@ def urbandict(bot, event, *args):
         the_definition = urbanDictParser.translations[0]
         html_text += '<b>"' + the_definition["word"] + '"</b><br /><br />'
         if "def" in the_definition:
-            html_text += "<b>definition:</b> " + the_definition["def"].strip().replace("\n", "<br />") + '<br /><br />'
+            html_text += _("<b>definition:</b> ") + the_definition["def"].strip().replace("\n", "<br />") + '<br /><br />'
         if "example" in the_definition:
-            html_text += "<b>example:</b> " + the_definition["example"].strip().replace("\n", "<br />")
+            html_text += _("<b>example:</b> ") + the_definition["example"].strip().replace("\n", "<br />")
 
         bot.send_message_parsed(event.conv, html_text)
 

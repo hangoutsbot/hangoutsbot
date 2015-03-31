@@ -20,7 +20,7 @@ def _watch_membership_change(bot, event, command):
 
     # JOIN
     if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
-        print('EXAMPLE_WATCHMEMBERS: {} has added {}'.format(event.user.full_name, names))
+        print(_('EXAMPLE_WATCHMEMBERS: {} has added {}').format(event.user.full_name, names))
     # LEAVE
     else:
-        print('EXAMPLE_WATCHMEMBERS: {} has left'.format(names))
+        print(_('EXAMPLE_WATCHMEMBERS: {} has left').format(names))

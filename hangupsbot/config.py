@@ -20,9 +20,9 @@ class Config(collections.MutableMapping):
             self.config = {}
         except ValueError:
             # better error-handling for n00bs, including me!
-            print("exception occurred, config.json likely malformed")
-            print("  check {}".format(self.filename))
-            print("  {}".format(sys.exc_info()[1]))
+            print(_("exception occurred, config.json likely malformed"))
+            print(_("  check {}").format(self.filename))
+            print(_("  {}").format(sys.exc_info()[1]))
             sys.exit(0)
 
         self.changed = False

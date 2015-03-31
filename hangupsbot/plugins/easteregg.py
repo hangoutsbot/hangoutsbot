@@ -6,7 +6,7 @@ def _initialise(Handlers, bot=None):
         Handlers.register_admin_command(["easteregg"])
         return []
     else:
-        print("EASTEREGG: LEGACY FRAMEWORK MODE")
+        print(_("EASTEREGG: LEGACY FRAMEWORK MODE"))
         return ["easteregg"]
 
 

@@ -12,7 +12,7 @@ def _initialise(Handlers, bot=None):
         Handlers.register_user_command(["whoami", "echo", "version"])
         return []
     else:
-        print("DEFAULT: LEGACY FRAMEWORK MODE")
+        print(_("DEFAULT: LEGACY FRAMEWORK MODE"))
         return ["users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whoami", "whereami", "echo", "hangout" ,"version"]
 
 
@@ -20,7 +20,7 @@ def echo(bot, event, *args):
     """echo back requested text"""
     text = ' '.join(args)
     if text.lower().strip().startswith("/bot "):
-        text = "NOPE! Some things aren't worth repeating."
+        text = _("NOPE! Some things aren't worth repeating.")
     bot.send_message(event.conv, text)
 
 
@@ -45,7 +45,7 @@ def users(bot, event, *args):
 def user(bot, event, username, *args):
     """find people by name"""
     username_lower = username.strip().lower()
-    segments = [hangups.ChatMessageSegment('results for user named "{}":'.format(username),
+    segments = [hangups.ChatMessageSegment(_('results for user named "{}":').format(username),
                                            is_bold=True),
                 hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
     for u in sorted(bot._user_list._user_dict.values(), key=lambda x: x.full_name.split()[-1]):
@@ -70,7 +70,7 @@ def hangouts(bot, event, *args):
     key: c = commands enabled
     """
 
-    line = "<b>list of active hangouts:</b><br />"
+    line = _("<b>list of active hangouts:</b><br />")
 
     for c in bot.list_conversations():
         line += "<b>{}</b>: <i>{}</i>".format(get_conv_name(c, truncate=True), c.id_)
@@ -93,7 +93,7 @@ def hangout(bot, event, *args):
     text_search = ' '.join(args)
     if not text_search:
         return
-    text_message = '<b>results for hangouts named "{}"</b><br />'.format(text_search)
+    text_message = _('<b>results for hangouts named "{}"</b><br />').format(text_search)
     for conv in bot.list_conversations():
         conv_name = get_conv_name(conv)
         if text_search.lower() in conv_name.lower():
@@ -124,7 +124,7 @@ def leave(bot, event, conversation_id=None, *args):
 
     for c_id in convs:
         if not leave_quietly:
-            bot.send_message_parsed(c_id, 'I\'ll be back!')
+            bot.send_message_parsed(c_id, _('I\'ll be back!'))
         yield from bot._conv_list.leave_conversation(c_id)
 
 
@@ -136,7 +136,7 @@ def reload(bot, event, *args):
 
 def quit(bot, event, *args):
     """stop running"""
-    print('HangupsBot killed by user {} from conversation {}'.format(event.user.full_name,
+    print(_('HangupsBot killed by user {} from conversation {}').format(event.user.full_name,
                                                                      get_conv_name(event.conv, truncate=True)))
     yield from bot._client.disconnect()
 
@@ -169,7 +169,7 @@ def config(bot, event, cmd=None, *args):
                 bot.config.set_by_path(config_args, value)
                 bot.config.save()
             else:
-                value = 'append failed on non-list'
+                value = _('append failed on non-list')
         else:
             yield from command.unknown_command(bot, event)
             return
@@ -182,7 +182,7 @@ def config(bot, event, cmd=None, *args):
                 bot.config.set_by_path(config_args, value)
                 bot.config.save()
             else:
-                value = 'remove failed on non-list'
+                value = _('remove failed on non-list')
         else:
             yield from command.unknown_command(bot, event)
             return
@@ -191,7 +191,7 @@ def config(bot, event, cmd=None, *args):
         return
 
     if value is None:
-        value = 'Parameter does not exist!'
+        value = _('Parameter does not exist!')
 
     config_path = ' '.join(k for k in ['config'] + config_args)
     segments = [hangups.ChatMessageSegment('{}:'.format(config_path),
@@ -213,7 +213,7 @@ def whoami(bot, event, *args):
     else:
         fullname = event.user.full_name
 
-    bot.send_message_parsed(event.conv, "<b>{}</b>, chat_id = <i>{}</i>".format(fullname, event.user.id_.chat_id))
+    bot.send_message_parsed(event.conv, _("<b>{}</b>, chat_id = <i>{}</i>").format(fullname, event.user.id_.chat_id))
 
 
 def whereami(bot, event, *args):
@@ -221,11 +221,11 @@ def whereami(bot, event, *args):
 
     bot.send_message_parsed(
       event.conv,
-      "You are at <b>{}</b>, conv_id = <i>{}</i>".format(
+      _("You are at <b>{}</b>, conv_id = <i>{}</i>").format(
         get_conv_name(event.conv, truncate=True),
         event.conv.id_))
 
 def version(bot, event, *args):
     """ Return the current version of the bot """
 
-    bot.send_message_parsed(event.conv, "<b>Bot Version:</b> {}".format(__version__))
+    bot.send_message_parsed(event.conv, _("<b>Bot Version:</b> {}").format(__version__))

@@ -25,7 +25,7 @@ def _migrate_mention_config_to_memory(bot):
         del bot.config["pushbullet"]
         bot.memory.save()
         bot.config.save()
-        print("migration(): pushbullet config migrated")
+        print(_("migration(): pushbullet config migrated"))
 
 
 @asyncio.coroutine
@@ -43,7 +43,7 @@ def _user_has_dnd(bot, user_id):
     try:
         return bot.call_shared("dnd.user_check", user_id) # shared dnd check
     except KeyError:
-        print("mentions: falling back to legacy _user_has_dnd()")
+        print(_("mentions: falling back to legacy _user_has_dnd()"))
         initiator_has_dnd = False
         if bot.memory.exists(["donotdisturb"]):
             donotdisturb = bot.memory.get('donotdisturb')
@@ -58,7 +58,7 @@ def mention(bot, event, *args):
     """minimum length check for @mention"""
     username = args[0].strip()
     if len(username) < 2:
-        logging.warning("@mention from {} ({}) too short (== '{}')".format(event.user.full_name, event.user.id_.chat_id, username))
+        logging.warning(_("@mention from {} ({}) too short (== '{}')").format(event.user.full_name, event.user.id_.chat_id, username))
         return
 
     users_in_chat = event.conv.users
@@ -89,21 +89,21 @@ def mention(bot, event, *args):
     if bot.get_config_option("mentionquidproquo"):
         if conv_1on1_initiator:
             if initiator_has_dnd:
-                logging.info("quidproquo: user {} ({}) has DND active".format(event.user.full_name, event.user.id_.chat_id))
+                logging.info(_("quidproquo: user {} ({}) has DND active").format(event.user.full_name, event.user.id_.chat_id))
                 if noisy_mention_test or bot.get_config_suboption(event.conv_id, 'mentionerrors'):
                     bot.send_message_parsed(
                         event.conv,
-                        "<b>{}</b>, you cannot @mention anyone until your DND status is toggled off.".format(
+                        _("<b>{}</b>, you cannot @mention anyone until your DND status is toggled off.").format(
                             event.user.full_name))
                 return
             else:
-                logging.info("quidproquo: user {} ({}) has 1-on-1".format(event.user.full_name, event.user.id_.chat_id))
+                logging.info(_("quidproquo: user {} ({}) has 1-on-1").format(event.user.full_name, event.user.id_.chat_id))
         else:
-            logging.warning("quidproquo: user {} ({}) has no 1-on-1".format(event.user.full_name, event.user.id_.chat_id))
+            logging.warning(_("quidproquo: user {} ({}) has no 1-on-1").format(event.user.full_name, event.user.id_.chat_id))
             if noisy_mention_test or bot.get_config_suboption(event.conv_id, 'mentionerrors'):
                 bot.send_message_parsed(
                     event.conv,
-                    "<b>{}</b> cannot @mention anyone until they say something to me first.".format(
+                    _("<b>{}</b> cannot @mention anyone until they say something to me first.").format(
                         event.user.full_name))
             return
 
@@ -122,7 +122,7 @@ def mention(bot, event, *args):
     """
 
     conversation_name = get_conv_name(event.conv, truncate=True);
-    logging.info("@mention '{}' in '{}' ({})".format(username, conversation_name, event.conv.id_))
+    logging.info(_("@mention '{}' in '{}' ({})").format(username, conversation_name, event.conv.id_))
     username_lower = username.lower()
 
     """is @all available globally/per-conversation/initiator?"""
@@ -130,33 +130,33 @@ def mention(bot, event, *args):
         if not bot.get_config_suboption(event.conv.id_, 'mentionall'):
 
             """global toggle is off/not set, check admins"""
-            logging.info("@all in {}: disabled/unset global/per-conversation".format(event.conv.id_))
+            logging.info(_("@all in {}: disabled/unset global/per-conversation").format(event.conv.id_))
             admins_list = bot.get_config_suboption(event.conv_id, 'admins')
             if event.user_id.chat_id not in admins_list:
 
                 """initiator is not an admin, check whitelist"""
-                logging.info("@all in {}: user {} ({}) is not admin".format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
+                logging.info(_("@all in {}: user {} ({}) is not admin").format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
                 all_whitelist = bot.get_config_suboption(event.conv_id, 'mentionallwhitelist')
                 if all_whitelist is None or event.user_id.chat_id not in all_whitelist:
 
-                    logging.warning("@all in {}: user {} ({}) blocked".format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
+                    logging.warning(_("@all in {}: user {} ({}) blocked").format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
                     if conv_1on1_initiator:
                         bot.send_message_parsed(
                             conv_1on1_initiator,
-                            "You are not allowed to use @all in <b>{}</b>".format(
+                            _("You are not allowed to use @all in <b>{}</b>").format(
                                 conversation_name))
                     if noisy_mention_test or bot.get_config_suboption(event.conv_id, 'mentionerrors'):
                         bot.send_message_parsed(
                             event.conv,
-                            "<b>{}</b> blocked from using <i>@all</i>".format(
+                            _("<b>{}</b> blocked from using <i>@all</i>").format(
                                 event.user.full_name))
                     return
                 else:
-                    logging.info("@all in {}: allowed, {} ({}) is whitelisted".format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
+                    logging.info(_("@all in {}: allowed, {} ({}) is whitelisted").format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
             else:
-                logging.info("@all in {}: allowed, {} ({}) is an admin".format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
+                logging.info(_("@all in {}: allowed, {} ({}) is an admin").format(event.conv.id_, event.user.full_name, event.user.id_.chat_id))
         else:
-            logging.info("@all in {}: enabled global/per-conversation".format(event.conv.id_))
+            logging.info(_("@all in {}: enabled global/per-conversation").format(event.conv.id_))
 
     """generate a list of users to be @mentioned"""
     exact_nickname_matches = []
@@ -176,26 +176,26 @@ def mention(bot, event, *args):
                 username_lower in u.full_name.replace(" ", "_").lower() or \
                 username_lower == nickname_lower:
 
-            logging.info("user {} ({}) is present".format(u.full_name, u.id_.chat_id))
+            logging.info(_("user {} ({}) is present").format(u.full_name, u.id_.chat_id))
 
             if u.is_self:
                 """bot cannot be @mentioned"""
-                logging.info("suppressing bot mention by {} ({})".format(event.user.full_name, event.user.id_.chat_id))
+                logging.info(_("suppressing bot mention by {} ({})").format(event.user.full_name, event.user.id_.chat_id))
                 continue
 
             if u.id_.chat_id == event.user.id_.chat_id and username_lower == "all":
                 """prevent initiating user from receiving duplicate @all"""
-                logging.info("suppressing @all for {} ({})".format(event.user.full_name, event.user.id_.chat_id))
+                logging.info(_("suppressing @all for {} ({})").format(event.user.full_name, event.user.id_.chat_id))
                 continue
 
             if u.id_.chat_id in mention_chat_ids:
                 """prevent most duplicate mentions (in the case of syncouts)"""
-                logging.info("suppressing duplicate mention for {} ({})".format(event.user.full_name, event.user.id_.chat_id))
+                logging.info(_("suppressing duplicate mention for {} ({})").format(event.user.full_name, event.user.id_.chat_id))
                 continue
 
             if bot.memory.exists(["donotdisturb"]):
                 if _user_has_dnd(bot, u.id_.chat_id):
-                    logging.info("suppressing @mention for {} ({})".format(u.full_name, u.id_.chat_id))
+                    logging.info(_("suppressing @mention for {} ({})").format(u.full_name, u.id_.chat_id))
                     user_tracking["ignored"].append(u.full_name)
                     continue
 
@@ -208,12 +208,12 @@ def mention(bot, event, *args):
 
     """prioritise exact nickname matches"""
     if len(exact_nickname_matches) == 1:
-        logging.info("prioritising nickname match for {}".format(exact_nickname_matches[0].full_name))
+        logging.info(_("prioritising nickname match for {}").format(exact_nickname_matches[0].full_name))
         mention_list = exact_nickname_matches
 
     if len(mention_list) > 1 and username_lower != "all":
         if conv_1on1_initiator:
-            text_html = '{} users would be mentioned with "@{}"! Be more specific. List of matching users:<br />'.format(
+            text_html = _('{} users would be mentioned with "@{}"! Be more specific. List of matching users:<br />').format(
                 len(mention_list), username, conversation_name)
 
             for u in mention_list:
@@ -224,7 +224,7 @@ def mention(bot, event, *args):
 
             bot.send_message_parsed(conv_1on1_initiator, text_html)
 
-        logging.info("@{} not sent due to multiple recipients".format(username_lower))
+        logging.info(_("@{} not sent due to multiple recipients").format(username_lower))
         return #SHORT-CIRCUIT
 
     """send @mention alerts"""
@@ -238,17 +238,17 @@ def mention(bot, event, *args):
                     if pushbullet_config["api"] is not None:
                         pb = PushBullet(pushbullet_config["api"])
                         success, push = pb.push_note(
-                            "{} mentioned you in {}".format(
+                            _("{} mentioned you in {}").format(
                                     event.user.full_name,
                                     conversation_name),
                                 event.text)
                         if success:
                             user_tracking["mentioned"].append(u.full_name)
-                            logging.info("{} ({}) alerted via pushbullet".format(u.full_name, u.id_.chat_id))
+                            logging.info(_("{} ({}) alerted via pushbullet").format(u.full_name, u.id_.chat_id))
                             alert_via_1on1 = False # disable 1on1 alert
                         else:
                             user_tracking["failed"]["pushbullet"].append(u.full_name)
-                            logging.warning("pushbullet alert failed for {} ({})".format(u.full_name, u.id_.chat_id))
+                            logging.warning(_("pushbullet alert failed for {} ({})").format(u.full_name, u.id_.chat_id))
 
             if alert_via_1on1:
                 """send alert with 1on1 conversation"""
@@ -256,37 +256,37 @@ def mention(bot, event, *args):
                 if conv_1on1:
                     bot.send_message_parsed(
                         conv_1on1,
-                        "<b>{}</b> @mentioned you in <i>{}</i>:<br />{}".format(
+                        _("<b>{}</b> @mentioned you in <i>{}</i>:<br />{}").format(
                             event.user.full_name,
                             conversation_name,
                             event.text)) # prevent internal parser from removing <tags>
                     mention_chat_ids.append(u.id_.chat_id)
                     user_tracking["mentioned"].append(u.full_name)
-                    logging.info("{} ({}) alerted via 1on1 ({})".format(u.full_name, u.id_.chat_id, conv_1on1.id_))
+                    logging.info(_("{} ({}) alerted via 1on1 ({})").format(u.full_name, u.id_.chat_id, conv_1on1.id_))
                 else:
                     user_tracking["failed"]["one2one"].append(u.full_name)
                     if bot.get_config_suboption(event.conv_id, 'mentionerrors'):
                         bot.send_message_parsed(
                             event.conv,
-                            "@mention didn't work for <b>{}</b>. User must say something to me first.".format(
+                            _("@mention didn't work for <b>{}</b>. User must say something to me first.").format(
                                 u.full_name))
-                    logging.warning("user {} ({}) could not be alerted via 1on1".format(u.full_name, u.id_.chat_id))
+                    logging.warning(_("user {} ({}) could not be alerted via 1on1").format(u.full_name, u.id_.chat_id))
 
     if noisy_mention_test:
-        text_html = "<b>@mentions:</b><br />"
+        text_html = _("<b>@mentions:</b><br />")
         if len(user_tracking["failed"]["one2one"]) > 0:
-            text_html = text_html + "1-to-1 fail: <i>{}</i><br />".format(", ".join(user_tracking["failed"]["one2one"]))
+            text_html = text_html + _("1-to-1 fail: <i>{}</i><br />").format(", ".join(user_tracking["failed"]["one2one"]))
         if len(user_tracking["failed"]["pushbullet"]) > 0:
-            text_html = text_html + "PushBullet fail: <i>{}</i><br />".format(", ".join(user_tracking["failed"]["pushbullet"]))
+            text_html = text_html + _("PushBullet fail: <i>{}</i><br />").format(", ".join(user_tracking["failed"]["pushbullet"]))
         if len(user_tracking["ignored"]) > 0:
-            text_html = text_html + "Ignored (DND): <i>{}</i><br />".format(", ".join(user_tracking["ignored"]))
+            text_html = text_html + _("Ignored (DND): <i>{}</i><br />").format(", ".join(user_tracking["ignored"]))
         if len(user_tracking["mentioned"]) > 0:
-            text_html = text_html + "Alerted: <i>{}</i><br />".format(", ".join(user_tracking["mentioned"]))
+            text_html = text_html + _("Alerted: <i>{}</i><br />").format(", ".join(user_tracking["mentioned"]))
         else:
-            text_html = text_html + "Nobody was successfully @mentioned ;-(<br />"
+            text_html = text_html + _("Nobody was successfully @mentioned ;-(<br />")
 
         if len(user_tracking["failed"]["one2one"]) > 0:
-            text_html = text_html + "Users failing 1-to-1 need to say something to me privately first.<br />"
+            text_html = text_html + _("Users failing 1-to-1 need to say something to me privately first.<br />")
 
         bot.send_message_parsed(event.conv, text_html)
 
@@ -302,11 +302,11 @@ def pushbulletapi(bot, event, *args):
             value = None
             bot.send_message_parsed(
                 event.conv,
-                "deactivating pushbullet integration")
+                _("deactivating pushbullet integration"))
         else:
             bot.send_message_parsed(
                 event.conv,
-                "setting pushbullet api key")
+                _("setting pushbullet api key"))
 
         bot.initialise_memory(event.user.id_.chat_id, "user_data")
         bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "pushbullet"], { "api": value })
@@ -314,7 +314,7 @@ def pushbulletapi(bot, event, *args):
     else:
         bot.send_message_parsed(
             event.conv,
-            "pushbullet configuration not changed")
+            _("pushbullet configuration not changed"))
 
 
 def setnickname(bot, event, *args):
@@ -333,7 +333,7 @@ def setnickname(bot, event, *args):
     nickname = nickname[0:truncatelength]
 
     if len(nickname) < minlength and not nickname == '': # Check minimum length
-        bot.send_message_parsed(event.conv, "Error: Minimum length of nickname is {} characters. Only alphabetical and numeric characters allowed.".format(minlength))
+        bot.send_message_parsed(event.conv, _("Error: Minimum length of nickname is {} characters. Only alphabetical and numeric characters allowed.").format(minlength))
         return
 
     # perform hard-coded substitution on words that trigger easter eggs
@@ -371,12 +371,12 @@ def setnickname(bot, event, *args):
     if event.user.id_.chat_id in nicks:
         if nickname.lower() == nicks[event.user.id_.chat_id].lower():
             actual_nickname = bot.memory.get_suboption("user_data", event.user.id_.chat_id, "nickname")
-            bot.send_message_parsed(event.conv, '<i>Your nickname is already "' + actual_nickname + '".</i>')
+            bot.send_message_parsed(event.conv, _('<i>Your nickname is already "') + actual_nickname + '".</i>')
             return
 
     # check whether another user has the same nickname
     if nickname.lower() in nicks.values():
-        bot.send_message_parsed(event.conv, '<i>Nickname "' + nickname + '" is already in use by another user.</i>')
+        bot.send_message_parsed(event.conv, _('<i>Nickname "') + nickname + _('" is already in use by another user.</i>'))
         return
 
     bot.initialise_memory(event.user.id_.chat_id, "user_data")
@@ -395,8 +395,8 @@ def setnickname(bot, event, *args):
     bot.memory.save()
 
     if(nickname == ''):
-        bot.send_message_parsed(event.conv, "Removing nickname")
+        bot.send_message_parsed(event.conv, _("Removing nickname"))
     else:
         bot.send_message_parsed(
             event.conv,
-            "Setting nickname to '{}'".format(nickname))
+            _("Setting nickname to '{}'").format(nickname))
