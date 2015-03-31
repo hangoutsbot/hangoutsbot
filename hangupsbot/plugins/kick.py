@@ -22,5 +22,9 @@ def kick(bot, event, *args):
     conv = bot._conv_list.get(event.conv_id)
     conv_title = get_conv_name(conv)
 
+    # Double confirm that the bot is not going to change the topic back
+    bot.initialise_memory(event.conv_id, "conv_data")
+    bot.memory.set_by_path(["conv_data", event.conv_id, "topic"], "")
+
     yield from bot._client.setchatname(event.conv_id, "[DEAD]")
     yield from bot._client.setchatname(new_conversation_id, conv_title)
