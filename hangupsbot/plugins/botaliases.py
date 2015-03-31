@@ -29,7 +29,7 @@ def _initialise(Handlers, bot=None):
         bot.append("/bot")
 
     Handlers.bot_command = bot_command_aliases
-    print("bot aliases: {}".format(bot_command_aliases))
+    print(_("bot aliases: {}").format(bot_command_aliases))
 
     Handlers.register_user_command(["botalias"])
 
@@ -42,7 +42,7 @@ def botalias(bot, event, *args):
     if len(args) == 0:
         bot.send_message_parsed(
             event.conv,
-            "<i>bot alias: {}</i>".format(
+            _("<i>bot alias: {}</i>").format(
                 ", ".join(bot._handlers.bot_command)))
     else:
         admins_list = bot.get_config_suboption(event.conv_id, 'admins')
@@ -71,4 +71,4 @@ def botalias(bot, event, *args):
         else:
             bot.send_message_parsed(
                 event.conv,
-                "<i>not authorised to change bot alias</i>")
+                _("<i>not authorised to change bot alias</i>"))

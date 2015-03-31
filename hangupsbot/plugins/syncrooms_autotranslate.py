@@ -12,7 +12,7 @@ def _initialise(Handlers, bot=None):
         Handlers.register_admin_command(['roomlanguage'])
         return []
     else:
-        print("SYNCROOMS_AUTOTRANSLATE: LEGACY FRAMEWORK MODE")
+        print(_("SYNCROOMS_AUTOTRANSLATE: LEGACY FRAMEWORK MODE"))
         return ['roomlanguage']
 
 
@@ -25,7 +25,7 @@ def _translate_message(bot, broadcast_list, context):
             response = send[1]
             target_language = _get_room_language(bot, target_conversation_id)
             if origin_language != target_language:
-                print("AUTOTRANSLATE(): translating {} to {}".format(origin_language, target_language))
+                print(_("AUTOTRANSLATE(): translating {} to {}").format(origin_language, target_language))
                 translated = gs.translate(_autotranslate["event_text"], target_language)
                 if _autotranslate["event_text"] != translated:
                     # mutate the original response by reference
@@ -44,7 +44,7 @@ def _get_room_language(bot, conversation_id, default="en"):
 
 def roomlanguage(bot, event, *args):
     """sets the current room language
-    supply parameter as either ISO639-1 2-letter language code or fulltext/fragment of language 
+    supply parameter as either ISO639-1 2-letter language code or fulltext/fragment of language
     to set (e.g. "chinese", "hebr", "swahili", etc).
     """
 
@@ -56,7 +56,7 @@ def roomlanguage(bot, event, *args):
         try:
             bot.send_message_parsed(
                 event.conv,
-                '<i>syncroom "{}" language is {}</i>'.format(
+                _('<i>syncroom "{}" language is {}</i>').format(
                     get_conv_name(event.conv),
                     language_map[_get_room_language(bot, event.conv_id)]))
         except KeyError:
@@ -69,7 +69,7 @@ def roomlanguage(bot, event, *args):
             bot.conversation_memory_set(event.conv_id, 'syncroom_language', iso_language)
             bot.send_message_parsed(
                 event.conv,
-                '<i>syncroom "{}" language set to {}</i>'.format(
+                _('<i>syncroom "{}" language set to {}</i>').format(
                     get_conv_name(event.conv),
                     text_language))
             break

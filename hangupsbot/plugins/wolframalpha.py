@@ -10,7 +10,7 @@ instructions:
 
 import wolframalpha
 
-_internal = {} 
+_internal = {}
 
 def _initialise(Handlers, bot):
     apikey = bot.get_config_option("wolframalpha-apikey")
@@ -18,7 +18,7 @@ def _initialise(Handlers, bot):
         _internal["client"] = wolframalpha.Client(apikey)
         Handlers.register_user_command(["ask"])
     else:
-        print("WOLFRAMALPHA: config.wolframalpha-apikey required")
+        print(_("WOLFRAMALPHA: config.wolframalpha-apikey required"))
     return []
 
 def ask(bot, event, *args):
@@ -44,6 +44,6 @@ def ask(bot, event, *args):
                     has_content = True
 
     if not has_content:
-        html = "<i>Wolfram Alpha did not return any useful data</i>"
+        html = _("<i>Wolfram Alpha did not return any useful data</i>")
 
     bot.send_html_to_conversation(event.conv, html)

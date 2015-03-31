@@ -14,11 +14,11 @@ def wiki(bot, event, *args):
         summary = page.summary.strip()
         summary = summary.replace('\r\n', '\n').replace('\r', '\n')
         summary = re.sub('\n+', "\n", summary).replace('\n', '<br /><br />')
-        source = '<i>source: <a href="{}">{}</a></i>'.format(page.url, page.url)
+        source = _('<i>source: <a href="{}">{}</a></i>').format(page.url, page.url)
 
         html_text = '<b>"{}"</b><br /><br />{}<br /><br />{}'.format(term, summary, source)
     except wikipedia.exceptions.PageError:
-        html_text = "<i>no entry found for {}</i>".format(term)
+        html_text = _("<i>no entry found for {}</i>").format(term)
     except wikipedia.exceptions.DisambiguationError as e:
         exception_text = str(e).strip().replace("\n", "<br />")
         html_text = "<i>{}</i>".format(exception_text)
