@@ -19,6 +19,8 @@ def kick(bot, event, *args):
     bot.send_html_to_conversation(new_conversation_id, "<i>New conversation created</i><br /><b>Please leave the old one</b>")
     bot.send_html_to_conversation(event.conv_id, "<b>PLEASE LEAVE THIS HANGOUT</b>")
 
-    topic = "[NEW] Hangout"
+    conv = bot._conv_list.get(event.conv_id)
+    conv_title = get_conv_name(conv)
+
     yield from bot._client.setchatname(event.conv_id, "[DEAD]")
-    yield from bot._client.setchatname(new_conversation_id, topic)
+    yield from bot._client.setchatname(new_conversation_id, conv_title)
