@@ -16,8 +16,8 @@ def kick(bot, event, *args):
 
     response = yield from bot._client.createconversation(user_ids)
     new_conversation_id = response['conversation']['id']['id']
-    bot.send_html_to_conversation(new_conversation_id, "<i>New conversation created</i><br /><b>Please leave the old one</b>")
-    bot.send_html_to_conversation(event.conv_id, "<b>PLEASE LEAVE THIS HANGOUT</b>")
+    bot.send_html_to_conversation(new_conversation_id, _("<i>New conversation created</i><br /><b>Please leave the old one</b>"))
+    bot.send_html_to_conversation(event.conv_id, _("<b>PLEASE LEAVE THIS HANGOUT</b>"))
 
     conv = bot._conv_list.get(event.conv_id)
     conv_title = get_conv_name(conv)
@@ -26,5 +26,5 @@ def kick(bot, event, *args):
     bot.initialise_memory(event.conv_id, "conv_data")
     bot.memory.set_by_path(["conv_data", event.conv_id, "topic"], "")
 
-    yield from bot._client.setchatname(event.conv_id, "[DEAD]")
+    yield from bot._client.setchatname(event.conv_id, _("[DEAD]"))
     yield from bot._client.setchatname(new_conversation_id, conv_title)
