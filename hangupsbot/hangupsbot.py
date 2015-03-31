@@ -10,14 +10,13 @@ from hangups.ui.utils import get_conv_name
 
 import config
 import handlers
+import version
 from commands import command
 
 from sinks.listener import start_listening
 
 from inspect import getmembers, isfunction
 
-
-__version__ = '2.3.1'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
 
@@ -671,6 +670,9 @@ def main():
                         help='memory storage path')
     parser.add_argument('--config', default=default_config_path,
                         help='config storage path')
+    parser.add_argument('--version', action='version', version='%(prog)s {}'.format(version.__version__),
+                        help='show program\'s version number and exit')
+
     args = parser.parse_args()
 
     # Create all necessary directories.
