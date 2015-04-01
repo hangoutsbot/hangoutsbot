@@ -8,7 +8,7 @@ _externals = {
 
 
 def _initialise(Handlers, bot=None):
-    Handlers.register_admin_command(["addusers", "createconversation", "refresh"])
+    Handlers.register_admin_command(["addme", "addusers", "createconversation", "refresh"])
     return []
 
 
@@ -34,6 +34,12 @@ def addusers(bot, event, *args):
     print("addusers: {} into conversation {}".format(list_add, target_conv))
     if len(list_add) > 0:
         yield from bot._client.adduser(target_conv, list_add)
+
+
+def addme(bot, event, *args):
+    if len(args) == 1:
+        target_conv = args[0]
+        yield from addusers(bot, event, *[event.user.id_.chat_id, "into", target_conv])
 
 
 def createconversation(bot, event, *args):
