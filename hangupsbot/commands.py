@@ -89,6 +89,25 @@ def ping(bot, event, *args):
     bot.send_message(event.conv, _('pong'))
 
 
+@command.register
+def optout(bot, event, *args):
+    """toggle opt-out of bot PM"""
+    optout = False
+    chat_id = event.user.id_.chat_id
+    bot.initialise_memory(chat_id, "user_data")
+    if bot.memory.exists(["user_data", chat_id, "optout"]):
+        optout = bot.memory.get_by_path(["user_data", chat_id, "optout"])
+    optout = not optout
+
+    bot.memory.set_by_path(["user_data", chat_id, "optout"], optout)
+    bot.memory.save()
+
+    if optout:
+        bot.send_message_parsed(event.conv, _('<i>{}, you <b>opted-out</b> from bot private messages</i>'.format(event.user.full_name)))
+    else:
+        bot.send_message_parsed(event.conv, _('<i>{}, you <b>opted-in</b> for bot private messages</i>'.format(event.user.full_name)))
+
+
 @command.register_unknown
 def unknown_command(bot, event, *args):
     """handle unknown commands"""
