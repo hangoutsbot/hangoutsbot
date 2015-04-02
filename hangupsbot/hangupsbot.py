@@ -314,9 +314,13 @@ class HangupsBot(object):
         print()
 
     def get_1on1_conversation(self, chat_id):
-        conversation = None
-
         self.initialise_memory(chat_id, "user_data")
+
+        if self.memory.exists(["user_data", chat_id, "optout"]):
+            if self.memory.get_by_path(["user_data", chat_id, "optout"]):
+                return False
+
+        conversation = None
 
         if self.memory.exists(["user_data", chat_id, "1on1"]):
             conversation_id = self.memory.get_by_path(["user_data", chat_id, "1on1"])
