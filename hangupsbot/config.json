@@ -24,7 +24,6 @@
   ],
   "spreadsheet_enabled": false,
   "spreadsheet_url": "INSERT_PUBLIC_URL_OF_GSHEET_HERE",
-  "spreadsheet_table_class": "waffle",
   "syncing_enabled": false,
   "sync_rooms": [["CONV1_ID", "CONV2_ID"],[]],
   "commands_enabled": true,
