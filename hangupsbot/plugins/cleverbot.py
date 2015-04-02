@@ -190,5 +190,7 @@ def chat(bot, event, *args):
     query = ' '.join(args)
 
     cb1 = __cleverbots[event.conv.id_]
-
-    bot.send_html_to_conversation(event.conv.id_, cb1.ask(query))
+    text = cb1.ask(query)
+    if "Cleverscript.com" in text or "Clevermessage" in text or "Clevertweet" in text or "CleverEnglish" in text:
+        return
+    bot.send_html_to_conversation(event.conv.id_, text)
