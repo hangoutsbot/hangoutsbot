@@ -182,16 +182,17 @@ def _handle_incoming_message(bot, event, command):
                             newFile = open(fileName,'wb')
                             newFile.write(raw)
 
-                            photoID = yield from bot._client.upload_image(fileName)
-                            segments.append(hangups.ChatMessageSegment('incoming image:', is_italic=True))
-                            bot.send_message_segments(_conv_id, list(segments), context=_context)
-                            yield from bot._client.sendchatmessage(_conv_id, None, imageID=photoID)
-                            # Remove the image after use
-                            os.remove(fileName)
-
-                            if not photoID:
+                            try:
+                                photoID = yield from bot._client.upload_image(fileName)
+                                segments.append(hangups.ChatMessageSegment('incoming image:', is_italic=True))
+                                bot.send_message_segments(_conv_id, list(segments), context=_context)
+                                yield from bot._client.sendchatmessage(_conv_id, None, imageID=photoID)
+                                # Remove the image after use
+                                os.remove(fileName)
+                            except AttributeError:
                                 segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
                                 segments.extend([hangups.ChatMessageSegment(link, hangups.SegmentType.LINK, link_target=link)])
+                                bot.send_message_segments(_conv_id, list(segments), context=_context)
                     else:
                         bot.send_message_segments(_conv_id, list(segments), context=_context)
 
