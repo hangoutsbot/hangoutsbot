@@ -43,9 +43,18 @@ def addme(bot, event, *args):
 
 
 def createconversation(bot, event, *args):
-    user_ids = list(set(args))
+    parameters = list(args)
+
+    force_group = False # default: defer to hangups client decision
+
+    if "group" in parameters:
+        parameters.remove("group")
+        force_group = True
+
+    user_ids = list(set(parameters))
     print("createconversation: {}".format(user_ids))
-    response = yield from bot._client.createconversation(user_ids)
+
+    response = yield from bot._client.createconversation(user_ids, force_group)
     new_conversation_id = response['conversation']['id']['id']
     bot.send_html_to_conversation(new_conversation_id, "<i>conversation created</i>")
 
