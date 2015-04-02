@@ -186,6 +186,8 @@ def _handle_incoming_message(bot, event, command):
                             segments.append(hangups.ChatMessageSegment('incoming image:', is_italic=True))
                             bot.send_message_segments(_conv_id, list(segments), context=_context)
                             yield from bot._client.sendchatmessage(_conv_id, None, imageID=photoID)
+                            # Remove the image after use
+                            os.remove(fileName)
 
                             if not photoID:
                                 segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
