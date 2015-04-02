@@ -170,31 +170,31 @@ def _handle_incoming_message(bot, event, command):
                             "conv_id" : event.conv_id,
                             "event_text" : event.text }
 
-
-                    if event.conv_event.attachments:
-                        for link in event.conv_event.attachments:
-                            # Attempt to upload the photo separately
-                            # We need to download the photo first before we can upload it
-                            downloadURL = link
-                            fileName = os.path.basename(urlparse(downloadURL).path)
-                            r = yield from aiohttp.request('get',downloadURL)
-                            raw = yield from r.read()
-                            newFile = open(fileName,'wb')
-                            newFile.write(raw)
-
-                            try:
-                                photoID = yield from bot._client.upload_image(fileName)
-                                segments.append(hangups.ChatMessageSegment('incoming image:', is_italic=True))
-                                bot.send_message_segments(_conv_id, list(segments), context=_context)
-                                yield from bot._client.sendchatmessage(_conv_id, None, imageID=photoID)
-                                # Remove the image after use
-                                os.remove(fileName)
-                            except AttributeError:
-                                segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
-                                segments.extend([hangups.ChatMessageSegment(link, hangups.SegmentType.LINK, link_target=link)])
-                                bot.send_message_segments(_conv_id, list(segments), context=_context)
-                    else:
+                    if not event.conv_event.attachments:
                         bot.send_message_segments(_conv_id, list(segments), context=_context)
+
+                    for link in event.conv_event.attachments:
+                        # Attempt to upload the photo separately
+                        # We need to download the photo first before we can upload it
+                        downloadURL = link
+                        fileName = os.path.basename(urlparse(downloadURL).path)
+                        r = yield from aiohttp.request('get',downloadURL)
+                        raw = yield from r.read()
+                        newFile = open(fileName,'wb')
+                        newFile.write(raw)
+
+                        try:
+                            photoID = yield from bot._client.upload_image(fileName)
+                            segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+                            segments.append(hangups.ChatMessageSegment('incoming image:', is_italic=True))
+                            bot.send_message_segments(_conv_id, list(segments), context=_context)
+                            yield from bot._client.sendchatmessage(_conv_id, None, imageID=photoID)
+                            # Remove the image after use
+                            os.remove(fileName)
+                        except AttributeError:
+                            segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+                            segments.extend([hangups.ChatMessageSegment(link, hangups.SegmentType.LINK, link_target=link)])
+                            bot.send_message_segments(_conv_id, list(segments), context=_context)
 
             _registers.last_user_id = event.user_id.chat_id
             _registers.last_time_id = time.time()
