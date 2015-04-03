@@ -35,3 +35,6 @@ def _watch_image_link(bot, event, command):
         photoID = yield from bot._client.upload_image(fileName)
 
         yield from bot._client.sendchatmessage(event.conv.id_, None, imageID=photoID)
+
+        # Remove the image after use
+        os.remove(fileName)

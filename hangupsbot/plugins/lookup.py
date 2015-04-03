@@ -11,12 +11,8 @@ def lookup(bot, event, *args):
         bot.send_message_parsed(event.conv, _("Spreadsheet URL not set"))
         return
 
-    if not bot.get_config_option('spreadsheet_table_class'):
-        bot.send_message_parsed(event.conv, _("Spreadsheet table identifier not set"))
-        return
-
     spreadsheet_url = bot.get_config_option('spreadsheet_url')
-    table_class = bot.get_config_option('spreadsheet_table_class') # Name of table class to search
+    table_class = "waffle" # Name of table class to search. Note that 'waffle' seems to be the default for all spreadsheets
 
     keyword = ' '.join(args)
 
