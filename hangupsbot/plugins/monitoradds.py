@@ -40,6 +40,8 @@ def _watch_new_adds(bot, event, command):
             # The mods are likely not configured. Continuing...
             pass
 
-        bot.send_message_parsed(event.conv, '<b>!!! Warning !!!</b>')
-        bot.send_message_parsed(event.conv, '<i>{}, invited user {} without authorization!'.format(event.user.full_name, names))
-        bot.send_message_parsed(event.conv, '<i>{}: Please leave this hangout and ask a moderator to add you. Thank you for your understanding.'.format(names))
+        html = "<b>!!! WARNING !!!</b><br /><br />"
+        html += "<i><b>{}</b> invited user <b>{}</b> without authorization.<br /><br />".format(event.user.full_name, names)
+        html += "<i><b>{}</b>: Please leave this hangout and ask a moderator to add you. Thank you for your understanding.".format(names)
+
+        bot.send_html_to_conversation(event.conv, html)
