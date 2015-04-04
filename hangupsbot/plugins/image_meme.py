@@ -3,6 +3,7 @@ import urllib
 import random
 import asyncio
 import aiohttp
+import hangups
 
 
 _externals = { "running": False }
@@ -39,18 +40,24 @@ def meme(bot, event, *args):
 
         links = yield from _retrieve("http://memegenerator.net/memes/search?q=" + "+".join(parameters), ".item_medium_small > a", "href")
         links = yield from _retrieve("http://memegenerator.net" + random.choice(links), ".item_medium_small > a", "href")
-        links = yield from _retrieve("http://memegenerator.net" + random.choice(links), ".instance_large > img", "src")
+
+        instance_link = "http://memegenerator.net" + random.choice(links)
+        links = yield from _retrieve(instance_link, ".instance_large > img", "src")
 
         if len(links) > 0:
             jpg_link = links.pop()
             the_request = yield from aiohttp.request('get', jpg_link)
             image_data = yield from the_request.read()
 
+            legacy_segments = [
+                # hangups.ChatMessageSegment('link: ', is_italic=True),
+                hangups.ChatMessageSegment(instance_link, hangups.SegmentType.LINK, link_target=instance_link)]
+
             photoID = yield from bot._client.upload_image(image_data)
-            yield from bot._client.sendchatmessage(event.conv.id_, None, imageID=photoID)
+            yield from bot._client.sendchatmessage(event.conv.id_, [seg.serialize() for seg in legacy_segments], imageID=photoID)
         else:
-            bot.send_html_to_conversation(event.conv_id, "<i>couldn't find a suitable meme :(</i>")
+            bot.send_html_to_conversation(event.conv_id, "<i>couldn't find a nice picture :( try again</i>")
     except Exception as e:
-        bot.send_html_to_conversation(event.conv_id, "<i>oh-uh, something went wrong! try again</i>")
+        bot.send_html_to_conversation(event.conv_id, "<i>couldn't find a suitable meme! try again</i>")
     finally:
         _externals["running"] = False
