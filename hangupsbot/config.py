@@ -44,7 +44,7 @@ class Config(collections.MutableMapping):
 
     def get_by_path(self, keys_list):
         """Get item from config by path (list of keys)"""
-        return functools.reduce(lambda d, k: d[k], keys_list, self)
+        return functools.reduce(lambda d, k: d[int(k) if isinstance(d, list) else k], keys_list, self)
 
     def set_by_path(self, keys_list, value):
         """Set item in config by path (list of keys)"""
