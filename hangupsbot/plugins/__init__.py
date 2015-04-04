@@ -4,7 +4,7 @@ import logging
 
 from inspect import getmembers, isfunction
 
-def load(bot, command):
+def load(bot, command_dispatcher):
     plugin_list = bot.get_config_option('plugins')
     if plugin_list is None:
         print(_("HangupsBot: config.plugins is not defined, using ALL"))
@@ -80,7 +80,7 @@ def load(bot, command):
         registered_commands = []
         for function_name, the_function in candidate_commands:
             if function_name in all_commands:
-                command.register(the_function)
+                command_dispatcher.register(the_function)
                 text_function_name = function_name
                 if function_name in explicit_admin_commands:
                     text_function_name = "*" + text_function_name
