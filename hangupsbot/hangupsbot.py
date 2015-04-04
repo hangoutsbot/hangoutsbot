@@ -15,6 +15,7 @@ import handlers
 import version
 from commands import command
 
+import hooks
 import sinks
 import plugins
 
@@ -146,8 +147,7 @@ class HangupsBot(object):
             loop = asyncio.get_event_loop()
 
             # initialise pluggable framework
-            self._load_hooks()
-
+            hooks.load(self)
             sinks.start(self, loop)
 
             # Connect to Hangouts
@@ -359,42 +359,6 @@ class HangupsBot(object):
 
     def _messagecontext_legacy(self):
         return self.messagecontext("unknown", 50, ["legacy"])
-
-    def _load_hooks(self):
-        hook_packages = self.get_config_option('hooks')
-        itemNo = -1
-        self._hooks = []
-
-        if isinstance(hook_packages, list):
-            for hook_config in hook_packages:
-                try:
-                    module = hook_config["module"].split(".")
-                    if len(module) < 4:
-                        print(_("config.hooks[{}].module should have at least 4 packages {}").format(itemNo, module))
-                        continue
-                    module_name = ".".join(module[0:-1])
-                    class_name = ".".join(module[-1:])
-                    if not module_name or not class_name:
-                        print(_("config.hooks[{}].module must be a valid package name").format(itemNo))
-                        continue
-                except KeyError as e:
-                    print(_("config.hooks[{}] missing keyword").format(itemNo), e)
-                    continue
-
-                theClass = class_from_name(module_name, class_name)
-                theClass._bot = self
-                if "config" in hook_config:
-                    # allow separate configuration file to be loaded
-                    theClass._config = hook_config["config"]
-
-                if theClass.init():
-                    print(_("_load_hooks(): {}").format(module))
-                    self._hooks.append(theClass)
-                else:
-                    print(_("_load_hooks(): hook failed to initialise"))
-
-        message = _("_load_hooks(): {} hook(s) loaded").format(len(self._hooks))
-        logging.info(message)
 
     def _on_message_sent(self, future):
         """Handle showing an error if a message fails to send"""
