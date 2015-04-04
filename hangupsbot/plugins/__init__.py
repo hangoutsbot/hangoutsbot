@@ -1,5 +1,7 @@
 import os
 import sys
+import logging
+
 from inspect import getmembers, isfunction
 
 def load(bot, command):
