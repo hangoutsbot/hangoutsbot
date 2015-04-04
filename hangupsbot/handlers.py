@@ -15,8 +15,6 @@ class EventHandler(object):
         self.bot = bot
         self.bot_command = bot_command
 
-        self.explicit_admin_commands = [] # plugins can force some commands to be admin-only via register_admin_command()
-
         self.pluggables = { "message":[], "membership":[], "rename":[], "sending":[] }
 
     def plugin_preinit_stats(self, plugin_metadata):
@@ -62,7 +60,7 @@ class EventHandler(object):
         if not isinstance(command_names, list):
             command_names = [command_names] # wrap into a list for consistent processing
         self._plugin_register_command("admin", command_names)
-        self.explicit_admin_commands.extend(command_names)
+        command.admin_commands.extend(command_names)
 
     def register_object(self, id, objectref, forgiving=True):
         """registers a shared object into bot.shared"""
