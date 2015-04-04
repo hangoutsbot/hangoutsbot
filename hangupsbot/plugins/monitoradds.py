@@ -1,7 +1,9 @@
 """
 Plugin for monitoring new adds to HOs and alerting if users were not added by an admin or mod.
 Add mods to the config.json file either globally or on an individual HO basis.
-Add a "watch_new_adds": true  parameter to individual HOs in the config.json file. 
+Add a "watch_new_adds": true  parameter to individual HOs in the config.json file.
+
+Author: @Riptides 
 """
 
 import asyncio
