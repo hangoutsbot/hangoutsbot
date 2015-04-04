@@ -79,12 +79,9 @@ class EventHandler(object):
         self.pluggables[type].append((function, priority, self._current_plugin["metadata"]))
 
     def get_admin_commands(self, conversation_id):
-        # get list of commands that are admin-only, set in config.json OR plugin-registered
-        commands_admin_list = self.bot.get_config_suboption(conversation_id, 'commands_admin')
-        if not commands_admin_list:
-            commands_admin_list = []
-        commands_admin_list = list(set(commands_admin_list + self.explicit_admin_commands))
-        return commands_admin_list
+        """legacy support for pre-2.4 plugins"""
+        print("LEGACY handlers.get_admin_commands(): please update to command.get_admin_commands")
+        return command.get_admin_commands(self.bot, conversation_id)
 
     @asyncio.coroutine
     def handle_chat_message(self, event):
@@ -132,7 +129,7 @@ class EventHandler(object):
             return
 
         # only admins can run admin commands
-        commands_admin_list = self.get_admin_commands(event.conv_id)
+        commands_admin_list = command.get_admin_commands(self.bot, event.conv_id)
         if commands_admin_list and line_args[1].lower() in commands_admin_list:
             if not initiator_is_admin:
                 self.bot.send_message(event.conv, _('{}: Can\'t do that.').format(event.user.full_name))

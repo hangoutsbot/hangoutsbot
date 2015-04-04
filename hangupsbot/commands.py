@@ -12,6 +12,10 @@ class CommandDispatcher(object):
         self.commands = {}
         self.unknown_command = None
 
+    def get_admin_commands(self, bot, conv_id):
+        """Get list of admin-only commands (set by plugins or in config.json)"""
+        commands_admin = bot.get_config_suboption(conv_id, 'commands_admin') or []
+        return list(set(commands_admin + bot._handlers.explicit_admin_commands))
 
     @asyncio.coroutine
     def run(self, bot, event, *args, **kwds):
