@@ -1,7 +1,8 @@
-import asyncio, re, time
+import asyncio, re, time, os, aiohttp
 
 import hangups
 
+from urllib.parse import urlparse
 from hangups.ui.utils import get_conv_name
 
 class __registers(object):
@@ -143,12 +144,6 @@ def _handle_incoming_message(bot, event, command):
                                                    link_target=link, is_bold=True),
                         hangups.ChatMessageSegment(': ', is_bold=True)]
 
-            # Append links to attachments (G+ photos) to forwarded message
-            if event.conv_event.attachments:
-                segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
-                segments.extend([hangups.ChatMessageSegment(link, hangups.SegmentType.LINK, link_target=link)
-                                 for link in event.conv_event.attachments])
-
             # Make links hyperlinks and send message
             URL_RE = re.compile(r'https?://\S+')
             for segment in event.conv_event.segments:
@@ -167,8 +162,6 @@ def _handle_incoming_message(bot, event, command):
             for _conv_id in sync_room_list:
                 if not _conv_id == event.conv_id:
 
-                    _cloned_segments = list(segments)
-
                     _context = {}
                     _context["explicit_relay"] = True
 
@@ -177,7 +170,31 @@ def _handle_incoming_message(bot, event, command):
                             "conv_id" : event.conv_id,
                             "event_text" : event.text }
 
-                    bot.send_message_segments(_conv_id, _cloned_segments, context=_context)
+                    if not event.conv_event.attachments:
+                        bot.send_message_segments(_conv_id, list(segments), context=_context)
+
+                    for link in event.conv_event.attachments:
+                        # Attempt to upload the photo separately
+                        # We need to download the photo first before we can upload it
+                        downloadURL = link
+                        fileName = os.path.basename(urlparse(downloadURL).path)
+                        r = yield from aiohttp.request('get',downloadURL)
+                        raw = yield from r.read()
+                        newFile = open(fileName,'wb')
+                        newFile.write(raw)
+
+                        try:
+                            photoID = yield from bot._client.upload_image(fileName)
+                            segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+                            segments.append(hangups.ChatMessageSegment('incoming image:', is_italic=True))
+                            bot.send_message_segments(_conv_id, list(segments), context=_context)
+                            yield from bot._client.sendchatmessage(_conv_id, None, imageID=photoID)
+                            # Remove the image after use
+                            os.remove(fileName)
+                        except AttributeError:
+                            segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+                            segments.extend([hangups.ChatMessageSegment(link, hangups.SegmentType.LINK, link_target=link)])
+                            bot.send_message_segments(_conv_id, list(segments), context=_context)
 
             _registers.last_user_id = event.user_id.chat_id
             _registers.last_time_id = time.time()
