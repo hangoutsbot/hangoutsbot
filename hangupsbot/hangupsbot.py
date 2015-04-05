@@ -9,6 +9,10 @@ import hangups
 
 from utils import simple_parse_to_segments, class_from_name
 from hangups.ui.utils import get_conv_name
+try:
+    from hangups.schemas import OffTheRecordStatus
+except ImportError:
+    print("WARNING: hangups library out of date!")
 
 import config
 import handlers
@@ -45,8 +49,11 @@ class FakeConversation(object):
         self.id_ = id_
 
     @asyncio.coroutine
-    def send_message(self, segments):
-        yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments])
+    def send_message(self, segments, otr_status=None):
+        try:
+            yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments], otr_status=otr_status)
+        except TypeError:
+            yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments])
 
 
 class ConversationEvent(object):
@@ -189,6 +196,8 @@ class HangupsBot(object):
 
     def send_message_segments(self, conversation, segments, context=None):
         """Send chat message segments"""
+        otr_status = None
+
         # Ignore if the user hasn't typed a message.
         if len(segments) == 0:
             return
@@ -198,11 +207,25 @@ class HangupsBot(object):
             context = {}
         context["base"] = self._messagecontext_legacy()
 
-        # reduce conversation to the only thing we need: the id
+        # reduce conversation to the only things we need: the id and history
         if isinstance(conversation, (FakeConversation, hangups.conversation.Conversation)):
             conversation_id = conversation.id_
+            # Turn history off if it's off in the conversation
+            try:
+                otr_status = (OffTheRecordStatus.OFF_THE_RECORD
+                    if conversation.is_off_the_record
+                    else OffTheRecordStatus.ON_THE_RECORD)
+            except AttributeError:
+                pass
         elif isinstance(conversation, str):
             conversation_id = conversation
+            # Turn history off if it's off in the conversation
+            try:
+                otr_status = (OffTheRecordStatus.OFF_THE_RECORD
+                    if self._conv_list.get(conversation).is_off_the_record
+                    else OffTheRecordStatus.ON_THE_RECORD)
+            except AttributeError:
+                pass
         else:
             raise ValueError(_('could not identify conversation id'))
 
@@ -210,11 +233,11 @@ class HangupsBot(object):
         broadcast_list = [(conversation_id, segments)]
 
         asyncio.async(
-            self._begin_message_sending(broadcast_list, context)
+            self._begin_message_sending(broadcast_list, context, otr_status=otr_status)
         ).add_done_callback(self._on_message_sent)
 
     @asyncio.coroutine
-    def _begin_message_sending(self, broadcast_list, context):
+    def _begin_message_sending(self, broadcast_list, context, otr_status=None):
         try:
             yield from self._handlers.run_pluggable_omnibus("sending", self, broadcast_list, context)
         except self.Exceptions.SuppressEventHandling:
@@ -236,7 +259,7 @@ class HangupsBot(object):
 
             # send messages using FakeConversation as a workaround
             _fc = FakeConversation(self._client, response[0])
-            yield from _fc.send_message(response[1])
+            yield from _fc.send_message(response[1], otr_status=otr_status)
 
     def list_conversations(self):
         """List all active conversations"""
