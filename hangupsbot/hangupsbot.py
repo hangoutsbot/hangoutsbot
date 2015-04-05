@@ -49,12 +49,16 @@ class FakeConversation(object):
         self.id_ = id_
 
     @asyncio.coroutine
-    def send_message(self, segments, otr_status=None):
+    def send_message(self, segments, imageID=None, otr_status=None):
         try:
-            yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments], otr_status=otr_status)
+            yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments], imageID=imageID, otr_status=otr_status)
         except (TypeError, AttributeError):
-            # in the event the hangups library doesn't support otr_status
-            yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments])
+            # in the event the hangups library doesn't support image sending
+            try:
+                yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments], otr_status=otr_status)
+            except (TypeError, AttributeError):
+                # in the event the hangups library doesn't support otr_status (note that image support assumes otr_status support)
+                yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments])
 
 
 class ConversationEvent(object):
@@ -195,13 +199,14 @@ class HangupsBot(object):
         segments = simple_parse_to_segments(html)
         self.send_message_segments(conversation, segments, context)
 
-    def send_message_segments(self, conversation, segments, context=None):
+    def send_message_segments(self, conversation, segments, context=None, imageID=None):
         """Send chat message segments"""
         otr_status = None
 
         # Ignore if the user hasn't typed a message.
         if len(segments) == 0:
             return
+
 
         # add default context if none exists
         if not context:
@@ -234,11 +239,11 @@ class HangupsBot(object):
         broadcast_list = [(conversation_id, segments)]
 
         asyncio.async(
-            self._begin_message_sending(broadcast_list, context, otr_status=otr_status)
+            self._begin_message_sending(broadcast_list, context, imageID=imageID, otr_status=otr_status)
         ).add_done_callback(self._on_message_sent)
 
     @asyncio.coroutine
-    def _begin_message_sending(self, broadcast_list, context, otr_status=None):
+    def _begin_message_sending(self, broadcast_list, context, imageID=None, otr_status=None):
         try:
             yield from self._handlers.run_pluggable_omnibus("sending", self, broadcast_list, context)
         except self.Exceptions.SuppressEventHandling:
@@ -260,7 +265,7 @@ class HangupsBot(object):
 
             # send messages using FakeConversation as a workaround
             _fc = FakeConversation(self._client, response[0])
-            yield from _fc.send_message(response[1], otr_status=otr_status)
+            yield from _fc.send_message(response[1], imageID=imageID, otr_status=otr_status)
 
     def list_conversations(self):
         """List all active conversations"""
