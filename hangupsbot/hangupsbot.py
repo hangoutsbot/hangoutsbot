@@ -54,6 +54,8 @@ class FakeConversation(object):
             yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments], otr_status=otr_status)
         except TypeError:
             yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments])
+        except AttributeError:
+            yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments])
 
 
 class ConversationEvent(object):
