@@ -86,5 +86,6 @@
   "plugins": null,
   "strict_botkeeper_check": false,
   "cleverbot_percentage_replies": "2",
-  "watch_new_adds": false
+  "watch_new_adds": false,
+  "link_to_guide": "https://github.com/nylonee/hangupsbot/wiki/User-Guide"
 }
