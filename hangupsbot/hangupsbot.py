@@ -52,9 +52,8 @@ class FakeConversation(object):
     def send_message(self, segments, otr_status=None):
         try:
             yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments], otr_status=otr_status)
-        except TypeError:
-            yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments])
-        except AttributeError:
+        except (TypeError, AttributeError):
+            # in the event the hangups library doesn't support otr_status
             yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments])
 
 
