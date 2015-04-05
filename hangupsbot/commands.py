@@ -54,7 +54,7 @@ command = CommandDispatcher()
 
 @command.register
 def help(bot, event, cmd=None, *args):
-    """list supported commands"""
+    """list supported commands, /bot help <command> will show additional details"""
     help_lines = []
     link_to_guide = bot.get_config_suboption(event.conv_id, 'link_to_guide')
     if not cmd:
