@@ -16,7 +16,7 @@ def _initialise(Handlers, bot=None):
 
 @asyncio.coroutine
 def _retrieve(url, css_selector, attribute):
-    print("_retrieve(): getting {}".format(url))
+    print("meme._retrieve(): getting {}".format(url))
     html_request = yield from aiohttp.request('get', url)
     html = yield from html_request.read()
     soup = BeautifulSoup(str(html, 'utf-8'))
@@ -46,6 +46,8 @@ def meme(bot, event, *args):
 
         if len(links) > 0:
             jpg_link = links.pop()
+            print("meme(): {} in {}".format(jpg_link, instance_link))
+
             the_request = yield from aiohttp.request('get', jpg_link)
             image_data = yield from the_request.read()
 
@@ -53,11 +55,19 @@ def meme(bot, event, *args):
                 # hangups.ChatMessageSegment('link: ', is_italic=True),
                 hangups.ChatMessageSegment(instance_link, hangups.SegmentType.LINK, link_target=instance_link)]
 
+            print("meme(): uploading image data {} bytes".format(len(image_data)))
             photoID = yield from bot._client.upload_image(image_data)
-            yield from bot._client.sendchatmessage(event.conv.id_, [seg.serialize() for seg in legacy_segments], imageID=photoID)
+
+            try:
+                # compatibility with ShaunOfTheLive/hangups
+                yield from bot._client.sendchatmessage(event.conv.id_, [seg.serialize() for seg in legacy_segments], imageID=photoID)
+            except TypeError as e:
+                # preferred: tdryer/hangups
+                yield from bot._client.sendchatmessage(event.conv.id_, [seg.serialize() for seg in legacy_segments], image_id=photoID)
         else:
             bot.send_html_to_conversation(event.conv_id, "<i>couldn't find a nice picture :( try again</i>")
     except Exception as e:
         bot.send_html_to_conversation(event.conv_id, "<i>couldn't find a suitable meme! try again</i>")
+        print("{}".format(e))
     finally:
         _externals["running"] = False
