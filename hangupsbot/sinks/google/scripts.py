@@ -20,9 +20,10 @@ class webhookReceiver(BaseHTTPRequestHandler):
 
         print(_("handler finished"))
 
-    def _scripts_push(self, conversation_id, payload):
+    def _scripts_push(self, conversation_id, message):
         try:
-            webhookReceiver._bot.send_html_to_user_or_conversation(conversation_id, payload)
+            if not webhookReceiver._bot.send_html_to_user(conversation_id, message):
+                webhookReceiver._bot.send_html_to_conversation(conversation_id, message)
         except Exception as e:
             print(e)
 
