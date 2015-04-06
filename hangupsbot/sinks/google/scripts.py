@@ -8,21 +8,21 @@ class webhookReceiver(BaseHTTPRequestHandler):
 
     def _handle_incoming(self, path, query_string, payload):
         path = path.split("/")
-        conversation_id = path[1]
-        if conversation_id is None:
-            print(_("conversation id must be provided as part of path"))
+        user_id = path[1]
+        if user_id is None:
+            print(_("user id must be provided as part of path"))
             return
 
         if "message" in payload:
-            self._scripts_push(conversation_id, payload["message"])
+            self._scripts_push(user_id, payload["message"])
         else:
             print(payload)
 
         print(_("handler finished"))
 
-    def _scripts_push(self, conversation_id, payload):
+    def _scripts_push(self, user_id, payload):
         try:
-            webhookReceiver._bot.send_html_to_user_or_conversation(conversation_id, payload)
+            webhookReceiver._bot.send_html_to_user(user_id, payload)
         except Exception as e:
             print(e)
 
