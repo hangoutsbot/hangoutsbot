@@ -7,6 +7,7 @@ import aiohttp
 import asyncio
 import os
 import io
+import re
 
 def _initialise(Handlers, bot=None):
     Handlers.register_handler(_watch_image_link, type="message")
@@ -25,16 +26,12 @@ def _watch_image_link(bot, event, command):
 
     probable_image_link = False
     event_text_lower = event.text.lower()
-    if event_text_lower.startswith(("imgur.com/", "i.imgur.com/")):
-        """special processing for naked imgur links with no protocol"""
+    if re.match("^(https?://)?([a-z0-9.]*?\.)?imgur.com/", event_text_lower, re.IGNORECASE):
+        """imgur links can be supplied with/without protocol and extension"""
         probable_image_link = True
-    elif event_text_lower.startswith(("http://", "https://")):
-        if event_text_lower.startswith(("http://imgur.com/", "https://imgur.com/")):
-            """standard imgur links may not have an extension"""
-            probable_image_link = True
-        elif event_text_lower.endswith((".png", ".gif", ".gifv", ".jpg")):
-            """all other image links should have a protocol and end with a valid extension"""
-            probable_image_link = True
+    elif event_text_lower.startswith(("http://", "https://")) and event_text_lower.endswith((".png", ".gif", ".gifv", ".jpg")):
+        """other image links must have protocol and end with valid extension"""
+        probable_image_link = True
     if probable_image_link and "googleusercontent" in event_text_lower:
         """reject links posted by google to prevent endless attachment loop"""
         print("_watch_image_link(): rejected link {}".format(event.text))
