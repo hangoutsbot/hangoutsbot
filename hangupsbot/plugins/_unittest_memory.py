@@ -8,7 +8,7 @@ all these commands work on memory.json
 import time
 
 def _initialise(Handlers, bot=None):
-    Handlers.register_admin_command(["memorytaint", "memoryuntaint", "memorystatus", "memoryset", "memoryget", "memorydelete", "memorysave", "submemoryinit", "submemoryclear", "submemoryset", "submemoryget", "submemorydelete"])
+    Handlers.register_admin_command(["memorytaint", "memoryuntaint", "memorystatus", "memoryset", "memoryget", "memorypop", "memorysave", "submemoryinit", "submemoryclear", "submemoryset", "submemoryget", "submemorypop", "submemorydelete", "memorydelete"])
     return []
 
 def memoryset(bot, event, *args):
@@ -19,9 +19,9 @@ def memoryset(bot, event, *args):
 def memoryget(bot, event, *args):
     print("memoryget(): {}".format(bot.memory["unittest"]))
 
-def memorydelete(bot, event, *args):
+def memorypop(bot, event, *args):
     the_string = bot.memory.pop("unittest")
-    print("memorydelete(): {}".format(the_string))
+    print("memorypop(): {}".format(the_string))
 
 def memorytaint(bot, event, *args):
     if bot.memory.changed:
@@ -60,7 +60,14 @@ def submemoryset(bot, event, *args):
 def submemoryget(bot, event, *args):
     print("submemoryget(): {}".format(bot.memory["unittest-submemory"]["timestamp"]))
 
-def submemorydelete(bot, event, *args):
+def submemorypop(bot, event, *args):
     the_string = bot.memory["unittest-submemory"].pop("timestamp")
-    print("submemorydelete(): {}".format(the_string))
+    print("submemorypop(): {}".format(the_string))
 
+def memorydelete(bot, event, *args):
+    the_string = bot.memory.pop_by_path(["unittest"])
+    print("memorydelete(): {}".format(the_string))
+
+def submemorydelete(bot, event, *args):
+    the_string = bot.memory.pop_by_path(["unittest-submemory", "timestamp"])
+    print("submemorydelete(): {}".format(the_string))
