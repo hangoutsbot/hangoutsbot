@@ -266,7 +266,7 @@ class HangupsBot(object):
 
         for response in broadcast_list:
             if debug_sending:
-                print(_("_begin_message_sending(): {} {} segments(s)").format(response[0], len(response[1])))
+                print(_("_begin_message_sending(): {}").format(response[0]))
 
             # send messages using FakeConversation as a workaround
             _fc = FakeConversation(self._client, response[0])
