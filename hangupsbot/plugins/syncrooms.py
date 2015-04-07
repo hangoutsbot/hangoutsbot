@@ -1,4 +1,4 @@
-import asyncio, re, time, os, aiohttp
+import asyncio, re, time, os, aiohttp, io
 
 import hangups
 
@@ -174,27 +174,25 @@ def _handle_incoming_message(bot, event, command):
                         bot.send_message_segments(_conv_id, list(segments), context=_context)
 
                     for link in event.conv_event.attachments:
-                        # Attempt to upload the photo separately
-                        # We need to download the photo first before we can upload it
-                        downloadURL = link
-                        fileName = os.path.basename(urlparse(downloadURL).path)
-                        r = yield from aiohttp.request('get',downloadURL)
+                        # Attempt to upload the photo first
+                        filename = os.path.basename(link)
+                        r = yield from aiohttp.request('get', link)
                         raw = yield from r.read()
-                        newFile = open(fileName,'wb')
-                        newFile.write(raw)
+                        image_data = io.BytesIO(raw)
+                        image_id = None
 
                         try:
-                            photoID = yield from bot._client.upload_image(fileName)
+                            image_id = yield from bot._client.upload_image(image_data, filename=filename)
                             segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
                             segments.append(hangups.ChatMessageSegment('incoming image:', is_italic=True))
-                            bot.send_message_segments(_conv_id, list(segments), context=_context)
-                            yield from bot._client.sendchatmessage(_conv_id, None, imageID=photoID)
-                            # Remove the image after use
-                            os.remove(fileName)
                         except AttributeError:
-                            segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
                             segments.extend([hangups.ChatMessageSegment(link, hangups.SegmentType.LINK, link_target=link)])
-                            bot.send_message_segments(_conv_id, list(segments), context=_context)
+
+                        segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+                        bot.send_message_segments(_conv_id, list(segments), context=_context)
+                        if image_id:
+                            bot.send_message_segments(_conv_id, None, context=_context, image_id=image_id)
+
 
             _registers.last_user_id = event.user_id.chat_id
             _registers.last_time_id = time.time()
