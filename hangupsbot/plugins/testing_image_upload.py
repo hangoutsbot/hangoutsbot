@@ -19,18 +19,39 @@ def _watch_image_link(bot, event, command):
     if event.user.is_self:
         return
 
-    # Detecting a photo
-    if (".jpg" in event.text or "imgur.com" in event.text or ".png" in event.text or ".gif" in event.text or ".gifv" in event.text) and "googleusercontent" not in event.text:
+    if " " in event.text:
+        """immediately reject anything with spaces, must be a link"""
+        return
 
-        if "imgur.com" in event.text:
-            link_image = event.text
+    probable_image_link = False
+    event_text_lower = event.text.lower()
+    if event_text_lower.startswith(("imgur.com/", "i.imgur.com/")):
+        """special processing for naked imgur links with no protocol"""
+        probable_image_link = True
+    elif event_text_lower.startswith(("http://", "https://")):
+        if event_text_lower.startswith(("http://imgur.com/", "https://imgur.com/")):
+            """standard imgur links may not have an extension"""
+            probable_image_link = True
+        elif event_text_lower.endswith((".png", ".gif", ".gifv", ".jpg")):
+            """all other image links should have a protocol and end with a valid extension"""
+            probable_image_link = True
+    if probable_image_link and "googleusercontent" in event_text_lower:
+        """reject links posted by google to prevent endless attachment loop"""
+        print("_watch_image_link(): rejected link {}".format(event.text))
+        return
+
+    if probable_image_link:
+        link_image = event.text
+
+        if "imgur.com" in link_image:
+            """special imgur link handling"""
             if not link_image.endswith((".jpg", ".gif", "gifv", "png")):
                 link_image = link_image + ".gif"
             link_image = "https://i.imgur.com/" + os.path.basename(link_image)
  
         link_image = link_image.replace(".gifv",".gif")
 
-        print("image(): getting {}".format(link_image))
+        print("_watch_image_link(): getting {}".format(link_image))
 
         filename = os.path.basename(link_image)
         r = yield from aiohttp.request('get', link_image)
