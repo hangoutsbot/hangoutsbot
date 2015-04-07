@@ -45,7 +45,7 @@ def _watch_image_link(bot, event, command):
             if not link_image.endswith((".jpg", ".gif", "gifv", "png")):
                 link_image = link_image + ".gif"
             link_image = "https://i.imgur.com/" + os.path.basename(link_image)
- 
+
         link_image = link_image.replace(".gifv",".gif")
 
         print("_watch_image_link(): getting {}".format(link_image))
@@ -57,4 +57,4 @@ def _watch_image_link(bot, event, command):
 
         image_id = yield from bot._client.upload_image(image_data, filename=filename)
 
-        yield from bot._client.sendchatmessage(event.conv.id_, None, image_id=image_id)
+        bot.send_message_segments(event.conv.id_, None, image_id=image_id)
