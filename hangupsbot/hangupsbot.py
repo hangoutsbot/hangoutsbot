@@ -209,7 +209,7 @@ class HangupsBot(object):
         otr_status = None
 
         # Ignore if the user hasn't typed a message.
-        if len(segments) == 0:
+        if type(segments) is list and len(segments) == 0:
             return
 
 
