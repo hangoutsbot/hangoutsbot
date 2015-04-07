@@ -51,6 +51,11 @@ class Config(collections.MutableMapping):
         self.get_by_path(keys_list[:-1])[keys_list[-1]] = value
         self.changed = True
 
+    def pop_by_path(self, keys_list):
+        popped_value = self.get_by_path(keys_list[:-1]).pop(keys_list[-1])
+        self.changed = True
+        return popped_value
+
     def get_option(self, keyname):
         try:
             value = self.config[keyname]
