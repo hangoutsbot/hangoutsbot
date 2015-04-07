@@ -56,7 +56,7 @@ def meme(bot, event, *args):
             print("meme(): uploading {} from {}".format(filename, jpg_link))
             photo_id = yield from bot._client.upload_image(image_data, filename=filename)
 
-            yield from bot._client.sendchatmessage(event.conv.id_, [seg.serialize() for seg in legacy_segments], image_id=photo_id)
+            bot.send_message_segments(event.conv.id_, legacy_segments, image_id=photo_id)
 
         else:
             bot.send_html_to_conversation(event.conv_id, "<i>couldn't find a nice picture :( try again</i>")
