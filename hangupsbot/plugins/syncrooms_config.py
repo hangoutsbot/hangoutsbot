@@ -39,8 +39,8 @@ def attachsyncout(bot, event, *args):
 
     syncouts = bot.get_config_option('sync_rooms')
 
-    if syncouts is None:
-        return
+    if type(syncouts) is not list:
+        syncouts = []
 
     affected_conversations = None
 
