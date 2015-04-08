@@ -1,6 +1,7 @@
 import hangups
 
 def geticon(bot, event, *args):
+    """ Return the avatar of the person who called this command """
     response = yield from bot._client.getentitybyid([event.user_id.chat_id])
     try:
         photo_url = "http:" + response['entity'][0]['properties']['photo_url']
