@@ -35,7 +35,7 @@ def _handle_mention(bot, event, command):
     if len(occurrences) > 0:
         for word in occurrences:
             # strip all special characters
-            cleaned_name = ''.join(e for e in word if e.isalnum())
+            cleaned_name = ''.join(e for e in word if e.isalnum() or e in ["-"])
             yield from command.run(bot, event, *["mention", cleaned_name])
 
 
