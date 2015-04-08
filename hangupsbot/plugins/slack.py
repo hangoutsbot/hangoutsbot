@@ -112,7 +112,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
             return
 
         if "text" in payload and "user_name" in payload:
-            if not payload["user_name"] is "slackbot":
+            if "slackbot" not in str(payload["user_name"][0]):
                 response = "<b>" + str(payload["user_name"][0]) + ":</b> " + str(payload["text"][0])
                 self._scripts_push(conversation_id, response)
         else:
