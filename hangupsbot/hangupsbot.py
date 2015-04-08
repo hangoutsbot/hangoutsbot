@@ -226,9 +226,7 @@ class HangupsBot(object):
                 otr_status = (OffTheRecordStatus.OFF_THE_RECORD
                     if conversation.is_off_the_record
                     else OffTheRecordStatus.ON_THE_RECORD)
-            except KeyError:
-                pass
-            except AttributeError:
+            except (KeyError, AttributeError):
                 pass
         elif isinstance(conversation, str):
             conversation_id = conversation
@@ -237,9 +235,7 @@ class HangupsBot(object):
                 otr_status = (OffTheRecordStatus.OFF_THE_RECORD
                     if self._conv_list.get(conversation).is_off_the_record
                     else OffTheRecordStatus.ON_THE_RECORD)
-            except KeyError:
-                pass
-            except AttributeError:
+            except (KeyError, AttributeError):
                 pass
         else:
             raise ValueError(_('could not identify conversation id'))
