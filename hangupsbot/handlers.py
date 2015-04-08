@@ -20,7 +20,7 @@ class EventHandler(object):
         self.pluggables = { "message":[], "membership":[], "rename":[], "sending":[] }
 
     def plugin_preinit_stats(self, plugin_metadata):
-        """ 
+        """
         hacky implementation for tracking commands a plugin registers
         called automatically by Hangupsbot._load_plugins() at start of each plugin load
         """
@@ -35,7 +35,7 @@ class EventHandler(object):
     def plugin_get_stats(self):
         """called automatically by Hangupsbot._load_plugins()"""
         self._current_plugin["commands"]["all"] = list(
-            set(self._current_plugin["commands"]["admin"] + 
+            set(self._current_plugin["commands"]["admin"] +
                 self._current_plugin["commands"]["user"]))
         return self._current_plugin
 
@@ -70,7 +70,7 @@ class EventHandler(object):
             self.bot.register_shared(id, objectref)
         except RuntimeError:
             if forgiving:
-                print("register_object(): {} already registered".format(id))
+                print(_("register_object(): {} already registered").format(id))
             else:
                 raise
 
@@ -128,14 +128,14 @@ class EventHandler(object):
 
         # Test if command length is sufficient
         if len(line_args) < 2:
-            self.bot.send_message(event.conv, '{}: missing parameter(s)'.format(event.user.full_name))
+            self.bot.send_message(event.conv, _('{}: missing parameter(s)').format(event.user.full_name))
             return
 
         # only admins can run admin commands
         commands_admin_list = self.get_admin_commands(event.conv_id)
         if commands_admin_list and line_args[1].lower() in commands_admin_list:
             if not initiator_is_admin:
-                self.bot.send_message(event.conv, '{}: Can\'t do that.'.format(event.user.full_name))
+                self.bot.send_message(event.conv, _('{}: Can\'t do that.').format(event.user.full_name))
                 return
 
         # Run command
@@ -159,36 +159,36 @@ class EventHandler(object):
             try:
                 for function, priority, plugin_metadata in self.pluggables[name]:
                     message = ["{}: {}.{}".format(
-                                name, 
+                                name,
                                 plugin_metadata[1],
                                 function.__name__)]
 
                     try:
                         if asyncio.iscoroutinefunction(function):
-                            message.append("coroutine")
+                            message.append(_("coroutine"))
                             print(" : ".join(message))
                             yield from function(*args, **kwargs)
                         else:
-                            message.append("function")
+                            message.append(_("function"))
                             print(" : ".join(message))
                             function(*args, **kwargs)
                     except self.bot.Exceptions.SuppressHandler:
                         # skip this pluggable, continue with next
-                        message.append("SuppressHandler")
+                        message.append(_("SuppressHandler"))
                         print(" : ".join(message))
                         pass
-                    except (self.bot.Exceptions.SuppressEventHandling, 
+                    except (self.bot.Exceptions.SuppressEventHandling,
                             self.bot.Exceptions.SuppressAllHandlers):
                         # skip all pluggables, decide whether to handle event at next level
                         raise
                     except:
                         message = " : ".join(message)
-                        print("EXCEPTION in " + format(message))
+                        print(_("EXCEPTION in {}").format(message))
                         logging.exception(message)
 
             except self.bot.Exceptions.SuppressAllHandlers:
                 # skip all other pluggables, but let the event continue
-                message.append("SuppressAllHandlers")
+                message.append(_("SuppressAllHandlers"))
                 print(" : ".join(message))
                 pass
             except:

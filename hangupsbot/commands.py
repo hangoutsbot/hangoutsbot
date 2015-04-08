@@ -33,8 +33,8 @@ class CommandDispatcher(object):
         try:
             yield from func(bot, event, *args, **kwds)
         except Exception as e:
-            message = "CommandDispatcher.run: {}".format(func.__name__)
-            print("EXCEPTION in " + message)
+            message = _("CommandDispatcher.run: {}").format(func.__name__)
+            print(_("EXCEPTION in {}").format(message))
             logging.exception(message)
 
 
@@ -54,7 +54,9 @@ command = CommandDispatcher()
 
 @command.register
 def help(bot, event, cmd=None, *args):
-    """list supported commands"""
+    """list supported commands, /bot help <command> will show additional details"""
+    help_lines = []
+    link_to_guide = bot.get_config_suboption(event.conv_id, 'link_to_guide')
     if not cmd:
         admins_list = bot.get_config_suboption(event.conv_id, 'admins')
 
@@ -62,13 +64,21 @@ def help(bot, event, cmd=None, *args):
         commands_admin = bot._handlers.get_admin_commands(event.conv_id)
         commands_nonadmin = list(set(commands_all) - set(commands_admin))
 
-        text_html = '<b>User commands:</b><br />' + ', '.join(sorted(commands_nonadmin))
+        help_lines.append(_('<b>User commands:</b>'))
+        help_lines.append(', '.join(sorted(commands_nonadmin)))
+
+        if link_to_guide:
+            help_lines.append('')
+            help_lines.append(_('<i>For more information, please see: {}</i>').format(link_to_guide))
+
         if event.user_id.chat_id in admins_list:
-            text_html = text_html + '<br /><b>Admin commands:</b><br />' + ', '.join(sorted(commands_admin))
+            help_lines.append('')
+            help_lines.append(_('<b>Admin commands:</b>'))
+            help_lines.append(', '.join(sorted(commands_admin)))
     else:
         try:
             command_fn = command.commands[cmd]
-            text_html = "<b>{}</b>: {}".format(cmd, command_fn.__doc__)
+            help_lines.append("<b>{}</b>: {}".format(cmd, command_fn.__doc__))
         except KeyError:
             yield from command.unknown_command(bot, event)
             return
@@ -76,21 +86,40 @@ def help(bot, event, cmd=None, *args):
     # help can get pretty long, so we send a short message publicly, and the actual help privately
     conv_1on1_initiator = bot.get_1on1_conversation(event.user.id_.chat_id)
     if conv_1on1_initiator:
-        bot.send_message_parsed(conv_1on1_initiator, text_html)
+        bot.send_message_parsed(conv_1on1_initiator, "<br />".join(help_lines))
         if conv_1on1_initiator.id_ != event.conv_id:
-            bot.send_message_parsed(event.conv, "<i>{}, I've sent you some help ;)</i>".format(event.user.full_name))
+            bot.send_message_parsed(event.conv, _("<i>{}, I've sent you some help ;)</i>").format(event.user.full_name))
     else:
-        bot.send_message_parsed(event.conv, "<i>{}, before I can help you, you need to private message me and say hi.</i>".format(event.user.full_name))
+        bot.send_message_parsed(event.conv, _("<i>{}, before I can help you, you need to private message me and say hi.</i>").format(event.user.full_name))
 
 
 @command.register
 def ping(bot, event, *args):
     """reply to a ping"""
-    bot.send_message(event.conv, 'pong')
+    bot.send_message(event.conv, _('pong'))
+
+
+@command.register
+def optout(bot, event, *args):
+    """toggle opt-out of bot PM"""
+    optout = False
+    chat_id = event.user.id_.chat_id
+    bot.initialise_memory(chat_id, "user_data")
+    if bot.memory.exists(["user_data", chat_id, "optout"]):
+        optout = bot.memory.get_by_path(["user_data", chat_id, "optout"])
+    optout = not optout
+
+    bot.memory.set_by_path(["user_data", chat_id, "optout"], optout)
+    bot.memory.save()
+
+    if optout:
+        bot.send_message_parsed(event.conv, _('<i>{}, you <b>opted-out</b> from bot private messages</i>'.format(event.user.full_name)))
+    else:
+        bot.send_message_parsed(event.conv, _('<i>{}, you <b>opted-in</b> for bot private messages</i>'.format(event.user.full_name)))
 
 
 @command.register_unknown
 def unknown_command(bot, event, *args):
     """handle unknown commands"""
     bot.send_message(event.conv,
-                     '{}: unknown command'.format(event.user.full_name))
+                     _('{}: unknown command').format(event.user.full_name))

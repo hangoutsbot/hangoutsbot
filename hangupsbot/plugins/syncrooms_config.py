@@ -3,16 +3,16 @@ def _initialise(Handlers, bot=None):
         Handlers.register_admin_command(["attachsyncout", "detachsyncout"])
         return []
     else:
-        print("SYNCROOMS_CONFIG: LEGACY FRAMEWORK MODE")
+        print(_("SYNCROOMS_CONFIG: LEGACY FRAMEWORK MODE"))
         return ["attachsyncout", "detachsyncout"]
 
 
 def attachsyncout(bot, event, *args):
-    """attach conversations to a new/existing syncout group. 
+    """attach conversations to a new/existing syncout group.
     supply list of conversation ids to attach. supplying an id that is not the current conversation
     will make the bot attempt to attach the current conversation to the specified id. if the id
     does not already exist in another syncout group, a new syncout will be created consisting of
-    the current conversation and the specified id. if more than conversation id is supplied, the 
+    the current conversation and the specified id. if more than conversation id is supplied, the
     bot will attempt to attach all the conversation ids to an existing syncout provided at least
     one of the supplied ids is in an existing syncout. if all the conversation ids are new, then
     a new syncout will be created. append "quietly" to silently create/attach.
@@ -39,8 +39,8 @@ def attachsyncout(bot, event, *args):
 
     syncouts = bot.get_config_option('sync_rooms')
 
-    if syncouts is None:
-        return
+    if type(syncouts) is not list:
+        syncouts = []
 
     affected_conversations = None
 
@@ -61,14 +61,14 @@ def attachsyncout(bot, event, *args):
         bot.config.set_by_path(["sync_rooms"], syncouts)
         bot.config.save()
         if found_existing:
-            print("SYNCROOM_CONFIG: extended")
-            html_message = "<i>syncout updated: {} conversations</i>"
+            print(_("SYNCROOM_CONFIG: extended"))
+            html_message = _("<i>syncout updated: {} conversations</i>")
         else:
-            print("SYNCROOM_CONFIG: created")
-            html_message = "<i>syncout created: {} conversations</i>"
+            print(_("SYNCROOM_CONFIG: created"))
+            html_message = _("<i>syncout created: {} conversations</i>")
     else:
-        print("SYNCROOM_CONFIG: no change")
-        html_message = "<i>syncouts unchanged</i>"
+        print(_("SYNCROOM_CONFIG: no change"))
+        html_message = _("<i>syncouts unchanged</i>")
 
     if not quietly:
         bot.send_message_parsed(event.conv, html_message.format(
@@ -109,4 +109,4 @@ def detachsyncout(bot, event, target_conversation_id=None, *args):
     if _detached:
         bot.config.set_by_path(["sync_rooms"], syncouts)
         bot.config.save()
-        bot.send_message_parsed(event.conv, "<i>{} was detached</b></i>".format(target_conversation_id))
+        bot.send_message_parsed(event.conv, _("<i>{} was detached</b></i>").format(target_conversation_id))

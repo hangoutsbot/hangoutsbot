@@ -4,25 +4,21 @@ def lookup(bot, event, *args):
     """find keywords in a specified spreadsheet"""
 
     if not bot.get_config_option('spreadsheet_enabled'):
-        bot.send_message_parsed(event.conv, "Spreadsheet function disabled")
+        bot.send_message_parsed(event.conv, _("Spreadsheet function disabled"))
         return
 
     if not bot.get_config_option('spreadsheet_url'):
-        bot.send_message_parsed(event.conv, "Spreadsheet URL not set")
-        return
-
-    if not bot.get_config_option('spreadsheet_table_class'):
-        bot.send_message_parsed(event.conv, "Spreadsheet table identifier not set")
+        bot.send_message_parsed(event.conv, _("Spreadsheet URL not set"))
         return
 
     spreadsheet_url = bot.get_config_option('spreadsheet_url')
-    table_class = bot.get_config_option('spreadsheet_table_class') # Name of table class to search
+    table_class = "waffle" # Name of table class to search. Note that 'waffle' seems to be the default for all spreadsheets
 
     keyword = ' '.join(args)
 
-    htmlmessage = 'Results for keyword <b>{}</b>:<br />'.format(keyword)
+    htmlmessage = _('Results for keyword <b>{}</b>:<br />').format(keyword)
 
-    print("{0} ({1}) has requested to lookup '{2}'".format(event.user.full_name, event.user.id_.chat_id, keyword))
+    print(_("{0} ({1}) has requested to lookup '{2}'").format(event.user.full_name, event.user.id_.chat_id, keyword))
     import urllib.request
     html = urllib.request.urlopen(spreadsheet_url).read()
 
@@ -52,7 +48,7 @@ def lookup(bot, event, *args):
         for cell in row:
             testcell = str(cell).lower().strip()
             if (keyword_lower in testcell) and counter < counter_max and matchfound == 0:
-                htmlmessage += '<br />Row {}: '.format(counter+1)
+                htmlmessage += _('<br />Row {}: ').format(counter+1)
                 for datapoint in row:
                     htmlmessage += '{} | '.format(datapoint)
                 htmlmessage += '<br />'
@@ -62,8 +58,8 @@ def lookup(bot, event, *args):
                 counter += 1
 
     if counter > counter_max:
-        htmlmessage += '<br />{0} rows found. Only returning first {1}.'.format(counter, counter_max)
+        htmlmessage += _('<br />{0} rows found. Only returning first {1}.').format(counter, counter_max)
     if counter == 0:
-        htmlmessage += 'No match found'
-        
+        htmlmessage += _('No match found')
+
     bot.send_html_to_conversation(event.conv, htmlmessage)

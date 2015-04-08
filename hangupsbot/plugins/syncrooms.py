@@ -1,7 +1,8 @@
-import asyncio, re, time
+import asyncio, re, time, os, aiohttp, io
 
 import hangups
 
+from urllib.parse import urlparse
 from hangups.ui.utils import get_conv_name
 
 class __registers(object):
@@ -47,7 +48,7 @@ def _migrate_syncroom_v1(bot):
             _config2 = list(_newdict.values())
             bot.config.set_by_path(["sync_rooms"], _config2) # write new config
             bot.config.save()
-            print("_migrate_syncroom_v1(): config-v2 = {}".format(_config2))
+            print(_("_migrate_syncroom_v1(): config-v2 = {}").format(_config2))
 
 
 def _handle_syncrooms_broadcast(bot, broadcast_list, context):
@@ -61,7 +62,7 @@ def _handle_syncrooms_broadcast(bot, broadcast_list, context):
         return
 
     if context and "explicit_relay" in context:
-        print("SYNCROOMS: handler disabled by context")
+        print(_("SYNCROOMS: handler disabled by context"))
         return
 
     origin_conversation_id = broadcast_list[0][0]
@@ -75,10 +76,10 @@ def _handle_syncrooms_broadcast(bot, broadcast_list, context):
                     if origin_conversation_id != other_room_id:
                         broadcast_list.append((other_room_id, response))
 
-                print("SYNCROOMS: broadcasting to {} room(s)".format(
+                print(_("SYNCROOMS: broadcasting to {} room(s)").format(
                     len(broadcast_list)))
             else:
-                print("SYNCROOMS: not a sync room".format(origin_conversation_id))
+                print(_("SYNCROOMS: not a sync room").format(origin_conversation_id))
 
 
 @asyncio.coroutine
@@ -99,7 +100,7 @@ def _handle_incoming_message(bot, event, command):
 
     for sync_room_list in syncouts:
         if event.conv_id in sync_room_list:
-            print('SYNCROOMS: incoming message');
+            print(_('SYNCROOMS: incoming message'));
             link = 'https://plus.google.com/u/0/{}/about'.format(event.user_id.chat_id)
 
             ### Deciding how to relay the name across
@@ -143,12 +144,6 @@ def _handle_incoming_message(bot, event, command):
                                                    link_target=link, is_bold=True),
                         hangups.ChatMessageSegment(': ', is_bold=True)]
 
-            # Append links to attachments (G+ photos) to forwarded message
-            if event.conv_event.attachments:
-                segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
-                segments.extend([hangups.ChatMessageSegment(link, hangups.SegmentType.LINK, link_target=link)
-                                 for link in event.conv_event.attachments])
-
             # Make links hyperlinks and send message
             URL_RE = re.compile(r'https?://\S+')
             for segment in event.conv_event.segments:
@@ -167,17 +162,37 @@ def _handle_incoming_message(bot, event, command):
             for _conv_id in sync_room_list:
                 if not _conv_id == event.conv_id:
 
-                    _cloned_segments = list(segments)
-
                     _context = {}
                     _context["explicit_relay"] = True
 
                     if not event.text.startswith(("/bot ", "/me ")):
-                        _context["autotranslate"] = { 
+                        _context["autotranslate"] = {
                             "conv_id" : event.conv_id,
                             "event_text" : event.text }
 
-                    bot.send_message_segments(_conv_id, _cloned_segments, context=_context)
+                    if not event.conv_event.attachments:
+                        bot.send_message_segments(_conv_id, list(segments), context=_context)
+
+                    for link in event.conv_event.attachments:
+                        # Attempt to upload the photo first
+                        filename = os.path.basename(link)
+                        r = yield from aiohttp.request('get', link)
+                        raw = yield from r.read()
+                        image_data = io.BytesIO(raw)
+                        image_id = None
+
+                        try:
+                            image_id = yield from bot._client.upload_image(image_data, filename=filename)
+                            segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+                            segments.append(hangups.ChatMessageSegment('incoming image:', is_italic=True))
+                        except AttributeError:
+                            segments.extend([hangups.ChatMessageSegment(link, hangups.SegmentType.LINK, link_target=link)])
+
+                        segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+                        bot.send_message_segments(_conv_id, list(segments), context=_context)
+                        if image_id:
+                            bot.send_message_segments(_conv_id, None, context=_context, image_id=image_id)
+
 
             _registers.last_user_id = event.user_id.chat_id
             _registers.last_time_id = time.time()
@@ -216,15 +231,15 @@ def _handle_syncrooms_membership_change(bot, event, command):
 
     # JOIN a specific room
     if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
-        print("SYNCROOMS: {} user(s) added to {}".format(len(event_users), event.conv_id))
+        print(_("SYNCROOMS: {} user(s) added to {}").format(len(event_users), event.conv_id))
         if syncroom_name:
             bot.send_message_parsed(event.conv, '<i>{} has added {} to {}</i>'.format(
-                event.user.full_name, 
+                event.user.full_name,
                 names,
                 syncroom_name))
     # LEAVE a specific room
     else:
-        print("SYNCROOMS: {} user(s) left {}".format(len(event_users), event.conv_id))
+        print(_("SYNCROOMS: {} user(s) left {}").format(len(event_users), event.conv_id))
         if syncroom_name:
             bot.send_message_parsed(event.conv, '<i>{} has left {}</i>'.format(
                 names,
@@ -261,11 +276,11 @@ def syncusers(bot, event, conversation_id=None, *args):
     for _rooms in syncouts:
         if conversation_id in _rooms:
             sync_room_list = _rooms
-            _lines.append("<b>Sync Rooms: {}</b>".format(len(sync_room_list)))
+            _lines.append(_("<b>Sync Rooms: {}</b>").format(len(sync_room_list)))
             break
     if sync_room_list is None:
         sync_room_list = [conversation_id]
-        _lines.append("<b>Standard Room</b>")
+        _lines.append(_("<b>Standard Room</b>"))
 
     all_users = {}
     if combined or len(sync_room_list) == 1:
@@ -281,7 +296,7 @@ def syncusers(bot, event, conversation_id=None, *args):
             _line_room = '<i>{}</i>'.format(room_id)
             """XXX: written in this way in case we need to try: get_conv_name in future"""
             _line_room = '<b>{}</b> {}'.format(
-                get_conv_name(bot._conv_list.get(room_id)), 
+                get_conv_name(bot._conv_list.get(room_id)),
                 _line_room)
             _lines.append(_line_room)
         list_users = all_users[room_id]
@@ -293,6 +308,6 @@ def syncusers(bot, event, conversation_id=None, *args):
             unique_users.append(User)
 
     unique_users = list(set(unique_users))
-    _lines.append("<b>Total Unique: {}</b>".format(len(unique_users)))
+    _lines.append(_("<b>Total Unique: {}</b>").format(len(unique_users)))
 
     bot.send_message_parsed(event.conv, '<br />'.join(_lines))

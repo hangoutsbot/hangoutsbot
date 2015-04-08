@@ -14,7 +14,7 @@ def _handle_legacy_forwarding(bot, event, command):
 
     forward_to_list = bot.get_config_suboption(event.conv_id, 'forward_to')
     if forward_to_list:
-        print("FORWARDING: {}".format(forward_to_list))
+        print(_("FORWARDING: {}").format(forward_to_list))
         for dst in forward_to_list:
             try:
                 conv = bot._conv_list.get(dst)

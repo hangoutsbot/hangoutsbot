@@ -16,7 +16,7 @@ def _migrate_dnd_config_to_memory(bot):
         del bot.config["donotdisturb"]
         bot.memory.save()
         bot.config.save()
-        print("dnd: list migrated to memory")
+        print(_("dnd: list migrated to memory"))
 
     # migrate memory.json DND to structure with more metadata
     if bot.memory.exists(["donotdisturb"]):
@@ -31,7 +31,7 @@ def _migrate_dnd_config_to_memory(bot):
                 }
             bot.memory.set_by_path(["donotdisturb"], dnd_dict)
             bot.memory.save()
-            print("dnd: list migrated to dictionary")
+            print(_("dnd: list migrated to dictionary"))
 
 
 def dnd(bot, event, *args):
@@ -68,7 +68,7 @@ def dnd(bot, event, *args):
         bot.send_message_parsed(
             event.conv,
             "global DND toggled ON for {}, expires in {} hour(s)".format(
-                event.user.full_name, 
+                event.user.full_name,
                 str(seconds_to_expire/3600)))
     else:
         bot.send_message_parsed(

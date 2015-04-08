@@ -10,7 +10,7 @@ class receiver(BaseHTTPRequestHandler):
         path = path.split("/")
         conversation_id = path[1]
         if conversation_id is None:
-            print("conversation id must be provided as part of path")
+            print(_("conversation id must be provided as part of path"))
             return
 
         # send to one room, or to many? [sync_rooms support]
@@ -27,13 +27,13 @@ class receiver(BaseHTTPRequestHandler):
         """
             receives post, handles it
         """
-        print('receiving POST...')
+        print(_('receiving POST...'))
 
         content_length = 0
         if 'Content-Length' in self.headers:
             content_length = int(self.headers['Content-Length']);
         else:
-            print("no content-length found!")
+            print(_("no content-length found!"))
             print(self.headers)
 
         data_string = self.rfile.read(content_length).decode('UTF-8')
@@ -44,20 +44,20 @@ class receiver(BaseHTTPRequestHandler):
         self.send_header("Content-length", str(len(message)))
         self.end_headers()
         self.wfile.write(message)
-        print('connection closed')
+        print(_('connection closed'))
 
         # parse requested path + query string
         _parsed = urlparse(self.path)
         path = _parsed.path
         query_string = parse_qs(_parsed.query)
 
-        print("incoming path: {}".format(path))
+        print(_("incoming path: {}").format(path))
 
         if data_string == '':
-            print("no data was received")
+            print(_("no data was received"))
             return
 
-        print("data: {}".format(data_string))
+        print(_("data: {}").format(data_string))
 
         payload = json.loads(data_string)
         self._handle_incoming(path, query_string, payload)

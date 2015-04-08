@@ -145,12 +145,17 @@ class Cleverbot:
         parsed_dict = {
             'answer': parsed[0][0],
             'conversation_id': parsed[0][1],
-            'conversation_log_id': parsed[0][2],
         }
+        try:
+            parsed_dict['conversation_log_id'] = parsed[0][2]
+        except IndexError:
+            parsed_dict['conversation_log_id'] = None
+
         try:
             parsed_dict['unknown'] = parsed[1][-1]
         except IndexError:
             parsed_dict['unknown'] = None
+
         return parsed_dict
 
 def _initialise(Handlers, bot=None):
@@ -176,7 +181,6 @@ def _handle_incoming_message(bot, event, context):
 
 def chat(bot, event, *args):
     """Cleverbot for Hangupsbot"""
-
     try:
         if not __cleverbots[event.conv.id_]:
             __cleverbots[event.conv.id_] = Cleverbot()
@@ -186,5 +190,7 @@ def chat(bot, event, *args):
     query = ' '.join(args)
 
     cb1 = __cleverbots[event.conv.id_]
-
-    bot.send_html_to_conversation(event.conv, cb1.ask(query))
+    text = cb1.ask(query)
+    if "Cleverscript.com." in text or "Clevermessage" in text or "Clevertweet" in text or "CleverEnglish" in text:
+        return
+    bot.send_html_to_conversation(event.conv.id_, text)

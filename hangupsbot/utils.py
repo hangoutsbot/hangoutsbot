@@ -264,7 +264,7 @@ def test_parser():
             [2]]
     ]
 
-    print("*** TEST: utils.fix_urls() ***")
+    print(_("*** TEST: utils.fix_urls() ***"))
     DEVIATION = False
     for test in test_strings:
         original = test[0]
@@ -272,16 +272,16 @@ def test_parser():
         actual_urlified = fix_urls(original)
 
         if actual_urlified != expected_urlified:
-            print("ORIGINAL: {}".format(original))
-            print("EXPECTED: {}".format(expected_urlified))
-            print(" RESULTS: {}".format(actual_urlified))
+            print(_("ORIGINAL: {}").format(original))
+            print(_("EXPECTED: {}").format(expected_urlified))
+            print(_(" RESULTS: {}").format(actual_urlified))
             print()
             DEVIATION = True
     if DEVIATION is False:
-        print("*** TEST: utils.fix_urls(): PASS ***")
+        print(_("*** TEST: utils.fix_urls(): PASS ***"))
 
     if DEVIATION is False:
-        print("*** TEST: simple_parse_to_segments() ***")
+        print(_("*** TEST: simple_parse_to_segments() ***"))
         for test in test_strings:
             original = test[0]
             expected_segment_count = test[2][0]
@@ -290,18 +290,18 @@ def test_parser():
             actual_segment_count = len(segments)
 
             if expected_segment_count != actual_segment_count:
-                print("ORIGINAL: {}".format(original))
-                print("EXPECTED/ACTUAL COUNT: {}/{}".format(expected_segment_count, actual_segment_count))
+                print(_("ORIGINAL: {}").format(original))
+                print(_("EXPECTED/ACTUAL COUNT: {}/{}").format(expected_segment_count, actual_segment_count))
                 for segment in segments:
                     is_bold = 0
                     is_link = 0
                     if segment.is_bold: is_bold = 1
                     if segment.link_target: is_link = 1
-                    print(" B L TXT: {} {} {}".format(is_bold, is_link, segment.text))
+                    print(_(" B L TXT: {} {} {}").format(is_bold, is_link, segment.text))
                 print()
                 DEVIATION = True
     if DEVIATION is False:
-        print("*** TEST: simple_parse_to_segments(): PASS ***")
+        print(_("*** TEST: simple_parse_to_segments(): PASS ***"))
 
 if __name__ == '__main__':
     test_parser()

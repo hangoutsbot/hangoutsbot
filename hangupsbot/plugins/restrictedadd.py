@@ -20,7 +20,7 @@ def _initialise(Handlers, bot=None):
         Handlers.register_admin_command(["allowbotadd", "removebotadd"])
         return []
     else:
-        print("RESTRICTEDADD: LEGACY FRAMEWORK MODE")
+        print(_("RESTRICTEDADD: LEGACY FRAMEWORK MODE"))
         return ["allowbotadd", "removebotadd"]
 
 
@@ -39,20 +39,20 @@ def _check_if_admin_added_me(bot, event, command):
 
             if initiator_user_id in admins_list:
                 # bot added by an admin
-                print("RESTRICTEDADD: admin added me to {}".format(
+                print(_("RESTRICTEDADD: admin added me to {}").format(
                     event.conv_id))
             elif initiator_user_id in allowbotadd:
                 # bot added by an authorised user: /bot allowbotadd <id>
-                print("RESTRICTEDADD: authorised user added me to {}".format(
+                print(_("RESTRICTEDADD: authorised user added me to {}").format(
                     event.conv_id))
             else:
-                print("RESTRICTEDADD: user {} tried to add me to {}".format(
+                print(_("RESTRICTEDADD: user {} tried to add me to {}").format(
                     event.user.full_name,
                     event.conv_id))
 
                 bot.send_message_parsed(
                     event.conv,
-                    "<i>{}, you need to be authorised to add me to another conversation. I'm leaving now...</i>".format(event.user.full_name))
+                    _("<i>{}, you need to be authorised to add me to another conversation. I'm leaving now...</i>").format(event.user.full_name))
 
                 yield from _leave_the_chat_quietly(bot, event, command)
 
@@ -84,19 +84,19 @@ def _verify_botkeeper_presence(bot, event, command):
     for user in event.conv.users:
         if user.id_.chat_id in admins_list or user.id_.chat_id in allowbotadd:
             # at least one user is a botkeeper
-            print("RESTRICTEDADD: found botkeeper {}".format(user.id_.chat_id))
+            print(_("RESTRICTEDADD: found botkeeper {}").format(user.id_.chat_id))
             botkeeper = True
             break
 
     _internal.last_verified[event.conv_id] = time.time()
 
     if not botkeeper:
-        print("RESTRICTEDADD: no botkeeper in {}".format(
+        print(_("RESTRICTEDADD: no botkeeper in {}").format(
             event.conv_id))
 
         bot.send_message_parsed(
             event.conv,
-            "<i>There is no botkeeper in here. I have to go...</i>")
+            _("<i>There is no botkeeper in here. I have to go...</i>"))
 
         yield from _leave_the_chat_quietly(bot, event, command)
 
@@ -108,8 +108,8 @@ def _leave_the_chat_quietly(bot, event, command):
 
 
 def allowbotadd(bot, event, user_id, *args):
-    """add supplied user id as a botkeeper. 
-    botkeepers are allowed to add bots into a conversation and their continued presence in a 
+    """add supplied user id as a botkeeper.
+    botkeepers are allowed to add bots into a conversation and their continued presence in a
     conversation keeps the bot from leaving.
     """
 
@@ -120,7 +120,7 @@ def allowbotadd(bot, event, user_id, *args):
     allowbotadd.append(user_id)
     bot.send_message_parsed(
         event.conv,
-        "user id {} added as botkeeper".format(user_id))
+        _("user id {} added as botkeeper").format(user_id))
     bot.memory["allowbotadd"] = allowbotadd
     bot.memory.save()
 
@@ -128,9 +128,9 @@ def allowbotadd(bot, event, user_id, *args):
 
 
 def removebotadd(bot, event, user_id, *args):
-    """remove supplied user id as a botkeeper. 
-    botkeepers are allowed to add bots into a conversation and their continued presence in a 
-    conversation keeps the bot from leaving. warning: removing a botkeeper may cause the bot to 
+    """remove supplied user id as a botkeeper.
+    botkeepers are allowed to add bots into a conversation and their continued presence in a
+    conversation keeps the bot from leaving. warning: removing a botkeeper may cause the bot to
     leave conversations where the current botkeeper is present, if no other botkeepers are present.
     """
 
@@ -142,7 +142,7 @@ def removebotadd(bot, event, user_id, *args):
         allowbotadd.remove(user_id)
         bot.send_message_parsed(
             event.conv,
-            "user id {} removed as botkeeper".format(user_id))
+            _("user id {} removed as botkeeper").format(user_id))
 
         bot.memory["allowbotadd"] = allowbotadd
         bot.memory.save()
@@ -151,4 +151,4 @@ def removebotadd(bot, event, user_id, *args):
     else:
         bot.send_message_parsed(
             event.conv,
-            "user id {} is not authorised".format(user_id))
+            _("user id {} is not authorised").format(user_id))
