@@ -226,7 +226,7 @@ class HangupsBot(object):
                 otr_status = (OffTheRecordStatus.OFF_THE_RECORD
                     if conversation.is_off_the_record
                     else OffTheRecordStatus.ON_THE_RECORD)
-            except AttributeError:
+            except (KeyError, AttributeError):
                 pass
         elif isinstance(conversation, str):
             conversation_id = conversation
@@ -235,7 +235,7 @@ class HangupsBot(object):
                 otr_status = (OffTheRecordStatus.OFF_THE_RECORD
                     if self._conv_list.get(conversation).is_off_the_record
                     else OffTheRecordStatus.ON_THE_RECORD)
-            except AttributeError:
+            except (KeyError, AttributeError):
                 pass
         else:
             raise ValueError(_('could not identify conversation id'))
@@ -401,14 +401,15 @@ class HangupsBot(object):
         except hangups.NetworkError:
             print(_('_on_message_sent(): failed to send message'))
 
+    @asyncio.coroutine
     def _on_connect(self, initial_data):
         """Handle connecting for the first time"""
         print(_('Connected!'))
         self._handlers = handlers.EventHandler(self)
-        self._user_list = hangups.UserList(self._client,
-                                           initial_data.self_entity,
-                                           initial_data.entities,
-                                           initial_data.conversation_participants)
+
+        self._user_list = yield from hangups.user.build_user_list(
+            self._client, initial_data
+        )
         self._conv_list = hangups.ConversationList(self._client,
                                                    initial_data.conversation_states,
                                                    self._user_list,
