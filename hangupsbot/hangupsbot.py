@@ -575,14 +575,24 @@ class HangupsBot(object):
         except hangups.NetworkError:
             print(_('_on_message_sent(): failed to send message'))
 
+    @asyncio.coroutine
     def _on_connect(self, initial_data):
         """Handle connecting for the first time"""
         print(_('Connected!'))
         self._handlers = handlers.EventHandler(self)
-        self._user_list = hangups.UserList(self._client,
-                                           initial_data.self_entity,
-                                           initial_data.entities,
-                                           initial_data.conversation_participants)
+
+        try:
+            # hangups-201504090500
+            self._user_list = yield from hangups.user.build_user_list(
+                self._client, initial_data
+            )
+        except AttributeError:
+            # backward-compatibility: pre hangups-201504090500
+            self._user_list = hangups.UserList(self._client,
+                                               initial_data.self_entity,
+                                               initial_data.entities,
+                                               initial_data.conversation_participants)
+
         self._conv_list = hangups.ConversationList(self._client,
                                                    initial_data.conversation_states,
                                                    self._user_list,
