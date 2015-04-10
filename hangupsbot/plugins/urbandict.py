@@ -89,6 +89,11 @@ def urbandict(bot, event, *args):
             html_text += _("<b>example:</b> ") + the_definition["example"].strip().replace("\n", "<br />")
 
         bot.send_message_parsed(event.conv, html_text)
+    else:
+        if term:
+            bot.send_message_parsed(event.conv, _('<i>no urban dictionary definition for "{}"</i>').format(term))
+        else:
+            bot.send_message_parsed(event.conv, _('<i>no term from urban dictionary</i>'))
 
 
 def _initialise(Handlers, bot=None):
