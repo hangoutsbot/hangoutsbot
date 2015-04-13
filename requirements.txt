@@ -8,3 +8,4 @@ goslate
 wikipedia
 wolframalpha
 pyslack
+selenium
