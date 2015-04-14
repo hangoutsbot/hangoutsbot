@@ -3,13 +3,13 @@ example plugin which demonstrates user and conversation memory
 """
 
 def _initialise(Handlers, bot=None):
-    Handlers.register_admin_command(["rememberthisforme", "whatwasitforme", "forgetaboutitforme", "rememberthisforchat", "whatwasitforchat", "forgetaboutitforchat"])
+    Handlers.register_admin_command(["rememberme", "whatme", "forgetme", "rememberchat", "whatchat", "forgetchat"])
     return []
 
 
-def rememberthisforme(bot, event, *args):
+def rememberme(bot, event, *args):
     """remember value for current user, memory must be empty.
-    use /bot forgetaboutitforme to clear previous storage
+    use /bot forgetme to clear previous storage
     """
 
     text = bot.user_memory_get(event.user.id_.chat_id, 'test_memory')
@@ -26,7 +26,7 @@ def rememberthisforme(bot, event, *args):
                 event.user.full_name))
 
 
-def whatwasitforme(bot, event, *args):
+def whatme(bot, event, *args):
     """reply with value stored for current user"""
 
     text = bot.user_memory_get(event.user.id_.chat_id, 'test_memory')
@@ -42,7 +42,7 @@ def whatwasitforme(bot, event, *args):
                 event.user.full_name, text))
 
 
-def forgetaboutitforme(bot, event, *args):
+def forgetme(bot, event, *args):
     """forget stored value for current user"""
 
     text = bot.user_memory_get(event.user.id_.chat_id, 'test_memory')
@@ -61,9 +61,9 @@ def forgetaboutitforme(bot, event, *args):
 
 """conversation memory"""
 
-def rememberthisforchat(bot, event, *args):
+def rememberchat(bot, event, *args):
     """remember value for current conversation, memory must be empty.
-    use /bot forgetaboutitforchat to clear previous storage
+    use /bot forgetchat to clear previous storage
     """
 
     text = bot.conversation_memory_get(event.conv_id, 'test_memory')
@@ -80,7 +80,7 @@ def rememberthisforchat(bot, event, *args):
                 event.user.full_name))
 
 
-def whatwasitforchat(bot, event, *args):
+def whatchat(bot, event, *args):
     """reply with stored value for current conversation"""
 
     text = bot.conversation_memory_get(event.conv_id, 'test_memory')
@@ -96,7 +96,7 @@ def whatwasitforchat(bot, event, *args):
                 event.user.full_name, text))
 
 
-def forgetaboutitforchat(bot, event, *args):
+def forgetchat(bot, event, *args):
     """forget stored value for current conversation"""
 
     text = bot.conversation_memory_get(event.conv_id, 'test_memory')

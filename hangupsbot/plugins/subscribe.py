@@ -61,7 +61,11 @@ def _send_notification(bot, event, phrase, user):
     """send alert with 1on1 conversation"""
     conv_1on1 = bot.get_1on1_conversation(user.id_.chat_id)
     if conv_1on1:
-        if not bot.call_shared("dnd.user_check", user.id_.chat_id): # shared dnd check
+        try:
+            user_has_dnd = bot.call_shared("dnd.user_check", user.id_.chat_id)
+        except KeyError:
+            user_has_dnd = False
+        if not user_has_dnd: # shared dnd check
             bot.send_message_parsed(
                 conv_1on1,
                 _("<b>{}</b> mentioned '{}' in <i>{}</i>:<br />{}").format(

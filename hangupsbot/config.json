@@ -85,5 +85,17 @@
   "donotdisturb": [],
   "plugins": null,
   "strict_botkeeper_check": false,
-  "cleverbot_percentage_replies": "2"
+  "slack": [
+    {
+    "certfile": null,
+    "name": "SERVER_NAME",
+    "port": "LISTENING_PORT",
+    "key": "SLACK_API_KEY",
+    "channel": "#SLACK_CHANNEL_NAME",
+    "synced_conversations": ["CONV_ID1", "CONV_ID2"]
+    }
+  ],
+  "cleverbot_percentage_replies": "2",
+  "watch_new_adds": false,
+  "link_to_guide": "https://github.com/nylonee/hangupsbot/wiki/User-Guide"
 }

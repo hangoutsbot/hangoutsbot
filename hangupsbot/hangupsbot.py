@@ -10,6 +10,10 @@ from threading import Thread
 
 from utils import simple_parse_to_segments, class_from_name
 from hangups.ui.utils import get_conv_name
+try:
+    from hangups.schemas import OffTheRecordStatus
+except ImportError:
+    print("WARNING: hangups library out of date!")
 
 import config
 import handlers
@@ -45,8 +49,21 @@ class FakeConversation(object):
         self.id_ = id_
 
     @asyncio.coroutine
-    def send_message(self, segments):
-        yield from self._client.sendchatmessage(self.id_, [seg.serialize() for seg in segments])
+    def send_message(self, segments, image_id=None, otr_status=None):
+        if segments:
+            serialised_segments = [seg.serialize() for seg in segments]
+        else:
+            serialised_segments = None
+
+        try:
+            yield from self._client.sendchatmessage(self.id_, serialised_segments, image_id=image_id, otr_status=otr_status)
+        except (TypeError, AttributeError):
+            # in the event the hangups library doesn't support image sending
+            try:
+                yield from self._client.sendchatmessage(self.id_, serialised_segments, otr_status=otr_status)
+            except (TypeError, AttributeError):
+                # in the event the hangups library doesn't support otr_status (note that image support assumes otr_status support)
+                yield from self._client.sendchatmessage(self.id_, serialised_segments)
 
 
 class ConversationEvent(object):
@@ -187,22 +204,39 @@ class HangupsBot(object):
         segments = simple_parse_to_segments(html)
         self.send_message_segments(conversation, segments, context)
 
-    def send_message_segments(self, conversation, segments, context=None):
+    def send_message_segments(self, conversation, segments, context=None, image_id=None):
         """Send chat message segments"""
+        otr_status = None
+
         # Ignore if the user hasn't typed a message.
-        if len(segments) == 0:
+        if type(segments) is list and len(segments) == 0:
             return
+
 
         # add default context if none exists
         if not context:
             context = {}
         context["base"] = self._messagecontext_legacy()
 
-        # reduce conversation to the only thing we need: the id
+        # reduce conversation to the only things we need: the id and history
         if isinstance(conversation, (FakeConversation, hangups.conversation.Conversation)):
             conversation_id = conversation.id_
+            # Turn history off if it's off in the conversation
+            try:
+                otr_status = (OffTheRecordStatus.OFF_THE_RECORD
+                    if conversation.is_off_the_record
+                    else OffTheRecordStatus.ON_THE_RECORD)
+            except (KeyError, AttributeError):
+                pass
         elif isinstance(conversation, str):
             conversation_id = conversation
+            # Turn history off if it's off in the conversation
+            try:
+                otr_status = (OffTheRecordStatus.OFF_THE_RECORD
+                    if self._conv_list.get(conversation).is_off_the_record
+                    else OffTheRecordStatus.ON_THE_RECORD)
+            except (KeyError, AttributeError):
+                pass
         else:
             raise ValueError(_('could not identify conversation id'))
 
@@ -210,11 +244,11 @@ class HangupsBot(object):
         broadcast_list = [(conversation_id, segments)]
 
         asyncio.async(
-            self._begin_message_sending(broadcast_list, context)
+            self._begin_message_sending(broadcast_list, context, image_id=image_id, otr_status=otr_status)
         ).add_done_callback(self._on_message_sent)
 
     @asyncio.coroutine
-    def _begin_message_sending(self, broadcast_list, context):
+    def _begin_message_sending(self, broadcast_list, context, image_id=None, otr_status=None):
         try:
             yield from self._handlers.run_pluggable_omnibus("sending", self, broadcast_list, context)
         except self.Exceptions.SuppressEventHandling:
@@ -232,11 +266,11 @@ class HangupsBot(object):
 
         for response in broadcast_list:
             if debug_sending:
-                print(_("_begin_message_sending(): {} {} segments(s)").format(response[0], len(response[1])))
+                print(_("_begin_message_sending(): {}").format(response[0]))
 
             # send messages using FakeConversation as a workaround
             _fc = FakeConversation(self._client, response[0])
-            yield from _fc.send_message(response[1])
+            yield from _fc.send_message(response[1], image_id=image_id, otr_status=otr_status)
 
     def list_conversations(self):
         """List all active conversations"""
@@ -541,14 +575,24 @@ class HangupsBot(object):
         except hangups.NetworkError:
             print(_('_on_message_sent(): failed to send message'))
 
+    @asyncio.coroutine
     def _on_connect(self, initial_data):
         """Handle connecting for the first time"""
         print(_('Connected!'))
         self._handlers = handlers.EventHandler(self)
-        self._user_list = hangups.UserList(self._client,
-                                           initial_data.self_entity,
-                                           initial_data.entities,
-                                           initial_data.conversation_participants)
+
+        try:
+            # hangups-201504090500
+            self._user_list = yield from hangups.user.build_user_list(
+                self._client, initial_data
+            )
+        except AttributeError:
+            # backward-compatibility: pre hangups-201504090500
+            self._user_list = hangups.UserList(self._client,
+                                               initial_data.self_entity,
+                                               initial_data.entities,
+                                               initial_data.conversation_participants)
+
         self._conv_list = hangups.ConversationList(self._client,
                                                    initial_data.conversation_states,
                                                    self._user_list,
@@ -635,6 +679,7 @@ class HangupsBot(object):
         # NOTE: Assumption that a conversation_id will never match a user_id
         if not self.send_html_to_user(user_id_or_conversation_id, html, context):
             self.send_html_to_conversation(user_id_or_conversation_id, html, context)
+        print(_('DEPRECATED: send_html_to_user_or_conversation(), use send_html_to_conversation() or send_html_to_user()'))
 
     def user_self(self):
         myself = {

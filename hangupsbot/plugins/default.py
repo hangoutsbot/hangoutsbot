@@ -148,24 +148,43 @@ def config(bot, event, cmd=None, *args):
                     /bot config append [key] [subkey] [...] [value]
                     /bot config remove [key] [subkey] [...] [value]"""
 
+    # consume arguments and differentiate beginning of a json array or object
+    tokens = list(args)
+    parameters = []
+    value = []
+    state = "key"
+    for token in tokens:
+        if token.startswith(("{", "[")):
+            # apparent start of json array/object, consume into a single list item
+            state = "json"
+        if state == "key":
+            parameters.append(token)
+        elif state == "json":
+            value.append(token)
+        else:
+            raise ValueError("unknown state")
+    if value:
+        parameters.append(" ".join(value))
+    print("config {}".format(parameters))
+
     if cmd == 'get' or cmd is None:
-        config_args = list(args)
+        config_args = list(parameters)
         value = bot.config.get_by_path(config_args) if config_args else dict(bot.config)
     elif cmd == 'set':
-        config_args = list(args[:-1])
-        if len(args) >= 2:
-            bot.config.set_by_path(config_args, json.loads(args[-1]))
+        config_args = list(parameters[:-1])
+        if len(parameters) >= 2:
+            bot.config.set_by_path(config_args, json.loads(parameters[-1]))
             bot.config.save()
             value = bot.config.get_by_path(config_args)
         else:
             yield from command.unknown_command(bot, event)
             return
     elif cmd == 'append':
-        config_args = list(args[:-1])
-        if len(args) >= 2:
+        config_args = list(parameters[:-1])
+        if len(parameters) >= 2:
             value = bot.config.get_by_path(config_args)
             if isinstance(value, list):
-                value.append(json.loads(args[-1]))
+                value.append(json.loads(parameters[-1]))
                 bot.config.set_by_path(config_args, value)
                 bot.config.save()
             else:
@@ -174,11 +193,11 @@ def config(bot, event, cmd=None, *args):
             yield from command.unknown_command(bot, event)
             return
     elif cmd == 'remove':
-        config_args = list(args[:-1])
-        if len(args) >= 2:
+        config_args = list(parameters[:-1])
+        if len(parameters) >= 2:
             value = bot.config.get_by_path(config_args)
             if isinstance(value, list):
-                value.remove(json.loads(args[-1]))
+                value.remove(json.loads(parameters[-1]))
                 bot.config.set_by_path(config_args, value)
                 bot.config.save()
             else:

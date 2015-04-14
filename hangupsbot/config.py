@@ -44,12 +44,17 @@ class Config(collections.MutableMapping):
 
     def get_by_path(self, keys_list):
         """Get item from config by path (list of keys)"""
-        return functools.reduce(lambda d, k: d[k], keys_list, self)
+        return functools.reduce(lambda d, k: d[int(k) if isinstance(d, list) else k], keys_list, self)
 
     def set_by_path(self, keys_list, value):
         """Set item in config by path (list of keys)"""
         self.get_by_path(keys_list[:-1])[keys_list[-1]] = value
         self.changed = True
+
+    def pop_by_path(self, keys_list):
+        popped_value = self.get_by_path(keys_list[:-1]).pop(keys_list[-1])
+        self.changed = True
+        return popped_value
 
     def get_option(self, keyname):
         try:
