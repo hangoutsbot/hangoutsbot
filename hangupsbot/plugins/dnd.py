@@ -58,7 +58,7 @@ def dnd(bot, event, *args):
     else:
         donotdisturb[initiator_chat_id] = {
             "created": time.time(),
-            "expiry": 86400
+            "expiry": seconds_to_expire
         }
 
     bot.memory["donotdisturb"] = donotdisturb
