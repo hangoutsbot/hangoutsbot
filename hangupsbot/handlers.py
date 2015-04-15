@@ -188,3 +188,41 @@ class EventHandler(object):
                 pass
             except:
                 raise
+
+class HandlerBridge:
+    """shim for xmikosbot handler decorator"""
+
+    def set_bot(self, bot):
+        """shim requires a reference to the bot's actual EventHandler to register handlers"""
+        self.bot = bot
+
+    def register(self, *args, priority=10, event=None):
+        """Decorator for registering event handler"""
+
+        # make compatible with this bot fork
+        scaled_priority = priority * 10 # scale for compatibility - xmikos range 1 - 10
+        if event is hangups.ChatMessageEvent:
+            event_type = "message"
+        elif event is hangups.hangups.MembershipChangeEvent:
+            event_type = "membership"
+        elif event is hangups.hangups.RenameEvent:
+            event_type = "rename"
+        elif type(event) is str:
+            event_type = str # accept all kinds of strings, just like register_handler
+        else:
+            raise ValueError("unrecognised event {}".format(event))
+
+        def wrapper(func):
+            # Automatically wrap handler function in coroutine
+            func = asyncio.coroutine(func)
+            self.bot._handlers.register_handler(func, event_type, scaled_priority)
+            return func
+
+        # If there is one (and only one) positional argument and this argument is callable,
+        # assume it is the decorator (without any optional keyword arguments)
+        if len(args) == 1 and callable(args[0]):
+            return wrapper(args[0])
+        else:
+            return wrapper
+
+handler = HandlerBridge()

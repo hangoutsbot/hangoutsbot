@@ -20,6 +20,8 @@ def load(bot, command_dispatcher):
     for module in plugin_list:
         module_path = "plugins.{}".format(module)
 
+        bot._handlers.plugin_preinit_stats((module, module_path))
+
         try:
             exec("import {}".format(module_path))
         except Exception as e:
@@ -44,7 +46,6 @@ def load(bot, command_dispatcher):
         """
         available_commands = False # default: ALL
         try:
-            bot._handlers.plugin_preinit_stats((module, module_path))
             for function_name, the_function in public_functions:
                 if function_name ==  "_initialise" or function_name ==  "_initialize":
                     try:

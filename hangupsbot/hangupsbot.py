@@ -18,6 +18,7 @@ import config
 import handlers
 import version
 from commands import command
+from handlers import handler # shim for handler decorator
 
 import hooks
 import sinks
@@ -405,7 +406,9 @@ class HangupsBot(object):
     def _on_connect(self, initial_data):
         """Handle connecting for the first time"""
         print(_('Connected!'))
+
         self._handlers = handlers.EventHandler(self)
+        handlers.handler.set_bot(self) # shim for handler decorator
 
         try:
             # hangups-201504090500
