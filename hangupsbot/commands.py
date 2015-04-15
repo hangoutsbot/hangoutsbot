@@ -29,10 +29,6 @@ class CommandDispatcher(object):
             else:
                 raise
 
-        # Automatically wrap command function in coroutine
-        # (so we don't have to write @asyncio.coroutine decorator before every command function)
-        func = asyncio.coroutine(func)
-
         args = list(args[1:])
 
         try:
@@ -42,11 +38,22 @@ class CommandDispatcher(object):
             print(_("EXCEPTION in {}").format(message))
             logging.exception(message)
 
-
-    def register(self, func):
+    def register(self, *args, admin=False):
         """Decorator for registering command"""
-        self.commands[func.__name__] = func
-        return func
+        def wrapper(func):
+            # Automatically wrap command function in coroutine
+            func = asyncio.coroutine(func)
+            self.commands[func.__name__] = func
+            if admin:
+                self.admin_commands.append(func.__name__)
+            return func
+
+        # If there is one (and only one) positional argument and this argument is callable,
+        # assume it is the decorator (without any optional keyword arguments)
+        if len(args) == 1 and callable(args[0]):
+            return wrapper(args[0])
+        else:
+            return wrapper
 
     def register_unknown(self, func):
         """Decorator for registering unknown command"""
