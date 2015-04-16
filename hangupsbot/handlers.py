@@ -4,6 +4,7 @@ import hangups
 
 import re, time
 
+import plugins
 from commands import command
 
 from hangups.ui.utils import get_conv_name
@@ -17,50 +18,12 @@ class EventHandler(object):
 
         self.pluggables = { "message":[], "membership":[], "rename":[], "sending":[] }
 
-    def plugin_preinit_stats(self, plugin_metadata):
-        """
-        hacky implementation for tracking commands a plugin registers
-        called automatically by Hangupsbot._load_plugins() at start of each plugin load
-        """
-        self._current_plugin = {
-            "commands": {
-                "admin": [],
-                "user": []
-            },
-            "metadata": plugin_metadata
-        }
-
-    def plugin_get_stats(self):
-        """called automatically by Hangupsbot._load_plugins()"""
-        self._current_plugin["commands"]["all"] = list(
-            set(self._current_plugin["commands"]["admin"] +
-                self._current_plugin["commands"]["user"]))
-        return self._current_plugin
-
     def all_plugins_loaded(self):
         """called automatically by HangupsBot._load_plugins() after everything is done.
         used to finish plugins loading and to do any house-keeping
         """
         for type in self.pluggables:
             self.pluggables[type].sort(key=lambda tup: tup[1])
-
-    def _plugin_register_command(self, type, command_names):
-        """call during plugin init to register commands"""
-        self._current_plugin["commands"][type].extend(command_names)
-        self._current_plugin["commands"][type] = list(set(self._current_plugin["commands"][type]))
-
-    def register_user_command(self, command_names):
-        """call during plugin init to register user commands"""
-        if not isinstance(command_names, list):
-            command_names = [command_names] # wrap into a list for consistent processing
-        self._plugin_register_command("user", command_names)
-
-    def register_admin_command(self, command_names):
-        """call during plugin init to register admin commands"""
-        if not isinstance(command_names, list):
-            command_names = [command_names] # wrap into a list for consistent processing
-        self._plugin_register_command("admin", command_names)
-        command.admin_commands.extend(command_names)
 
     def register_object(self, id, objectref, forgiving=True):
         """registers a shared object into bot.shared"""
@@ -74,12 +37,25 @@ class EventHandler(object):
 
     def register_handler(self, function, type="message", priority=50):
         """call during plugin init to register a handler for a specific bot event"""
-        self.pluggables[type].append((function, priority, self._current_plugin["metadata"]))
+        current_plugin = plugins.tracking.current()
+        self.pluggables[type].append((function, priority, current_plugin["metadata"]))
+
+
+    def register_user_command(self, command_names):
+        """legacy support for pre-2.4 plugins"""
+        print("LEGACY handlers.register_user_command(): use plugins.register_user_command")
+        plugins.register_user_command(command_names)
+
+    def register_admin_command(self, command_names):
+        """legacy support for pre-2.4 plugins"""
+        print("LEGACY handlers.register_admin_command(): use plugins.register_admin_command")
+        plugins.register_admin_command(command_names)
 
     def get_admin_commands(self, conversation_id):
         """legacy support for pre-2.4 plugins"""
-        print("LEGACY handlers.get_admin_commands(): please update to command.get_admin_commands")
+        print("LEGACY handlers.get_admin_commands(): use command.get_admin_commands")
         return command.get_admin_commands(self.bot, conversation_id)
+
 
     @asyncio.coroutine
     def handle_chat_message(self, event):
@@ -155,7 +131,7 @@ class EventHandler(object):
                 for function, priority, plugin_metadata in self.pluggables[name]:
                     message = ["{}: {}.{}".format(
                                 name,
-                                plugin_metadata[1],
+                                plugin_metadata["module.path"],
                                 function.__name__)]
 
                     try:

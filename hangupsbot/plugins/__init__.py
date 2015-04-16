@@ -3,6 +3,56 @@ import sys
 import logging
 
 from inspect import getmembers, isfunction
+from commands import command
+
+class tracker:
+    def __init__(self):
+        self.list = []
+        self._current = None
+
+    def reset(self):
+        self._current = {
+            "commands": {
+                "admin": [],
+                "user": [],
+                "all": None
+            },
+            "handlers": [],
+            "metadata": None
+        }
+
+    def start(self, metadata):
+        self.reset()
+        self._current["metadata"] = metadata
+
+    def current(self):
+        self._current["commands"]["all"] = list(
+            set(self._current["commands"]["admin"] +
+                self._current["commands"]["user"]))
+        return self._current
+
+    def end(self):
+        self.list.append(self.current())
+
+    def register_command(self, type, command_names):
+        """call during plugin init to register commands"""
+        self._current["commands"][type].extend(command_names)
+        self._current["commands"][type] = list(set(self._current["commands"][type]))
+
+tracking = tracker()
+
+def register_user_command(command_names):
+    """call during plugin init to register user commands"""
+    if not isinstance(command_names, list):
+        command_names = [command_names]
+    tracking.register_command("user", command_names)
+
+def register_admin_command(command_names):
+    """call during plugin init to register admin commands"""
+    if not isinstance(command_names, list):
+        command_names = [command_names]
+    tracking.register_command("admin", command_names)
+    command.admin_commands.extend(command_names)
 
 def load(bot, command_dispatcher):
     plugin_list = bot.get_config_option('plugins')
@@ -20,7 +70,7 @@ def load(bot, command_dispatcher):
     for module in plugin_list:
         module_path = "plugins.{}".format(module)
 
-        bot._handlers.plugin_preinit_stats((module, module_path))
+        tracking.start({ "module": module, "module.path": module_path })
 
         try:
             exec("import {}".format(module_path))
@@ -61,13 +111,13 @@ def load(bot, command_dispatcher):
                     candidate_commands.append((function_name, the_function))
             if available_commands is False:
                 # implicit init, legacy support: assume all candidate_commands are user-available
-                bot._handlers.register_user_command([function_name for function_name, function in candidate_commands])
+                register_user_command([function_name for function_name, function in candidate_commands])
             elif available_commands is []:
                 # explicit init, no user-available commands
                 pass
             else:
                 # explicit init, legacy support: _initialise() returned user-available commands
-                bot._handlers.register_user_command(available_commands)
+                register_user_command(available_commands)
         except Exception as e:
             message = "{} @ {}".format(e, module_path)
             print(_("EXCEPTION during plugin init: {}").format(message))
@@ -77,7 +127,7 @@ def load(bot, command_dispatcher):
         """
         pass 2: register filtered functions
         """
-        plugin_tracking = bot._handlers.plugin_get_stats()
+        plugin_tracking = tracking.current()
         explicit_admin_commands = plugin_tracking["commands"]["admin"]
         all_commands = plugin_tracking["commands"]["all"]
         registered_commands = []

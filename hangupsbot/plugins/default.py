@@ -3,17 +3,24 @@ import json
 import hangups
 from hangups.ui.utils import get_conv_name
 
+import plugins
+
 from utils import text_to_segments
 from version import __version__
 
 def _initialise(Handlers, bot=None):
-    if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
-        Handlers.register_admin_command(["users", "user", "hangouts", "hangout", "rename", "leave", "reload", "quit", "config", "whereami"])
-        Handlers.register_user_command(["whoami", "echo", "version"])
-        return []
-    else:
-        print(_("DEFAULT: LEGACY FRAMEWORK MODE"))
-        return ["users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whoami", "whereami", "echo", "hangout" ,"version"]
+    try:
+        plugins.register_admin_command(["users", "user", "hangouts", "hangout", "rename", "leave", "reload", "quit", "config", "whereami"])
+        plugins.register_user_command(["whoami", "echo", "version"])
+    except Exception as e:
+        if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
+            print(_("DEFAULT: LEGACY FRAMEWORK MODE"))
+            Handlers.register_admin_command(["users", "user", "hangouts", "hangout", "rename", "leave", "reload", "quit", "config", "whereami"])
+            Handlers.register_user_command(["whoami", "echo", "version"])
+        else:
+            print(_("DEFAULT: OBSOLETE FRAMEWORK MODE"))
+            return ["users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whoami", "whereami", "echo", "hangout" ,"version"]
+    return []
 
 
 def echo(bot, event, *args):
