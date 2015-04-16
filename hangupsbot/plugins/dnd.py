@@ -3,7 +3,9 @@ import time
 
 def _initialise(Handlers, bot=None):
     _migrate_dnd_config_to_memory(bot)
-    Handlers.register_object('dnd.user_check', functools.partial(_user_has_dnd, bot))
+    _reuseable = functools.partial(_user_has_dnd, bot)
+    functools.update_wrapper(_reuseable, _user_has_dnd)
+    Handlers.register_object('dnd.user_check', _reuseable)
     Handlers.register_user_command(["dnd"])
     return []
 

@@ -4,11 +4,16 @@ import logging
 
 from inspect import getmembers, isfunction
 from commands import command
+import handlers
 
 class tracker:
     def __init__(self):
+        self.bot = None
         self.list = []
         self._current = None
+
+    def set_bot(self, bot):
+        self.bot = bot
 
     def reset(self):
         self._current = {
@@ -18,6 +23,7 @@ class tracker:
                 "all": None
             },
             "handlers": [],
+            "shared": [],
             "metadata": None
         }
 
@@ -39,22 +45,45 @@ class tracker:
         self._current["commands"][type].extend(command_names)
         self._current["commands"][type] = list(set(self._current["commands"][type]))
 
+    def register_handler(self, function, type, priority):
+        self._current["handlers"].append((function, type, priority))
+
+    def register_shared(self, id, objectref, forgiving):
+        self._current["shared"].append((id, objectref, forgiving))
+
+
 tracking = tracker()
 
+"""helpers"""
+
 def register_user_command(command_names):
-    """call during plugin init to register user commands"""
+    """user command registration"""
     if not isinstance(command_names, list):
         command_names = [command_names]
     tracking.register_command("user", command_names)
 
 def register_admin_command(command_names):
-    """call during plugin init to register admin commands"""
+    """admin command registration, overrides user command registration"""
     if not isinstance(command_names, list):
         command_names = [command_names]
     tracking.register_command("admin", command_names)
-    command.admin_commands.extend(command_names)
+
+def register_handler(function, type="message", priority=50):
+    """register external handler"""
+    bot_handlers = tracking.bot._handlers
+    bot_handlers.register_handler(function, type, priority)
+
+def register_shared(id, objectref, forgiving=True):
+    """register shared object"""
+    bot = tracking.bot
+    bot.register_shared(id, objectref, forgiving=forgiving)
+
+"""plugin loader"""
 
 def load(bot, command_dispatcher):
+    tracking.set_bot(bot)
+    command_dispatcher.set_tracking(tracking)
+
     plugin_list = bot.get_config_option('plugins')
     if plugin_list is None:
         print(_("HangupsBot: config.plugins is not defined, using ALL"))
@@ -126,6 +155,9 @@ def load(bot, command_dispatcher):
 
         """
         pass 2: register filtered functions
+        tracking.current() and the CommandDispatcher registers might be out of sync if a 
+        combination of decorators and register_user_command/register_admin_command is used since
+        decorators execute immediately upon import
         """
         plugin_tracking = tracking.current()
         explicit_admin_commands = plugin_tracking["commands"]["admin"]
@@ -133,11 +165,40 @@ def load(bot, command_dispatcher):
         registered_commands = []
         for function_name, the_function in candidate_commands:
             if function_name in all_commands:
-                command_dispatcher.register(the_function)
+                is_admin = False
                 text_function_name = function_name
                 if function_name in explicit_admin_commands:
+                    is_admin = True
                     text_function_name = "*" + text_function_name
+                command_dispatcher.register(the_function, admin=is_admin)
                 registered_commands.append(text_function_name)
 
         if registered_commands:
             print(_("added: {}").format(", ".join(registered_commands)))
+
+        tracking.end()
+
+
+@command.register(admin=True)
+def plugininfo(bot, event, *args):
+    """dumps plugin information"""
+    lines = []
+    for plugin in tracking.list:
+        if len(args) == 0 or args[0] in plugin["metadata"]["module"]:
+            print("{}".format(plugin))
+            lines.append("<b>{}</b>".format(plugin["metadata"]["module.path"]))
+            """admin commands"""
+            if len(plugin["commands"]["admin"]) > 0:
+                lines.append("<i>admin commands:</i> {}".format(", ".join(plugin["commands"]["admin"])))
+            """user-only commands"""
+            user_only_commands = list(set(plugin["commands"]["user"]) - set(plugin["commands"]["admin"]))
+            if len(user_only_commands) > 0:
+                lines.append("<i>user commands:</i> {}".format(", ".join(user_only_commands)))
+            """handlers"""
+            if len(plugin["handlers"]) > 0:
+                lines.append("<i>handlers:</i>" + ", ".join([ "{} ({}, p={})".format(f[0].__name__, f[1], str(f[2])) for f in plugin["handlers"]]))
+            """shared"""
+            if len(plugin["shared"]) > 0:
+                lines.append("<i>shared:</i>" + ", ".join([f[1].__name__ for f in plugin["shared"]]))
+            lines.append("")
+    bot.send_html_to_conversation(event.conv_id, "<br />".join(lines))

@@ -5,6 +5,8 @@ from hangups.ui.utils import get_conv_name
 
 from utils import text_to_segments
 
+import plugins
+
 
 class CommandDispatcher(object):
     """Register commands and run them"""
@@ -12,6 +14,10 @@ class CommandDispatcher(object):
         self.commands = {}
         self.admin_commands = []
         self.unknown_command = None
+        self.tracking = None
+
+    def set_tracking(self, tracking):
+        self.tracking = tracking
 
     def get_admin_commands(self, bot, conv_id):
         """Get list of admin-only commands (set by plugins or in config.json)"""
@@ -44,8 +50,12 @@ class CommandDispatcher(object):
             # Automatically wrap command function in coroutine
             func = asyncio.coroutine(func)
             self.commands[func.__name__] = func
+            if self.tracking:
+                plugins.tracking.register_command("user", [func.__name__])
             if admin:
                 self.admin_commands.append(func.__name__)
+                if self.tracking:
+                    plugins.tracking.register_command("admin", [func.__name__])
             return func
 
         # If there is one (and only one) positional argument and this argument is callable,

@@ -143,6 +143,7 @@ class HangupsBot(object):
             else:
                 raise RuntimeError(message)
         self.shared[id] = objectref
+        plugins.tracking.register_shared(id, objectref, forgiving=forgiving)
 
     def call_shared(self, id, *args, **kwargs):
         object = self.shared[id]

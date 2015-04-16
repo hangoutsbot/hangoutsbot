@@ -1,15 +1,13 @@
 import logging, shlex, asyncio
 
 import hangups
-
-import re, time
+from hangups.ui.utils import get_conv_name
 
 import plugins
 from commands import command
 
-from hangups.ui.utils import get_conv_name
 
-class EventHandler(object):
+class EventHandler:
     """Handle Hangups conversation events"""
 
     def __init__(self, bot, bot_command='/bot'):
@@ -19,10 +17,22 @@ class EventHandler(object):
         self.pluggables = { "message":[], "membership":[], "rename":[], "sending":[] }
 
     def register_handler(self, function, type="message", priority=50):
-        """call during plugin init to register a handler for a specific bot event"""
+        """registers extra event handlers"""
+        if type in ["message", "membership", "rename"]:
+            if not asyncio.iscoroutine(function):
+                # transparently convert into coroutine
+                function = asyncio.coroutine(function)
+        elif type in ["sending"]:
+            if asyncio.iscoroutine(function):
+                raise RuntimeError("{} handler cannot be a coroutine".format(type))
+        else:
+            raise ValueError("unknown event type for handler: {}".format(type))
+
         current_plugin = plugins.tracking.current()
         self.pluggables[type].append((function, priority, current_plugin["metadata"]))
         self.pluggables[type].sort(key=lambda tup: tup[1])
+
+        plugins.tracking.register_handler(function, type, priority)
 
     """legacy helpers, pre-2.4"""
 
@@ -30,14 +40,8 @@ class EventHandler(object):
         """registers a shared object into bot.shared
         historically, this function was more lenient than the actual bot function it calls
         """
-        print("LEGACY handlers.register_object(): use bot.register_shared")
-        try:
-            self.bot.register_shared(id, objectref)
-        except RuntimeError:
-            if forgiving:
-                print(_("register_object(): {} already registered").format(id))
-            else:
-                raise
+        print("LEGACY handlers.register_object(): use plugins.register_shared")
+        self.bot.register_shared(id, objectref, forgiving=forgiving)
 
     def register_user_command(self, command_names):
         print("LEGACY handlers.register_user_command(): use plugins.register_user_command")

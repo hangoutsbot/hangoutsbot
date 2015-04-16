@@ -1,5 +1,5 @@
 from commands import command
 
-@command.register
-def nestednoop(bot, event, *args):
-    print("i did nothing!")
+@command.register(admin=True)
+def noop_nested(bot, event, *args):
+    print("nested: i did nothing!")
