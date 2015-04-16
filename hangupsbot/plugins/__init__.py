@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import inspect
 
 from inspect import getmembers, isfunction
 from commands import command
@@ -127,11 +128,18 @@ def load(bot, command_dispatcher):
         try:
             for function_name, the_function in public_functions:
                 if function_name ==  "_initialise" or function_name ==  "_initialize":
-                    try:
-                        _return = the_function(bot._handlers, bot)
-                    except TypeError as e:
-                        # implement legacy support for plugins that don't support the bot reference
-                        _return = the_function(bot._handlers)
+                    _expected = inspect.getargspec(the_function).args
+                    if len(_expected) == 0:
+                        _return = the_function()
+                    elif len(_expected) == 1 and _expected[0] == "bot":
+                        _return = the_function(bot)
+                    else:
+                        try:
+                            # legacy support, pre-2.4
+                            _return = the_function(bot._handlers, bot)
+                        except TypeError as e:
+                            # legacy support, ancient plugins
+                            _return = the_function(bot._handlers)
                     if type(_return) is list:
                         available_commands = _return
                 elif function_name.startswith("_"):

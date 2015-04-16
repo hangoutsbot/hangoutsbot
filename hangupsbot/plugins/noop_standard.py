@@ -1,6 +1,6 @@
 import plugins
 
-def _initialise(Handlers, bot):
+def _initialise(bot):
     plugins.register_admin_command(["noop"])
     plugins.register_handler(_handle_nothing)
 
