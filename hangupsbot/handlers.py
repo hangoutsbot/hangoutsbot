@@ -213,10 +213,14 @@ class HandlerBridge:
             raise ValueError("unrecognised event {}".format(event))
 
         def wrapper(func):
+            def thunk(bot, event, command):
+                # command is an extra parameter supplied in this fork
+                return func(bot, event)
+
             # Automatically wrap handler function in coroutine
-            func = asyncio.coroutine(func)
-            self.bot._handlers.register_handler(func, event_type, scaled_priority)
-            return func
+            compatible_func = asyncio.coroutine(thunk)
+            self.bot._handlers.register_handler(compatible_func, event_type, scaled_priority)
+            return compatible_func
 
         # If there is one (and only one) positional argument and this argument is callable,
         # assume it is the decorator (without any optional keyword arguments)
