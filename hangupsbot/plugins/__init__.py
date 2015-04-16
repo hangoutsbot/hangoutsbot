@@ -141,5 +141,3 @@ def load(bot, command_dispatcher):
 
         if registered_commands:
             print(_("added: {}").format(", ".join(registered_commands)))
-
-    bot._handlers.all_plugins_loaded()

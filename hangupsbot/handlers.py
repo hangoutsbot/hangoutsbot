@@ -18,15 +18,19 @@ class EventHandler(object):
 
         self.pluggables = { "message":[], "membership":[], "rename":[], "sending":[] }
 
-    def all_plugins_loaded(self):
-        """called automatically by HangupsBot._load_plugins() after everything is done.
-        used to finish plugins loading and to do any house-keeping
-        """
-        for type in self.pluggables:
-            self.pluggables[type].sort(key=lambda tup: tup[1])
+    def register_handler(self, function, type="message", priority=50):
+        """call during plugin init to register a handler for a specific bot event"""
+        current_plugin = plugins.tracking.current()
+        self.pluggables[type].append((function, priority, current_plugin["metadata"]))
+        self.pluggables[type].sort(key=lambda tup: tup[1])
+
+    """legacy helpers, pre-2.4"""
 
     def register_object(self, id, objectref, forgiving=True):
-        """registers a shared object into bot.shared"""
+        """registers a shared object into bot.shared
+        historically, this function was more lenient than the actual bot function it calls
+        """
+        print("LEGACY handlers.register_object(): use bot.register_shared")
         try:
             self.bot.register_shared(id, objectref)
         except RuntimeError:
@@ -35,27 +39,19 @@ class EventHandler(object):
             else:
                 raise
 
-    def register_handler(self, function, type="message", priority=50):
-        """call during plugin init to register a handler for a specific bot event"""
-        current_plugin = plugins.tracking.current()
-        self.pluggables[type].append((function, priority, current_plugin["metadata"]))
-
-
     def register_user_command(self, command_names):
-        """legacy support for pre-2.4 plugins"""
         print("LEGACY handlers.register_user_command(): use plugins.register_user_command")
         plugins.register_user_command(command_names)
 
     def register_admin_command(self, command_names):
-        """legacy support for pre-2.4 plugins"""
         print("LEGACY handlers.register_admin_command(): use plugins.register_admin_command")
         plugins.register_admin_command(command_names)
 
     def get_admin_commands(self, conversation_id):
-        """legacy support for pre-2.4 plugins"""
         print("LEGACY handlers.get_admin_commands(): use command.get_admin_commands")
         return command.get_admin_commands(self.bot, conversation_id)
 
+    """handler core"""
 
     @asyncio.coroutine
     def handle_chat_message(self, event):

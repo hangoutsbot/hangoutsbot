@@ -134,9 +134,14 @@ class HangupsBot(object):
         except NotImplementedError:
             pass
 
-    def register_shared(self, id, objectref):
+    def register_shared(self, id, objectref, forgiving=False):
         if id in self.shared:
-            raise RuntimeError(_("{} already registered in shared").format(id))
+            message = _("{} already registered in shared").format(id)
+            if forgiving:
+                print(message)
+                logging.info(message)
+            else:
+                raise RuntimeError(message)
         self.shared[id] = objectref
 
     def call_shared(self, id, *args, **kwargs):
