@@ -10,14 +10,14 @@ make
 make install
 ```
 
-**install dependencies**
-```
-pip3 install -r requirements.txt
-```
-
 **git clone the respository**
 ```
 git clone <repository url>
+```
+
+**install dependencies**
+```
+pip3 install -r requirements.txt
 ```
 
 # First-Run
