@@ -171,10 +171,10 @@ def _initialise(Handlers, bot=None):
 def _handle_incoming_message(bot, event, context):
     """Handle random message intercepting"""
 
-    if not bot.get_config_option('cleverbot_percentage_replies'):
+    if not bot.get_config_suboption(event.conv_id, 'cleverbot_percentage_replies'):
         return
 
-    percentage = bot.get_config_option('cleverbot_percentage_replies')
+    percentage = bot.get_config_suboption(event.conv_id, 'cleverbot_percentage_replies')
 
     if randrange(0, 101, 2) < float(percentage):
         chat(bot, event, event.text)
