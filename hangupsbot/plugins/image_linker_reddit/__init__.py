@@ -43,14 +43,14 @@ def _scan_for_triggers(bot, event, command):
     if len(image_links) > 0:
         for image_link in image_links:
             if "gfycat.com/" in image_link:
-                # special processing for gfycat
-                basename = os.path.basename(image_link)
-                image_link = "http://giant.gfycat.com/" + basename + ".gif"
+                r = yield from aiohttp.request('get', image_link)
+                raw = yield from r.read()
+                image_link = re.search("<a href=\"(.*?)\">\\1</a>", str(raw, 'utf-8')).group(1)
             filename = os.path.basename(image_link)
             r = yield from aiohttp.request('get', image_link)
             raw = yield from r.read()
             image_data = io.BytesIO(raw)
-            print("attempting to display: {}".format(filename))
+            print("image_linker_reddit: attempting to display: {}".format(filename))
             image_id = yield from bot._client.upload_image(image_data, filename=filename)
             bot.send_message_segments(event.conv.id_, None, image_id=image_id)
 
