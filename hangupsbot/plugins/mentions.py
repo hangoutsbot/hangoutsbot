@@ -64,14 +64,20 @@ def mention(bot, event, *args):
     users_in_chat = event.conv.users
     mention_chat_ids = []
 
-    """check if synced room, if so, append on the users"""
-    sync_room_list = bot.get_config_suboption(event.conv_id, 'sync_rooms')
-    if sync_room_list:
-        if event.conv_id in sync_room_list:
-            for syncedroom in sync_room_list:
-                if event.conv_id not in syncedroom:
-                    users_in_chat += bot.get_users_in_conversation(syncedroom)
-            users_in_chat = list(set(users_in_chat)) # make unique
+    """sync room support"""
+    if bot.get_config_option('syncing_enabled'):
+        sync_room_list = bot.get_config_option('sync_rooms')
+        if sync_room_list:
+            """scan through each room group"""
+            for rooms_group in sync_room_list:
+                if event.conv_id in rooms_group:
+                    """current conversation is part of a syncroom group, add "external" users"""
+                    for syncedroom in rooms_group:
+                        if event.conv_id is not syncedroom:
+                            users_in_chat += bot.get_users_in_conversation(syncedroom)
+                    users_in_chat = list(set(users_in_chat)) # make unique
+                    logging.info(_("@mention in a syncroom: {} user(s) present").format(len(users_in_chat)))
+                    break
 
     """
     /bot mention <fragment> test
