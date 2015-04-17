@@ -10,15 +10,19 @@ make
 make install
 ```
 
+**git clone the repository**
+```
+git clone <repository url>
+```
+
 **install dependencies**
 ```
 pip3 install -r requirements.txt
 ```
 
-**git clone the respository**
-```
-git clone <repository url>
-```
+Note: `pip` may install an outdated version of hangups. You may have to 
+  install directly from [source](https://github.com/tdryer/hangups).
+  Related: https://github.com/nylonee/hangupsbot/issues/43#issuecomment-72794942
 
 # First-Run
 
