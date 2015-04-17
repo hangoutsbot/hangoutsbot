@@ -1,8 +1,13 @@
-import hangups
+"""extremely hacky implementation of html parsing
+execute parser test by running this file directly with the interpreter
+"""
 
+import logging
 import html
 
 from html.parser import HTMLParser
+
+import hangups
 
 
 def simple_parse_to_segments(html, debug=False, **kwargs):
@@ -10,6 +15,33 @@ def simple_parse_to_segments(html, debug=False, **kwargs):
     html = '<html>' + html + '</html>' # html.parser seems to ignore the final entityref without html closure
     parser = simpleHTMLParser(debug)
     return parser.feed(html)
+
+
+def segment_to_html(segment):
+    """Create simple HTML from ChatMessageSegment"""
+    text = html.escape(segment.text) if segment.text else ""
+    text = text.replace('\n', '<br>\n')
+
+    message = []
+    if segment.type_ == hangups.schemas.SegmentType.TEXT:
+        message.append(text)
+    elif segment.type_ == hangups.schemas.SegmentType.LINK:
+        message.append(
+            '<a href="{}">{}</a>'.format(segment.link_target if segment.link_target else text, text)
+        )
+    elif segment.type_ == hangups.schemas.SegmentType.LINE_BREAK:
+        message.append('<br>\n')
+    else:
+        logging.warning('Ignoring unknown chat message segment type: {}'.format(segment.type_))
+
+    if not segment.type_ == hangups.schemas.SegmentType.LINE_BREAK:
+        for is_f, f in ((segment.is_bold, 'b'), (segment.is_italic, 'i'),
+                        (segment.is_strikethrough, 's'), (segment.is_underline, 'u')):
+            if is_f:
+                message.insert(0, '<{}>'.format(f))
+                message.append('</{}>'.format(f))
+
+    return ''.join(message)
 
 
 class simpleHTMLParser(HTMLParser):

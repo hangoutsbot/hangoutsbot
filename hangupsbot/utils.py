@@ -1,8 +1,10 @@
-import hangups
 import importlib
 import unicodedata
 
-from parsers import simple_parse_to_segments
+import hangups
+
+from parsers import simple_parse_to_segments, segment_to_html
+
 
 def text_to_segments(text):
     """Create list of message segments from text"""
@@ -23,9 +25,11 @@ def text_to_segments(text):
 
     return segments
 
+
 def unicode_to_ascii(text):
     """Transliterate unicode characters to ASCII"""
     return unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode()
+
 
 def class_from_name(module_name, class_name):
     """adapted from http://stackoverflow.com/a/13808375"""
