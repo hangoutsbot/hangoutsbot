@@ -26,12 +26,20 @@ def redditmemeword(bot, event, *args):
     bot.send_html_to_conversation(event.conv_id, "this one? {}".format(image_link))
 
 def _scan_for_triggers(bot, event, command):
+    limit = 3
+    count = 0
     lctext = event.text.lower()
     image_links = []
     for trigger in _lookup:
         pattern = '\\b' + trigger + '\.(jpg|png|gif|bmp)\\b'
         if re.search(pattern, lctext):
             image_links.append(_get_a_link(trigger))
+            count = count + 1
+            if count >= limit:
+                break
+
+    image_links = list(set(image_links)) # make unique
+
     if len(image_links) > 0:
         for image_link in image_links:
             if "gfycat.com/" in image_link:
