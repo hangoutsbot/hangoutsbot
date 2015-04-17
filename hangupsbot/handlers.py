@@ -14,11 +14,11 @@ class EventHandler:
         self.bot = bot
         self.bot_command = bot_command
 
-        self.pluggables = { "message":[], "membership":[], "rename":[], "sending":[] }
+        self.pluggables = { "allmessages": [], "message":[], "membership":[], "rename":[], "sending":[] }
 
     def register_handler(self, function, type="message", priority=50):
         """registers extra event handlers"""
-        if type in ["message", "membership", "rename"]:
+        if type in ["allmessages", "message", "membership", "rename"]:
             if not asyncio.iscoroutine(function):
                 # transparently convert into coroutine
                 function = asyncio.coroutine(function)
@@ -63,12 +63,11 @@ class EventHandler:
         if logging.root.level == logging.DEBUG:
             event.print_debug()
 
-        if not event.user.is_self and event.text:
-            # handlers from plugins
-            yield from self.run_pluggable_omnibus("message", self.bot, event, command)
-
-            # Run command
-            yield from self.handle_command(event)
+        if event.text:
+            yield from self.run_pluggable_omnibus("allmessages", self.bot, event, command)
+            if not event.user.is_self:
+                yield from self.run_pluggable_omnibus("message", self.bot, event, command)
+                yield from self.handle_command(event)
 
     @asyncio.coroutine
     def handle_command(self, event):
