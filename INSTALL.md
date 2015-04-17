@@ -20,6 +20,9 @@ git clone <repository url>
 pip3 install -r requirements.txt
 ```
 
+Note: pip may install an outdated version of hangups. You may have to 
+  install directly from [source](https://github.com/tdryer/hangups).
+
 # First-Run
 
 You need to **run the bot for the first time**. You will need at least 
