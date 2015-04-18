@@ -115,24 +115,29 @@ def load(bot, command_dispatcher):
 
         candidate_commands = []
 
-        """
-        pass 1: run _initialise()/_initialize() and filter out "hidden" functions
-
-        legacy notice:
-        older plugins will return a list of user-available functions via _initialise/_initialize().
-        this LEGACY behaviour will continue to be supported. however, it is HIGHLY RECOMMENDED to
-        use register_user_command(<LIST command_names>) and register_admin_command(<LIST command_names>)
-        for better security
+        """pass 1: run optional callable: _initialise, _initialize
+        * performs house-keeping tasks (e.g. migration, tear-up, pre-init, etc)
+        * registers user and/or admin commands
         """
         available_commands = False # default: ALL
         try:
             for function_name, the_function in public_functions:
                 if function_name ==  "_initialise" or function_name ==  "_initialize":
-                    _expected = inspect.getargspec(the_function).args
+                    """signature of the callable determines what parameters are passed
+                    CURRENT
+                    version >= 2.4 | callable()
+                    version >= 2.4 | callable(bot) - parameter must be named "bot"
+                    LEGACY
+                    version <= 2.4 | callable(handlers, bot)
+                    ancient        | callable(handlers)
+                    """
+                    _expected = list(inspect.signature(the_function).parameters)
                     if len(_expected) == 0:
-                        _return = the_function()
+                        the_function()
+                        _return = []
                     elif len(_expected) == 1 and _expected[0] == "bot":
-                        _return = the_function(bot)
+                        the_function(bot)
+                        _return = []
                     else:
                         try:
                             # legacy support, pre-2.4
