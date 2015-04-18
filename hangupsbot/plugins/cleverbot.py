@@ -176,7 +176,7 @@ def _handle_incoming_message(bot, event, context):
 
     percentage = bot.get_config_suboption(event.conv_id, 'cleverbot_percentage_replies')
 
-    if randrange(0, 101, 2) < float(percentage):
+    if randrange(0, 101, 1) < float(percentage):
         chat(bot, event, event.text)
 
 def chat(bot, event, *args):
