@@ -1,5 +1,7 @@
 import hangups
 
+from utils import unicode_to_ascii
+
 def lookup(bot, event, *args):
     """find keywords in a specified spreadsheet"""
 
@@ -22,7 +24,8 @@ def lookup(bot, event, *args):
     import urllib.request
     html = urllib.request.urlopen(spreadsheet_url).read()
 
-    keyword_lower = keyword.strip().lower()
+    keyword_raw = keyword.strip().lower()
+    keyword_ascii = unicode_to_ascii(keyword_raw)
 
     data = []
 
@@ -44,18 +47,21 @@ def lookup(bot, event, *args):
         data.append([ele for ele in cols if ele]) # Get rid of empty values
 
     for row in data:
-        matchfound = 0
         for cell in row:
-            testcell = str(cell).lower().strip()
-            if (keyword_lower in testcell) and counter < counter_max and matchfound == 0:
-                htmlmessage += _('<br />Row {}: ').format(counter+1)
-                for datapoint in row:
-                    htmlmessage += '{} | '.format(datapoint)
-                htmlmessage += '<br />'
-                counter += 1
-                matchfound = 1
-            elif (keyword_lower in testcell) and counter >= counter_max:
-                counter += 1
+            cellcontent_raw = str(cell).lower().strip()
+            cellcontent_ascii = unicode_to_ascii(cellcontent_raw)
+
+            if keyword_raw in cellcontent_raw or keyword_ascii in cellcontent_ascii:
+                if counter < counter_max:
+                    htmlmessage += _('<br />Row {}: ').format(counter+1)
+                    for datapoint in row:
+                        htmlmessage += '{} | '.format(datapoint)
+                    htmlmessage += '<br />'
+                    counter += 1
+                    break # prevent multiple subsequent cell matches appending identical rows
+                else:
+                    # count row matches only beyond the limit, to avoid over-long message
+                    counter += 1
 
     if counter > counter_max:
         htmlmessage += _('<br />{0} rows found. Only returning first {1}.').format(counter, counter_max)
