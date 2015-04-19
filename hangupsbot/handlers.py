@@ -1,4 +1,7 @@
-import logging, shlex, asyncio
+import logging
+import shlex
+import asyncio
+import inspect
 
 import hangups
 from hangups.ui.utils import get_conv_name
@@ -134,14 +137,22 @@ class EventHandler:
                                 function.__name__)]
 
                     try:
+                        """accepted handler signatures:
+                        coroutine(bot, event, command)
+                        coroutine(bot, event)
+                        function(bot, event, context)
+                        function(bot, event)
+                        """
+                        _expected = list(inspect.signature(function).parameters)
+                        _passed = args[0:len(_expected)]
                         if asyncio.iscoroutinefunction(function):
                             message.append(_("coroutine"))
                             print(" : ".join(message))
-                            yield from function(*args, **kwargs)
+                            yield from function(*_passed)
                         else:
                             message.append(_("function"))
                             print(" : ".join(message))
-                            function(*args, **kwargs)
+                            function(*_passed)
                     except self.bot.Exceptions.SuppressHandler:
                         # skip this pluggable, continue with next
                         message.append(_("SuppressHandler"))

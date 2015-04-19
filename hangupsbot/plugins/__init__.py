@@ -123,13 +123,13 @@ def load(bot, command_dispatcher):
         try:
             for function_name, the_function in public_functions:
                 if function_name ==  "_initialise" or function_name ==  "_initialize":
-                    """signature of the callable determines what parameters are passed
+                    """accepted function signatures:
                     CURRENT
-                    version >= 2.4 | callable()
-                    version >= 2.4 | callable(bot) - parameter must be named "bot"
+                    version >= 2.4 | function()
+                    version >= 2.4 | function(bot) - parameter must be named "bot"
                     LEGACY
-                    version <= 2.4 | callable(handlers, bot)
-                    ancient        | callable(handlers)
+                    version <= 2.4 | function(handlers, bot)
+                    ancient        | function(handlers)
                     """
                     _expected = list(inspect.signature(the_function).parameters)
                     if len(_expected) == 0:
