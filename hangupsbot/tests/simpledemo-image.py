@@ -1,7 +1,7 @@
 # use with the simpledemo sink which is part of sinks.generic.simpledemo package
 import json
 import requests
-url = 'https://127.0.0.1:9001/UgxcYwkNkvwAWx4Ee-Z4AaABAQ/'
+url = 'https://127.0.0.1:9002/UgxcYwkNkvwAWx4Ee-Z4AaABAQ/'
 payload = {
     "echo" : '<i>Ubuntu Logo!</i>',
     "image" : {

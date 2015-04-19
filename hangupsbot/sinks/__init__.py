@@ -8,6 +8,8 @@ import asyncio
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from utils import class_from_name
 
+from sinks.base_bot_request_handler import BaseBotRequestHandler
+
 
 def start(bot, shared_loop):
     jsonrpc_sinks = bot.get_config_option('jsonrpc')
@@ -20,9 +22,10 @@ def start(bot, shared_loop):
 
             try:
                 module = sinkConfig["module"].split(".")
-                if len(module) < 4:
-                    print(_("config.jsonrpc[{}].module should have at least 4 packages {}").format(itemNo, module))
+                if len(module) < 3:
+                    print("config.jsonrpc[{}].module should have at least 3 packages {}".format(itemNo, module))
                     continue
+
                 module_name = ".".join(module[0:-1])
                 class_name = ".".join(module[-1:])
                 if not module_name or not class_name:
@@ -40,6 +43,13 @@ def start(bot, shared_loop):
                 print(_("config.jsonrpc[{}] missing keyword").format(itemNo), e)
                 continue
 
+            try:
+                handler_class = class_from_name(module_name, class_name)
+            except AttributeError as e:
+                logging.exception(e)
+                print("could not identify sink: {} {}".format(module_name, class_name))
+                continue
+
             # start up rpc listener in a separate thread
             print(_("_start_sinks(): {}").format(module))
             t = Thread(target=start_listening, args=(
@@ -48,7 +58,7 @@ def start(bot, shared_loop):
               name,
               port,
               certfile,
-              class_from_name(module_name, class_name),
+              handler_class,
               module_name))
 
             t.daemon = True
