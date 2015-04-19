@@ -67,7 +67,7 @@ class CommandDispatcher(object):
 
     def register_unknown(self, func):
         """Decorator for registering unknown command"""
-        self.unknown_command = func
+        self.unknown_command = asyncio.coroutine(func)
         return func
 
 

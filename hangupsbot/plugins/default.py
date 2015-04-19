@@ -8,27 +8,106 @@ import plugins
 from utils import text_to_segments
 from version import __version__
 
+_internal = {} # non-persistent internal state independent of config.json/memory.json
+
+_internal["broadcast"] = { "message": "", "conversations": [] } # /bot broadcast
+
 def _initialise(Handlers, bot=None):
     try:
-        plugins.register_admin_command(["users", "user", "hangouts", "hangout", "rename", "leave", "reload", "quit", "config", "whereami"])
+        plugins.register_admin_command(["broadcast", "users", "user", "hangouts", "hangout", "rename", "leave", "reload", "quit", "config", "whereami"])
         plugins.register_user_command(["whoami", "echo", "version"])
     except Exception as e:
         if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
             print(_("DEFAULT: LEGACY FRAMEWORK MODE"))
-            Handlers.register_admin_command(["users", "user", "hangouts", "hangout", "rename", "leave", "reload", "quit", "config", "whereami"])
+            Handlers.register_admin_command(["broadcast", "users", "user", "hangouts", "hangout", "rename", "leave", "reload", "quit", "config", "whereami"])
             Handlers.register_user_command(["whoami", "echo", "version"])
         else:
             print(_("DEFAULT: OBSOLETE FRAMEWORK MODE"))
-            return ["users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whoami", "whereami", "echo", "hangout" ,"version"]
+            return ["broadcast", "users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whoami", "whereami", "echo", "hangout" ,"version"]
     return []
 
 
 def echo(bot, event, *args):
     """echo back requested text"""
     text = ' '.join(args)
-    if text.lower().strip().startswith(tuple(bot._handlers.bot_command)):
+    if text.lower().strip().startswith(tuple([_.lower() for _ in bot._handlers.bot_command])):
         text = _("NOPE! Some things aren't worth repeating.")
     bot.send_message(event.conv, text)
+
+
+def broadcast(bot, event, *args):
+    """broadcast a message to chats, use with care"""
+    if args:
+        subcmd = args[0]
+        parameters = args[1:]
+        if subcmd == "info":
+            """display broadcast data such as message and target rooms"""
+            conv_info = ["<b>{}</b> ... {}".format(get_conv_name(_), _.id_) for _ in _internal["broadcast"]["conversations"]]
+            if not _internal["broadcast"]["message"]:
+                bot.send_message_parsed(event.conv, _("broadcast: no message set"))
+                return
+            if not conv_info:
+                bot.send_message_parsed(event.conv, _("broadcast: no conversations available"))
+                return
+            bot.send_message_parsed(event.conv, _(
+                                            "<b>message:</b><br />"
+                                            "{}<br />" 
+                                            "<b>to:</b><br />"
+                                            "{}".format(_internal["broadcast"]["message"], 
+                                                "<br />".join(conv_info))))
+        elif subcmd == "message":
+            """set broadcast message"""
+            message = ' '.join(parameters)
+            if message:
+                if message.lower().strip().startswith(tuple([_.lower() for _ in bot._handlers.bot_command])):
+                    bot.send_message_parsed(event.conv, _("broadcast: message not allowed"))
+                    return
+                _internal["broadcast"]["message"] = message
+            else:
+                bot.send_message_parsed(event.conv, _("broadcast: message must be supplied after subcommand"))
+        elif subcmd == "add":
+            """add conversations to a broadcast"""
+            if parameters[0] == "groups":
+                """add all groups (chats with users > 2)"""
+                for conv in bot.list_conversations():
+                    if len(conv.users) > 2:
+                        _internal["broadcast"]["conversations"].append(conv)
+            elif parameters[0] == "ALL":
+                """add EVERYTHING - try not to use this, will message 1-to-1s as well"""
+                for conv in bot.list_conversations():
+                    _internal["broadcast"]["conversations"].append(conv)
+            else:
+                """add by wild card search of title or id"""
+                search = " ".join(parameters)
+                for conv in bot.list_conversations():
+                    if search.lower() in get_conv_name(conv).lower() or search in conv.id_:
+                        _internal["broadcast"]["conversations"].append(conv)
+            _internal["broadcast"]["conversations"] = list(set(_internal["broadcast"]["conversations"]))
+            bot.send_message_parsed(event.conv, _("broadcast: {} conversation(s)".format(len(_internal["broadcast"]["conversations"]))))
+        elif subcmd == "remove":
+            if parameters[0].lower() == "all":
+                """remove all conversations from broadcast"""
+                _internal["broadcast"]["conversations"] = []
+            else:
+                """remove by wild card search of title or id"""
+                search = " ".join(parameters)
+                removed = []
+                for conv in _internal["broadcast"]["conversations"]:
+                    if search.lower() in get_conv_name(conv).lower() or search in conv.id_:
+                        _internal["broadcast"]["conversations"].remove(conv)
+                        removed.append("<b>{}</b> ({})".format(get_conv_name(conv), conv.id_))
+                if removed:
+                    bot.send_message_parsed(event.conv, _("broadcast: removed {}".format(", ".join(removed))))
+        elif subcmd == "NOW":
+            """send the broadcast - no turning back!"""
+            context = { "explicit_relay": True } # prevent echos across syncrooms
+            for conv in _internal["broadcast"]["conversations"]:
+                bot.send_message_parsed(conv, _internal["broadcast"]["message"], context=context)
+            bot.send_message_parsed(event.conv, _("broadcast: message sent to {} chats".format(len(_internal["broadcast"]["conversations"]))))
+        else:
+            bot.send_message_parsed(event.conv, _("broadcast: /bot broadcast [info|message|add|remove|NOW] ..."))
+    else:
+        bot.send_message_parsed(event.conv, _("broadcast: /bot broadcast [info|message|add|remove|NOW]"))
 
 
 def users(bot, event, *args):
