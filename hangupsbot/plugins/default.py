@@ -26,7 +26,7 @@ def _initialise(Handlers, bot=None):
 def echo(bot, event, *args):
     """echo back requested text"""
     text = ' '.join(args)
-    if text.lower().strip().startswith("/bot "):
+    if text.lower().strip().startswith(tuple(bot._handlers.bot_command)):
         text = _("NOPE! Some things aren't worth repeating.")
     bot.send_message(event.conv, text)
 
