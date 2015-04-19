@@ -3,6 +3,7 @@ import json
 import base64
 import io
 import asyncio
+import logging
 
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -81,3 +82,9 @@ class BaseBotRequestHandler(BaseHTTPRequestHandler):
 
         # process the payload
         asyncio.async(self.process_payload(path, query_string, payload))
+
+    def log_error(self, format_string, *args):
+        logging.error("{} - {} {}".format(self.sinkname, self.address_string(), format_string%args))
+
+    def log_message(self, format_string, *args):
+        logging.info("{} - {} {}".format(self.sinkname, self.address_string(), format_string%args))
