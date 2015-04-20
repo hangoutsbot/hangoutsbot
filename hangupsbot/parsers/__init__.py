@@ -3,6 +3,8 @@ more parsers and parser utility functions can be imported here
 """
 import hangups
 
+import parsers.kludgy_html_parser
+
 from parsers.kludgy_html_parser import segment_to_html
 
 def simple_parse_to_segments(formatted_text):
@@ -10,12 +12,13 @@ def simple_parse_to_segments(formatted_text):
     legacy notice: identical function in kludgy_html_parser
     the older function is "overridden" here for compatibility reasons
     """
-    if "message_parser" in dir(hangups):
-        # hangups 201504200224 (ae59c24) - uses ReParser
-        # supports html, markdown
+    if formatted_text.startswith("reparser: ") and "message_parser" in dir(hangups):
+        # ReParser is available in hangups 201504200224 (ae59c24) 
+        # supports html, markdown (be aware of nested tag issue)
+        formatted_text = " ".join(formatted_text.split()[1:])
         segments = hangups.ChatMessageSegment.from_str(formatted_text)
     else:
-        # fallback to internal parser on hangups pre-201504200224
+        # fallback to internal parser
         # supports html
-        segments = parsers.kludgy_html_parser.simple_parse_to_segments(formatted_text)
+        segments = kludgy_html_parser.simple_parse_to_segments(formatted_text)
     return segments
