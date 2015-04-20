@@ -47,7 +47,7 @@ def _watch_new_adds(bot, event, command):
 
         bot.send_html_to_conversation(event.conv, html)
 
-		def addmod(bot, event, *args):
+def addmod(bot, event, *args):
     mod_ids = list(args)
     if(bot.get_config_suboption(event.conv_id, 'mods') != None):
         for mod in bot.get_config_suboption(event.conv_id, 'mods'):
