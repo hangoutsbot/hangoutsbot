@@ -32,7 +32,7 @@ def _initialise(Handlers, bot=None):
 def echo(bot, event, *args):
     """echo back requested text"""
     text = ' '.join(args)
-    if text.lower().strip().startswith(tuple([_.lower() for _ in bot._handlers.bot_command])):
+    if text.lower().strip().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
         text = _("NOPE! Some things aren't worth repeating.")
     bot.send_message(event.conv, text)
 
@@ -42,8 +42,8 @@ def echoparsed(bot, event, *args):
     formatted_text = ' '.join(args)
     test_segments = simple_parse_to_segments(formatted_text)
     if test_segments:
-        if test_segments[0].text.strip().startswith(tuple([_.lower() for _ in bot._handlers.bot_command])):
-            text = _("NOPE! Some things aren't worth repeating.")
+        if test_segments[0].text.strip().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
+            formatted_text = _("NOPE! Some things aren't worth repeating.")
         bot.send_message_parsed(event.conv, formatted_text)
 
 
