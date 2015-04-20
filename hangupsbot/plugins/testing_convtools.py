@@ -2,14 +2,14 @@ import asyncio
 import random
 import string
 
-_externals = {
-    "authorisation": False
-}
+import plugins
 
 
-def _initialise(Handlers, bot=None):
-    Handlers.register_admin_command(["addme", "addusers", "createconversation", "refresh"])
-    return []
+_externals = { "authorisation": False }
+
+
+def _initialise(bot):
+    plugins.register_admin_command(["addme", "addusers", "createconversation", "refresh"])
 
 
 def addusers(bot, event, *args):

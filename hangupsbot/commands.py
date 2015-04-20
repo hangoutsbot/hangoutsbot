@@ -83,7 +83,7 @@ def help(bot, event, cmd=None, *args):
         admins_list = bot.get_config_suboption(event.conv_id, 'admins')
 
         commands_all = command.commands.keys()
-        commands_admin = bot._handlers.get_admin_commands(event.conv_id)
+        commands_admin = command.get_admin_commands(bot, event.conv_id)
         commands_nonadmin = list(set(commands_all) - set(commands_admin))
 
         help_lines.append(_('<b>User commands:</b>'))

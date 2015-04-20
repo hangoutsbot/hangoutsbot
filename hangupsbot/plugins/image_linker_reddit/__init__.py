@@ -14,16 +14,18 @@ import plugins
 
 _lookup = {}
 
+
 def _initialise(bot):
     _load_all_the_things()
     plugins.register_admin_command(["redditmemeword"])
     plugins.register_handler(_scan_for_triggers)
-    return []
+
 
 def redditmemeword(bot, event, *args):
     if len(args) == 1:
         image_link = _get_a_link(args[0])
     bot.send_html_to_conversation(event.conv_id, "this one? {}".format(image_link))
+
 
 def _scan_for_triggers(bot, event, command):
     limit = 3
@@ -71,7 +73,8 @@ def _load_all_the_things():
                     _lookup[trigger].extend(images)
                 else:
                     _lookup[trigger] = images
-    print("{} trigger(s) loaded".format(len(_lookup)))
+    print("reddit image meme: {} trigger(s) loaded".format(len(_lookup)))
+
 
 def _get_a_link(trigger):
     if trigger in _lookup:

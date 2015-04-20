@@ -1,9 +1,17 @@
-import asyncio, re, time, os, aiohttp, io
+import asyncio 
+import re
+import time
+import os
+import aiohttp
+import io
 
 import hangups
 
 from urllib.parse import urlparse
 from hangups.ui.utils import get_conv_name
+
+import plugins
+
 
 class __registers(object):
     def __init__(self):
@@ -12,16 +20,16 @@ class __registers(object):
         self.last_chatroom_id = '' # recorded last chat room to prevent room crossover
         self.last_time_id = 0 # recorded timestamp of last chat to 'expire' chats
 
+
 _registers=__registers()
 
 
-def _initialise(Handlers, bot=None):
+def _initialise(bot):
     _migrate_syncroom_v1(bot)
-    Handlers.register_admin_command(["syncusers"])
-    Handlers.register_handler(_handle_syncrooms_broadcast, type="sending")
-    Handlers.register_handler(_handle_incoming_message, type="message")
-    Handlers.register_handler(_handle_syncrooms_membership_change, type="membership")
-    return [] # implements no commands
+    plugins.register_admin_command(["syncusers"])
+    plugins.register_handler(_handle_syncrooms_broadcast, type="sending")
+    plugins.register_handler(_handle_incoming_message, type="message")
+    plugins.register_handler(_handle_syncrooms_membership_change, type="membership")
 
 
 def _migrate_syncroom_v1(bot):
@@ -62,7 +70,7 @@ def _handle_syncrooms_broadcast(bot, broadcast_list, context):
         return
 
     if context and "explicit_relay" in context:
-        print(_("SYNCROOMS: handler disabled by context"))
+        print(_("syncrooms: handler disabled by context"))
         return
 
     origin_conversation_id = broadcast_list[0][0]
@@ -76,10 +84,10 @@ def _handle_syncrooms_broadcast(bot, broadcast_list, context):
                     if origin_conversation_id != other_room_id:
                         broadcast_list.append((other_room_id, response))
 
-                print(_("SYNCROOMS: broadcasting to {} room(s)").format(
+                print(_("syncrooms: broadcasting to {} room(s)").format(
                     len(broadcast_list)))
             else:
-                print(_("SYNCROOMS: not a sync room").format(origin_conversation_id))
+                print(_("syncrooms: not a sync room").format(origin_conversation_id))
 
 
 @asyncio.coroutine
@@ -100,7 +108,7 @@ def _handle_incoming_message(bot, event, command):
 
     for sync_room_list in syncouts:
         if event.conv_id in sync_room_list:
-            print(_('SYNCROOMS: incoming message'));
+            print(_('syncrooms: incoming message'));
             link = 'https://plus.google.com/u/0/{}/about'.format(event.user_id.chat_id)
 
             ### Deciding how to relay the name across
@@ -231,7 +239,7 @@ def _handle_syncrooms_membership_change(bot, event, command):
 
     # JOIN a specific room
     if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
-        print(_("SYNCROOMS: {} user(s) added to {}").format(len(event_users), event.conv_id))
+        print(_("syncrooms: {} user(s) added to {}").format(len(event_users), event.conv_id))
         if syncroom_name:
             bot.send_message_parsed(event.conv, '<i>{} has added {} to {}</i>'.format(
                 event.user.full_name,
@@ -239,7 +247,7 @@ def _handle_syncrooms_membership_change(bot, event, command):
                 syncroom_name))
     # LEAVE a specific room
     else:
-        print(_("SYNCROOMS: {} user(s) left {}").format(len(event_users), event.conv_id))
+        print(_("syncrooms: {} user(s) left {}").format(len(event_users), event.conv_id))
         if syncroom_name:
             bot.send_message_parsed(event.conv, '<i>{} has left {}</i>'.format(
                 names,
