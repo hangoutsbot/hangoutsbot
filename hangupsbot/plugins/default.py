@@ -5,7 +5,7 @@ from hangups.ui.utils import get_conv_name
 
 import plugins
 
-from utils import text_to_segments
+from utils import text_to_segments, simple_parse_to_segments
 from version import __version__
 
 _internal = {} # non-persistent internal state independent of config.json/memory.json
@@ -13,17 +13,19 @@ _internal = {} # non-persistent internal state independent of config.json/memory
 _internal["broadcast"] = { "message": "", "conversations": [] } # /bot broadcast
 
 def _initialise(Handlers, bot=None):
+    admin_commands = ["broadcast", "users", "user", "hangouts", "hangout", "rename", "leave", "reload", "quit", "config", "whereami"]
+    user_commands = ["echo", "echoparsed", "version", "whoami"]
     try:
-        plugins.register_admin_command(["broadcast", "users", "user", "hangouts", "hangout", "rename", "leave", "reload", "quit", "config", "whereami"])
-        plugins.register_user_command(["whoami", "echo", "version"])
+        plugins.register_admin_command(admin_commands)
+        plugins.register_user_command(user_commands)
     except Exception as e:
         if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
             print(_("DEFAULT: LEGACY FRAMEWORK MODE"))
-            Handlers.register_admin_command(["broadcast", "users", "user", "hangouts", "hangout", "rename", "leave", "reload", "quit", "config", "whereami"])
-            Handlers.register_user_command(["whoami", "echo", "version"])
+            Handlers.register_admin_command(admin_commands)
+            Handlers.register_user_command(user_commands)
         else:
             print(_("DEFAULT: OBSOLETE FRAMEWORK MODE"))
-            return ["broadcast", "users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whoami", "whereami", "echo", "hangout" ,"version"]
+            return admin_commands + user_commands
     return []
 
 
@@ -33,6 +35,16 @@ def echo(bot, event, *args):
     if text.lower().strip().startswith(tuple([_.lower() for _ in bot._handlers.bot_command])):
         text = _("NOPE! Some things aren't worth repeating.")
     bot.send_message(event.conv, text)
+
+
+def echoparsed(bot, event, *args):
+    """echo back requested text"""
+    formatted_text = ' '.join(args)
+    test_segments = simple_parse_to_segments(formatted_text)
+    if test_segments:
+        if test_segments[0].text.strip().startswith(tuple([_.lower() for _ in bot._handlers.bot_command])):
+            text = _("NOPE! Some things aren't worth repeating.")
+        bot.send_message_parsed(event.conv, formatted_text)
 
 
 def broadcast(bot, event, *args):
