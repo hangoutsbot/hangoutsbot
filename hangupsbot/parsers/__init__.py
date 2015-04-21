@@ -12,10 +12,9 @@ def simple_parse_to_segments(formatted_text):
     legacy notice: identical function in kludgy_html_parser
     the older function is "overridden" here for compatibility reasons
     """
-    if formatted_text.startswith("reparser: ") and "message_parser" in dir(hangups):
+    if "message_parser" in dir(hangups):
         # ReParser is available in hangups 201504200224 (ae59c24) 
         # supports html, markdown (be aware of nested tag issue)
-        formatted_text = " ".join(formatted_text.split()[1:])
         segments = hangups.ChatMessageSegment.from_str(formatted_text)
     else:
         # fallback to internal parser
