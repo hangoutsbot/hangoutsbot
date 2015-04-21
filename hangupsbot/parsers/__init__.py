@@ -13,8 +13,8 @@ def simple_parse_to_segments(formatted_text):
     the older function is "overridden" here for compatibility reasons
     """
     if "message_parser" in dir(hangups):
-        # ReParser is available in hangups 201504200224 (ae59c24) 
-        # supports html, markdown (be aware of nested tag issue)
+        # ReParser is available in hangups 201504200224 (ae59c24) onwards
+        # supports html, markdown
         segments = hangups.ChatMessageSegment.from_str(formatted_text)
     else:
         # fallback to internal parser
