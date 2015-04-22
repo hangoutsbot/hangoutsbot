@@ -6,7 +6,7 @@ from hangups.ui.utils import get_conv_name
 import plugins
 
 from utils import text_to_segments, simple_parse_to_segments
-from version import __version__
+
 
 _internal = {} # non-persistent internal state independent of config.json/memory.json
 
@@ -14,7 +14,7 @@ _internal["broadcast"] = { "message": "", "conversations": [] } # /bot broadcast
 
 def _initialise(Handlers, bot=None):
     admin_commands = ["broadcast", "users", "user", "hangouts", "hangout", "rename", "leave", "reload", "quit", "config", "whereami"]
-    user_commands = ["echo", "echoparsed", "version", "whoami"]
+    user_commands = ["echo", "echoparsed", "whoami"]
     try:
         plugins.register_admin_command(admin_commands)
         plugins.register_user_command(user_commands)
@@ -341,8 +341,3 @@ def whereami(bot, event, *args):
       _("You are at <b>{}</b>, conv_id = <i>{}</i>").format(
         get_conv_name(event.conv, truncate=True),
         event.conv.id_))
-
-def version(bot, event, *args):
-    """ Return the current version of the bot """
-
-    bot.send_message_parsed(event.conv, _("<b>Bot Version:</b> {}").format(__version__))

@@ -3,6 +3,7 @@ import sys, json, asyncio, logging, os
 import hangups
 from hangups.ui.utils import get_conv_name
 
+from version import __version__
 from utils import text_to_segments
 
 import plugins
@@ -138,6 +139,12 @@ def optout(bot, event, *args):
         bot.send_message_parsed(event.conv, _('<i>{}, you <b>opted-out</b> from bot private messages</i>').format(event.user.full_name))
     else:
         bot.send_message_parsed(event.conv, _('<i>{}, you <b>opted-in</b> for bot private messages</i>').format(event.user.full_name))
+
+
+@command.register
+def version(bot, event, *args):
+    """get the version of the bot"""
+    bot.send_message_parsed(event.conv, _("Bot Version: <b>{}</b>").format(__version__))
 
 
 @command.register_unknown
