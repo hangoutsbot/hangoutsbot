@@ -2,6 +2,13 @@ import hangups
 
 from utils import unicode_to_ascii
 
+import plugins
+
+
+def _initialise(bot):
+    plugins.register_user_command(["lookup"])
+
+
 def lookup(bot, event, *args):
     """find keywords in a specified spreadsheet"""
 
