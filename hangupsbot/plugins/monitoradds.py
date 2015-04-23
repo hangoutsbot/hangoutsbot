@@ -6,21 +6,21 @@ Add a "watch_new_adds": true  parameter to individual HOs in the config.json fil
 Author: @Riptides
 """
 
-import asyncio
 import hangups
 
-
-def _initialise(Handlers, bot=None):
-    Handlers.register_handler(_watch_new_adds, type="membership")
-    Handlers.register_admin_command(["addmod", "delmod"])
-    return []
+import plugins
 
 
-@asyncio.coroutine
+def _initialise(bot):
+    plugins.register_handler(_watch_new_adds, type="membership")
+    plugins.register_admin_command(["addmod", "delmod"])
+
+
 def _watch_new_adds(bot, event, command):
     # Check if watching for new adds is enabled
     if not bot.get_config_suboption(event.conv_id, 'watch_new_adds'):
         return
+
     # Generate list of added or removed users
     event_users = [event.conv.get_user(user_id) for user_id
                    in event.conv_event.participant_ids]
@@ -61,7 +61,7 @@ def addmod(bot, event, *args):
         bot.config.save()
         html_message = _("<i>Moderators updated: {} added</i>")
         bot.send_message_parsed(event.conv, html_message.format(args[0]))
-		
+
 def delmod(bot, event, *args):
     if not bot.get_config_option('mods'):
         return
