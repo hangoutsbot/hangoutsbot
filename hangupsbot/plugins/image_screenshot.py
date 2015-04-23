@@ -1,6 +1,13 @@
-import os, time, re
+import os
+import io
+import time
+import re
+
+import selenium
 from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+
+import plugins
 
 
 dcap = dict(DesiredCapabilities.PHANTOMJS)
@@ -9,10 +16,9 @@ dcap["phantomjs.page.settings.userAgent"] = (
     "(KHTML, like Gecko) PhantomJS/1.9.7 Safari/534.34"
 )
 
-def _initialise(Handlers, bot=None):
-    Handlers.register_user_command(["screenshot"])
-    Handlers.register_admin_command(["seturl", "clearurl"])
-    return []
+def _initialise(bot):
+    plugins.register_user_command(["screenshot"])
+    plugins.register_admin_command(["seturl", "clearurl"])
 
 def seturl(bot, event, *args):
     """set url for current converation for the screenshot command. 
@@ -40,7 +46,6 @@ def clearurl(bot, event, *args):
         html = "<i><b>{}</b> URL cleared for this conversation!<br />".format(event.user.full_name)
         bot.send_html_to_conversation(event.conv, html)
 
-
 def screenshot(bot, event, *args):
     """get a screenshot of a user provided URL or the default URL of the hangout. 
     """
@@ -54,14 +59,26 @@ def screenshot(bot, event, *args):
     else:
         if not re.match(r'^[a-zA-Z]+://', url):
             url = 'http://' + url
-        filename = event.conv_id
-        filename += ".png"
-        browser = webdriver.PhantomJS(desired_capabilities=dcap,service_log_path=os.path.devnull)
+
+        filename = event.conv_id + "." + str(time.time()) +".png"
+        filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)), filename)
+        print("screenshot(): temporary screenshot in {}".format(filepath))
+
+        try:
+            browser = webdriver.PhantomJS(desired_capabilities=dcap,service_log_path=os.path.devnull)
+        except selenium.common.exceptions.WebDriverException as e:
+            bot.send_html_to_conversation(event.conv, "<i>phantomjs could not be started - is it installed?</i>".format(e))
+            return
+
         browser.set_window_size(1280, 800)
         browser.get(url)
         time.sleep(5)
         browser.save_screenshot(filename)
-        pic = open(filename, 'rb')
-        image_id = yield from bot._client.upload_image(pic, filename=filename)
-        yield from bot._client.sendchatmessage(event.conv.id_, None, image_id=image_id)
+
+        # read the resulting file into a byte array
+        file_resource = open(filename, 'rb')
+        image_data = io.BytesIO(file_resource.read())
         os.remove(filename)
+
+        image_id = yield from bot._client.upload_image(image_data, filename=filename)
+        yield from bot._client.sendchatmessage(event.conv.id_, None, image_id=image_id)
