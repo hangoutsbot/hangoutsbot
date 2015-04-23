@@ -8,6 +8,9 @@ except ImportError:
 
 from random import randrange
 
+import plugins
+
+
 __cleverbots = dict()
 
 """ Cleverbot API adapted from https://github.com/folz/cleverbot.py """
@@ -158,14 +161,11 @@ class Cleverbot:
 
         return parsed_dict
 
-def _initialise(Handlers, bot=None):
 
-    Handlers.register_handler(_handle_incoming_message, type="message")
+def _initialise(bot):
+    plugins.register_handler(_handle_incoming_message, type="message")
+    plugins.register_user_command(["chat"])
 
-    if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
-        Handlers.register_admin_command([])
-        Handlers.register_user_command(["chat"])
-        return []
 
 @asyncio.coroutine
 def _handle_incoming_message(bot, event, context):
@@ -178,6 +178,7 @@ def _handle_incoming_message(bot, event, context):
 
     if randrange(0, 101, 1) < float(percentage):
         chat(bot, event, event.text)
+
 
 def chat(bot, event, *args):
     """Cleverbot for Hangupsbot"""

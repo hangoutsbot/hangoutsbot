@@ -1,10 +1,8 @@
-def _initialise(Handlers, bot=None):
-    if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
-        Handlers.register_admin_command(["attachsyncout", "detachsyncout"])
-        return []
-    else:
-        print(_("SYNCROOMS_CONFIG: LEGACY FRAMEWORK MODE"))
-        return ["attachsyncout", "detachsyncout"]
+import plugins
+
+
+def _initialise(bot):
+    plugins.register_admin_command(["attachsyncout", "detachsyncout"])
 
 
 def attachsyncout(bot, event, *args):

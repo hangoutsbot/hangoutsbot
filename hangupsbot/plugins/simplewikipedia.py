@@ -1,6 +1,9 @@
 import wikipedia
 import re
 
+import plugins
+
+
 def wiki(bot, event, *args):
     """lookup a term on Wikipedia"""
 
@@ -26,6 +29,5 @@ def wiki(bot, event, *args):
     bot.send_message_parsed(event.conv, html_text)
 
 
-def _initialise(Handlers, bot=None):
-    Handlers.register_user_command(["wiki"])
-    return []
+def _initialise(bot):
+    plugins.register_user_command(["wiki"])

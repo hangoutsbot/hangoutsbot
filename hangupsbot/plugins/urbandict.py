@@ -9,6 +9,8 @@ from urllib.request import urlopen
 from urllib.parse import quote as urlquote
 from html.parser import HTMLParser
 
+import plugins
+
 
 class TermType(object):
     pass
@@ -96,6 +98,5 @@ def urbandict(bot, event, *args):
             bot.send_message_parsed(event.conv, _('<i>no term from urban dictionary</i>'))
 
 
-def _initialise(Handlers, bot=None):
-    Handlers.register_user_command(["urbandict"])
-    return []
+def _initialise(bot):
+    plugins.register_user_command(["urbandict"])

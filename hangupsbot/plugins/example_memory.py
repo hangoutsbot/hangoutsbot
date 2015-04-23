@@ -2,9 +2,11 @@
 example plugin which demonstrates user and conversation memory
 """
 
-def _initialise(Handlers, bot=None):
-    Handlers.register_admin_command(["rememberme", "whatme", "forgetme", "rememberchat", "whatchat", "forgetchat"])
-    return []
+import plugins
+
+
+def _initialise(bot):
+    plugins.register_admin_command(["rememberme", "whatme", "forgetme", "rememberchat", "whatchat", "forgetchat"])
 
 
 def rememberme(bot, event, *args):

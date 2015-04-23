@@ -1,11 +1,15 @@
 import functools
 import time
 
-def _initialise(Handlers, bot=None):
+import plugins
+
+
+def _initialise(bot):
     _migrate_dnd_config_to_memory(bot)
-    Handlers.register_object('dnd.user_check', functools.partial(_user_has_dnd, bot))
-    Handlers.register_user_command(["dnd"])
-    return []
+    _reuseable = functools.partial(_user_has_dnd, bot)
+    functools.update_wrapper(_reuseable, _user_has_dnd)
+    plugins.register_shared('dnd.user_check', _reuseable)
+    plugins.register_user_command(["dnd"])
 
 
 def _migrate_dnd_config_to_memory(bot):

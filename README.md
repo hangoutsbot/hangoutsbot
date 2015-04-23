@@ -94,6 +94,12 @@ There are three general types of interactions with the bot:
 `/bot ping`
 * Bot replies with a `pong`.
 
+`/bot optout`
+* Toggles opt-in/opt-out of advanced bot features.
+* Works by making existing 1-on-1 chat with the specific user invisible to the bot
+  * Bot will continue responding to the user in a group chat, but any feature/plugin
+    which requires a 1-on-1 chat is effectively disabled when toggled ON.
+
 Please see the wiki for the **[list of plugins]
   (https://github.com/nylonee/hangupsbot/wiki/Plugin-List)** to find out more
   about each plugin and their usage.

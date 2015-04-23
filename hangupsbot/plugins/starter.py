@@ -1,7 +1,9 @@
-def _initialise(Handlers, bot=None):
-    Handlers.register_admin_command(["files", "test_one2one_message"])
-    Handlers.register_user_command(["iamspartacus", "verifyme"])
-    return []
+import plugins
+
+
+def _initialise(bot):
+    plugins.register_admin_command(["files", "test_one2one_message"])
+    plugins.register_user_command(["iamspartacus", "verifyme"])
 
 
 def iamspartacus(bot, event, *args):

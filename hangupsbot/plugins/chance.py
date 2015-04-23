@@ -2,8 +2,11 @@ import asyncio
 
 from random import randint
 
-def _initialise(command):
-    command.register_handler(_handle_me_action)
+import plugins
+
+
+def _initialise(bot):
+    plugins.register_handler(_handle_me_action)
 
 
 @asyncio.coroutine
@@ -21,6 +24,7 @@ def _handle_me_action(bot, event, command):
 
 def diceroll(bot, event, *args):
     bot.send_message_parsed(event.conv, _("<i>{} rolled <b>{}</b></i>").format(event.user.full_name, randint(1,6)))
+
 
 def coinflip(bot, event, *args):
     if randint(1,2) == 1:
