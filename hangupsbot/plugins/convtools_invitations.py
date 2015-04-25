@@ -16,43 +16,58 @@ def _initialise(bot):
     plugins.register_handler(_issue_invite_on_exit, type="membership")
 
 
-def _issue_invite(bot, user_id, group_id, uses=1, expire_in=2592000, expiry=None):
-    if not expiry:
-        expiry = int(time.time()) + expire_in
+def _remove_invite(bot, invite_code):
+    memory_path = ["invites", invite_code]
+    if bot.memory.exists(memory_path):
+        popped_invitation = bot.memory.pop_by_path(memory_path)
+        bot.memory.save()
+        print("_remove_invite(): {}".format(popped_invitation))
+    else:
+        print("_remove_invite(): nothing removed")
 
+
+def _issue_invite(bot, user_id, group_id, uses=1, expire_in=2592000, expiry=None):
     if not bot.memory.exists(["invites"]):
         bot.memory["invites"] = {}
 
-    invite_id = False
+    invitation = False
 
-    for key, invite in bot.memory["invites"].items():
-        if invite["user_id"] == user_id and invite["group_id"] == group_id:
-            invite_id = key
-            print("_issue_invite(): found existing invite id: {}".format(invite_id))
+    # find existing unexpired invitation by user and group - exact match only
+    for _key, _invitation in bot.memory["invites"].items():
+        if _invitation["user_id"] == user_id and _invitation["group_id"] == group_id and _invitation["expiry"] > time.time():
+            invitation = _invitation
+            print("_issue_invite(): found existing invite id: {}".format(invitation["id"]))
             break
 
-    if not invite_id:
+    # create new invitation if no match found
+    if not invitation:
         while True:
-            invite_id = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(6))
-            if invite_id not in bot.memory["invites"]:
-                print("_issue_invite(): create new invite id: {}".format(invite_id))
+            _id = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(6))
+            if _id not in bot.memory["invites"]:
+                print("_issue_invite(): create new invite id: {}".format(_id))
+                invitation = {
+                    "id": _id,
+                    "user_id": user_id,
+                    "group_id": group_id
+                }
                 break
 
-    # at this point, we have either a new or existing invite_id
+    if not invitation:
+        raise ValueError("no invitation")
 
-    invitation = {
-        "id": invite_id,
-        "user_id": user_id,
-        "group_id": group_id,
-        "uses": uses,
-        "expiry": expiry
-    }
+    # update/create some fields
+    if not expiry:
+        expiry = int(time.time()) + expire_in
+    invitation["expiry"] = expiry
+    invitation["uses"] = uses
+    invitation["updated"] = time.time()
 
-    bot.memory["invites"][invite_id] = invitation
+    # write to user memory
+    bot.memory["invites"][invitation["id"]] = invitation
     bot.memory.force_taint()
     bot.memory.save()
 
-    return invite_id
+    return invitation["id"]
 
 
 @asyncio.coroutine
@@ -62,22 +77,22 @@ def _claim_invite(bot, invite_code, user_id):
     if not bot.memory.exists(memory_path):
         return
 
-    invite = bot.memory.get_by_path(memory_path)
-    if invite["user_id"] in ("*", user_id) and invite["expiry"] > time.time():
-        print("_claim_invite(): adding {} to {}".format(user_id, invite["group_id"]))
+    invitation = bot.memory.get_by_path(memory_path)
+    if invitation["user_id"] in ("*", user_id) and invitation["expiry"] > time.time():
+        print("_claim_invite(): adding {} to {}".format(user_id, invitation["group_id"]))
         try:
-            yield from bot._client.adduser(invite["group_id"], [user_id])
+            yield from bot._client.adduser(invitation["group_id"], [user_id])
         except hangups.exceptions.NetworkError as e:
             # trying to add a user to a group where the user is already a member raises this
-            print("_claim_invite(): caught {}".format(e))
+            print("_CLAIM_INVITE(): FAILED {}".format(e))
             return
-        invite["uses"] = invite["uses"] - 1
-        if invite["uses"] > 0:
-            bot.memory.set_by_path(memory_path, invite)
+        invitation["uses"] = invitation["uses"] - 1
+        if invitation["uses"] > 0:
+            bot.memory.set_by_path(memory_path, invitation)
+            bot.memory.save()
         else:
-            invite = bot.memory.pop_by_path(memory_path)
-        bot.memory.save()
-        print("_claim_invite(): claimed {}".format(invite))
+            _remove_invite(bot, invite_code)
+        print("_claim_invite(): claimed {}".format(invitation))
     else:
         print("_claim_invite(): invalid")
 
@@ -194,7 +209,7 @@ def rsvp(bot, event, *args):
 
         if len(invites) > 0:
             lines = []
-            lines.append(_("<b>Invites:</b>"))
+            lines.append(_("<b>Invites for {}:</b>").format(event.user.full_name))
             for invite in invites:
                 conversation_name = get_conv_name(bot._conv_list.get(invite["group_id"]))
                 expiry_in_days = round((invite["expiry"] - time.time()) / 86400, 1)
