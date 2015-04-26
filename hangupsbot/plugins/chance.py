@@ -7,9 +7,9 @@ import plugins
 
 def _initialise(bot):
     plugins.register_handler(_handle_me_action)
+    plugins.register_user_command(["diceroll", "coinflip"])
 
 
-@asyncio.coroutine
 def _handle_me_action(bot, event, command):
     if event.text.startswith('/me'):
         if event.text.find("roll dice") > -1 or event.text.find("rolls dice") > -1 or event.text.find("rolls a dice") > -1 or event.text.find("rolled a dice") > -1:
