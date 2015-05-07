@@ -401,7 +401,7 @@ class HangupsBot(object):
             try:
                 response = yield from self._client.createconversation([chat_id])
                 new_conversation_id = response['conversation']['id']['id']
-                self.send_html_to_conversation(new_conversation_id, "<i>Hi there! I'll be using this channel to send you private messages and alerts. For help, type <b>/bot help</b>. To opt-out, reply with <b>/bot opt-out</b>.</i>")
+                self.send_html_to_conversation(new_conversation_id, "<i>Hi there! I'll be using this channel to send you private messages and alerts. For help, type <b>/bot help</b>. To keep me quiet in this chat, reply with <b>/bot opt-out</b>.</i>")
                 conversation = FakeConversation(self._client, new_conversation_id)
                 logging.info("get_1on1: created {} for user {}".format(new_conversation_id, chat_id))
             except Exception as e:
