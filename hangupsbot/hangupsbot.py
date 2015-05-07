@@ -382,6 +382,39 @@ class HangupsBot(object):
 
         return conversation
 
+
+    @asyncio.coroutine
+    def get_1to1(self, chat_id):
+        self.initialise_memory(chat_id, "user_data")
+
+        if self.memory.exists(["user_data", chat_id, "optout"]):
+            if self.memory.get_by_path(["user_data", chat_id, "optout"]):
+                return False
+
+        conversation = None
+
+        if self.memory.exists(["user_data", chat_id, "1on1"]):
+            conversation_id = self.memory.get_by_path(["user_data", chat_id, "1on1"])
+            conversation = FakeConversation(self._client, conversation_id)
+            logging.info("get_1on1: {} is 1on1 with {}".format(conversation_id, chat_id))
+        else:
+            try:
+                response = yield from self._client.createconversation([chat_id])
+                new_conversation_id = response['conversation']['id']['id']
+                self.send_html_to_conversation(new_conversation_id, "<i>Hi there! I'll be using this channel to send you private messages and alerts. For help, type <b>/bot help</b>. To opt-out, reply with <b>/bot opt-out</b>.</i>")
+                conversation = FakeConversation(self._client, new_conversation_id)
+                logging.info("get_1on1: created {} for user {}".format(new_conversation_id, chat_id))
+            except Exception as e:
+                logging.exception("get_1on1: failed to create 1-to-1 for user {}", chat_id)
+
+            if conversation is not None:
+                # remember the conversation so we don't have to do this again
+                self.memory.set_by_path(["user_data", chat_id, "1on1"], conversation.id_)
+                self.memory.save()
+
+        return conversation
+
+
     def initialise_memory(self, chat_id, datatype):
         if not self.memory.exists([datatype]):
             # create the datatype grouping if it does not exist
