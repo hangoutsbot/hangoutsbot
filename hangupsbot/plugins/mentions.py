@@ -258,7 +258,7 @@ def mention(bot, event, *args):
 
             if alert_via_1on1:
                 """send alert with 1on1 conversation"""
-                if bot.get_config_option('autocreate-1to1') and "get_1to1" in dir(bot):
+                if "get_1to1" in dir(bot):
                     conv_1on1 = yield from bot.get_1to1(u.id_.chat_id)
                 else:
                     conv_1on1 = bot.get_1on1_conversation(u.id_.chat_id)

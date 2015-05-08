@@ -355,6 +355,9 @@ class HangupsBot(object):
         print()
 
     def get_1on1_conversation(self, chat_id):
+        """find a 1-to-1 conversation with specified user
+        maintained for functionality with older plugins that do not use get_1to1()
+        """
         self.initialise_memory(chat_id, "user_data")
 
         if self.memory.exists(["user_data", chat_id, "optout"]):
@@ -385,6 +388,12 @@ class HangupsBot(object):
 
     @asyncio.coroutine
     def get_1to1(self, chat_id):
+        """find/create a 1-to-1 conversation with specified user
+        config.autocreate-1to1 = true to enable conversation creation, otherwise will revert to
+            legacy behaviour of finding an existing 1-to-1
+        config.bot_introduction = "some text or html" to show to users when a new conversation
+            is created - "{0}" will be substituted with first bot alias
+        """
         self.initialise_memory(chat_id, "user_data")
 
         if self.memory.exists(["user_data", chat_id, "optout"]):
@@ -396,19 +405,42 @@ class HangupsBot(object):
         if self.memory.exists(["user_data", chat_id, "1on1"]):
             conversation_id = self.memory.get_by_path(["user_data", chat_id, "1on1"])
             conversation = FakeConversation(self._client, conversation_id)
-            logging.info("get_1on1: {} is 1on1 with {}".format(conversation_id, chat_id))
+            logging.info("get_1on1: remembered {} for {}".format(conversation_id, chat_id))
         else:
-            try:
-                response = yield from self._client.createconversation([chat_id])
-                new_conversation_id = response['conversation']['id']['id']
-                self.send_html_to_conversation(new_conversation_id, "<i>Hi there! I'll be using this channel to send you private messages and alerts. For help, type <b>/bot help</b>. To keep me quiet in this chat, reply with <b>/bot opt-out</b>.</i>")
-                conversation = FakeConversation(self._client, new_conversation_id)
-                logging.info("get_1on1: created {} for user {}".format(new_conversation_id, chat_id))
-            except Exception as e:
-                logging.exception("get_1on1: failed to create 1-to-1 for user {}", chat_id)
+            if self.get_config_option('autocreate-1to1'):
+                """create a new 1-to-1 conversation with the designated chat id
+                send an introduction message as well to the user as part of the chat creation
+                """
+                logging.info("get_1on1: creating 1to1 with {}".format(chat_id))
+                try:
+                    introduction = self.get_config_option('bot_introduction')
+                    if not introduction:
+                        introduction =_("<i>Hi there! I'll be using this channel to send private "
+                                        "messages and alerts. "
+                                        "For help, type <b>{0} help</b>. "
+                                        "To keep me quiet, reply with <b>{0} opt-out</b>.</i>").format(self._handlers.bot_command[0])
+                    response = yield from self._client.createconversation([chat_id])
+                    new_conversation_id = response['conversation']['id']['id']
+                    self.send_html_to_conversation(new_conversation_id, introduction)
+                    conversation = FakeConversation(self._client, new_conversation_id)
+                except Exception as e:
+                    logging.exception("GET_1TO1: failed to create 1-to-1 for user {}", chat_id)
+            else:
+                """legacy behaviour: user must say hi to the bot first
+                this creates a conversation entry in self._conv_list (even if the bot receives
+                a chat invite only - a message sent on the channel auto-accepts the invite)
+                """
+                logging.info("get_1on1: searching for existing 1to1 with {}".format(chat_id))
+                for c in self.list_conversations():
+                    if len(c.users) == 2:
+                        for u in c.users:
+                            if u.id_.chat_id == chat_id:
+                                conversation = c
+                                break
 
             if conversation is not None:
                 # remember the conversation so we don't have to do this again
+                logging.info("get_1on1: determined {} for {}".format(conversation.id_, chat_id))
                 self.memory.set_by_path(["user_data", chat_id, "1on1"], conversation.id_)
                 self.memory.save()
 
