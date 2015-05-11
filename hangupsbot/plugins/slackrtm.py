@@ -2,7 +2,7 @@ import time
 import re
 
 from threading import Thread
-from hangups.ui.utils import get_conv_name
+import hangups.ui.utils
 from slackclient import SlackClient
 
 import asyncio
@@ -171,13 +171,29 @@ def handle_reply(reply, bot, config, my_uid):
         reply['user'] = reply['message']['edited']['user']
         reply['text'] = reply['message']['text']
 
+    if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'bot_message' and not 'user' in reply:
+        reply['user'] = 'bot_message'
+
     if not 'text' in reply or not 'user' in reply:
         print("slackrtm: no text/user in reply: "+str(reply))
         return
 
+    from_ho = ''
     if my_uid == reply["user"]:
-        print("slackrtm: ignoring our own messages")
-        return
+        # this is a HO relayed message, check from which HO
+        hofmt = re.compile(r'^(.* has added .* to |.* has left )_(.+)_$')
+        match = hofmt.match(reply['text'])
+        if match:
+            print('slackrtm: found match in text: %s' % match.group(2))
+            found_ho = match.group(2)
+    elif 'bot_message' == reply['user']:
+        # this might be a HO relayed message, check from which HO
+        hofmt = re.compile(r'^.* \(via HO:(.+)\)$')
+        match = hofmt.match(reply['username'])
+        if match:
+            print('slackrtm: found match in username: %s' % match.group(1))
+            found_ho = match.group(1)
+            reply['user'] = reply['username']
 
     print("slackrtm: handle_reply(%s)" % str(reply)[:200])
     if reply['user'] in usernames:
@@ -197,8 +213,14 @@ def handle_reply(reply, bot, config, my_uid):
         print('slackrtm: no channel or group in respone')
         return
 
+    found_ho_id = None
+    if found_ho != '':
+        for c in bot.list_conversations():
+            if hangups.ui.utils.get_conv_name(c, truncate=True) == found_ho:
+                found_ho_id = hangups.ui.utils.get_conv_name(c, truncate=True)
+
     for conv in config["synced_conversations"]:
-        if conv[0] == channel:
+        if conv[0] == channel and found_ho_id != conv[1]:
             print('slackrtm: found slack channel, forwarding to HO %s: %s' % (str(conv[1]), str(response)))
             if not bot.send_html_to_user(conv[1], response):
                 bot.send_html_to_conversation(conv[1], response)
@@ -250,7 +272,8 @@ def _handle_slackout(bot, event, command):
             if not channel_id:
                 continue
 
-            fullname = event.user.full_name
+            conv_name = hangups.ui.utils.get_conv_name(event.conv, truncate=True)
+            fullname = '%s (via HO:%s)' % (event.user.full_name, conv_name)
             try:
                 response = yield from bot._client.getentitybyid([event.user_id.chat_id])
                 photo_url = "http:" + response.entities[0].properties.photo_url
@@ -284,14 +307,15 @@ def _handle_membership_change(bot, event, command):
         print('adding user %s' % user.full_name)
         links.append('<https://plus.google.com/%s/about|%s>' % (user.id_.chat_id, user.full_name))
     names = ', '.join(links)
+    conv_name = hangups.ui.utils.get_conv_name(event.conv, truncate=True)
 
     # JOIN
     if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
         invitee = '<https://plus.google.com/%s/about|%s>' % (event.user_id.chat_id, event.user.full_name)
-        message = '%s has added %s' % (invitee, names)
+        message = '%s has added %s to _%s_' % (invitee, names, conv_name)
     # LEAVE
     else:
-        message = '%s has left' % names
+        message = '%s has left _%s_' % (names, conv_name)
     print('slackrtm: %s' % message)
 
     slack_sink = bot.get_config_option('slackrtm')
@@ -307,13 +331,13 @@ def _handle_membership_change(bot, event, command):
             if not channel_id:
                 continue
 
-            print("slackrtm: Sending to channel %s: %s" % (channel_id, message))
+            print("slackrtm: Sending to channel/group %s: %s" % (channel_id, message))
             slack = SlackClient(sinkConfig['key'])
-            slack.api_call('chat.postMessage',
-                           channel=channel_id,
-                           text=message,
-                           as_user=True,
-                           link_names=True)
+            result = slack.api_call('chat.postMessage',
+                                    channel=channel_id,
+                                    text=message,
+                                    as_user=True,
+                                    link_names=True)
             time.sleep(.1)
         except Exception as e:
             print('slackrtm: SlackoutHandler threw: %s' % str(e))
