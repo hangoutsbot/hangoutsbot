@@ -185,14 +185,14 @@ def handle_reply(reply, bot, config, my_uid):
         match = hofmt.match(reply['text'])
         if match:
             print('slackrtm: found match in text: %s' % match.group(2))
-            found_ho = match.group(2)
+            from_ho = match.group(2)
     elif 'bot_message' == reply['user']:
         # this might be a HO relayed message, check from which HO
         hofmt = re.compile(r'^.* \(via HO:(.+)\)$')
         match = hofmt.match(reply['username'])
         if match:
             print('slackrtm: found match in username: %s' % match.group(1))
-            found_ho = match.group(1)
+            from_ho = match.group(1)
             reply['user'] = reply['username']
 
     print("slackrtm: handle_reply(%s)" % str(reply)[:200])
@@ -213,14 +213,20 @@ def handle_reply(reply, bot, config, my_uid):
         print('slackrtm: no channel or group in respone')
         return
 
-    found_ho_id = None
-    if found_ho != '':
+    from_ho_id = None
+    if from_ho != '':
         for c in bot.list_conversations():
-            if hangups.ui.utils.get_conv_name(c, truncate=True) == found_ho:
-                found_ho_id = hangups.ui.utils.get_conv_name(c, truncate=True)
+            if hangups.ui.utils.get_conv_name(c, truncate=True) == from_ho:
+                from_ho_id = c.id_
+                print('slackrtm: cound ho_id: %s' % from_ho_id)
 
     for conv in config["synced_conversations"]:
-        if conv[0] == channel and found_ho_id != conv[1]:
+        if conv[0] == channel:
+            if from_ho_id == conv[1]:
+                print('slackrtm: rejecting to relay our own message: %s' % response)
+                continue
+            else:
+                print('slackrtm: forwarding with from_ho=%s' % from_ho)
             print('slackrtm: found slack channel, forwarding to HO %s: %s' % (str(conv[1]), str(response)))
             if not bot.send_html_to_user(conv[1], response):
                 bot.send_html_to_conversation(conv[1], response)
