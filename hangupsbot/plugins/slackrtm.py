@@ -31,6 +31,7 @@ def _initialise(Handlers, bot=None):
         print("slackrtm: Slack sinks could not be initialized.")
     Handlers.register_handler(_handle_slackout)
     Handlers.register_handler(_handle_membership_change, type="membership")
+    Handlers.register_handler(_handle_rename, type="rename")
     return []
 
 
@@ -277,6 +278,20 @@ class SlackRTM(object):
                                 as_user=True,
                                 link_names=True)
 
+    def handle_ho_rename(self, event):
+        name = hangups.ui.utils.get_conv_name(event.conv, truncate=False)
+    
+        for channel_id, honame in self.slacksinks.get(event.conv_id, []):
+            invitee = '<https://plus.google.com/%s/about|%s>' % (event.user_id.chat_id, event.user.full_name)
+            message = '%s has renamed the Hangout _%s_ to _%s_' % (invitee, honame, name)
+            message = '%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
+            print("slackrtm: Sending to channel/group %s: %s" % (channel_id, message))
+            self.slack.api_call('chat.postMessage',
+                                channel=channel_id,
+                                text=message,
+                                as_user=True,
+                                link_names=True)
+
 
 def start_listening(bot, loop, config):
     asyncio.set_event_loop(loop)
@@ -311,13 +326,9 @@ def start_listening(bot, loop, config):
 
 @asyncio.coroutine
 def _handle_slackout(bot, event, command):
-    """forward messages to slack over webhook"""
-
     slack_sink = bot.get_config_option('slackrtm')
-
     if not isinstance(slack_sink, list):
         return
-
     for sinkConfig in slack_sink:
         try:
             try:
@@ -335,12 +346,9 @@ def _handle_slackout(bot, event, command):
 
 @asyncio.coroutine
 def _handle_membership_change(bot, event, command):
-
     slack_sink = bot.get_config_option('slackrtm')
-
     if not isinstance(slack_sink, list):
         return
-
     for sinkConfig in slack_sink:
         try:
             slackout = SlackRTM(sinkConfig, bot)
@@ -348,3 +356,17 @@ def _handle_membership_change(bot, event, command):
             time.sleep(.1)
         except Exception as e:
             print('slackrtm: _handle_membership_change threw: %s' % str(e))
+
+
+@asyncio.coroutine
+def _handle_rename(bot, event, command):
+    slack_sink = bot.get_config_option('slackrtm')
+    if not isinstance(slack_sink, list):
+        return
+    for sinkConfig in slack_sink:
+        try:
+            slackout = SlackRTM(sinkConfig, bot)
+            slackout.handle_ho_rename(event)
+            time.sleep(.1)
+        except Exception as e:
+            print('slackrtm: _handle_rename threw: %s' % str(e))
