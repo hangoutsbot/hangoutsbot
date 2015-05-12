@@ -142,9 +142,10 @@ class SlackRTM(object):
             else:
                 out = "#%s" % self.get_channelname(match.group(3), 'unknown:%s' % match.group(3))
         else:
-            if linktext != "":
-                out += linktext + ":"
-            out += match.group(1)
+            linktarget = match.group(1)
+            if linktext == "":
+                linktext = linktarget
+            out = '<a href="%s">%s</a>' % (linktarget, linktext)
         return out
     
     def textToHtml(self, text):
@@ -180,6 +181,9 @@ class SlackRTM(object):
             edited = '(msgupd)'
             user = reply['message']['edited']['user']
             text = reply['message']['text']
+        elif reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'file_comment':
+            user = reply['comment']['user']
+            text = reply['text']
         else:
             if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'bot_message' and not 'user' in reply:
                 is_bot = True
@@ -231,8 +235,8 @@ class SlackRTM(object):
         for channel_id, honame in self.slacksinks.get(event.conv_id, []):
             fullname = '%s@%s' % (event.user.full_name, honame)
             message = event.text
-            message = '%s<ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
-            print("slackrtm: Sending to channel %s: %s" % (channel_id, event.text))
+            message = '%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
+            print("slackrtm: Sending to channel %s: %s" % (channel_id, message))
             self.slack.api_call('chat.postMessage',
                                 channel=channel_id,
                                 text=message,
@@ -256,7 +260,7 @@ class SlackRTM(object):
             # LEAVE
             else:
                 message = '%s has left _%s_' % (names, honame)
-            message = '%s<ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
+            message = '%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             print("slackrtm: Sending to channel/group %s: %s" % (channel_id, message))
             self.slack.api_call('chat.postMessage',
                                 channel=channel_id,
