@@ -185,6 +185,9 @@ class SlackRTM(object):
         elif reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'file_comment':
             user = reply['comment']['user']
             text = reply['text']
+        elif reply['type'] == 'file_comment_added':
+            user = reply['comment']['user']
+            text = reply['comment']['comment']
         else:
             if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'bot_message' and not 'user' in reply:
                 is_bot = True
