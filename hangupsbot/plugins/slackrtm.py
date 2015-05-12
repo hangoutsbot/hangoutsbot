@@ -170,45 +170,44 @@ class SlackRTM(object):
             return
     
         user = ''
+        text = ''
         username = ''
         edited = ''
         is_bot = False
+        from_ho_id = ''
+        sender_id = ''
         if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'message_changed':
             edited = '(msgupd)'
             user = reply['message']['edited']['user']
-            reply['text'] = reply['message']['text']
-    
-        if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'bot_message' and not 'user' in reply:
-            is_bot = True
-        elif not 'text' in reply or not 'user' in reply:
-            print("slackrtm: no text/user in reply: "+str(reply))
-            return
+            text = reply['message']['text']
         else:
-            user = reply['user']
-
-        from_ho = ''
-        if not is_bot and self.my_uid == reply["user"]:
-            # this is a HO relayed join/leave message, check from which HO
-            hofmt = re.compile(r'^(.* has added .* to |.* has left )_(.+)_$')
-            match = hofmt.match(reply['text'])
-            if match:
-                #print('slackrtm: found match in text: %s' % match.group(2))
-                from_ho = match.group(2)
+            if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'bot_message' and not 'user' in reply:
+                is_bot = True
+            elif not 'text' in reply or not 'user' in reply:
+                print("slackrtm: no text/user in reply: "+str(reply))
+                return
+            else:
+                user = reply['user']
+            text = reply['text']
 
         if is_bot:
-            # this might be a HO relayed message, check from which HO
-            hofmt = re.compile(r'^.* \(via HO:(.+)\)$')
-            match = hofmt.match(reply['username'])
-            if match:
-                #print('slackrtm: found match in username: %s' % match.group(1))
-                from_ho = match.group(1)
-            # in any case, we take the username field as username as there is no 'user'
+            # this might be a HO relayed message, check if username is set and use it as username
             username = reply['username']
-    
+
+        # now we check if the message has the hidden ho relay tag, extract and remove it
+        hoidfmt = re.compile(r'^(.*)<ho://([^/]+)/([^|]+)\| >$')
+        match = hoidfmt.match(text)
+        if match:
+            text = match.group(1)
+            from_ho_id = match.group(2)
+            sender_id = match.group(3)
+
         if not is_bot:
             username = self.get_username(user, user)
+        elif sender_id != '':
+            username = '<a href="https://plus.google.com/%s">%s</a>' % (sender_id, username)
 
-        response = "<b>%s%s:</b> %s" % (username, edited, self.textToHtml(reply["text"]))
+        response = "<b>%s%s:</b> %s" % (username, edited, self.textToHtml(text))
         channel = None
         is_private = False
         if 'channel' in reply:
@@ -221,7 +220,7 @@ class SlackRTM(object):
             return
 
         for hoid, honame in self.hosinks.get(channel, []):
-            if from_ho == honame:
+            if from_ho_id == hoid:
                 print('slackrtm: rejecting to relay our own message: %s' % response)
                 continue
             print('slackrtm: found slack channel, forwarding to HO %s: %s' % (str(hoid), str(response)))
@@ -230,11 +229,13 @@ class SlackRTM(object):
 
     def handle_ho_message(self, event, photo_url):
         for channel_id, honame in self.slacksinks.get(event.conv_id, []):
-            fullname = '%s (via HO:%s)' % (event.user.full_name, honame)
+            fullname = '%s@%s' % (event.user.full_name, honame)
+            message = event.text
+            message = '%s<ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             print("slackrtm: Sending to channel %s: %s" % (channel_id, event.text))
             self.slack.api_call('chat.postMessage',
                                 channel=channel_id,
-                                text=event.text,
+                                text=message,
                                 username=fullname,
                                 link_names=True,
                                 icon_url=photo_url)
@@ -255,8 +256,7 @@ class SlackRTM(object):
             # LEAVE
             else:
                 message = '%s has left _%s_' % (names, honame)
-            print('slackrtm: %s' % message)
-
+            message = '%s<ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             print("slackrtm: Sending to channel/group %s: %s" % (channel_id, message))
             self.slack.api_call('chat.postMessage',
                                 channel=channel_id,
