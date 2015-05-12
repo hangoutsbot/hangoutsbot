@@ -211,7 +211,7 @@ class SlackRTM(object):
         elif sender_id != '':
             username = '<a href="https://plus.google.com/%s">%s</a>' % (sender_id, username)
 
-        response = "<b>%s%s:</b> %s" % (username, edited, self.textToHtml(text))
+        response = '<b>%s%s:</b> %s' % (username, edited, self.textToHtml(text))
         channel = None
         is_private = False
         if 'channel' in reply:
@@ -222,6 +222,15 @@ class SlackRTM(object):
         if not channel:
             print('slackrtm: no channel or group in respone')
             return
+
+        if text.startswith('<@%s> whereami' % self.my_uid) or \
+                text.startswith('<@%s>: whereami' % self.my_uid):
+            message = '@%s: you are in channel %s' % (username, channel)
+            self.slack.api_call('chat.postMessage',
+                                channel=channel,
+                                text=message,
+                                as_user=True,
+                                link_names=True)
 
         for hoid, honame in self.hosinks.get(channel, []):
             if from_ho_id == hoid:
