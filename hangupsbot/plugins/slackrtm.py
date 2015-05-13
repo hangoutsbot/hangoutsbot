@@ -57,6 +57,16 @@ def _start_slackrtm_sinks(bot):
     logging.info(_("_start_slackrtm_sinks(): %d sink thread(s) started" % len(threads)))
 
 
+def unicodeemoji2text(text):
+    out = u''
+    for c in text[:]:
+        try:
+            c = emoji.decode(c)
+        except:
+            pass
+        out = out + c
+    return out
+
 class SlackRTM(object):
     def __init__(self, sink_config, bot):
         self.bot = bot
@@ -251,7 +261,7 @@ class SlackRTM(object):
     def handle_ho_message(self, event, photo_url):
         for channel_id, honame in self.slacksinks.get(event.conv_id, []):
             fullname = '%s@%s' % (event.user.full_name, honame)
-            message = event.text
+            message = unicodeemoji2text(event.text)
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             print("slackrtm: Sending to channel %s: %s" % (channel_id, message))
             self.slack.api_call('chat.postMessage',
@@ -277,6 +287,7 @@ class SlackRTM(object):
             # LEAVE
             else:
                 message = u'%s has left _%s_' % (names, honame)
+            message = unicodeemoji2text(message)
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             print("slackrtm: Sending to channel/group %s: %s" % (channel_id, message))
             self.slack.api_call('chat.postMessage',
@@ -291,6 +302,7 @@ class SlackRTM(object):
         for channel_id, honame in self.slacksinks.get(event.conv_id, []):
             invitee = u'<https://plus.google.com/%s/about|%s>' % (event.user_id.chat_id, event.user.full_name)
             message = u'%s has renamed the Hangout _%s_ to _%s_' % (invitee, honame, name)
+            message = unicodeemoji2text(message)
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             print("slackrtm: Sending to channel/group %s: %s" % (channel_id, message))
             self.slack.api_call('chat.postMessage',
