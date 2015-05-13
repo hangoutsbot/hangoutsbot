@@ -1,5 +1,6 @@
 import time
 import re
+import pprint
 
 from threading import Thread
 import hangups.ui.utils
@@ -224,7 +225,7 @@ class SlackRTM(object):
             channel = reply['group']
             is_private = True
         if not channel:
-            print('slackrtm: no channel or group in respone')
+            print('slackrtm: no channel or group in response: %s' % pprint.pformat(response))
             return
 
         if text.startswith('<@%s> whereami' % self.my_uid) or \
