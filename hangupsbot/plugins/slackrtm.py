@@ -172,7 +172,7 @@ class SlackRTM(object):
             return
     
         user = ''
-        text = ''
+        text = u''
         username = ''
         edited = ''
         is_bot = False
@@ -203,19 +203,22 @@ class SlackRTM(object):
             username = reply['username']
 
         # now we check if the message has the hidden ho relay tag, extract and remove it
-        hoidfmt = re.compile(r'^(.*)<ho://([^/]+)/([^|]+)\| >$')
+        hoidfmt = re.compile(r'^(.*) <ho://([^/]+)/([^|]+)\| >$')
         match = hoidfmt.match(text)
         if match:
             text = match.group(1)
             from_ho_id = match.group(2)
             sender_id = match.group(3)
+            print('slackrtm: Got match for Message from HO: text="%s" from_ho_id="%s" sender_id="%s"' % (text, from_ho_id, sender_id))
+        else:
+            print('slackrtm: No match for Message from HO: text="%s"' % text)
 
         if not is_bot:
             username = self.get_username(user, user)
         elif sender_id != '':
-            username = '<a href="https://plus.google.com/%s">%s</a>' % (sender_id, username)
+            username = u'<a href="https://plus.google.com/%s">%s</a>' % (sender_id, username)
 
-        response = '<b>%s%s:</b> %s' % (username, edited, self.textToHtml(text))
+        response = u'<b>%s%s:</b> %s' % (username, edited, self.textToHtml(text))
         channel = None
         is_private = False
         if 'channel' in reply:
@@ -229,7 +232,7 @@ class SlackRTM(object):
 
         if text.startswith('<@%s> whereami' % self.my_uid) or \
                 text.startswith('<@%s>: whereami' % self.my_uid):
-            message = '@%s: you are in channel %s' % (username, channel)
+            message = u'@%s: you are in channel %s' % (username, channel)
             self.slack.api_call('chat.postMessage',
                                 channel=channel,
                                 text=message,
@@ -248,7 +251,7 @@ class SlackRTM(object):
         for channel_id, honame in self.slacksinks.get(event.conv_id, []):
             fullname = '%s@%s' % (event.user.full_name, honame)
             message = event.text
-            message = '%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
+            message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             print("slackrtm: Sending to channel %s: %s" % (channel_id, message))
             self.slack.api_call('chat.postMessage',
                                 channel=channel_id,
@@ -262,18 +265,18 @@ class SlackRTM(object):
         links = []
         for user_id in event.conv_event.participant_ids:
             user = event.conv.get_user(user_id)
-            links.append('<https://plus.google.com/%s/about|%s>' % (user.id_.chat_id, user.full_name))
-        names = ', '.join(links)
+            links.append(u'<https://plus.google.com/%s/about|%s>' % (user.id_.chat_id, user.full_name))
+        names = u', '.join(links)
     
         for channel_id, honame in self.slacksinks.get(event.conv_id, []):
             # JOIN
             if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
-                invitee = '<https://plus.google.com/%s/about|%s>' % (event.user_id.chat_id, event.user.full_name)
-                message = '%s has added %s to _%s_' % (invitee, names, honame)
+                invitee = u'<https://plus.google.com/%s/about|%s>' % (event.user_id.chat_id, event.user.full_name)
+                message = u'%s has added %s to _%s_' % (invitee, names, honame)
             # LEAVE
             else:
-                message = '%s has left _%s_' % (names, honame)
-            message = '%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
+                message = u'%s has left _%s_' % (names, honame)
+            message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             print("slackrtm: Sending to channel/group %s: %s" % (channel_id, message))
             self.slack.api_call('chat.postMessage',
                                 channel=channel_id,
@@ -285,9 +288,9 @@ class SlackRTM(object):
         name = hangups.ui.utils.get_conv_name(event.conv, truncate=False)
     
         for channel_id, honame in self.slacksinks.get(event.conv_id, []):
-            invitee = '<https://plus.google.com/%s/about|%s>' % (event.user_id.chat_id, event.user.full_name)
-            message = '%s has renamed the Hangout _%s_ to _%s_' % (invitee, honame, name)
-            message = '%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
+            invitee = u'<https://plus.google.com/%s/about|%s>' % (event.user_id.chat_id, event.user.full_name)
+            message = u'%s has renamed the Hangout _%s_ to _%s_' % (invitee, honame, name)
+            message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             print("slackrtm: Sending to channel/group %s: %s" % (channel_id, message))
             self.slack.api_call('chat.postMessage',
                                 channel=channel_id,
