@@ -178,7 +178,7 @@ class SlackRTM(object):
             print("slackrtm: "+str(reply))
             return
     
-        if reply['type'] in ['pong', 'presence_change',  'user_typing']:
+        if reply['type'] in ['pong', 'presence_change',  'user_typing', 'file_shared', 'file_public', 'file_comment_added' ]:
             # we ignore pong's as they are only answers for our pings
             return
     
@@ -220,9 +220,6 @@ class SlackRTM(object):
             text = match.group(1)
             from_ho_id = match.group(2)
             sender_id = match.group(3)
-            print('slackrtm: Got match for Message from HO: text="%s" from_ho_id="%s" sender_id="%s"' % (text, from_ho_id, sender_id))
-        else:
-            print('slackrtm: No match for Message from HO: text="%s"' % text)
 
         if not is_bot:
             username = self.get_username(user, user)
@@ -238,7 +235,7 @@ class SlackRTM(object):
             channel = reply['group']
             is_private = True
         if not channel:
-            print('slackrtm: no channel or group in response: %s' % pprint.pformat(response))
+            print('slackrtm: no channel or group in reply: %s' % pprint.pformat(reply))
             return
 
         if text.startswith('<@%s> whereami' % self.my_uid) or \
@@ -355,6 +352,7 @@ def _handle_slackout(bot, event, command):
                 photo_url = "http:" + response.entities[0].properties.photo_url
             except Exception as e:
                 print("slackrtm: Could not pull avatar for %s: %s" %(event.user.full_name, str(e)))
+                photo_url = ''
 
             slackout = SlackRTM(sinkConfig, bot)
             slackout.handle_ho_message(event, photo_url)
