@@ -178,7 +178,7 @@ class SlackRTM(object):
             print("slackrtm: "+str(reply))
             return
     
-        if reply['type'] in ['pong', 'presence_change',  'user_typing', 'file_shared', 'file_public', 'file_comment_added' ]:
+        if reply['type'] in ['pong', 'presence_change',  'user_typing', 'file_shared', 'file_public', 'file_comment_added', 'file_comment_deleted' ]:
             # we ignore pong's as they are only answers for our pings
             return
     
@@ -190,9 +190,19 @@ class SlackRTM(object):
         from_ho_id = ''
         sender_id = ''
         if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'message_changed':
-            edited = '(msgupd)'
-            user = reply['message']['edited']['user']
-            text = reply['message']['text']
+            if 'edited' in reply['message']:
+                edited = '(msgupd)'
+                user = reply['message']['edited']['user']
+                text = reply['message']['text']
+            else:
+                # strange! but sent images from HO got a message_changed subtype without an 'edited' subsection and also without a 'user'
+                if 'username' in reply['message']:
+                    is_bot = True
+                    username = reply['message']['username']
+                    text = reply['message']['text']
+                else:
+                    print('slackrtm: unable to handle this kind of strange message type:\n%s' % pprint.pformat(reply))
+                    return
         elif reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'file_comment':
             user = reply['comment']['user']
             text = reply['text']
@@ -202,6 +212,8 @@ class SlackRTM(object):
         else:
             if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'bot_message' and not 'user' in reply:
                 is_bot = True
+                # this might be a HO relayed message, check if username is set and use it as username
+                username = reply['username']
             elif not 'text' in reply or not 'user' in reply:
                 print("slackrtm: no text/user in reply: "+str(reply))
                 return
@@ -209,12 +221,8 @@ class SlackRTM(object):
                 user = reply['user']
             text = reply['text']
 
-        if is_bot:
-            # this might be a HO relayed message, check if username is set and use it as username
-            username = reply['username']
-
         # now we check if the message has the hidden ho relay tag, extract and remove it
-        hoidfmt = re.compile(r'^(.*) <ho://([^/]+)/([^|]+)\| >$')
+        hoidfmt = re.compile(r'^(.*) <ho://([^/]+)/([^|]+)\| >$', re.MULTILINE|re.DOTALL)
         match = hoidfmt.match(text)
         if match:
             text = match.group(1)
@@ -249,15 +257,21 @@ class SlackRTM(object):
 
         for hoid, honame in self.hosinks.get(channel, []):
             if from_ho_id == hoid:
-                print('slackrtm: rejecting to relay our own message: %s' % response)
+                print('slackrtm: NOT forwarding to HO %s: %s' % (hoid, response))
                 continue
-            print('slackrtm: found slack channel, forwarding to HO %s: %s' % (str(hoid), str(response)))
+            else:
+                print('slackrtm:     forwarding to HO %s: %s' % (hoid, response))
             if not self.bot.send_html_to_user(hoid, response):
                 self.bot.send_html_to_conversation(hoid, response)
 
-    def handle_ho_message(self, event, photo_url):
+    def handle_ho_message(self, event):
         for channel_id, honame in self.slacksinks.get(event.conv_id, []):
             fullname = '%s@%s' % (event.user.full_name, honame)
+            try:
+                photo_url = "http:"+self.bot._user_list.get_user(event.user_id).photo_url
+            except Exception as e:
+                print('slackrtm: exception while getting user from bot: %s' % e)
+                photo_url = ''
             message = unicodeemoji2text(event.text)
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             print("slackrtm: Sending to channel %s: %s" % (channel_id, message))
@@ -326,7 +340,7 @@ def start_listening(bot, loop, config):
                 try:
                     listener.handle_reply(reply)
                 except Exception as e:
-                    print('slackrtm: unhandled exception during handle_reply(%s): %s' % (str(reply), str(e)))
+                    print('slackrtm: unhandled exception during handle_reply(): %s\n%s' % (str(e), pprint.pformat(reply)))
             now = int(time.time())
             if now > last_ping + 3:
                 listener.ping()
@@ -347,19 +361,11 @@ def _handle_slackout(bot, event, command):
         return
     for sinkConfig in slack_sink:
         try:
-            try:
-                response = yield from bot._client.getentitybyid([event.user_id.chat_id])
-                photo_url = "http:" + response.entities[0].properties.photo_url
-            except Exception as e:
-                print("slackrtm: Could not pull avatar for %s: %s" %(event.user.full_name, str(e)))
-                photo_url = ''
-
             slackout = SlackRTM(sinkConfig, bot)
-            slackout.handle_ho_message(event, photo_url)
+            slackout.handle_ho_message(event)
             time.sleep(.1)
         except Exception as e:
             print('slackrtm: _handle_slackout threw: %s' % str(e))
-
 
 @asyncio.coroutine
 def _handle_membership_change(bot, event, command):
