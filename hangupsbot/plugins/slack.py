@@ -115,10 +115,6 @@ class webhookReceiver(BaseHTTPRequestHandler):
             if "slackbot" not in str(payload["user_name"][0]):
                 response = "<b>" + str(payload["user_name"][0]) + ":</b> " + str(payload["text"][0])
                 self._scripts_push(conversation_id, response)
-        else:
-            print(payload)
-
-        print(_("handler finished"))
 
     def _scripts_push(self, conversation_id, message):
         try:
@@ -174,11 +170,11 @@ def _handle_slackout(bot, event, command):
                     fullname = event.user.full_name
                     response = yield from bot._client.getentitybyid([event.user_id.chat_id])
                     try:
-                        photo_url = "http:" + response['entity'][0]['properties']['photo_url']
+                       photo_url = "http:" + response.entities[0].properties.photo_url
                     except Exception as e:
                         print("Slack: Could not pull avatar for {}".format(fullname))
 
                     client = SlackClient(slackkey)
                     client.chat_post_message(channel, event.text, username=fullname, icon_url=photo_url)
             except Exception as e:
-                print("Could not handle slackout, is config.json properly configured?")
+                print("Could not handle slackout with key {} between {} and {}. is config.json properly configured?".format(slackkey,channel,convlist))
