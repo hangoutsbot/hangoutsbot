@@ -9,6 +9,7 @@ from slackclient import SlackClient
 import asyncio
 import logging
 import hangups
+import json
 
 import emoji
 
@@ -78,9 +79,11 @@ class SlackRTM(object):
             self.slacksinks[ conv[1] ].append( (conv[0], honame) )
 
     def update_usernames(self):
-        self.usernames = {}
-        for u in self.slack.server.login_data['users']:
-            self.usernames[u['id']] = u['name']
+        response = json.loads(self.slack.api_call('users.list').decode("utf-8"))
+        usernames = {}
+        for u in response['members']:
+            usernames[u['id']] = u['name']
+        self.usernames = usernames
 
     def get_username(self, user, default=None):
         if not user in self.usernames:
@@ -91,9 +94,11 @@ class SlackRTM(object):
         return self.usernames[user]
 
     def update_channelnames(self):
-        self.channelnames = {}
-        for c in self.slack.server.login_data['channels']:
-            self.channelnames[c['id']] = c['name']
+        response = json.loads(self.slack.api_call('channels.list').decode("utf-8"))
+        channelnames = {}
+        for c in response['channels']:
+            channelnames[c['id']] = c['name']
+        self.channelnames = channelnames
 
     def get_channelname(self, channel, default=None):
         if not channel in self.channelnames:
