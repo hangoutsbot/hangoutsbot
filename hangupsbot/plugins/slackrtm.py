@@ -87,6 +87,7 @@ class SlackRTM(object):
 
     def get_username(self, user, default=None):
         if not user in self.usernames:
+            print('slackrtm: user not found, reloading users...')
             self.update_usernames()
             if not user in self.usernames:
                 print('slackrtm: could not find user "%s" although reloaded' % user)
@@ -102,6 +103,7 @@ class SlackRTM(object):
 
     def get_channelname(self, channel, default=None):
         if not channel in self.channelnames:
+            print('slackrtm: channel not found, reloading channels...')
             self.update_channelnames()
             if not channel in self.channelnames:
                 print('slackrtm: could not find channel "%s" although reloaded' % channel)
