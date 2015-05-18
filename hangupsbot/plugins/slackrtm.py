@@ -2,7 +2,7 @@ import time
 import re
 import pprint
 
-from threading import Thread
+import threading
 import hangups.ui.utils
 from slackclient import SlackClient
 
@@ -25,37 +25,6 @@ config.json will have to be configured as follows:
 You can (theoretically) set up as many slack sinks per bot as you like, by extending the list"""
 
 
-def _initialise(Handlers, bot=None):
-    if bot:
-        _start_slackrtm_sinks(bot)
-    else:
-        print("slackrtm: Slack sinks could not be initialized.")
-    Handlers.register_handler(_handle_slackout)
-    Handlers.register_handler(_handle_membership_change, type="membership")
-    Handlers.register_handler(_handle_rename, type="rename")
-    return []
-
-
-def _start_slackrtm_sinks(bot):
-    # Start and asyncio event loop
-    loop = asyncio.get_event_loop()
-
-    slack_sink = bot.get_config_option('slackrtm')
-    if not isinstance(slack_sink, list):
-        return
-
-    threads = []
-    for sinkConfig in slack_sink:
-        # start up slack listener in a separate thread
-        t = Thread(
-            target=start_listening, 
-            args=(bot, loop, sinkConfig)
-            )
-        t.daemon = True
-        t.start()
-        threads.append(t)
-    logging.info(_("_start_slackrtm_sinks(): %d sink thread(s) started" % len(threads)))
-
 
 def unicodeemoji2text(text):
     out = u''
@@ -75,6 +44,8 @@ class SlackRTM(object):
 
         self.slack = SlackClient(self.apikey)
         self.slack.rtm_connect()
+        print('slackrtm: connect-debug: Started RTM connection for SlackRTM object %s' % pprint.pformat(self))
+        threading.current_thread().name = 'SlackRTM:' + self.slack.server.login_data['team']['domain']
 
         self.update_usernames()
         self.update_channelnames()
@@ -258,11 +229,13 @@ class SlackRTM(object):
         for hoid, honame in self.hosinks.get(channel, []):
             if from_ho_id == hoid:
                 print('slackrtm: NOT forwarding to HO %s: %s' % (hoid, response))
-                continue
             else:
                 print('slackrtm:     forwarding to HO %s: %s' % (hoid, response))
-            if not self.bot.send_html_to_user(hoid, response):
-                self.bot.send_html_to_conversation(hoid, response)
+                print('slackrtm: connect-debug: current-thread=%s threads:' % threading.current_thread().name)
+                for t in threading.enumerate():
+                    print('slackrtm: connect-debug: %s' % t.name)
+                if not self.bot.send_html_to_user(hoid, response):
+                    self.bot.send_html_to_conversation(hoid, response)
 
     def handle_ho_message(self, event):
         for channel_id, honame in self.slacksinks.get(event.conv_id, []):
@@ -323,7 +296,42 @@ class SlackRTM(object):
                                 link_names=True)
 
 
+def _initialise(Handlers, bot=None):
+    print('slackrtm: _initialise()')
+    if bot:
+        _start_slackrtm_sinks(bot)
+    else:
+        print("slackrtm: Slack sinks could not be initialized.")
+    Handlers.register_handler(_handle_slackout)
+    Handlers.register_handler(_handle_membership_change, type="membership")
+    Handlers.register_handler(_handle_rename, type="rename")
+    return []
+
+
+def _start_slackrtm_sinks(bot):
+    print('slackrtm: _start_slackrtm_sinks()')
+    # Start and asyncio event loop
+    loop = asyncio.get_event_loop()
+
+    slack_sink = bot.get_config_option('slackrtm')
+    if not isinstance(slack_sink, list):
+        return
+
+    threads = []
+    for sinkConfig in slack_sink:
+        # start up slack listener in a separate thread
+        t = threading.Thread(
+            target=start_listening, 
+            args=(bot, loop, sinkConfig)
+            )
+        t.daemon = True
+        t.start()
+        threads.append(t)
+    logging.info(_("_start_slackrtm_sinks(): %d sink thread(s) started" % len(threads)))
+
+
 def start_listening(bot, loop, config):
+    print('slackrtm: connect-debug: start_listening()')
     asyncio.set_event_loop(loop)
 
     try:
