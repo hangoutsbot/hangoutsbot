@@ -38,15 +38,16 @@ def unicodeemoji2text(text):
     return out
 
 class SlackRTM(object):
-    def __init__(self, sink_config, bot):
+    def __init__(self, sink_config, bot, threaded=False):
         self.bot = bot
         self.config = sink_config
         self.apikey = self.config['key']
 
         self.slack = SlackClient(self.apikey)
         self.slack.rtm_connect()
-        print('slackrtm: connect-debug: Started RTM connection for SlackRTM object %s' % pprint.pformat(self))
-        threading.current_thread().name = 'SlackRTM:' + self.slack.server.login_data['team']['domain']
+        if threaded:
+            print('slackrtm: connect-debug: Started RTM connection for SlackRTM object %s' % pprint.pformat(self))
+            threading.current_thread().name = 'SlackRTM:' + self.slack.server.login_data['team']['domain']
 
         self.update_usernames()
         self.update_channelnames()
@@ -146,6 +147,10 @@ class SlackRTM(object):
         text = bfmt.sub(r'<b>\1</b>', text)
         ifmt = re.compile(r'_([^_]*)_')
         text = ifmt.sub(r'<i>\1</i>', text)
+        pfmt = re.compile(r'```([^`]*)```')
+        text = pfmt.sub(r'"\1"', text)
+        cfmt = re.compile(r'`([^`]*)`')
+        text = cfmt.sub(r'"\1"', text)
         text = text.replace("\r\n", "\n")
         text = text.replace("\n", " <br/>\n")
         return text
@@ -173,11 +178,10 @@ class SlackRTM(object):
                 user = reply['message']['edited']['user']
                 text = reply['message']['text']
             else:
-                # strange! but sent images from HO got a message_changed subtype without an 'edited' subsection and also without a 'user'
+                # sent images from HO got an additional message_changed subtype without an 'edited' when slack renders the preview
                 if 'username' in reply['message']:
-                    is_bot = True
-                    username = reply['message']['username']
-                    text = reply['message']['text']
+                    # we ignore them as we already got the (unedited) message
+                    return
                 else:
                     print('slackrtm: unable to handle this kind of strange message type:\n%s' % pprint.pformat(reply))
                     return
@@ -208,7 +212,7 @@ class SlackRTM(object):
             sender_id = match.group(3)
 
         if not is_bot:
-            username = self.get_username(user, user)
+            username = u'%s (Slack)' % self.get_username(user, user)
         elif sender_id != '':
             username = u'<a href="https://plus.google.com/%s">%s</a>' % (sender_id, username)
 
@@ -246,7 +250,7 @@ class SlackRTM(object):
 
     def handle_ho_message(self, event):
         for channel_id, honame in self.slacksinks.get(event.conv_id, []):
-            fullname = '%s@%s' % (event.user.full_name, honame)
+            fullname = '%s (%s)' % (event.user.full_name, honame)
             try:
                 photo_url = "http:"+self.bot._user_list.get_user(event.user_id).photo_url
             except Exception as e:
@@ -342,7 +346,7 @@ def start_listening(bot, loop, config):
     asyncio.set_event_loop(loop)
 
     try:
-        listener = SlackRTM(config, bot)
+        listener = SlackRTM(config, bot, threader=True)
         last_ping = 0
         while True:
             replies = listener.rtm_read()
