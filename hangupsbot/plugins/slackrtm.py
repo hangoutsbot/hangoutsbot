@@ -346,7 +346,7 @@ def start_listening(bot, loop, config):
     asyncio.set_event_loop(loop)
 
     try:
-        listener = SlackRTM(config, bot, threader=True)
+        listener = SlackRTM(config, bot, threaded=True)
         last_ping = 0
         while True:
             replies = listener.rtm_read()
