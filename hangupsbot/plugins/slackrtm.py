@@ -42,12 +42,18 @@ class SlackRTM(object):
         self.bot = bot
         self.config = sink_config
         self.apikey = self.config['key']
+        self.threadname = None
 
         self.slack = SlackClient(self.apikey)
         self.slack.rtm_connect()
         if threaded:
             print('slackrtm: connect-debug: Started RTM connection for SlackRTM object %s' % pprint.pformat(self))
-            threading.current_thread().name = 'SlackRTM:' + self.slack.server.login_data['team']['domain']
+            if 'name' in self.config:
+                name = self.config['name']
+            else:
+                name = '%s@%s' % (self.slack.server.login_data['self']['name'], self.slack.server.login_data['team']['domain'])
+            self.threadname = 'SlackRTM:' + name
+            threading.current_thread().name = self.threadname
 
         self.update_usernames()
         self.update_channelnames()
@@ -140,8 +146,6 @@ class SlackRTM(object):
         return out
     
     def textToHtml(self, text):
-        reffmt = re.compile('<((.)([^|>]*))((\|)([^>]*)|([^>]*))>')
-        text = reffmt.sub(self.matchReference, text)
         text = emoji.emojize(text)
         bfmt = re.compile(r'\*([^\*]*)\*')
         text = bfmt.sub(r'<b>\1</b>', text)
@@ -151,6 +155,8 @@ class SlackRTM(object):
         text = pfmt.sub(r'"\1"', text)
         cfmt = re.compile(r'`([^`]*)`')
         text = cfmt.sub(r'"\1"', text)
+        reffmt = re.compile('<((.)([^|>]*))((\|)([^>]*)|([^>]*))>')
+        text = reffmt.sub(self.matchReference, text)
         text = text.replace("\r\n", "\n")
         text = text.replace("\n", " <br/>\n")
         return text
@@ -350,6 +356,10 @@ def start_listening(bot, loop, config):
         last_ping = 0
         while True:
             replies = listener.rtm_read()
+            for t in threading.enumerate():
+                if t.name == listener.threadname and t != threading.current_thread():
+                    print("I'm old and will retire...")
+                    return
             if len(replies):
                 if 'type' in replies[0]:
                     if replies[0]['type'] == 'hello':
