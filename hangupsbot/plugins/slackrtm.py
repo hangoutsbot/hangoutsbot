@@ -47,7 +47,7 @@ class SlackRTM(object):
         self.slack = SlackClient(self.apikey)
         self.slack.rtm_connect()
         if threaded:
-            print('slackrtm: connect-debug: Started RTM connection for SlackRTM object %s' % pprint.pformat(self))
+            print('slackrtm: Started RTM connection for SlackRTM thread %s' % pprint.pformat(self))
             if 'name' in self.config:
                 name = self.config['name']
             else:
@@ -248,9 +248,10 @@ class SlackRTM(object):
                 print('slackrtm: NOT forwarding to HO %s: %s' % (hoid, response))
             else:
                 print('slackrtm:     forwarding to HO %s: %s' % (hoid, response))
-                print('slackrtm: connect-debug: current-thread=%s threads:' % threading.current_thread().name)
-                for t in threading.enumerate():
-                    print('slackrtm: connect-debug: %s' % t.name)
+#                for userchatid in self.bot.memory.get_option("user_data"):
+#                    userslackrtmtest = self.bot.memory.get_suboption("user_data", userchatid, "slackrtmtest")
+#                    if userslackrtmtest:
+#                        print('slackrtm: memory-test: %s => %s' % (userchatid, userslackrtmtest))
                 if not self.bot.send_html_to_user(hoid, response):
                     self.bot.send_html_to_conversation(hoid, response)
 
@@ -265,6 +266,7 @@ class SlackRTM(object):
             message = unicodeemoji2text(event.text)
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             print("slackrtm: Sending to channel %s: %s" % (channel_id, message))
+#            self.bot.user_memory_set(event.user.id_.chat_id, 'slackrtmtest', event.text)
             self.slack.api_call('chat.postMessage',
                                 channel=channel_id,
                                 text=message,
@@ -348,7 +350,7 @@ def _start_slackrtm_sinks(bot):
 
 
 def start_listening(bot, loop, config):
-    print('slackrtm: connect-debug: start_listening()')
+    print('slackrtm: start_listening()')
     asyncio.set_event_loop(loop)
 
     try:
@@ -358,7 +360,7 @@ def start_listening(bot, loop, config):
             replies = listener.rtm_read()
             for t in threading.enumerate():
                 if t.name == listener.threadname and t != threading.current_thread():
-                    print("I'm old and will retire...")
+                    print("slackrtm: I'm to old for this shit! Let's make space for the new guy: %s" % pprint.pformat(t))
                     return
             if len(replies):
                 if 'type' in replies[0]:
