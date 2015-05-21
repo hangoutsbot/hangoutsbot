@@ -47,13 +47,13 @@ class SlackRTM(object):
         self.slack = SlackClient(self.apikey)
         self.slack.rtm_connect()
         if threaded:
-            print('slackrtm: Started RTM connection for SlackRTM thread %s' % pprint.pformat(self))
             if 'name' in self.config:
                 name = self.config['name']
             else:
                 name = '%s@%s' % (self.slack.server.login_data['self']['name'], self.slack.server.login_data['team']['domain'])
             self.threadname = 'SlackRTM:' + name
             threading.current_thread().name = self.threadname
+            print('slackrtm: Started RTM connection for SlackRTM thread %s' % pprint.pformat(threading.current_thread()))
 
         self.update_usernames()
         self.update_channelnames()
