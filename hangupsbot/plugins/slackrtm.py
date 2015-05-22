@@ -143,22 +143,30 @@ class SlackRTM(object):
             if linktext == "":
                 linktext = linktarget
             out = '<a href="%s">%s</a>' % (linktarget, linktext)
+        out = out.replace('_', '%5F')
+        out = out.replace('*', '%2A')
+        out = out.replace('`', '%60')
         return out
     
     def textToHtml(self, text):
-        text = emoji.emojize(text)
-        bfmt = re.compile(r'\*([^\*]*)\*')
-        text = bfmt.sub(r'<b>\1</b>', text)
-        ifmt = re.compile(r'_([^_]*)_')
-        text = ifmt.sub(r'<i>\1</i>', text)
-        pfmt = re.compile(r'```([^`]*)```')
-        text = pfmt.sub(r'"\1"', text)
-        cfmt = re.compile(r'`([^`]*)`')
-        text = cfmt.sub(r'"\1"', text)
         reffmt = re.compile('<((.)([^|>]*))((\|)([^>]*)|([^>]*))>')
         text = reffmt.sub(self.matchReference, text)
+        text = emoji.emojize(text)
+        text = ' %s ' % text
+        bfmt = re.compile(r'([\s*_`])\*([^*]*)\*([\s*_`])')
+        text = bfmt.sub(r'\1<b>\2</b>\3', text)
+        ifmt = re.compile(r'([\s*_`])_([^_]*)_([\s*_`])')
+        text = ifmt.sub(r'\1<i>\2</i>\3', text)
+        pfmt = re.compile(r'([\s*_`])```([^`]*)```([\s*_`])')
+        text = pfmt.sub(r'\1"\2"\3', text)
+        cfmt = re.compile(r'([\s*_`])`([^`]*)`([\s*_`])')
+        text = cfmt.sub(r"\1'\2'\3", text)
         text = text.replace("\r\n", "\n")
         text = text.replace("\n", " <br/>\n")
+        if text[0] == ' ' and text[-1] == ' ':
+            text = text[1:-1]
+        else:
+            print('slackrtm: something went wrong while formating text, leading or trailing space missing: "%s"' % text)
         return text
 
     def handle_reply(self, reply):
