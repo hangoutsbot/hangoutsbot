@@ -233,6 +233,11 @@ class SlackRTM(object):
         if not channel:
             print('slackrtm: no channel or group in reply: %s' % pprint.pformat(reply))
             return
+        if 'file' in reply:
+            if 'url' in reply['file']:
+                response = u'%s\n%s' % (response, reply['file']['url'])
+            else:
+                print('slackrtm: no "url" in reply, not adding public url:\n%s' % pprint.pformat(reply))
 
         if text.startswith('<@%s> whereami' % self.my_uid) or \
                 text.startswith('<@%s>: whereami' % self.my_uid):
