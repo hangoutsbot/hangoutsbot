@@ -37,6 +37,35 @@ def unicodeemoji2text(text):
         out = out + c
     return out
 
+def chatMessageEvent2SlackText(event):
+    def renderTextSegment(segment):
+        out = ''
+        if segment.is_bold:
+            out += ' *'
+        if segment.is_italic:
+            out += ' _'
+        out += segment.text
+        if segment.is_italic:
+            out += '_ '
+        if segment.is_bold:
+            out += '* '
+        return out
+
+    lines = ['']
+    for segment in event.segments:
+        if segment.type_ == hangups.schemas.SegmentType.TEXT:
+            lines[-1] += renderTextSegment(segment)
+        elif segment.type_ == hangups.schemas.SegmentType.LINK:
+            # unfortunately slack does not format links :-(
+            lines[-1] += segment.text
+        elif segment.type_ == hangups.schemas.SegmentType.LINE_BREAK:
+            lines.append('')
+        else:
+            print('slackrtm: Ignoring unknown chat message segment type: %s' % segment.type_)
+    lines.extend(event.attachments)
+    return '\n'.join(lines)
+
+
 class SlackRTM(object):
     def __init__(self, sink_config, bot, threaded=False):
         self.bot = bot
@@ -135,7 +164,7 @@ class SlackRTM(object):
                 out = "@%s" % self.get_username(match.group(3), 'unknown:%s' % match.group(3))
         elif match.group(2) == '#':
             if linktext != "":
-                out = linktext
+                out = "#%s" % linktext
             else:
                 out = "#%s" % self.get_channelname(match.group(3), 'unknown:%s' % match.group(3))
         else:
@@ -276,7 +305,7 @@ class SlackRTM(object):
             except Exception as e:
                 print('slackrtm: exception while getting user from bot: %s' % e)
                 photo_url = ''
-            message = unicodeemoji2text(event.text)
+            message = unicodeemoji2text(chatMessageEvent2SlackText(event.conv_event))
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             print("slackrtm: Sending to channel %s: %s" % (channel_id, message))
 #            self.bot.user_memory_set(event.user.id_.chat_id, 'slackrtmtest', event.text)
@@ -393,6 +422,9 @@ def start_listening(bot, loop, config):
     except KeyboardInterrupt:
         # close, nothing to do
         return
+    except WebSocketConnectionClosedException as e:
+        print('slackrtm: start_listening(): got WebSocketConnectionClosedException("%s")' % str(e))
+        return start_listening(bot, loop, config)
     except Exception as e:
         print('slackrtm: start_listening(): unhandled exception: %s' % str(e))
     return
