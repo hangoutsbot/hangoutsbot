@@ -88,6 +88,11 @@ class SlackRTM(object):
             self.threadname = 'SlackRTM:' + name
             threading.current_thread().name = self.threadname
             print('slackrtm: Started RTM connection for SlackRTM thread %s' % pprint.pformat(threading.current_thread()))
+            for t in threading.enumerate():
+                if t.name == self.threadname and t != threading.current_thread():
+                    print("slackrtm: Old thread found - killing")
+                    t.stop()
+
 
         self.update_usernames(self.slack.server.login_data['users'])
         self.update_channelnames(self.slack.server.login_data['channels'])
@@ -429,53 +434,66 @@ def _start_slackrtm_sinks(bot):
     threads = []
     for sinkConfig in slack_sink:
         # start up slack listener in a separate thread
-        t = threading.Thread(
-            target=start_listening, 
-            args=(bot, loop, sinkConfig)
-            )
+        t = SlackRTMThread(bot, loop, sinkConfig)
         t.daemon = True
         t.start()
         threads.append(t)
     logging.info(_("_start_slackrtm_sinks(): %d sink thread(s) started" % len(threads)))
 
 slackrtms = []
-def start_listening(bot, loop, config):
-    print('slackrtm: start_listening()')
-    asyncio.set_event_loop(loop)
-    global slackrtms
+class SlackRTMThread(threading.Thread):
+    def __init__(self, bot, loop, config):
+        super(SlackRTMThread, self).__init__()
+        self._stop = threading.Event()
+        self._bot = bot
+        self._loop = loop
+        self._config = config
 
-    try:
-        listener = SlackRTM(config, bot, threaded=True)
-        slackrtms.append(listener)
-        last_ping = int(time.time())
-        while True:
-            replies = listener.rtm_read()
-            if replies:
-                if 'type' in replies[0]:
-                    if replies[0]['type'] == 'hello':
-                        #print('slackrtm: ignoring first replies including type=hello message to avoid message duplication: %s...' % str(replies)[:30])
-                        continue
-                for reply in replies:
-                    try:
-                        loop.call_soon_threadsafe(asyncio.async, listener.handle_reply(reply))
-                    except Exception as e:
-                        print('slackrtm: unhandled exception during handle_reply(): %s\n%s' % (str(e), pprint.pformat(reply)))
-                        traceback.print_exc()
-            now = int(time.time())
-            if now > last_ping + 30:
-                listener.ping()
-                last_ping = now
-            time.sleep(1)
-    except KeyboardInterrupt:
-        # close, nothing to do
+    def run(self):
+        print('slackrtm: SlackRTMThread starts listening')
+        asyncio.set_event_loop(self._loop)
+        global slackrtms
+
+        try:
+            listener = SlackRTM(self._config, self._bot, threaded=True)
+            slackrtms.append(listener)
+            last_ping = int(time.time())
+            while True:
+                if self.stopped():
+                    return
+                replies = listener.rtm_read()
+                if replies:
+                    if 'type' in replies[0]:
+                        if replies[0]['type'] == 'hello':
+                            #print('slackrtm: ignoring first replies including type=hello message to avoid message duplication: %s...' % str(replies)[:30])
+                            continue
+                    for reply in replies:
+                        try:
+                            self._loop.call_soon_threadsafe(asyncio.async, listener.handle_reply(reply))
+                        except Exception as e:
+                            print('slackrtm: unhandled exception during handle_reply(): %s\n%s' % (str(e), pprint.pformat(reply)))
+                            traceback.print_exc()
+                now = int(time.time())
+                if now > last_ping + 30:
+                    listener.ping()
+                    last_ping = now
+                time.sleep(1)
+        except KeyboardInterrupt:
+            # close, nothing to do
+            return
+        except WebSocketConnectionClosedException as e:
+            print('slackrtm: SlackRTMThread: got WebSocketConnectionClosedException("%s")' % str(e))
+            return self.run()
+        except Exception as e:
+            print('slackrtm: SlackRTMThread: unhandled exception: %s' % str(e))
+            traceback.print_exc()
         return
-    except WebSocketConnectionClosedException as e:
-        print('slackrtm: start_listening(): got WebSocketConnectionClosedException("%s")' % str(e))
-        return start_listening(bot, loop, config)
-    except Exception as e:
-        print('slackrtm: start_listening(): unhandled exception: %s' % str(e))
-        traceback.print_exc()
-    return
+
+    def stop(self):
+        self._stop.set()
+
+    def stopped(self):
+        return self._stop.isSet()
 
 @asyncio.coroutine
 def _handle_slackout(bot, event, command):
