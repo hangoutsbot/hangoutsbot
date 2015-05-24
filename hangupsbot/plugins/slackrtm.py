@@ -7,6 +7,7 @@ import traceback
 import threading
 import hangups.ui.utils
 from slackclient import SlackClient
+from websocket import WebSocketConnectionClosedException
 
 import asyncio
 import logging
