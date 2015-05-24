@@ -218,6 +218,7 @@ class SlackRTM(object):
         is_bot = False
         from_ho_id = ''
         sender_id = ''
+        alt_channel = None
         if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'message_changed':
             if 'edited' in reply['message']:
                 edited = '(msgupd)'
@@ -247,7 +248,16 @@ class SlackRTM(object):
                 return
             else:
                 user = reply['user']
-            text = reply['text']
+            if not 'text' in reply:
+                # IFTTT?
+                if 'attachments' in reply and 'text' in reply['attachments']:
+                    text = reply['attachments']['text']
+                    if 'channel' in reply['attachments']:
+                        alt_channel = reply['attachments']['channel']
+                else:
+                    print('slackrtm: strange message without text and attachments:\n%s' % pprint.pformat(reply))
+            else:
+                text = reply['text']
 
         # now we check if the message has the hidden ho relay tag, extract and remove it
         hoidfmt = re.compile(r'^(.*) <ho://([^/]+)/([^|]+)\| >$', re.MULTILINE|re.DOTALL)
@@ -271,8 +281,12 @@ class SlackRTM(object):
             channel = reply['group']
             is_private = True
         if not channel:
-            print('slackrtm: no channel or group in reply: %s' % pprint.pformat(reply))
-            return
+            if not alt_channel:
+                print('slackrtm: no channel or group in reply: %s' % pprint.pformat(reply))
+                return
+            else:
+                print('using alt. channel id, found while parsing message: %s' % alt_channel)
+                channel = alt_channel
         file_attachment = None
         if 'file' in reply:
             if 'url' in reply['file']:
@@ -295,18 +309,18 @@ class SlackRTM(object):
                 print('slackrtm: NOT forwarding to HO %s: %s' % (hoid, response))
             else:
                 print('slackrtm:     forwarding to HO %s: %s' % (hoid, response))
-#                if file_attachment:
-#                    try:
-#                        print('Downloading %s' % file_attachment)
-#                        filename = os.path.basename(file_attachment)
-#                        image_response = urllib.request.urlopen(file_attachment)
-#                        print('Uploading as %s' % filename)
-#                        image_id = yield from self.bot._client.upload_image(image_response, filename=filename)
-#                        print('Sending HO message, image_id: %s' % image_id)
-#                        self.bot.send_message_segments(hoid, None, image_id=image_id)
-#                        return
-#                    except Exception as e:
-#                        print('slackrtm: Exception while uploading image: %s(%s)' % (e, str(e)))
+                if file_attachment:
+                    try:
+                        print('Downloading %s' % file_attachment)
+                        filename = os.path.basename(file_attachment)
+                        image_response = urllib.request.urlopen(file_attachment)
+                        print('Uploading as %s' % filename)
+                        image_id = self.bot._client.upload_image(image_response, filename=filename)
+                        print('Sending HO message, image_id: %s' % image_id)
+                        self.bot.send_message_segments(hoid, None, image_id=image_id)
+                        return
+                    except Exception as e:
+                        print('slackrtm: Exception while uploading image: %s(%s)' % (e, str(e)))
 #                for userchatid in self.bot.memory.get_option("user_data"):
 #                    userslackrtmtest = self.bot.memory.get_suboption("user_data", userchatid, "slackrtmtest")
 #                    if userslackrtmtest:
@@ -463,7 +477,7 @@ def start_listening(bot, loop, config):
     return
 
 
-@asyncio.coroutine
+#@asyncio.coroutine
 def _handle_slackout(bot, event, command):
     slack_sink = bot.get_config_option('slackrtm')
     if not isinstance(slack_sink, list):
@@ -476,7 +490,7 @@ def _handle_slackout(bot, event, command):
         except Exception as e:
             print('slackrtm: _handle_slackout threw: %s' % str(e))
 
-@asyncio.coroutine
+#@asyncio.coroutine
 def _handle_membership_change(bot, event, command):
     slack_sink = bot.get_config_option('slackrtm')
     if not isinstance(slack_sink, list):
@@ -490,7 +504,7 @@ def _handle_membership_change(bot, event, command):
             print('slackrtm: _handle_membership_change threw: %s' % str(e))
 
 
-@asyncio.coroutine
+#@asyncio.coroutine
 def _handle_rename(bot, event, command):
     slack_sink = bot.get_config_option('slackrtm')
     if not isinstance(slack_sink, list):
