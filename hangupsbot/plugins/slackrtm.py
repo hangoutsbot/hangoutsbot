@@ -1,5 +1,6 @@
 import time
 import re
+import os
 import pprint
 
 import threading
@@ -12,6 +13,8 @@ import hangups
 import json
 
 import emoji
+import urllib
+import slacker
 
 """ SlackRTM plugin for listening to hangouts and slack and syncing messages between the two.
 config.json will have to be configured as follows:
@@ -44,7 +47,7 @@ def chatMessageEvent2SlackText(event):
             out += ' *'
         if segment.is_italic:
             out += ' _'
-        out += segment.text
+        out += unicodeemoji2text(segment.text)
         if segment.is_italic:
             out += '_ '
         if segment.is_bold:
@@ -270,9 +273,11 @@ class SlackRTM(object):
         if not channel:
             print('slackrtm: no channel or group in reply: %s' % pprint.pformat(reply))
             return
+        file_attachment = None
         if 'file' in reply:
             if 'url' in reply['file']:
-                response = u'%s\n%s' % (response, reply['file']['url'])
+                file_attachment = reply['file']['url']
+                response = u'%s\n%s' % (response, file_attachment)
             else:
                 print('slackrtm: no "url" in reply, not adding public url:\n%s' % pprint.pformat(reply))
 
@@ -290,6 +295,18 @@ class SlackRTM(object):
                 print('slackrtm: NOT forwarding to HO %s: %s' % (hoid, response))
             else:
                 print('slackrtm:     forwarding to HO %s: %s' % (hoid, response))
+#                if file_attachment:
+#                    try:
+#                        print('Downloading %s' % file_attachment)
+#                        filename = os.path.basename(file_attachment)
+#                        image_response = urllib.request.urlopen(file_attachment)
+#                        print('Uploading as %s' % filename)
+#                        image_id = yield from self.bot._client.upload_image(image_response, filename=filename)
+#                        print('Sending HO message, image_id: %s' % image_id)
+#                        self.bot.send_message_segments(hoid, None, image_id=image_id)
+#                        return
+#                    except Exception as e:
+#                        print('slackrtm: Exception while uploading image: %s(%s)' % (e, str(e)))
 #                for userchatid in self.bot.memory.get_option("user_data"):
 #                    userslackrtmtest = self.bot.memory.get_suboption("user_data", userchatid, "slackrtmtest")
 #                    if userslackrtmtest:
@@ -305,7 +322,23 @@ class SlackRTM(object):
             except Exception as e:
                 print('slackrtm: exception while getting user from bot: %s' % e)
                 photo_url = ''
-            message = unicodeemoji2text(chatMessageEvent2SlackText(event.conv_event))
+#            # a file shared in HO is a message containing *only* the url to it
+#            if re.match(r'^https?://[^ /]*googleusercontent.com/[^ ]*$', event.text, re.IGNORECASE):
+#                print('slackrtm: found image: %s' % event.text)
+#                image_link = event.text
+#                try:
+#                    filename = os.path.basename(image_link)
+#                    image_response = urllib.request.urlretrieve(image_link, filename)
+#                    #data = image_response.read()
+#                    #print('slackrtm: data="%s"' % str(data))
+#                    slacker_client = slacker.Slacker(self.apikey)
+#                    response = slacker_client.files.upload(filename,
+#                                                           channels=channel_id)
+#                except Exception as e:
+#                    print('slackrtm: exception while loading image: %s(%s)' % (e, str(e)))
+#            else:
+#                print('slackrtm: NO image in message: "%s"' % event.text)
+            message = chatMessageEvent2SlackText(event.conv_event)
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             print("slackrtm: Sending to channel %s: %s" % (channel_id, message))
 #            self.bot.user_memory_set(event.user.id_.chat_id, 'slackrtmtest', event.text)
