@@ -88,8 +88,8 @@ class SlackRTM(object):
             threading.current_thread().name = self.threadname
             print('slackrtm: Started RTM connection for SlackRTM thread %s' % pprint.pformat(threading.current_thread()))
 
-        self.update_usernames()
-        self.update_channelnames()
+        self.update_usernames(self.slack.server.login_data['users'])
+        self.update_channelnames(self.slack.server.login_data['channels'])
         self.my_uid = self.slack.server.login_data['self']['id']
 
         self.hangoutids = {}
@@ -118,10 +118,12 @@ class SlackRTM(object):
                 self.slacksinks[ conv[1] ] = []
             self.slacksinks[ conv[1] ].append( (conv[0], honame) )
 
-    def update_usernames(self):
-        response = json.loads(self.slack.api_call('users.list').decode("utf-8"))
+    def update_usernames(self, users=None):
+        if users is None:
+            response = json.loads(self.slack.api_call('users.list').decode("utf-8"))
+            users = response['members']
         usernames = {}
-        for u in response['members']:
+        for u in users:
             usernames[u['id']] = u['name']
         self.usernames = usernames
 
@@ -134,10 +136,12 @@ class SlackRTM(object):
                 return default
         return self.usernames[user]
 
-    def update_channelnames(self):
-        response = json.loads(self.slack.api_call('channels.list').decode("utf-8"))
+    def update_channelnames(self, channels=None):
+        if channels is None:
+            response = json.loads(self.slack.api_call('channels.list').decode("utf-8"))
+            channels = response['channels']
         channelnames = {}
-        for c in response['channels']:
+        for c in channels:
             channelnames[c['id']] = c['name']
         self.channelnames = channelnames
 
