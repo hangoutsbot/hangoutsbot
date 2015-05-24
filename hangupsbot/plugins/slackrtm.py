@@ -354,7 +354,7 @@ class SlackRTM(object):
 #                print('slackrtm: NO image in message: "%s"' % event.text)
             message = chatMessageEvent2SlackText(event.conv_event)
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
-            print("slackrtm: Sending to channel %s: %s" % (channel_id, message))
+            print(("slackrtm: Sending to channel %s: %s" % (channel_id, message)).encode('utf-8'))
 #            self.bot.user_memory_set(event.user.id_.chat_id, 'slackrtmtest', event.text)
             self.slack.api_call('chat.postMessage',
                                 channel=channel_id,
