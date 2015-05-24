@@ -2,6 +2,7 @@ import time
 import re
 import os
 import pprint
+import traceback
 
 import threading
 import hangups.ui.utils
@@ -319,6 +320,7 @@ class SlackRTM(object):
                         return
                     except Exception as e:
                         print('slackrtm: Exception while uploading image: %s(%s)' % (e, str(e)))
+                        traceback.print_exc()
 #                for userchatid in self.bot.memory.get_option("user_data"):
 #                    userslackrtmtest = self.bot.memory.get_suboption("user_data", userchatid, "slackrtmtest")
 #                    if userslackrtmtest:
@@ -459,6 +461,7 @@ def start_listening(bot, loop, config):
                     listener.handle_reply(reply)
                 except Exception as e:
                     print('slackrtm: unhandled exception during handle_reply(): %s\n%s' % (str(e), pprint.pformat(reply)))
+                    traceback.print_exc()
             now = int(time.time())
             if now > last_ping + 3:
                 listener.ping()
@@ -472,6 +475,7 @@ def start_listening(bot, loop, config):
         return start_listening(bot, loop, config)
     except Exception as e:
         print('slackrtm: start_listening(): unhandled exception: %s' % str(e))
+        traceback.print_exc()
     return
 
 
@@ -487,6 +491,7 @@ def _handle_slackout(bot, event, command):
             time.sleep(.1)
         except Exception as e:
             print('slackrtm: _handle_slackout threw: %s' % str(e))
+            traceback.print_exc()
 
 #@asyncio.coroutine
 def _handle_membership_change(bot, event, command):
@@ -500,6 +505,7 @@ def _handle_membership_change(bot, event, command):
             time.sleep(.1)
         except Exception as e:
             print('slackrtm: _handle_membership_change threw: %s' % str(e))
+            traceback.print_exc()
 
 
 #@asyncio.coroutine
@@ -514,3 +520,4 @@ def _handle_rename(bot, event, command):
             time.sleep(.1)
         except Exception as e:
             print('slackrtm: _handle_rename threw: %s' % str(e))
+            traceback.print_exc()
