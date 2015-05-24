@@ -445,29 +445,25 @@ def start_listening(bot, loop, config):
 
     try:
         listener = SlackRTM(config, bot, threaded=True)
-        last_ping = 0
+        last_ping = int(time.time())
         while True:
             replies = listener.rtm_read()
-            for t in threading.enumerate():
-                if t.name == listener.threadname and t != threading.current_thread():
-                    print("slackrtm: I'm to old for this shit! Let's make space for the new guy: %s" % pprint.pformat(t))
-                    return
-            if len(replies):
+            if replies:
                 if 'type' in replies[0]:
                     if replies[0]['type'] == 'hello':
                         #print('slackrtm: ignoring first replies including type=hello message to avoid message duplication: %s...' % str(replies)[:30])
                         continue
-            for reply in replies:
-                try:
-                    loop.call_soon_threadsafe(asyncio.async, listener.handle_reply(reply))
-                except Exception as e:
-                    print('slackrtm: unhandled exception during handle_reply(): %s\n%s' % (str(e), pprint.pformat(reply)))
-                    traceback.print_exc()
+                for reply in replies:
+                    try:
+                        loop.call_soon_threadsafe(asyncio.async, listener.handle_reply(reply))
+                    except Exception as e:
+                        print('slackrtm: unhandled exception during handle_reply(): %s\n%s' % (str(e), pprint.pformat(reply)))
+                        traceback.print_exc()
             now = int(time.time())
-            if now > last_ping + 3:
+            if now > last_ping + 30:
                 listener.ping()
                 last_ping = now
-            time.sleep(.1)
+            time.sleep(1)
     except KeyboardInterrupt:
         # close, nothing to do
         return
