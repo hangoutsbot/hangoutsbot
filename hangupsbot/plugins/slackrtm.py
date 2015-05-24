@@ -19,10 +19,11 @@ import slacker
 """ SlackRTM plugin for listening to hangouts and slack and syncing messages between the two.
 config.json will have to be configured as follows:
 "slackrtm": [{
-  "key": SLACK_API_KEY,
+  "name": "SlackNameForLoggingEtc",
+  "key": "SLACK_API_KEY",
   "synced_conversations": [
-  ["SLACK_CHANNEL_ID1", "CONV_ID1"],
-  ["SLACK_CHANNEL_ID1", "CONV_ID1"]
+  ["SLACK_CHANNEL_ID1", "CONV_ID1", "optHONameForSenderDisplay"],
+  ["SLACK_CHANNEL_ID1", "CONV_ID1", "optHONameForSenderDisplay"]
   ]
 }]
 
@@ -249,8 +250,8 @@ class SlackRTM(object):
                 user = reply['user']
             if not 'text' in reply:
                 # IFTTT?
-                if 'attachments' in reply and 'text' in reply['attachments']:
-                    text = reply['attachments']['text']
+                if 'attachments' in reply and 'text' in reply['attachments'][0]:
+                    text = reply['attachments'][0]['text']
                 else:
                     print('slackrtm: strange message without text and attachments:\n%s' % pprint.pformat(reply))
             else:
