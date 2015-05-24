@@ -32,7 +32,6 @@ config.json will have to be configured as follows:
 You can (theoretically) set up as many slack sinks per bot as you like, by extending the list"""
 
 
-
 def unicodeemoji2text(text):
     out = u''
     for c in text[:]:
@@ -439,12 +438,15 @@ def _start_slackrtm_sinks(bot):
         threads.append(t)
     logging.info(_("_start_slackrtm_sinks(): %d sink thread(s) started" % len(threads)))
 
+slackrtms = []
 def start_listening(bot, loop, config):
     print('slackrtm: start_listening()')
     asyncio.set_event_loop(loop)
+    global slackrtms
 
     try:
         listener = SlackRTM(config, bot, threaded=True)
+        slackrtms.append(listener)
         last_ping = int(time.time())
         while True:
             replies = listener.rtm_read()
@@ -475,45 +477,36 @@ def start_listening(bot, loop, config):
         traceback.print_exc()
     return
 
-#@asyncio.coroutine
+@asyncio.coroutine
 def _handle_slackout(bot, event, command):
-    slack_sink = bot.get_config_option('slackrtm')
-    if not isinstance(slack_sink, list):
+    if not slackrtms:
         return
-    for sinkConfig in slack_sink:
+    for slackrtm in slackrtms:
         try:
-            slackout = SlackRTM(sinkConfig, bot)
-            slackout.handle_ho_message(event)
-            time.sleep(.1)
+            slackrtm.handle_ho_message(event)
         except Exception as e:
             print('slackrtm: _handle_slackout threw: %s' % str(e))
             traceback.print_exc()
 
-#@asyncio.coroutine
+@asyncio.coroutine
 def _handle_membership_change(bot, event, command):
-    slack_sink = bot.get_config_option('slackrtm')
-    if not isinstance(slack_sink, list):
+    if not slackrtms:
         return
-    for sinkConfig in slack_sink:
+    for slackrtm in slackrtms:
         try:
-            slackout = SlackRTM(sinkConfig, bot)
-            slackout.handle_ho_membership(event)
-            time.sleep(.1)
+            slackrtm.handle_ho_membership(event)
         except Exception as e:
             print('slackrtm: _handle_membership_change threw: %s' % str(e))
             traceback.print_exc()
 
 
-#@asyncio.coroutine
+@asyncio.coroutine
 def _handle_rename(bot, event, command):
-    slack_sink = bot.get_config_option('slackrtm')
-    if not isinstance(slack_sink, list):
+    if not slackrtms:
         return
-    for sinkConfig in slack_sink:
+    for slackrtm in slackrtms:
         try:
-            slackout = SlackRTM(sinkConfig, bot)
-            slackout.handle_ho_rename(event)
-            time.sleep(.1)
+            slackrtm.handle_ho_rename(event)
         except Exception as e:
             print('slackrtm: _handle_rename threw: %s' % str(e))
             traceback.print_exc()
