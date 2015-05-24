@@ -208,13 +208,14 @@ class SlackRTM(object):
             print('slackrtm: something went wrong while formating text, leading or trailing space missing: "%s"' % text)
         return text
 
+    @asyncio.coroutine
     def handle_reply(self, reply):
         if not 'type' in reply:
             print("slackrtm: No 'type' in reply:")
             print("slackrtm: "+str(reply))
             return
     
-        if reply['type'] in ['pong', 'presence_change',  'user_typing', 'file_shared', 'file_public', 'file_comment_added', 'file_comment_deleted' ]:
+        if reply['type'] in ['pong', 'presence_change',  'user_typing', 'file_shared', 'file_public', 'file_comment_added', 'file_comment_deleted']:
             # we ignore pong's as they are only answers for our pings
             return
     
@@ -315,7 +316,7 @@ class SlackRTM(object):
                         filename = os.path.basename(file_attachment)
                         image_response = urllib.request.urlopen(file_attachment)
                         print('Uploading as %s' % filename)
-                        image_id = self.bot._client.upload_image(image_response, filename=filename)
+                        image_id = yield from self.bot._client.upload_image(image_response, filename=filename)
                         print('Sending HO message, image_id: %s' % image_id)
                         self.bot.send_message_segments(hoid, None, image_id=image_id)
                         return
@@ -438,7 +439,6 @@ def _start_slackrtm_sinks(bot):
         threads.append(t)
     logging.info(_("_start_slackrtm_sinks(): %d sink thread(s) started" % len(threads)))
 
-
 def start_listening(bot, loop, config):
     print('slackrtm: start_listening()')
     asyncio.set_event_loop(loop)
@@ -459,7 +459,7 @@ def start_listening(bot, loop, config):
                         continue
             for reply in replies:
                 try:
-                    listener.handle_reply(reply)
+                    loop.call_soon_threadsafe(asyncio.async, listener.handle_reply(reply))
                 except Exception as e:
                     print('slackrtm: unhandled exception during handle_reply(): %s\n%s' % (str(e), pprint.pformat(reply)))
                     traceback.print_exc()
@@ -478,7 +478,6 @@ def start_listening(bot, loop, config):
         print('slackrtm: start_listening(): unhandled exception: %s' % str(e))
         traceback.print_exc()
     return
-
 
 #@asyncio.coroutine
 def _handle_slackout(bot, event, command):
