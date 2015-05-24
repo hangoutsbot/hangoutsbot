@@ -218,7 +218,6 @@ class SlackRTM(object):
         is_bot = False
         from_ho_id = ''
         sender_id = ''
-        alt_channel = None
         if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'message_changed':
             if 'edited' in reply['message']:
                 edited = '(msgupd)'
@@ -252,8 +251,6 @@ class SlackRTM(object):
                 # IFTTT?
                 if 'attachments' in reply and 'text' in reply['attachments']:
                     text = reply['attachments']['text']
-                    if 'channel' in reply['attachments']:
-                        alt_channel = reply['attachments']['channel']
                 else:
                     print('slackrtm: strange message without text and attachments:\n%s' % pprint.pformat(reply))
             else:
@@ -281,12 +278,8 @@ class SlackRTM(object):
             channel = reply['group']
             is_private = True
         if not channel:
-            if not alt_channel:
-                print('slackrtm: no channel or group in reply: %s' % pprint.pformat(reply))
-                return
-            else:
-                print('using alt. channel id, found while parsing message: %s' % alt_channel)
-                channel = alt_channel
+            print('slackrtm: no channel or group in reply: %s' % pprint.pformat(reply))
+            return
         file_attachment = None
         if 'file' in reply:
             if 'url' in reply['file']:
