@@ -2,10 +2,12 @@ import time
 import re
 import os
 import pprint
+import traceback
 
 import threading
 import hangups.ui.utils
 from slackclient import SlackClient
+from websocket import WebSocketConnectionClosedException
 
 import asyncio
 import logging
@@ -28,7 +30,6 @@ config.json will have to be configured as follows:
 }]
 
 You can (theoretically) set up as many slack sinks per bot as you like, by extending the list"""
-
 
 
 def unicodeemoji2text(text):
@@ -87,9 +88,14 @@ class SlackRTM(object):
             self.threadname = 'SlackRTM:' + name
             threading.current_thread().name = self.threadname
             print('slackrtm: Started RTM connection for SlackRTM thread %s' % pprint.pformat(threading.current_thread()))
+            for t in threading.enumerate():
+                if t.name == self.threadname and t != threading.current_thread():
+                    print("slackrtm: Old thread found - killing")
+                    t.stop()
 
-        self.update_usernames()
-        self.update_channelnames()
+
+        self.update_usernames(self.slack.server.login_data['users'])
+        self.update_channelnames(self.slack.server.login_data['channels'])
         self.my_uid = self.slack.server.login_data['self']['id']
 
         self.hangoutids = {}
@@ -118,10 +124,12 @@ class SlackRTM(object):
                 self.slacksinks[ conv[1] ] = []
             self.slacksinks[ conv[1] ].append( (conv[0], honame) )
 
-    def update_usernames(self):
-        response = json.loads(self.slack.api_call('users.list').decode("utf-8"))
+    def update_usernames(self, users=None):
+        if users is None:
+            response = json.loads(self.slack.api_call('users.list').decode("utf-8"))
+            users = response['members']
         usernames = {}
-        for u in response['members']:
+        for u in users:
             usernames[u['id']] = u['name']
         self.usernames = usernames
 
@@ -134,10 +142,12 @@ class SlackRTM(object):
                 return default
         return self.usernames[user]
 
-    def update_channelnames(self):
-        response = json.loads(self.slack.api_call('channels.list').decode("utf-8"))
+    def update_channelnames(self, channels=None):
+        if channels is None:
+            response = json.loads(self.slack.api_call('channels.list').decode("utf-8"))
+            channels = response['channels']
         channelnames = {}
-        for c in response['channels']:
+        for c in channels:
             channelnames[c['id']] = c['name']
         self.channelnames = channelnames
 
@@ -202,13 +212,14 @@ class SlackRTM(object):
             print('slackrtm: something went wrong while formating text, leading or trailing space missing: "%s"' % text)
         return text
 
+    @asyncio.coroutine
     def handle_reply(self, reply):
         if not 'type' in reply:
             print("slackrtm: No 'type' in reply:")
             print("slackrtm: "+str(reply))
             return
     
-        if reply['type'] in ['pong', 'presence_change',  'user_typing', 'file_shared', 'file_public', 'file_comment_added', 'file_comment_deleted' ]:
+        if reply['type'] in ['pong', 'presence_change',  'user_typing', 'file_shared', 'file_public', 'file_comment_added', 'file_comment_deleted']:
             # we ignore pong's as they are only answers for our pings
             return
     
@@ -309,12 +320,13 @@ class SlackRTM(object):
                         filename = os.path.basename(file_attachment)
                         image_response = urllib.request.urlopen(file_attachment)
                         print('Uploading as %s' % filename)
-                        image_id = self.bot._client.upload_image(image_response, filename=filename)
+                        image_id = yield from self.bot._client.upload_image(image_response, filename=filename)
                         print('Sending HO message, image_id: %s' % image_id)
                         self.bot.send_message_segments(hoid, None, image_id=image_id)
                         return
                     except Exception as e:
                         print('slackrtm: Exception while uploading image: %s(%s)' % (e, str(e)))
+                        traceback.print_exc()
 #                for userchatid in self.bot.memory.get_option("user_data"):
 #                    userslackrtmtest = self.bot.memory.get_suboption("user_data", userchatid, "slackrtmtest")
 #                    if userslackrtmtest:
@@ -348,7 +360,7 @@ class SlackRTM(object):
 #                print('slackrtm: NO image in message: "%s"' % event.text)
             message = chatMessageEvent2SlackText(event.conv_event)
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
-            print("slackrtm: Sending to channel %s: %s" % (channel_id, message))
+            print(("slackrtm: Sending to channel %s: %s" % (channel_id, message)).encode('utf-8'))
 #            self.bot.user_memory_set(event.user.id_.chat_id, 'slackrtmtest', event.text)
             self.slack.api_call('chat.postMessage',
                                 channel=channel_id,
@@ -422,91 +434,97 @@ def _start_slackrtm_sinks(bot):
     threads = []
     for sinkConfig in slack_sink:
         # start up slack listener in a separate thread
-        t = threading.Thread(
-            target=start_listening, 
-            args=(bot, loop, sinkConfig)
-            )
+        t = SlackRTMThread(bot, loop, sinkConfig)
         t.daemon = True
         t.start()
         threads.append(t)
     logging.info(_("_start_slackrtm_sinks(): %d sink thread(s) started" % len(threads)))
 
+slackrtms = []
+class SlackRTMThread(threading.Thread):
+    def __init__(self, bot, loop, config):
+        super(SlackRTMThread, self).__init__()
+        self._stop = threading.Event()
+        self._bot = bot
+        self._loop = loop
+        self._config = config
 
-def start_listening(bot, loop, config):
-    print('slackrtm: start_listening()')
-    asyncio.set_event_loop(loop)
+    def run(self):
+        print('slackrtm: SlackRTMThread starts listening')
+        asyncio.set_event_loop(self._loop)
+        global slackrtms
 
-    try:
-        listener = SlackRTM(config, bot, threaded=True)
-        last_ping = 0
-        while True:
-            replies = listener.rtm_read()
-            for t in threading.enumerate():
-                if t.name == listener.threadname and t != threading.current_thread():
-                    print("slackrtm: I'm to old for this shit! Let's make space for the new guy: %s" % pprint.pformat(t))
-                    return
-            if len(replies):
-                if 'type' in replies[0]:
-                    if replies[0]['type'] == 'hello':
-                        #print('slackrtm: ignoring first replies including type=hello message to avoid message duplication: %s...' % str(replies)[:30])
-                        continue
-            for reply in replies:
-                try:
-                    listener.handle_reply(reply)
-                except Exception as e:
-                    print('slackrtm: unhandled exception during handle_reply(): %s\n%s' % (str(e), pprint.pformat(reply)))
-            now = int(time.time())
-            if now > last_ping + 3:
-                listener.ping()
-                last_ping = now
-            time.sleep(.1)
-    except KeyboardInterrupt:
-        # close, nothing to do
-        return
-    except WebSocketConnectionClosedException as e:
-        print('slackrtm: start_listening(): got WebSocketConnectionClosedException("%s")' % str(e))
-        return start_listening(bot, loop, config)
-    except Exception as e:
-        print('slackrtm: start_listening(): unhandled exception: %s' % str(e))
-    return
-
-
-#@asyncio.coroutine
-def _handle_slackout(bot, event, command):
-    slack_sink = bot.get_config_option('slackrtm')
-    if not isinstance(slack_sink, list):
-        return
-    for sinkConfig in slack_sink:
         try:
-            slackout = SlackRTM(sinkConfig, bot)
-            slackout.handle_ho_message(event)
-            time.sleep(.1)
+            listener = SlackRTM(self._config, self._bot, threaded=True)
+            slackrtms.append(listener)
+            last_ping = int(time.time())
+            while True:
+                if self.stopped():
+                    return
+                replies = listener.rtm_read()
+                if replies:
+                    if 'type' in replies[0]:
+                        if replies[0]['type'] == 'hello':
+                            #print('slackrtm: ignoring first replies including type=hello message to avoid message duplication: %s...' % str(replies)[:30])
+                            continue
+                    for reply in replies:
+                        try:
+                            self._loop.call_soon_threadsafe(asyncio.async, listener.handle_reply(reply))
+                        except Exception as e:
+                            print('slackrtm: unhandled exception during handle_reply(): %s\n%s' % (str(e), pprint.pformat(reply)))
+                            traceback.print_exc()
+                now = int(time.time())
+                if now > last_ping + 30:
+                    listener.ping()
+                    last_ping = now
+                time.sleep(1)
+        except KeyboardInterrupt:
+            # close, nothing to do
+            return
+        except WebSocketConnectionClosedException as e:
+            print('slackrtm: SlackRTMThread: got WebSocketConnectionClosedException("%s")' % str(e))
+            return self.run()
+        except Exception as e:
+            print('slackrtm: SlackRTMThread: unhandled exception: %s' % str(e))
+            traceback.print_exc()
+        return
+
+    def stop(self):
+        self._stop.set()
+
+    def stopped(self):
+        return self._stop.isSet()
+
+@asyncio.coroutine
+def _handle_slackout(bot, event, command):
+    if not slackrtms:
+        return
+    for slackrtm in slackrtms:
+        try:
+            slackrtm.handle_ho_message(event)
         except Exception as e:
             print('slackrtm: _handle_slackout threw: %s' % str(e))
+            traceback.print_exc()
 
-#@asyncio.coroutine
+@asyncio.coroutine
 def _handle_membership_change(bot, event, command):
-    slack_sink = bot.get_config_option('slackrtm')
-    if not isinstance(slack_sink, list):
+    if not slackrtms:
         return
-    for sinkConfig in slack_sink:
+    for slackrtm in slackrtms:
         try:
-            slackout = SlackRTM(sinkConfig, bot)
-            slackout.handle_ho_membership(event)
-            time.sleep(.1)
+            slackrtm.handle_ho_membership(event)
         except Exception as e:
             print('slackrtm: _handle_membership_change threw: %s' % str(e))
+            traceback.print_exc()
 
 
-#@asyncio.coroutine
+@asyncio.coroutine
 def _handle_rename(bot, event, command):
-    slack_sink = bot.get_config_option('slackrtm')
-    if not isinstance(slack_sink, list):
+    if not slackrtms:
         return
-    for sinkConfig in slack_sink:
+    for slackrtm in slackrtms:
         try:
-            slackout = SlackRTM(sinkConfig, bot)
-            slackout.handle_ho_rename(event)
-            time.sleep(.1)
+            slackrtm.handle_ho_rename(event)
         except Exception as e:
             print('slackrtm: _handle_rename threw: %s' % str(e))
+            traceback.print_exc()
