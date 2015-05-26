@@ -267,6 +267,10 @@ class SlackRTM(object):
                     print('slackrtm: strange message without text and attachments:\n%s' % pprint.pformat(reply))
             else:
                 text = reply['text']
+        file_attachment = None
+        if 'file' in reply:
+            if 'url' in reply['file']:
+                file_attachment = reply['file']['url']
 
         # now we check if the message has the hidden ho relay tag, extract and remove it
         hoidfmt = re.compile(r'^(.*) <ho://([^/]+)/([^|]+)\| >$', re.MULTILINE|re.DOTALL)
@@ -275,6 +279,16 @@ class SlackRTM(object):
             text = match.group(1)
             from_ho_id = match.group(2)
             sender_id = match.group(3)
+            print('slackrtm: text="%s"' % text)
+            if 'googleusercontent.com' in text:
+                gucfmt = re.compile(r'^(.*)<(https?://[^\s/]*googleusercontent.com/[^\s]*)>$', re.MULTILINE|re.DOTALL)
+                match = gucfmt.match(text)
+                if match:
+                    text = match.group(1)
+                    file_attachment = match.group(2)
+                    print('slackrtm: match: text="%s" file_attachment="%s"' % (text, file_attachment))
+                else:
+                    print('slackrtm: no guc match')
 
         if not is_bot:
             username = u'%s (Slack)' % self.get_username(user, user)
@@ -292,13 +306,6 @@ class SlackRTM(object):
         if not channel:
             print('slackrtm: no channel or group in reply: %s' % pprint.pformat(reply))
             return
-        file_attachment = None
-        if 'file' in reply:
-            if 'url' in reply['file']:
-                file_attachment = reply['file']['url']
-                response = u'%s\n%s' % (response, file_attachment)
-            else:
-                print('slackrtm: no "url" in reply, not adding public url:\n%s' % pprint.pformat(reply))
 
         if text.startswith('<@%s> whereami' % self.my_uid) or \
                 text.startswith('<@%s>: whereami' % self.my_uid):
@@ -323,7 +330,6 @@ class SlackRTM(object):
                         image_id = yield from self.bot._client.upload_image(image_response, filename=filename)
                         print('Sending HO message, image_id: %s' % image_id)
                         self.bot.send_message_segments(hoid, None, image_id=image_id)
-                        return
                     except Exception as e:
                         print('slackrtm: Exception while uploading image: %s(%s)' % (e, str(e)))
                         traceback.print_exc()
@@ -360,7 +366,7 @@ class SlackRTM(object):
 #                print('slackrtm: NO image in message: "%s"' % event.text)
             message = chatMessageEvent2SlackText(event.conv_event)
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
-            print(("slackrtm: Sending to channel %s: %s" % (channel_id, message)).encode('utf-8'))
+            print("slackrtm: Sending to channel %s: %s" % (channel_id, message.encode('utf-8')))
 #            self.bot.user_memory_set(event.user.id_.chat_id, 'slackrtmtest', event.text)
             self.slack.api_call('chat.postMessage',
                                 channel=channel_id,
