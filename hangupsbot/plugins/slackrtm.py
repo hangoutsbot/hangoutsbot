@@ -489,6 +489,7 @@ class SlackRTMThread(threading.Thread):
         self._bot = bot
         self._loop = loop
         self._config = config
+        self._listener = None
 
     def run(self):
         print('slackrtm: SlackRTMThread starts listening')
@@ -496,13 +497,13 @@ class SlackRTMThread(threading.Thread):
         global slackrtms
 
         try:
-            listener = SlackRTM(self._config, self._bot, self._loop, threaded=True)
-            slackrtms.append(listener)
+            self._listener = SlackRTM(self._config, self._bot, self._loop, threaded=True)
+            slackrtms.append(self._listener)
             last_ping = int(time.time())
             while True:
                 if self.stopped():
                     return
-                replies = listener.rtm_read()
+                replies = self._listener.rtm_read()
                 if replies:
                     if 'type' in replies[0]:
                         if replies[0]['type'] == 'hello':
@@ -510,13 +511,13 @@ class SlackRTMThread(threading.Thread):
                             continue
                     for reply in replies:
                         try:
-                            listener.handle_reply(reply)
+                            self._listener.handle_reply(reply)
                         except Exception as e:
                             print('slackrtm: unhandled exception during handle_reply(): %s\n%s' % (str(e), pprint.pformat(reply)))
                             traceback.print_exc()
                 now = int(time.time())
                 if now > last_ping + 30:
-                    listener.ping()
+                    self._listener.ping()
                     last_ping = now
                 time.sleep(1)
         except KeyboardInterrupt:
@@ -531,6 +532,8 @@ class SlackRTMThread(threading.Thread):
         return
 
     def stop(self):
+        global slackrtms
+        slackrtms.remove(self._listener)
         self._stop.set()
 
     def stopped(self):
