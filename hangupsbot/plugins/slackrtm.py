@@ -181,8 +181,9 @@ class SlackMessage(object):
 
 
 class SlackRTM(object):
-    def __init__(self, sink_config, bot, threaded=False):
+    def __init__(self, sink_config, bot, loop, threaded=False):
         self.bot = bot
+        self.loop = loop
         self.config = sink_config
         self.apikey = self.config['key']
         self.threadname = None
@@ -335,6 +336,16 @@ class SlackRTM(object):
             print('slackrtm: Exception in upload_image: %s(%s)' % (type(e), str(e)))
             traceback.print_exc()
 
+    def handleCommands(msg):
+        if msg.text.startswith('<@%s> whereami' % self.my_uid) or \
+                msg.text.startswith('<@%s>: whereami' % self.my_uid):
+            message = u'@%s: you are in channel %s' % (msg.username, msg.channel)
+            self.slack.api_call('chat.postMessage',
+                                channel=msg.channel,
+                                text=msg.message,
+                                as_user=True,
+                                link_names=True)
+
     def handle_reply(self, reply):
         try:
             msg = SlackMessage(self, reply)
@@ -345,15 +356,10 @@ class SlackRTM(object):
             print('slackrtm: unexpected Exception while parsing slack reply: %s(%s)' % (type(e), str(e)))
             return
 
-
-        if msg.text.startswith('<@%s> whereami' % self.my_uid) or \
-                msg.text.startswith('<@%s>: whereami' % self.my_uid):
-            message = u'@%s: you are in channel %s' % (msg.username, msg.channel)
-            self.slack.api_call('chat.postMessage',
-                                channel=msg.channel,
-                                text=msg.message,
-                                as_user=True,
-                                link_names=True)
+        try:
+            self.handleCommands(msg)
+        except Exception as e:
+            print('slackrtm: exception while handleCommands(): %s(%s)' % (type(e), str(e))
 
         for hoid, honame in self.hosinks.get(msg.channel, []):
             if msg.from_ho_id == hoid:
@@ -361,8 +367,7 @@ class SlackRTM(object):
             else:
                 print('slackrtm:     forwarding to HO %s: %s' % (hoid, response))
                 if msg.file_attachment:
-                    loop = asyncio.get_event_loop()
-                    loop.call_soon_threadsafe(asyncio.async, self.upload_image(hoid, msg.file_attachment))
+                    self.loop.call_soon_threadsafe(asyncio.async, self.upload_image(hoid, msg.file_attachment))
 #                for userchatid in self.bot.memory.get_option("user_data"):
 #                    userslackrtmtest = self.bot.memory.get_suboption("user_data", userchatid, "slackrtmtest")
 #                    if userslackrtmtest:
@@ -491,7 +496,7 @@ class SlackRTMThread(threading.Thread):
         global slackrtms
 
         try:
-            listener = SlackRTM(self._config, self._bot, threaded=True)
+            listener = SlackRTM(self._config, self._bot, self._loop, threaded=True)
             slackrtms.append(listener)
             last_ping = int(time.time())
             while True:
