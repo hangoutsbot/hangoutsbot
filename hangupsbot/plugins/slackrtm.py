@@ -71,6 +71,115 @@ def chatMessageEvent2SlackText(event):
     return '\n'.join(lines)
 
 
+class ParseError(Exception):
+    pass
+
+class SlackMessage(object):
+    def __init__(self, slackrtm, reply):
+        self.text = None
+        self.username = None
+        self.edited = None
+        self.from_ho_id = None
+        self.sender_id = None
+        self.channel = None
+        self.file_attachment = None
+
+        if not 'type' in reply:
+            print("slackrtm: No 'type' in reply:")
+            print("slackrtm: "+str(reply))
+            raise ParseError('No "type" in reply:\n%s' % str(reply))
+    
+        if reply['type'] in ['pong', 'presence_change',  'user_typing', 'file_shared', 'file_public', 'file_comment_added', 'file_comment_deleted']:
+            # we ignore pong's as they are only answers for our pings
+            raise ParseError('Not a "message" type reply: type=%s' % reply['type'])
+
+        text = u''
+        username = ''
+        edited = ''
+        from_ho_id = ''
+        sender_id = ''
+        channel = None
+        # only used during parsing
+        user = ''
+        is_bot = False
+        if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'message_changed':
+            if 'edited' in reply['message']:
+                edited = '(msgupd)'
+                user = reply['message']['edited']['user']
+                text = reply['message']['text']
+            else:
+                # sent images from HO got an additional message_changed subtype without an 'edited' when slack renders the preview
+                if 'username' in reply['message']:
+                    # we ignore them as we already got the (unedited) message
+                    raise ParseError('ignore "edited" message from bot, possibly slack-added preview')
+                else:
+                    print('slackrtm: unable to handle this kind of strange message type:\n%s' % pprint.pformat(reply))
+                    raise ParseError('strange edited message without "edited" member:\n%s' % str(reply))
+        elif reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'file_comment':
+            user = reply['comment']['user']
+            text = reply['text']
+        elif reply['type'] == 'file_comment_added':
+            user = reply['comment']['user']
+            text = reply['comment']['comment']
+        else:
+            if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'bot_message' and not 'user' in reply:
+                is_bot = True
+                # this might be a HO relayed message, check if username is set and use it as username
+                username = reply['username']
+            elif not 'text' in reply or not 'user' in reply:
+                print("slackrtm: no text/user in reply:\n%s" % str(reply))
+                raise ParseError('no text/user in reply:\n%s' % str(reply))
+            else:
+                user = reply['user']
+            if not 'text' in reply:
+                # IFTTT?
+                if 'attachments' in reply and 'text' in reply['attachments'][0]:
+                    text = reply['attachments'][0]['text']
+                else:
+                    print('slackrtm: strange message without text and attachments:\n%s' % pprint.pformat(reply))
+            else:
+                text = reply['text']
+        file_attachment = None
+        if 'file' in reply:
+            if 'url' in reply['file']:
+                file_attachment = reply['file']['url']
+
+        # now we check if the message has the hidden ho relay tag, extract and remove it
+        hoidfmt = re.compile(r'^(.*) <ho://([^/]+)/([^|]+)\| >$', re.MULTILINE|re.DOTALL)
+        match = hoidfmt.match(text)
+        if match:
+            text = match.group(1)
+            from_ho_id = match.group(2)
+            sender_id = match.group(3)
+            if 'googleusercontent.com' in text:
+                gucfmt = re.compile(r'^(.*)<(https?://[^\s/]*googleusercontent.com/[^\s]*)>$', re.MULTILINE|re.DOTALL)
+                match = gucfmt.match(text)
+                if match:
+                    text = match.group(1)
+                    file_attachment = match.group(2)
+
+        if not is_bot:
+            username = u'%s (Slack)' % slackrtm.get_username(user, user)
+        elif sender_id != '':
+            username = u'<a href="https://plus.google.com/%s">%s</a>' % (sender_id, username)
+
+        if 'channel' in reply:
+            channel = reply['channel']
+        elif 'group' in reply:
+            channel = reply['group']
+        if not channel:
+            print('slackrtm: no channel or group in reply: %s' % pprint.pformat(reply))
+            raise ParseError('no channel found in reply:\n%s' % str(reply))
+
+        self.text = text
+        self.username = username
+        self.edited = edited
+        self.from_ho_id = from_ho_id
+        self.sender_id = sender_id
+        self.channel = channel
+        self.file_attachment = file_attachment
+
+
 class SlackRTM(object):
     def __init__(self, sink_config, bot, threaded=False):
         self.bot = bot
@@ -213,126 +322,47 @@ class SlackRTM(object):
         return text
 
     @asyncio.coroutine
+    def upload_image(self, hoid, image):
+        try:
+            print('Downloading %s' % image)
+            filename = os.path.basename(image)
+            image_response = urllib.request.urlopen(image)
+            print('Uploading as %s' % filename)
+            image_id = yield from self.bot._client.upload_image(image_response, filename=filename)
+            print('Sending HO message, image_id: %s' % image_id)
+            self.bot.send_message_segments(hoid, None, image_id=image_id)
+        except Exception as e:
+            print('slackrtm: Exception in upload_image: %s(%s)' % (type(e), str(e)))
+            traceback.print_exc()
+
     def handle_reply(self, reply):
-        if not 'type' in reply:
-            print("slackrtm: No 'type' in reply:")
-            print("slackrtm: "+str(reply))
+        try:
+            msg = SlackMessage(self, reply)
+            response = u'<b>%s%s:</b> %s' % (msg.username, msg.edited, self.textToHtml(msg.text))
+        except ParseError as e:
             return
-    
-        if reply['type'] in ['pong', 'presence_change',  'user_typing', 'file_shared', 'file_public', 'file_comment_added', 'file_comment_deleted']:
-            # we ignore pong's as they are only answers for our pings
-            return
-    
-        user = ''
-        text = u''
-        username = ''
-        edited = ''
-        is_bot = False
-        from_ho_id = ''
-        sender_id = ''
-        if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'message_changed':
-            if 'edited' in reply['message']:
-                edited = '(msgupd)'
-                user = reply['message']['edited']['user']
-                text = reply['message']['text']
-            else:
-                # sent images from HO got an additional message_changed subtype without an 'edited' when slack renders the preview
-                if 'username' in reply['message']:
-                    # we ignore them as we already got the (unedited) message
-                    return
-                else:
-                    print('slackrtm: unable to handle this kind of strange message type:\n%s' % pprint.pformat(reply))
-                    return
-        elif reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'file_comment':
-            user = reply['comment']['user']
-            text = reply['text']
-        elif reply['type'] == 'file_comment_added':
-            user = reply['comment']['user']
-            text = reply['comment']['comment']
-        else:
-            if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'bot_message' and not 'user' in reply:
-                is_bot = True
-                # this might be a HO relayed message, check if username is set and use it as username
-                username = reply['username']
-            elif not 'text' in reply or not 'user' in reply:
-                print("slackrtm: no text/user in reply: "+str(reply))
-                return
-            else:
-                user = reply['user']
-            if not 'text' in reply:
-                # IFTTT?
-                if 'attachments' in reply and 'text' in reply['attachments'][0]:
-                    text = reply['attachments'][0]['text']
-                else:
-                    print('slackrtm: strange message without text and attachments:\n%s' % pprint.pformat(reply))
-            else:
-                text = reply['text']
-        file_attachment = None
-        if 'file' in reply:
-            if 'url' in reply['file']:
-                file_attachment = reply['file']['url']
-
-        # now we check if the message has the hidden ho relay tag, extract and remove it
-        hoidfmt = re.compile(r'^(.*) <ho://([^/]+)/([^|]+)\| >$', re.MULTILINE|re.DOTALL)
-        match = hoidfmt.match(text)
-        if match:
-            text = match.group(1)
-            from_ho_id = match.group(2)
-            sender_id = match.group(3)
-            print('slackrtm: text="%s"' % text)
-            if 'googleusercontent.com' in text:
-                gucfmt = re.compile(r'^(.*)<(https?://[^\s/]*googleusercontent.com/[^\s]*)>$', re.MULTILINE|re.DOTALL)
-                match = gucfmt.match(text)
-                if match:
-                    text = match.group(1)
-                    file_attachment = match.group(2)
-                    print('slackrtm: match: text="%s" file_attachment="%s"' % (text, file_attachment))
-                else:
-                    print('slackrtm: no guc match')
-
-        if not is_bot:
-            username = u'%s (Slack)' % self.get_username(user, user)
-        elif sender_id != '':
-            username = u'<a href="https://plus.google.com/%s">%s</a>' % (sender_id, username)
-
-        response = u'<b>%s%s:</b> %s' % (username, edited, self.textToHtml(text))
-        channel = None
-        is_private = False
-        if 'channel' in reply:
-            channel = reply['channel']
-        elif 'group' in reply:
-            channel = reply['group']
-            is_private = True
-        if not channel:
-            print('slackrtm: no channel or group in reply: %s' % pprint.pformat(reply))
+        except Exception as e:
+            print('slackrtm: unexpected Exception while parsing slack reply: %s(%s)' % (type(e), str(e)))
             return
 
-        if text.startswith('<@%s> whereami' % self.my_uid) or \
-                text.startswith('<@%s>: whereami' % self.my_uid):
-            message = u'@%s: you are in channel %s' % (username, channel)
+
+        if msg.text.startswith('<@%s> whereami' % self.my_uid) or \
+                msg.text.startswith('<@%s>: whereami' % self.my_uid):
+            message = u'@%s: you are in channel %s' % (msg.username, msg.channel)
             self.slack.api_call('chat.postMessage',
-                                channel=channel,
-                                text=message,
+                                channel=msg.channel,
+                                text=msg.message,
                                 as_user=True,
                                 link_names=True)
 
-        for hoid, honame in self.hosinks.get(channel, []):
-            if from_ho_id == hoid:
+        for hoid, honame in self.hosinks.get(msg.channel, []):
+            if msg.from_ho_id == hoid:
                 print('slackrtm: NOT forwarding to HO %s: %s' % (hoid, response))
             else:
                 print('slackrtm:     forwarding to HO %s: %s' % (hoid, response))
-                if file_attachment:
-                    try:
-                        print('Downloading %s' % file_attachment)
-                        filename = os.path.basename(file_attachment)
-                        image_response = urllib.request.urlopen(file_attachment)
-                        print('Uploading as %s' % filename)
-                        image_id = yield from self.bot._client.upload_image(image_response, filename=filename)
-                        print('Sending HO message, image_id: %s' % image_id)
-                        self.bot.send_message_segments(hoid, None, image_id=image_id)
-                    except Exception as e:
-                        print('slackrtm: Exception while uploading image: %s(%s)' % (e, str(e)))
-                        traceback.print_exc()
+                if msg.file_attachment:
+                    loop = asyncio.get_event_loop()
+                    loop.call_soon_threadsafe(asyncio.async, self.upload_image(hoid, msg.file_attachment))
 #                for userchatid in self.bot.memory.get_option("user_data"):
 #                    userslackrtmtest = self.bot.memory.get_suboption("user_data", userchatid, "slackrtmtest")
 #                    if userslackrtmtest:
@@ -475,7 +505,7 @@ class SlackRTMThread(threading.Thread):
                             continue
                     for reply in replies:
                         try:
-                            self._loop.call_soon_threadsafe(asyncio.async, listener.handle_reply(reply))
+                            listener.handle_reply(reply)
                         except Exception as e:
                             print('slackrtm: unhandled exception during handle_reply(): %s\n%s' % (str(e), pprint.pformat(reply)))
                             traceback.print_exc()
