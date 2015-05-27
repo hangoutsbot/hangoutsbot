@@ -336,7 +336,7 @@ class SlackRTM(object):
             print('slackrtm: Exception in upload_image: %s(%s)' % (type(e), str(e)))
             traceback.print_exc()
 
-    def handleCommands(msg):
+    def handleCommands(self, msg):
         if msg.text.startswith('<@%s> whereami' % self.my_uid) or \
                 msg.text.startswith('<@%s>: whereami' % self.my_uid):
             message = u'@%s: you are in channel %s' % (msg.username, msg.channel)
@@ -359,7 +359,7 @@ class SlackRTM(object):
         try:
             self.handleCommands(msg)
         except Exception as e:
-            print('slackrtm: exception while handleCommands(): %s(%s)' % (type(e), str(e))
+            print('slackrtm: exception while handleCommands(): %s(%s)' % (type(e), str(e)))
 
         for hoid, honame in self.hosinks.get(msg.channel, []):
             if msg.from_ho_id == hoid:
