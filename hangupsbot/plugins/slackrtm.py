@@ -89,7 +89,7 @@ class SlackMessage(object):
             print("slackrtm: "+str(reply))
             raise ParseError('No "type" in reply:\n%s' % str(reply))
     
-        if reply['type'] in ['pong', 'presence_change',  'user_typing', 'file_shared', 'file_public', 'file_comment_added', 'file_comment_deleted']:
+        if reply['type'] in ['pong', 'presence_change',  'user_typing', 'file_shared', 'file_public', 'file_comment_added', 'file_comment_deleted', 'message_deleted']:
             # we ignore pong's as they are only answers for our pings
             raise ParseError('Not a "message" type reply: type=%s' % reply['type'])
 
