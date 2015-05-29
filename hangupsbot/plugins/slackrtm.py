@@ -359,8 +359,6 @@ class SlackRTM(object):
                                 text=message,
                                 as_user=True,
                                 link_names=True)
-        else:
-            print('slackrtm: "%s" != "<@%s>:? whoami"' % (msg.text, self.my_uid))
 
     def handle_reply(self, reply):
         try:
