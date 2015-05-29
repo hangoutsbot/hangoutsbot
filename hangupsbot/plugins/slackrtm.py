@@ -200,7 +200,7 @@ class SlackRTM(object):
             print('slackrtm: Started RTM connection for SlackRTM thread %s' % pprint.pformat(threading.current_thread()))
             for t in threading.enumerate():
                 if t.name == self.threadname and t != threading.current_thread():
-                    print("slackrtm: Old thread found - killing")
+                    print('slackrtm: Old thread found: %s - killing it' % pprint.pformat(t))
                     t.stop()
 
 
