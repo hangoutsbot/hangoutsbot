@@ -77,7 +77,9 @@ class ParseError(Exception):
 class SlackMessage(object):
     def __init__(self, slackrtm, reply):
         self.text = None
+        self.user = None
         self.username = None
+        self.username4ho = None
         self.edited = None
         self.from_ho_id = None
         self.sender_id = None
@@ -158,10 +160,12 @@ class SlackMessage(object):
                     text = match.group(1)
                     file_attachment = match.group(2)
 
+        username4ho = username
         if not is_bot:
-            username = u'%s (Slack)' % slackrtm.get_username(user, user)
+            username = slackrtm.get_username(user, user)
+            username4ho = u'%s (Slack)' % username
         elif sender_id != '':
-            username = u'<a href="https://plus.google.com/%s">%s</a>' % (sender_id, username)
+            username4ho = u'<a href="https://plus.google.com/%s">%s</a>' % (sender_id, username)
 
         if 'channel' in reply:
             channel = reply['channel']
@@ -172,7 +176,9 @@ class SlackMessage(object):
             raise ParseError('no channel found in reply:\n%s' % str(reply))
 
         self.text = text
+        self.user = user
         self.username = username
+        self.username4ho = username4ho
         self.edited = edited
         self.from_ho_id = from_ho_id
         self.sender_id = sender_id
@@ -342,14 +348,24 @@ class SlackRTM(object):
             message = u'@%s: you are in channel %s' % (msg.username, msg.channel)
             self.slack.api_call('chat.postMessage',
                                 channel=msg.channel,
-                                text=msg.message,
+                                text=message,
                                 as_user=True,
                                 link_names=True)
+        if msg.text.startswith('<@%s> whoami' % self.my_uid) or \
+                msg.text.startswith('<@%s>: whoami' % self.my_uid):
+            message = u'@%s: your userid is %s' % (msg.username, msg.user)
+            self.slack.api_call('chat.postMessage',
+                                channel=msg.channel,
+                                text=message,
+                                as_user=True,
+                                link_names=True)
+        else:
+            print('slackrtm: "%s" != "<@%s>:? whoami"' % (msg.text, self.my_uid))
 
     def handle_reply(self, reply):
         try:
             msg = SlackMessage(self, reply)
-            response = u'<b>%s%s:</b> %s' % (msg.username, msg.edited, self.textToHtml(msg.text))
+            response = u'<b>%s%s:</b> %s' % (msg.username4ho, msg.edited, self.textToHtml(msg.text))
         except ParseError as e:
             return
         except Exception as e:
