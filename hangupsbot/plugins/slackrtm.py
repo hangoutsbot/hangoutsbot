@@ -359,6 +359,16 @@ class SlackRTM(object):
                                 text=message,
                                 as_user=True,
                                 link_names=True)
+        if msg.text.startswith('<@%s> hangouts' % self.my_uid) or \
+                msg.text.startswith('<@%s>: hangouts' % self.my_uid):        
+            message = '@%s: list of active hangouts:\n' % msg.username
+            for c in self.bot.list_conversations():
+                message += '*%s:* _%s_\n' % (hangups.ui.utils.get_conv_name(c, truncate=True), c.id_)
+            self.slack.api_call('chat.postMessage',
+                                channel=msg.channel,
+                                text=message,
+                                as_user=True,
+                                link_names=True)
 
     def handle_reply(self, reply):
         try:
