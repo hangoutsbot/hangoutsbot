@@ -23,6 +23,10 @@ config.json will have to be configured as follows:
 "slackrtm": [{
   "name": "SlackNameForLoggingEtc",
   "key": "SLACK_API_KEY",
+  "admins": [
+    "U01",
+    "U02"
+  ],
   "synced_conversations": [
   ["SLACK_CHANNEL_ID1", "CONV_ID1", "optHONameForSenderDisplay"],
   ["SLACK_CHANNEL_ID1", "CONV_ID1", "optHONameForSenderDisplay"]
@@ -208,11 +212,20 @@ class SlackRTM(object):
                 if t.name == self.threadname and t != threading.current_thread():
                     print('slackrtm: Old thread found: %s - killing it' % pprint.pformat(t))
                     t.stop()
-
-
+            
         self.update_usernames(self.slack.server.login_data['users'])
         self.update_channelnames(self.slack.server.login_data['channels'])
         self.my_uid = self.slack.server.login_data['self']['id']
+
+        self.admins = []
+        if 'admins' in self.config:
+            for a in self.config['admins']:
+                if not a in self.usernames:
+                    print('slackrtm: WARNING: userid %s not found in user list, ignoring' % a)
+                else:
+                    self.admins.append(a)
+        if not len(self.admins):
+            print('slackrtm: WARNING: no admins specified in config file, some commands will not work for any slack user')
 
         self.hangoutids = {}
         self.hangoutnames = {}
@@ -351,6 +364,7 @@ class SlackRTM(object):
                                 text=message,
                                 as_user=True,
                                 link_names=True)
+
         if msg.text.startswith('<@%s> whoami' % self.my_uid) or \
                 msg.text.startswith('<@%s>: whoami' % self.my_uid):
             message = u'@%s: your userid is %s' % (msg.username, msg.user)
@@ -359,11 +373,27 @@ class SlackRTM(object):
                                 text=message,
                                 as_user=True,
                                 link_names=True)
+
+        if msg.text.startswith('<@%s> admins' % self.my_uid) or \
+                msg.text.startswith('<@%s>: admins' % self.my_uid):        
+            message = '@%s: my admins are:\n' % msg.username
+            for a in self.admins:
+                message += '@%s: _%s_\n' % (self.get_username(a), a)
+            self.slack.api_call('chat.postMessage',
+                                channel=msg.channel,
+                                text=message,
+                                as_user=True,
+                                link_names=True)
+
+        # the remaining commands are for admins only
         if msg.text.startswith('<@%s> hangouts' % self.my_uid) or \
                 msg.text.startswith('<@%s>: hangouts' % self.my_uid):        
-            message = '@%s: list of active hangouts:\n' % msg.username
-            for c in self.bot.list_conversations():
-                message += '*%s:* _%s_\n' % (hangups.ui.utils.get_conv_name(c, truncate=True), c.id_)
+            if not msg.user in self.admins:
+                message = '@%s: sorry, command `hangouts` is only allowed for my admins' % msg.username
+            else:
+                message = '@%s: list of active hangouts:\n' % msg.username
+                for c in self.bot.list_conversations():
+                    message += '*%s:* _%s_\n' % (hangups.ui.utils.get_conv_name(c, truncate=True), c.id_)
             self.slack.api_call('chat.postMessage',
                                 channel=msg.channel,
                                 text=message,
