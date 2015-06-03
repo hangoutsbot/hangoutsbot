@@ -89,7 +89,7 @@
     {
     "certfile": null,
     "name": "SERVER_NAME",
-    "port": "LISTENING_PORT",
+    "port": 8085,
     "key": "SLACK_API_KEY",
     "channel": "#SLACK_CHANNEL_NAME",
     "synced_conversations": ["CONV_ID1", "CONV_ID2"]
