@@ -417,9 +417,9 @@ class SlackRTM(object):
 
         for hoid, honame in self.hosinks.get(msg.channel, []):
             if msg.from_ho_id == hoid:
-                print('slackrtm: NOT forwarding to HO %s: %s' % (hoid, response))
+                print('slackrtm: NOT forwarding to HO %s: %s' % (hoid, response.encode('utf-8')))
             else:
-                print('slackrtm:     forwarding to HO %s: %s' % (hoid, response))
+                print('slackrtm:     forwarding to HO %s: %s' % (hoid, response.encode('utf-8')))
                 if msg.file_attachment:
                     self.loop.call_soon_threadsafe(asyncio.async, self.upload_image(hoid, msg.file_attachment))
 #                for userchatid in self.bot.memory.get_option("user_data"):
