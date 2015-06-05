@@ -6,17 +6,33 @@ import traceback
 
 import threading
 import hangups.ui.utils
-from slackclient import SlackClient
-from websocket import WebSocketConnectionClosedException
+try:
+    # for a python3 compatible slackclient, please use https://github.com/mlaferrera/python-slackclient.git
+    from slackclient import SlackClient
+except Exception as e:
+    print('Please install https://github.com/mlaferrera/python-slackclient.git for a Python3 compatible slackclient')
+    raise e
+try:
+    from websocket import WebSocketConnectionClosedException
+except Exception as e:
+    print('Please install websocket: pip3 install websocket')
+    raise e
 
 import asyncio
 import logging
 import hangups
 import json
 
-import emoji
+try:
+    import emoji
+    if emoji.__version__ != '0.3.3':
+        raise Exception('Unsupported emoji module version')
+except Exception as e:
+    print('Please install emoji: pip3 install emoji==0.3.3')
+    raise e
+
 import urllib
-import slacker
+#import slacker
 
 """ SlackRTM plugin for listening to hangouts and slack and syncing messages between the two.
 config.json will have to be configured as follows:
