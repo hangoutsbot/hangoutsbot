@@ -372,64 +372,68 @@ class SlackRTM(object):
             traceback.print_exc()
 
     def handleCommands(self, msg):
-        if msg.text.startswith('<@%s> help' % self.my_uid) or \
-                msg.text.startswith('<@%s>: help' % self.my_uid):
+        cmdfmt = re.compile(r'^<@'+self.my_uid+'>:?\s+(help|whereami|whoami|whois|admins|hangouts|syncto)', re.IGNORECASE)
+        match = cmdfmt.match(msg.text)
+        if not match:
+            return
+        command = match.group(1).lower()
+        args = msg.text.split()[2:]
+
+        if command == 'help':
             message = u'@%s: I understand the following commands:\n' % msg.username
             message += u'<@%s> whereami _tells you the current channel/group id_\n' % self.my_uid
             message += u'<@%s> whoami _tells you your own user id_\n' % self.my_uid
             message += u'<@%s> whois @username _tells you the user id of @username_\n' % self.my_uid
             message += u'<@%s> admins _lists the slack users with admin priveledges_\n' % self.my_uid
             message += u'<@%s> hangouts _lists all connected hangouts (only available for admins, use in DM with me suggested)_\n' % self.my_uid
+            message += u'<@%s> syncto HangoutId [shortname] _starts syncing messages from current channel/group to specified Hangout, if shortname given, messages from the Hangout will be tagged with shortname instead of Hangout title (only available for admins)_\n' % self.my_uid
             self.slack.api_call('chat.postMessage',
                                 channel=msg.channel,
                                 text=message,
                                 as_user=True,
                                 link_names=True)
 
-        if msg.text.startswith('<@%s> whereami' % self.my_uid) or \
-                msg.text.startswith('<@%s>: whereami' % self.my_uid):
-            message = u'@%s: you are in channel %s' % (msg.username, msg.channel)
+        if command == 'whereami':
             self.slack.api_call('chat.postMessage',
                                 channel=msg.channel,
-                                text=message,
+                                text=u'@%s: you are in channel %s' % (msg.username, msg.channel),
                                 as_user=True,
                                 link_names=True)
 
-        if msg.text.startswith('<@%s> whoami' % self.my_uid) or \
-                msg.text.startswith('<@%s>: whoami' % self.my_uid):
-            message = u'@%s: your userid is %s' % (msg.username, msg.user)
+        if command == 'whoami':
+            
             self.slack.api_call('chat.postMessage',
                                 channel=msg.channel,
-                                text=message,
+                                text=u'@%s: your userid is %s' % (msg.username, msg.user),
                                 as_user=True,
                                 link_names=True)
 
-        if msg.text.startswith('<@%s> whois' % self.my_uid) or \
-                msg.text.startswith('<@%s>: whois' % self.my_uid):
-            args = msg.text.split(' ')
-            user = args[2]
-            userfmt = re.compile(r'^<@(.*)>$')
-            match = userfmt.match(user)
-            if match:
-                user = match.group(1)
-            if not user.startswith('U'):
-                # username was given as string instead of mention, lookup in db
-                for id in self.usernames:
-                    if self.usernames[id] == user:
-                        user = id
-                        break
-            if not user.startswith('U'):
-                message = u'%s: sorry, but I could not find user _%s_ in this slack.' % (msg.username, user)
+        if command == 'whois':
+            if not len(args):
+                message = u'%s: sorry, but you have to specify a username for command `whois`' % (msg.username)
             else:
-                message = u'@%s: the user id of _%s_ is %s' % (msg.username, self.get_username(user), user)
+                user = args[0]
+                userfmt = re.compile(r'^<@(.*)>$')
+                match = userfmt.match(user)
+                if match:
+                    user = match.group(1)
+                if not user.startswith('U'):
+                    # username was given as string instead of mention, lookup in db
+                    for id in self.usernames:
+                        if self.usernames[id] == user:
+                            user = id
+                            break
+                if not user.startswith('U'):
+                    message = u'%s: sorry, but I could not find user _%s_ in this slack.' % (msg.username, user)
+                else:
+                    message = u'@%s: the user id of _%s_ is %s' % (msg.username, self.get_username(user), user)
             self.slack.api_call('chat.postMessage',
                                 channel=msg.channel,
                                 text=message,
                                 as_user=True,
                                 link_names=True)
 
-        if msg.text.startswith('<@%s> admins' % self.my_uid) or \
-                msg.text.startswith('<@%s>: admins' % self.my_uid):        
+        if command == 'admins':
             message = '@%s: my admins are:\n' % msg.username
             for a in self.admins:
                 message += '@%s: _%s_\n' % (self.get_username(a), a)
@@ -440,14 +444,48 @@ class SlackRTM(object):
                                 link_names=True)
 
         # the remaining commands are for admins only
-        if msg.text.startswith('<@%s> hangouts' % self.my_uid) or \
-                msg.text.startswith('<@%s>: hangouts' % self.my_uid):        
-            if not msg.user in self.admins:
-                message = '@%s: sorry, command `hangouts` is only allowed for my admins' % msg.username
+        if not msg.user in self.admins:
+            self.slack.api_call('chat.postMessage',
+                                channel=msg.channel,
+                                text=u'@%s: sorry, command `%s` is only allowed for my admins' % (msg.username, command),
+                                as_user=True,
+                                link_names=True)
+            return
+
+        if command == 'hangouts':
+            message = '@%s: list of active hangouts:\n' % msg.username
+            for c in self.bot.list_conversations():
+                message += '*%s:* _%s_\n' % (hangups.ui.utils.get_conv_name(c, truncate=True), c.id_)
+            self.slack.api_call('chat.postMessage',
+                                channel=msg.channel,
+                                text=message,
+                                as_user=True,
+                                link_names=True)
+
+        if command == 'syncto':
+            message = '@%s: ' % msg.username
+            if not len(args):
+                message += u'sorry, but you have to specify a Hangout Id for command `syncto`'
             else:
-                message = '@%s: list of active hangouts:\n' % msg.username
+                hangoutid = args[0]
+                shortname = None
+                if len(args) > 1:
+                    shortname = args[1]
+                hangoutname = None
                 for c in self.bot.list_conversations():
-                    message += '*%s:* _%s_\n' % (hangups.ui.utils.get_conv_name(c, truncate=True), c.id_)
+                    if c.id_ == hangoutid:
+                        hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
+                        break
+                if not hangoutname:
+                    message += u'sorry, but I\'m not a member of a Hangout with Id %s' % hangoutid
+                else:
+                    if not shortname:
+                        shortname = hangoutname
+                    if msg.channel.startswith('D'):
+                        channelname = 'DM'
+                    else:
+                        channelname = '#%s' % self.get_channelname(msg.channel)
+                    message += u'OK, I will now sync all messages in this channel (%s) with Hangout _%s_.' % (channelname, hangoutname)
             self.slack.api_call('chat.postMessage',
                                 channel=msg.channel,
                                 text=message,
