@@ -372,6 +372,20 @@ class SlackRTM(object):
             traceback.print_exc()
 
     def handleCommands(self, msg):
+        if msg.text.startswith('<@%s> help' % self.my_uid) or \
+                msg.text.startswith('<@%s>: help' % self.my_uid):
+            message = u'@%s: I understand the following commands:\n' % msg.username
+            message += u'<@%s> whereami _tells you the current channel/group id_\n' % self.my_uid
+            message += u'<@%s> whoami _tells you your own user id_\n' % self.my_uid
+            message += u'<@%s> whois @username _tells you the user id of @username_\n' % self.my_uid
+            message += u'<@%s> admins _lists the slack users with admin priveledges_\n' % self.my_uid
+            message += u'<@%s> hangouts _lists all connected hangouts (only available for admins, use in DM with me suggested)_\n' % self.my_uid
+            self.slack.api_call('chat.postMessage',
+                                channel=msg.channel,
+                                text=message,
+                                as_user=True,
+                                link_names=True)
+
         if msg.text.startswith('<@%s> whereami' % self.my_uid) or \
                 msg.text.startswith('<@%s>: whereami' % self.my_uid):
             message = u'@%s: you are in channel %s' % (msg.username, msg.channel)
@@ -384,6 +398,30 @@ class SlackRTM(object):
         if msg.text.startswith('<@%s> whoami' % self.my_uid) or \
                 msg.text.startswith('<@%s>: whoami' % self.my_uid):
             message = u'@%s: your userid is %s' % (msg.username, msg.user)
+            self.slack.api_call('chat.postMessage',
+                                channel=msg.channel,
+                                text=message,
+                                as_user=True,
+                                link_names=True)
+
+        if msg.text.startswith('<@%s> whois' % self.my_uid) or \
+                msg.text.startswith('<@%s>: whois' % self.my_uid):
+            args = msg.text.split(' ')
+            user = args[2]
+            userfmt = re.compile(r'^<@(.*)>$')
+            match = userfmt.match(user)
+            if match:
+                user = match.group(1)
+            if not user.startswith('U'):
+                # username was given as string instead of mention, lookup in db
+                for id in self.usernames:
+                    if self.usernames[id] == user:
+                        user = id
+                        break
+            if not user.startswith('U'):
+                message = u'%s: sorry, but I could not find user _%s_ in this slack.' % (msg.username, user)
+            else:
+                message = u'@%s: the user id of _%s_ is %s' % (msg.username, self.get_username(user), user)
             self.slack.api_call('chat.postMessage',
                                 channel=msg.channel,
                                 text=message,
