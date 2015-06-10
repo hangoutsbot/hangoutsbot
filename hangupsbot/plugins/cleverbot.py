@@ -28,6 +28,7 @@ class Cleverbot:
         'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
         'Accept-Language': 'en-us,en;q=0.8,en-us;q=0.5,en;q=0.3',
         'Cache-Control': 'no-cache',
+        'Cookie': 'XVIS=TEI939AFFIAGAYQZ',
         'Host': HOST,
         'Referer': PROTOCOL + HOST + '/',
         'Pragma': 'no-cache'
