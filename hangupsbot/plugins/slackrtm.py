@@ -332,6 +332,15 @@ class SlackRTM(object):
             groupnames[c['id']] = c['name']
         self.groupnames = groupnames
 
+    def get_groupname(self, group, default=None):
+        if not group in self.groupnames:
+            print('slackrtm: group not found, reloading groups...')
+            self.update_groupnames()
+            if not group in self.groupnames:
+                print('slackrtm: could not find group "%s" although reloaded' % group)
+                return default
+        return self.groupnames[group]
+
     def rtm_read(self):
         return self.slack.rtm_read()
 
@@ -846,11 +855,13 @@ def slack_channels(bot, event, *args):
         hangups.ChatMessageSegment('Slack channels in team %s:' % (slackname), is_bold=True),
         hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
         ]
+    slackrtm.update_channelnames()
     for id in slackrtm.channelnames:
         segments.append(hangups.ChatMessageSegment('%s (%s)' % (slackrtm.channelnames[id], id)))
         segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
     segments.append(hangups.ChatMessageSegment('private groups:', is_bold=True))
     segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+    slackrtm.update_groupnames()
     for id in slackrtm.groupnames:
         segments.append(hangups.ChatMessageSegment('%s (%s)' % (slackrtm.groupnames[id], id)))
         segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
@@ -878,19 +889,10 @@ def slack_syncto(bot, event, *args):
         return
 
     channelid = args[1]
-    channelname = None
-    for cid in slackrtm.channelnames:
-        if cid == channelid:
-            channelname = slackrtm.channelnames[cid]
-            break
+    channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
     if not channelname:
-        for cid in slackrtm.groupnames:
-            if cid == channelid:
-                channelname = slackrtm.groupnames[cid]
-                break
-        if not channelname:
-            bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a channel with id "%s" in team "%s", use /bot slack_channels %s to list all teams' % (channelid, slackname, slackname), is_bold=True)])
-            return
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a channel with id "%s" in team "%s", use /bot slack_channels %s to list all teams' % (channelid, slackname, slackname), is_bold=True)])
+        return
     
     try:
         slackrtm.syncto(channelid, event.conv.id_, honame)
@@ -917,19 +919,10 @@ def slack_disconnect(bot, event, *args):
         return
 
     channelid = args[1]
-    channelname = None
-    for cid in slackrtm.channelnames:
-        if cid == channelid:
-            channelname = slackrtm.channelnames[cid]
-            break
+    channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
     if not channelname:
-        for cid in slackrtm.groupnames:
-            if cid == channelid:
-                channelname = slackrtm.groupnames[cid]
-                break
-        if not channelname:
-            bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a channel with id "%s" in team "%s", use /bot slack_channels %s to list all teams' % (channelid, slackname, slackname), is_bold=True)])
-            return
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a channel with id "%s" in team "%s", use /bot slack_channels %s to list all teams' % (channelid, slackname, slackname), is_bold=True)])
+        return
     
     try:
         slackrtm.disconnect(channelid, event.conv.id_)
