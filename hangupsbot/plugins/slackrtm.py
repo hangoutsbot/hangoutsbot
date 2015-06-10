@@ -218,10 +218,11 @@ class SlackRTM(object):
         self.slack.rtm_connect()
         if threaded:
             if 'name' in self.config:
-                name = self.config['name']
+                self.name = self.config['name']
             else:
-                name = '%s@%s' % (self.slack.server.login_data['self']['name'], self.slack.server.login_data['team']['domain'])
-            self.threadname = 'SlackRTM:' + name
+                self.name = '%s@%s' % (self.slack.server.login_data['self']['name'], self.slack.server.login_data['team']['domain'])
+                print('slackrtm: WARNING: no name set in config file, using computed name %s' % self.name)
+            self.threadname = 'SlackRTM:' + self.name
             threading.current_thread().name = self.threadname
             print('slackrtm: Started RTM connection for SlackRTM thread %s' % pprint.pformat(threading.current_thread()))
             for t in threading.enumerate():
@@ -252,7 +253,17 @@ class SlackRTM(object):
 
         self.hosinks = {}
         self.slacksinks = {}
-        for conv in self.config["synced_conversations"]:
+        synced_conversations = []
+        if 'synced_conversations' in self.config and len(self.config['synced_conversations']):
+            print('slackrtm: WARNING: defining synced_conversations in config is deprecated!')
+            synced_conversations = self.config['synced_conversations']
+        dynamic_syncs = self.bot.user_memory_get(self.name, 'synced_conversations')
+        if not dynamic_syncs:
+            dynamic_syncs = []
+        for cid, hid, name in dynamic_syncs:
+            synced_conversations.append([cid, hid, name])
+
+        for conv in synced_conversations:
             honame = ''
             if len(conv) == 3:
                 honame = conv[2]
@@ -372,7 +383,7 @@ class SlackRTM(object):
             traceback.print_exc()
 
     def handleCommands(self, msg):
-        cmdfmt = re.compile(r'^<@'+self.my_uid+'>:?\s+(help|whereami|whoami|whois|admins|hangouts|syncto)', re.IGNORECASE)
+        cmdfmt = re.compile(r'^<@'+self.my_uid+'>:?\s+(help|whereami|whoami|whois|admins|hangouts|syncto|disconnect)', re.IGNORECASE)
         match = cmdfmt.match(msg.text)
         if not match:
             return
@@ -387,6 +398,7 @@ class SlackRTM(object):
             message += u'<@%s> admins _lists the slack users with admin priveledges_\n' % self.my_uid
             message += u'<@%s> hangouts _lists all connected hangouts (only available for admins, use in DM with me suggested)_\n' % self.my_uid
             message += u'<@%s> syncto HangoutId [shortname] _starts syncing messages from current channel/group to specified Hangout, if shortname given, messages from the Hangout will be tagged with shortname instead of Hangout title (only available for admins)_\n' % self.my_uid
+            message += u'<@%s> disconnect HangoutId _stops syncing messages from current channel/group to specified Hangout (only available for admins)_\n' % self.my_uid
             self.slack.api_call('chat.postMessage',
                                 channel=msg.channel,
                                 text=message,
@@ -485,7 +497,78 @@ class SlackRTM(object):
                         channelname = 'DM'
                     else:
                         channelname = '#%s' % self.get_channelname(msg.channel)
-                    message += u'OK, I will now sync all messages in this channel (%s) with Hangout _%s_.' % (channelname, hangoutname)
+                    already_syncing = False
+                    if not msg.channel in self.hosinks:
+                        self.hosinks[ msg.channel ] = []
+                    else:
+                        for hoid, honame in self.hosinks[ msg.channel ]:
+                            if hoid == hangoutid:
+                                already_syncing = True
+                    if not hangoutid in self.slacksinks:
+                        self.slacksinks[ hangoutid ] = []
+                    else:
+                        for channelid, honame in self.slacksinks[ hangoutid ]:
+                            if channelid == msg.channel:
+                                already_syncing = False
+                    if not already_syncing:
+                        self.hosinks[ msg.channel ].append( (hangoutid, shortname) )
+                        self.slacksinks[ hangoutid ].append( (msg.channel, shortname) )
+                        syncs = self.bot.user_memory_get(self.name, 'synced_conversations')
+                        if not syncs:
+                            syncs = []
+                        syncs.append([msg.channel, hangoutid, shortname])
+                        self.bot.user_memory_set(self.name, 'synced_conversations', syncs)
+                        message += u'OK, I will now sync all messages in this channel (%s) with Hangout _%s_.' % (channelname, hangoutname)
+                    else:
+                        message += u'This channel (%s) is already synced with Hangout _%s_.' % (channelname, hangoutname)
+            self.slack.api_call('chat.postMessage',
+                                channel=msg.channel,
+                                text=message,
+                                as_user=True,
+                                link_names=True)
+
+        if command == 'disconnect':
+            message = '@%s: ' % msg.username
+            if not len(args):
+                message += u'sorry, but you have to specify a Hangout Id for command `disconnect`'
+            else:
+                hangoutid = args[0]
+                hangoutname = None
+                for c in self.bot.list_conversations():
+                    if c.id_ == hangoutid:
+                        hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
+                        break
+                if not hangoutname:
+                    message += u'sorry, but I\'m not a member of a Hangout with Id %s' % hangoutid
+                else:
+                    if msg.channel.startswith('D'):
+                        channelname = 'DM'
+                    else:
+                        channelname = '#%s' % self.get_channelname(msg.channel)
+                    not_syncing = False
+                    if not msg.channel in self.hosinks:
+                        not_syncing = True
+                    else:
+                        for hoid, honame in self.hosinks[ msg.channel ]:
+                            if hoid == hangoutid:
+                                self.hosinks[ msg.channel ].remove( (hangoutid, honame) )
+                    if not hangoutid in self.slacksinks:
+                        not_syncing = True
+                    else:
+                        for channelid, honame in self.slacksinks[ hangoutid ]:
+                            if channelid == msg.channel:
+                                self.slacksinks[ hangoutid ].remove( (msg.channel, honame) )
+                    if not_syncing:
+                        message += u'This channel (%s) is *not* synced with Hangout _%s_.' % (channelname, hangoutid)
+                    else:
+                        syncs = self.bot.user_memory_get(self.name, 'synced_conversations')
+                        if not syncs:
+                            syncs = []
+                        for cid, hid, name in syncs:
+                            if cid == msg.channel and hid == hangoutid:
+                                syncs.remove([cid, hid, name])
+                        self.bot.user_memory_set(self.name, 'synced_conversations', syncs)
+                        message += u'OK, I will no longer sync messages in this channel (%s) with Hangout _%s_.' % (channelname, hangoutname)
             self.slack.api_call('chat.postMessage',
                                 channel=msg.channel,
                                 text=message,
