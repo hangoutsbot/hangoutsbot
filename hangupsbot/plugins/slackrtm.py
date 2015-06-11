@@ -127,6 +127,7 @@ class SlackMessage(object):
         from_ho_id = ''
         sender_id = ''
         channel = None
+        is_joinleave = False
         # only used during parsing
         user = ''
         is_bot = False
@@ -201,6 +202,9 @@ class SlackMessage(object):
             print('slackrtm: no channel or group in reply: %s' % pprint.pformat(reply))
             raise ParseError('no channel found in reply:\n%s' % str(reply))
 
+        if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] in [ 'channel_join', 'channel_leave', 'group_join', 'group_leave' ]:
+            is_joinleave = True
+
         self.text = text
         self.user = user
         self.username = username
@@ -210,7 +214,29 @@ class SlackMessage(object):
         self.sender_id = sender_id
         self.channel = channel
         self.file_attachment = file_attachment
+        self.is_joinleave = is_joinleave
 
+
+class SlackRTMSync(object):
+    def __init__(self, channelid, hangoutid, hotag, sync_joins=True):
+        self.channelid = channelid
+        self.hangoutid = hangoutid
+        self.hotag = hotag
+        self.sync_joins = sync_joins
+
+    def fromDict(sync_dict):
+        sync_joins = True
+        if 'sync_joins' in sync_dict and not sync_dict['sync_joins']:
+            sync_joins = False
+        return SlackRTMSync(sync_dict['channelid'], sync_dict['hangoutid'], sync_dict['hotag'], sync_joins)
+
+    def toDict(self):
+        return {
+            'channelid': self.channelid,
+            'hangoutid': self.hangoutid,
+            'hotag': self.hotag,
+            'sync_joins': self.sync_joins,
+            }
 
 class SlackRTM(object):
     def __init__(self, sink_config, bot, loop, threaded=False):
@@ -261,31 +287,31 @@ class SlackRTM(object):
         self.hosinks = {}
         self.slacksinks = {}
         synced_conversations = []
+        syncs = self.bot.user_memory_get(self.name, 'synced_conversations')
+        if not syncs:
+            syncs = []
+        for s in syncs:
+            synced_conversations.append( SlackRTMSync.fromDict(s) )
         if 'synced_conversations' in self.config and len(self.config['synced_conversations']):
             print('slackrtm: WARNING: defining synced_conversations in config is deprecated!')
-            synced_conversations = self.config['synced_conversations']
-        dynamic_syncs = self.bot.user_memory_get(self.name, 'synced_conversations')
-        if not dynamic_syncs:
-            dynamic_syncs = []
-        for cid, hid, name in dynamic_syncs:
-            synced_conversations.append([cid, hid, name])
-
-        for conv in synced_conversations:
-            honame = ''
-            if len(conv) == 3:
-                honame = conv[2]
-            else:
-                if not conv[1] in self.hangoutnames:
-                    print("slackrtm: could not find conv %s in bot's conversations!" % conv[1])
-                    honame = conv[1]
+            for conv in self.config['synced_conversations']:
+                if len(conv) == 3:
+                    hotag = conv[2]
                 else:
-                    honame = self.hangoutnames[ conv[1] ]
-            if not conv[0] in self.hosinks:
-                self.hosinks[ conv[0] ] = []
-            self.hosinks[ conv[0] ].append( (conv[1], honame) )
-            if not conv[1] in self.slacksinks:
-                self.slacksinks[ conv[1] ] = []
-            self.slacksinks[ conv[1] ].append( (conv[0], honame) )
+                    if not conv[1] in self.hangoutnames:
+                        print("slackrtm: could not find conv %s in bot's conversations, but used in (deprecated) synced_conversations in config!" % conv[1])
+                        hotag = conv[1]
+                    else:
+                        hotag = self.hangoutnames[ conv[1] ]
+                synced_conversations.append( SlackRTMSync(conv[0], conv[1], hotag) )
+
+        for sync in synced_conversations:
+            if not sync.channelid in self.hosinks:
+                self.hosinks[ sync.channelid ] = []
+            self.hosinks[ sync.channelid ].append( sync )
+            if not sync.hangoutid in self.slacksinks:
+                self.slacksinks[ sync.hangoutid ] = []
+            self.slacksinks[ sync.hangoutid ].append( sync )
 
     def update_usernames(self, users=None):
         if users is None:
@@ -408,7 +434,7 @@ class SlackRTM(object):
             traceback.print_exc()
 
     def handleCommands(self, msg):
-        cmdfmt = re.compile(r'^<@'+self.my_uid+'>:?\s+(help|whereami|whoami|whois|admins|hangouts|syncto|disconnect)', re.IGNORECASE)
+        cmdfmt = re.compile(r'^<@'+self.my_uid+'>:?\s+(help|whereami|whoami|whois|admins|hangouts|syncto|disconnect|setsyncjoinmsgs)', re.IGNORECASE)
         match = cmdfmt.match(msg.text)
         if not match:
             return
@@ -424,6 +450,7 @@ class SlackRTM(object):
             message += u'<@%s> hangouts _lists all connected hangouts (only available for admins, use in DM with me suggested)_\n' % self.my_uid
             message += u'<@%s> syncto HangoutId [shortname] _starts syncing messages from current channel/group to specified Hangout, if shortname given, messages from the Hangout will be tagged with shortname instead of Hangout title (only available for admins)_\n' % self.my_uid
             message += u'<@%s> disconnect HangoutId _stops syncing messages from current channel/group to specified Hangout (only available for admins)_\n' % self.my_uid
+            message += u'<@%s> setsyncjoinmsgs HangoutId [true|false] _enable/disable messages about joins/leaves/adds/invites/kicks in synced Hangout/channel, default is enabled (only available for admins)_\n' % self.my_uid
             self.slack.api_call('chat.postMessage',
                                 channel=msg.channel,
                                 text=message,
@@ -526,6 +553,7 @@ class SlackRTM(object):
                 channelname = 'DM'
             else:
                 channelname = '#%s' % self.get_channelname(msg.channel)
+
             try:
                 self.syncto(msg.channel, hangoutid, shortname)
             except AlreadySyncingError:
@@ -564,26 +592,67 @@ class SlackRTM(object):
                 message += u'OK, I will no longer sync messages in this channel (%s) with Hangout _%s_.' % (channelname, hangoutname)
             self.slack.api_call('chat.postMessage', channel=msg.channel, text=message, as_user=True, link_names=True)
 
+        if command == 'setsyncjoinmsgs':
+            message = '@%s: ' % msg.username
+            if len(args) != 2:
+                message += u'sorry, but you have to specify a Hangout Id and a `true` or `false` for command `setsyncjoinmsgs`'
+                self.slack.api_call('chat.postMessage', channel=msg.channel, text=message, as_user=True, link_names=True)
+                return
+
+            hangoutid = args[0]
+            enable = args[1]
+            for c in self.bot.list_conversations():
+                if c.id_ == hangoutid:
+                    hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
+                    break
+            if not hangoutname:
+                message += u'sorry, but I\'m not a member of a Hangout with Id %s' % hangoutid
+                self.slack.api_call('chat.postMessage', channel=msg.channel, text=message, as_user=True, link_names=True)
+                return
+
+            if msg.channel.startswith('D'):
+                channelname = 'DM'
+            else:
+                channelname = '#%s' % self.get_channelname(msg.channel)
+
+            if enable.lower() in [ 'true', 'on', 'y', 'yes' ]:
+                enable = True
+            elif enable.lower() in [ 'false', 'off', 'n', 'no' ]:
+                enable = False
+            else:
+                message += u'sorry, but "%s" is not "true" or "false"' % enable
+                self.slack.api_call('chat.postMessage', channel=msg.channel, text=message, as_user=True, link_names=True)
+                return
+
+            try:
+                self.setsyncjoinmsgs(msg.channel, hangoutid, enable)
+            except NotSyncingError:
+                message += u'This channel (%s) is not synced with Hangout _%s_, not changing syncjoinmsgs.' % (channelname, hangoutname)
+            else:
+                message += u'OK, I will %s sync join/leave messages in this channel (%s) with Hangout _%s_.' % (('now' if enable else 'no longer'), channelname, hangoutname)
+            self.slack.api_call('chat.postMessage', channel=msg.channel, text=message, as_user=True, link_names=True)
+
     def syncto(self, channel, hangoutid, shortname):
         if not channel in self.hosinks:
             self.hosinks[ channel ] = []
         else:
-            for hoid, honame in self.hosinks[ channel ]:
-                if hoid == hangoutid:
+            for sync in self.hosinks[ channel ]:
+                if sync.hangoutid == hangoutid:
                     raise AlreadySyncingError
         if not hangoutid in self.slacksinks:
             self.slacksinks[ hangoutid ] = []
         else:
-            for channelid, honame in self.slacksinks[ hangoutid ]:
-                if channelid == channel:
+            for sync in self.slacksinks[ hangoutid ]:
+                if sync.channelid == channel:
                     raise AlreadySyncingError
 
-        self.hosinks[ channel ].append( (hangoutid, shortname) )
-        self.slacksinks[ hangoutid ].append( (channel, shortname) )
+        sync = SlackRTMSync(channel, hangoutid, shortname)
+        self.hosinks[ channel ].append( sync )
+        self.slacksinks[ hangoutid ].append( sync )
         syncs = self.bot.user_memory_get(self.name, 'synced_conversations')
         if not syncs:
             syncs = []
-        syncs.append([channel, hangoutid, shortname])
+        syncs.append( sync.toDict() )
         self.bot.user_memory_set(self.name, 'synced_conversations', syncs)
         return
 
@@ -591,23 +660,52 @@ class SlackRTM(object):
         honame = None
         if not channel in self.hosinks or not hangoutid in self.slacksinks:
             raise NotSyncingError
-        for hoid, name in self.hosinks[ channel ]:
-            if hoid == hangoutid:
-                honame = name
-                self.hosinks[ channel ].remove( (hangoutid, name) )
-        for channelid, name in self.slacksinks[ hangoutid ]:
-            if channelid == channel:
-                honame = name
-                self.slacksinks[ hangoutid ].remove( (channel, name) )
+        for sync in self.hosinks[ channel ]:
+            if sync.hangoutid == hangoutid:
+                honame = sync.hotag
+                self.hosinks[ channel ].remove( sync )
+        for sync in self.slacksinks[ hangoutid ]:
+            if sync.channelid == channel:
+                honame = sync.hotag
+                self.slacksinks[ hangoutid ].remove( sync )
         if not honame:
             raise NotSyncingError
 
         syncs = self.bot.user_memory_get(self.name, 'synced_conversations')
         if not syncs:
             syncs = []
-        for cid, hid, name in syncs:
-            if cid == channel and hid == hangoutid:
-                syncs.remove([cid, hid, name])
+        for s in syncs:
+            if s['channelid'] == channel and s['hangoutid'] == hangoutid:
+                syncs.remove(s)
+        self.bot.user_memory_set(self.name, 'synced_conversations', syncs)
+        return
+
+    def setsyncjoinmsgs(self, channel, hangoutid, enable):
+        sync_hosink = None
+        sync_slacksink = None
+        if not channel in self.hosinks or not hangoutid in self.slacksinks:
+            raise NotSyncingError
+        for sync in self.hosinks[ channel ]:
+            if sync.hangoutid == hangoutid:
+                sync_hosink = sync
+        for sync in self.slacksinks[ hangoutid ]:
+            if sync.channelid == channel:
+                sync_slacksink = sync
+        if not sync_hosink and not sync_slacksink:
+            raise NotSyncingError
+
+        if sync_hosink != sync_slacksink:
+            print('slackrtm: WARNING: sync objects for slack and hangout are different: %s vs. %s' % (sync_slacksink, sync_hosink))
+        sync_hosink.sync_joins = enable
+        sync_slacksink.sync_joins = enable
+
+        syncs = self.bot.user_memory_get(self.name, 'synced_conversations')
+        if not syncs:
+            syncs = []
+        for s in syncs:
+            if s['channelid'] == channel and s['hangoutid'] == hangoutid:
+                syncs.remove(s)
+        syncs.append(sync_hosink.toDict())
         self.bot.user_memory_set(self.name, 'synced_conversations', syncs)
         return
 
@@ -625,17 +723,20 @@ class SlackRTM(object):
             self.handleCommands(msg)
         except Exception as e:
             print('slackrtm: exception while handleCommands(): %s(%s)' % (type(e), str(e)))
+            traceback.print_exc()
 
-        for hoid, honame in self.hosinks.get(msg.channel, []):
-            if not msg.from_ho_id == hoid:
-                print('slackrtm: forwarding to HO %s: %s' % (hoid, response.encode('utf-8')))
+        for sync in self.hosinks.get(msg.channel, []):
+            if not sync.sync_joins and msg.is_joinleave:
+                continue
+            if not msg.from_ho_id == sync.hangoutid:
+                print('slackrtm: forwarding to HO %s: %s' % (sync.hangoutid, response.encode('utf-8')))
                 if msg.file_attachment:
-                    self.loop.call_soon_threadsafe(asyncio.async, self.upload_image(hoid, msg.file_attachment))
-                self.bot.send_html_to_conversation(hoid, response)
+                    self.loop.call_soon_threadsafe(asyncio.async, self.upload_image(sync.hangoutid, msg.file_attachment))
+                self.bot.send_html_to_conversation(sync.hangoutid, response)
 
     def handle_ho_message(self, event):
-        for channel_id, honame in self.slacksinks.get(event.conv_id, []):
-            fullname = '%s (%s)' % (event.user.full_name, honame)
+        for sync in self.slacksinks.get(event.conv_id, []):
+            fullname = '%s (%s)' % (event.user.full_name, sync.hotag)
             try:
                 photo_url = "http:"+self.bot._user_list.get_user(event.user_id).photo_url
             except Exception as e:
@@ -652,16 +753,16 @@ class SlackRTM(object):
 #                    #print('slackrtm: data="%s"' % str(data))
 #                    slacker_client = slacker.Slacker(self.apikey)
 #                    response = slacker_client.files.upload(filename,
-#                                                           channels=channel_id)
+#                                                           channels=sync.channelid)
 #                except Exception as e:
 #                    print('slackrtm: exception while loading image: %s(%s)' % (e, str(e)))
 #            else:
 #                print('slackrtm: NO image in message: "%s"' % event.text)
             message = chatMessageEvent2SlackText(event.conv_event)
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
-            print("slackrtm: Sending to channel %s: %s" % (channel_id, message.encode('utf-8')))
+            print("slackrtm: Sending to channel %s: %s" % (sync.channelid, message.encode('utf-8')))
             self.slack.api_call('chat.postMessage',
-                                channel=channel_id,
+                                channel=sync.channelid,
                                 text=message,
                                 username=fullname,
                                 link_names=True,
@@ -675,19 +776,21 @@ class SlackRTM(object):
             links.append(u'<https://plus.google.com/%s/about|%s>' % (user.id_.chat_id, user.full_name))
         names = u', '.join(links)
     
-        for channel_id, honame in self.slacksinks.get(event.conv_id, []):
+        for sync in self.slacksinks.get(event.conv_id, []):
+            if not sync.sync_joins:
+                continue
             # JOIN
             if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
                 invitee = u'<https://plus.google.com/%s/about|%s>' % (event.user_id.chat_id, event.user.full_name)
-                message = u'%s has added %s to _%s_' % (invitee, names, honame)
+                message = u'%s has added %s to _%s_' % (invitee, names, sync.hotag)
             # LEAVE
             else:
-                message = u'%s has left _%s_' % (names, honame)
+                message = u'%s has left _%s_' % (names, sync.hotag)
             message = unicodeemoji2text(message)
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
-            print("slackrtm: Sending to channel/group %s: %s" % (channel_id, message))
+            print("slackrtm: Sending to channel/group %s: %s" % (sync.channelid, message))
             self.slack.api_call('chat.postMessage',
-                                channel=channel_id,
+                                channel=sync.channelid,
                                 text=message,
                                 as_user=True,
                                 link_names=True)
@@ -695,14 +798,14 @@ class SlackRTM(object):
     def handle_ho_rename(self, event):
         name = hangups.ui.utils.get_conv_name(event.conv, truncate=False)
     
-        for channel_id, honame in self.slacksinks.get(event.conv_id, []):
+        for sync in self.slacksinks.get(event.conv_id, []):
             invitee = u'<https://plus.google.com/%s/about|%s>' % (event.user_id.chat_id, event.user.full_name)
-            message = u'%s has renamed the Hangout _%s_ to _%s_' % (invitee, honame, name)
+            message = u'%s has renamed the Hangout _%s_ to _%s_' % (invitee, sync.hotag, name)
             message = unicodeemoji2text(message)
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
-            print("slackrtm: Sending to channel/group %s: %s" % (channel_id, message))
+            print("slackrtm: Sending to channel/group %s: %s" % (sync.channelid, message))
             self.slack.api_call('chat.postMessage',
-                                channel=channel_id,
+                                channel=sync.channelid,
                                 text=message,
                                 as_user=True,
                                 link_names=True)
@@ -787,7 +890,7 @@ def _initialise(Handlers, bot=None):
     Handlers.register_handler(_handle_membership_change, type="membership")
     Handlers.register_handler(_handle_rename, type="rename")
 
-    Handlers.register_admin_command(["slacks", "slack_channels", "slack_syncto", "slack_disconnect"])
+    Handlers.register_admin_command(["slacks", "slack_channels", "slack_syncto", "slack_disconnect", "slack_setsyncjoinmsgs"])
     return []
 
 @asyncio.coroutine
@@ -823,6 +926,11 @@ def _handle_rename(bot, event, command):
         except Exception as e:
             print('slackrtm: _handle_rename threw: %s' % str(e))
             traceback.print_exc()
+
+# /bot slacks _lists all configured slack teams_
+# /bot slack_channels TEAMNAME _lists all channels/groups of slack team TEAMNAME_
+# /bot slack_syncto TEAMNAME CHANNELIID [Hangout-Tag] _starts syncing of messages between current Hangout and channel CHANNELID in slack team TEAMNAME, if given, all messages from Hangouts will be tagged with Hangout-Tag in Slack_
+# /bot slack_disconnect TEAMNAME CHANNELID _stops sync of current Hangout with channel CHANNELID in slack team TEAMNAME_
 
 def slacks(bot, event, *args):
     """list all slacks configured"""
@@ -930,3 +1038,42 @@ def slack_disconnect(bot, event, *args):
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('This Hangout is NOT synced to %s:%s.' % (slackname, channelname), is_bold=True)])
     else:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('OK, I will no longer sync messages in this Hangout to %s:%s.' % (slackname, channelname), is_bold=True)])
+
+
+def slack_setsyncjoinmsgs(bot, event, *args):
+    """enable/disable messages about joins/leaves/adds/invites/kicks when syncing current hangout with given slack channel in given slack team, default is enabled"""
+    if len(args) != 3:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name, a channel and "true" or "false"', is_bold=True)])
+        return
+
+    slackname = args[0]
+    slackrtm = None
+    for s in slackrtms:
+        if s.name == slackname:
+            slackrtm = s
+            break
+    if not slackrtm:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a configured slack team with name "%s", use /bot slacks to list all teams' % slackname, is_bold=True)])
+        return
+
+    channelid = args[1]
+    channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
+    if not channelname:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a channel with id "%s" in team "%s", use /bot slack_channels %s to list all teams' % (channelid, slackname, slackname), is_bold=True)])
+        return
+    
+    enable = args[2]
+    if enable.lower() in [ 'true', 'on', 'y', 'yes' ]:
+        enable = True
+    elif enable.lower() in [ 'false', 'off', 'n', 'no' ]:
+        enable = False
+    else:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('sorry, but "%s" is not "true" or "false"' % enable, is_bold=True)])
+        return
+
+    try:
+        slackrtm.setsyncjoinmsgs(channelid, event.conv.id_, enable)
+    except NotSyncingError:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('This Hangout is NOT synced to %s:%s.' % (slackname, channelname), is_bold=True)])
+    else:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('OK, I will %s sync join/leave messages in this Hangout with %s:%s.' % (('now' if enable else 'no longer'), slackname, channelname), is_bold=True)])
