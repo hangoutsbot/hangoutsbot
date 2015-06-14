@@ -1,5 +1,11 @@
 import hangups
 
+
+def _initialise(Handlers, bot=None):
+    Handlers.register_user_command(["geticon"])
+    return []
+
+
 def geticon(bot, event, *args):
     """ Return the avatar of the person who called this command """
     response = yield from bot._client.getentitybyid([event.user_id.chat_id])

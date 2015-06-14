@@ -9,6 +9,7 @@ import os
 import io
 import re
 
+
 def _initialise(Handlers, bot=None):
     Handlers.register_handler(_watch_image_link, type="message")
     return []

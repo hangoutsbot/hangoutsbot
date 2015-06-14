@@ -4,8 +4,10 @@ import urllib
 
 gs = goslate.Goslate()
 
+
 def _initialise(command):
     command.register_handler(_handle_message)
+
 
 @asyncio.coroutine
 def _handle_message(bot, event, command):
@@ -24,6 +26,7 @@ def _handle_message(bot, event, command):
 
     if translate_target is not None:
         yield from _translate(bot, event, raw_text, translate_target[0], translate_target[1])
+
 
 @asyncio.coroutine
 def _translate(bot, event, text, iso_language, text_language):

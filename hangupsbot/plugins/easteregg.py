@@ -7,7 +7,7 @@ def _initialise(Handlers, bot=None):
         return []
     else:
         print(_("EASTEREGG: LEGACY FRAMEWORK MODE"))
-        return ["easteregg"]
+        return []
 
 
 def easteregg(bot, event, easteregg, eggcount=1, period=0.5, *args):

@@ -7,11 +7,18 @@ class __internal_vars():
         """ Cache to keep track of what keywords are being watched. Listed by user_id """
         self.keywords = {}
 
+
 _internal = __internal_vars()
 
-def _initialise(command):
-    command.register_handler(_handle_keyword)
-    return ["subscribe", "unsubscribe"]
+
+def _initialise(Handlers, bot=None):
+    Handlers.register_handler(_handle_keyword, type="message")
+    if "register_user_command" in dir(Handlers):
+        Handlers.register_user_command(["subscribe", "unsubscribe"])
+        return []
+    else:
+        return ["subscribe", "unsubscribe"]
+
 
 @asyncio.coroutine
 def _handle_keyword(bot, event, command):
@@ -41,6 +48,7 @@ def _handle_keyword(bot, event, command):
             # User probably hasn't subscribed to anything
             continue
 
+
 def _populate_keywords(bot, event):
     # Pull the keywords from file if not already
     if not _internal.keywords:
@@ -51,6 +59,7 @@ def _populate_keywords(bot, event):
                 _internal.keywords[userchatid] = userkeywords
             else:
                 _internal.keywords[userchatid] = []
+
 
 def _send_notification(bot, event, phrase, user):
     """Alert a user that a keyword that they subscribed to has been used"""
@@ -78,6 +87,7 @@ def _send_notification(bot, event, phrase, user):
             logging.info(_("subscribe: {} ({}) has dnd").format(user.full_name, user.id_.chat_id))
     else:
         logging.warning(_("subscribe: user {} ({}) could not be alerted via 1on1").format(user.full_name, user.id_.chat_id))
+
 
 def subscribe(bot, event, *args):
     """allow users to subscribe to phrases, only one input at a time"""
@@ -131,6 +141,7 @@ def subscribe(bot, event, *args):
     bot.send_message_parsed(
         event.conv,
         _("Subscribed to: {}").format(', '.join(_internal.keywords[event.user.id_.chat_id])))
+
 
 def unsubscribe(bot, event, *args):
     """Allow users to unsubscribe from phrases"""

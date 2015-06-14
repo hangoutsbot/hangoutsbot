@@ -1,6 +1,7 @@
 import functools
 import time
 
+
 def _initialise(Handlers, bot=None):
     _migrate_dnd_config_to_memory(bot)
     Handlers.register_object('dnd.user_check', functools.partial(_user_has_dnd, bot))

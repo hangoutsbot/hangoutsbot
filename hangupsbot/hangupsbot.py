@@ -446,11 +446,10 @@ class HangupsBot(object):
                         pass
                     else:
                         candidate_commands.append((function_name, the_function))
-                if available_commands is False:
-                    # implicit init, legacy support: assume all candidate_commands are user-available
-                    self._handlers.register_user_command([function_name for function_name, function in candidate_commands])
-                elif available_commands is []:
-                    # explicit init, no user-available commands
+                if available_commands is False or available_commands is []:
+                    # implicit init, legacy support: assume all candidate_commands are admin-only
+                    # OLD imlicit init : self._handlers.register_user_command([function_name for function_name, function in candidate_commands])
+                    # explicit init only admin commands
                     pass
                 else:
                     # explicit init, legacy support: _initialise() returned user-available commands
@@ -465,17 +464,20 @@ class HangupsBot(object):
             pass 2: register filtered functions
             """
             plugin_tracking = self._handlers.plugin_get_stats()
-            explicit_admin_commands = plugin_tracking["commands"]["admin"]
             all_commands = plugin_tracking["commands"]["all"]
+
+            user_commands = plugin_tracking["commands"]["user"]
             registered_commands = []
+
             for function_name, the_function in candidate_commands:
                 if function_name in all_commands:
                     command.register(the_function)
                     text_function_name = function_name
-                    if function_name in explicit_admin_commands:
+                    if function_name not in user_commands:
                         text_function_name = "*" + text_function_name
                     registered_commands.append(text_function_name)
-
+            
+            #to display in log
             if registered_commands:
                 print(_("added: {}").format(", ".join(registered_commands)))
 

@@ -1,6 +1,12 @@
 import wikipedia
 import re
 
+
+def _initialise(Handlers, bot=None):
+    Handlers.register_user_command(["wiki"])
+    return []
+
+
 def wiki(bot, event, *args):
     """lookup a term on Wikipedia"""
 
@@ -24,8 +30,3 @@ def wiki(bot, event, *args):
         html_text = "<i>{}</i>".format(exception_text)
 
     bot.send_message_parsed(event.conv, html_text)
-
-
-def _initialise(Handlers, bot=None):
-    Handlers.register_user_command(["wiki"])
-    return []

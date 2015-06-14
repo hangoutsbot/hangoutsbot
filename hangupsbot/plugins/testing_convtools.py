@@ -4,11 +4,13 @@ def _initialise(Handlers, bot=None):
     Handlers.register_admin_command(["addusers", "createconversation"])
     return []
 
+
 def addusers(bot, event, *args):
     user_ids = list(set(args))
     current_conv_id = event.conv_id
     print("addusers: {}".format(user_ids))
     yield from bot._client.adduser(current_conv_id, user_ids)
+
 
 def createconversation(bot, event, *args):
     user_ids = list(set(args))

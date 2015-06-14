@@ -6,6 +6,7 @@ from hangups.ui.utils import get_conv_name
 from utils import text_to_segments
 from version import __version__
 
+
 def _initialise(Handlers, bot=None):
     if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
         Handlers.register_admin_command(["users", "user", "hangouts", "hangout", "rename", "leave", "reload", "quit", "config", "whereami"])
@@ -13,7 +14,8 @@ def _initialise(Handlers, bot=None):
         return []
     else:
         print(_("DEFAULT: LEGACY FRAMEWORK MODE"))
-        return ["users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whoami", "whereami", "echo", "hangout" ,"version"]
+        #return ["users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whoami", "whereami", "echo", "hangout" ,"version"]
+        return ["echo", "whoami", "version"]
 
 
 def echo(bot, event, *args):

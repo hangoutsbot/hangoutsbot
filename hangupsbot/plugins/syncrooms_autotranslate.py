@@ -13,7 +13,7 @@ def _initialise(Handlers, bot=None):
         return []
     else:
         print(_("SYNCROOMS_AUTOTRANSLATE: LEGACY FRAMEWORK MODE"))
-        return ['roomlanguage']
+        return []
 
 
 def _translate_message(bot, broadcast_list, context):

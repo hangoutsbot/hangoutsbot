@@ -5,7 +5,6 @@ from random import randint
 def _initialise(command):
     command.register_handler(_handle_me_action)
 
-
 @asyncio.coroutine
 def _handle_me_action(bot, event, command):
     if event.text.startswith('/me'):
@@ -17,7 +16,6 @@ def _handle_me_action(bot, event, command):
             yield from command.run(bot, event, *["coinflip"])
         else:
             pass
-
 
 def diceroll(bot, event, *args):
     bot.send_message_parsed(event.conv, _("<i>{} rolled <b>{}</b></i>").format(event.user.full_name, randint(1,6)))

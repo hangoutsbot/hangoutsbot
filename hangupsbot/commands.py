@@ -52,6 +52,8 @@ class CommandDispatcher(object):
 # CommandDispatcher singleton
 command = CommandDispatcher()
 
+
+# TODO : Turn into usercommand
 @command.register
 def help(bot, event, cmd=None, *args):
     """list supported commands, /bot help <command> will show additional details"""
@@ -61,11 +63,11 @@ def help(bot, event, cmd=None, *args):
         admins_list = bot.get_config_suboption(event.conv_id, 'admins')
 
         commands_all = command.commands.keys()
-        commands_admin = bot._handlers.get_admin_commands(event.conv_id)
-        commands_nonadmin = list(set(commands_all) - set(commands_admin))
+        commands_user = bot._handlers.get_user_commands()
+        commands_admin = list(set(commands_all) - set(commands_user))
 
         help_lines.append(_('<b>User commands:</b>'))
-        help_lines.append(', '.join(sorted(commands_nonadmin)))
+        help_lines.append(', '.join(sorted(commands_user)))
 
         if link_to_guide:
             help_lines.append('')
@@ -93,12 +95,14 @@ def help(bot, event, cmd=None, *args):
         bot.send_message_parsed(event.conv, _("<i>{}, before I can help you, you need to private message me and say hi.</i>").format(event.user.full_name))
 
 
+# TODO : Turn into usercommand
 @command.register
 def ping(bot, event, *args):
     """reply to a ping"""
     bot.send_message(event.conv, _('pong'))
 
 
+# TODO : Turn into usercommand
 @command.register
 def optout(bot, event, *args):
     """toggle opt-out of bot PM"""

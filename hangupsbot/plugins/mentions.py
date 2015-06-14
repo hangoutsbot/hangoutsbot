@@ -6,11 +6,17 @@ from hangups.ui.utils import get_conv_name
 
 nicks = {}
 
+
 def _initialise(Handlers, bot=None):
     if bot:
         _migrate_mention_config_to_memory(bot)
     Handlers.register_handler(_handle_mention, "message")
-    return ["mention", "pushbulletapi", "setnickname"]
+    if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
+        Handlers.register_user_command(["mention", "pushbulletapi", "setnickname"])
+        return []
+    else:
+        print(_("MENTION: LEGACY FRAMEWORK MODE"))
+        return ["mention", "pushbulletapi", "setnickname"]
 
 
 def _migrate_mention_config_to_memory(bot):
@@ -295,6 +301,7 @@ def mention(bot, event, *args):
             text_html = text_html + _("Users failing 1-to-1 need to say something to me privately first.<br />")
 
         bot.send_message_parsed(event.conv, text_html)
+
 
 def pushbulletapi(bot, event, *args):
     """allow users to configure pushbullet integration with api key

@@ -1,5 +1,11 @@
 import hangups
 
+
+def _initialise(Handlers, bot=None):
+    Handlers.register_admin_command(["lookup"])
+    return []
+
+
 def lookup(bot, event, *args):
     """find keywords in a specified spreadsheet"""
 

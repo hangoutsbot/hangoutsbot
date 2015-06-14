@@ -10,17 +10,11 @@
       "Hello world!"
     ]
   ],
-  "commands_admin": [
-    "rename",
-    "leave",
-    "easteregg",
-    "user",
-    "users",
-    "hangouts",
-    "reload",
-    "quit",
-    "config",
-    "topic"
+  "commands_user": [
+    "ping",
+    "help",
+    "optout",
+    "whereami"
   ],
   "spreadsheet_enabled": false,
   "spreadsheet_url": "INSERT_PUBLIC_URL_OF_GSHEET_HERE",

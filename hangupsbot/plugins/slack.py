@@ -22,6 +22,7 @@ config.json will have to be configured as follows:
 
 You can (theoretically) set up as many slack sinks per bot as you like, by extending the list"""
 
+
 def _initialise(Handlers, bot=None):
     if bot:
         _start_slack_sinks(bot)
@@ -29,6 +30,7 @@ def _initialise(Handlers, bot=None):
         print("Slack sinks could not be initialized.")
     Handlers.register_handler(_handle_slackout)
     return []
+
 
 def _start_slack_sinks(bot):
     # Start and asyncio event loop
@@ -70,6 +72,7 @@ def _start_slack_sinks(bot):
     message = _("_start_slack_sinks(): {} sink thread(s) started").format(len(threads))
     logging.info(message)
 
+
 def start_listening(bot=None, loop=None, name="", port=8014, certfile=None):
     webhook = webhookReceiver
 
@@ -101,6 +104,7 @@ def start_listening(bot=None, loop=None, name="", port=8014, certfile=None):
     except KeyboardInterrupt:
         httpd.socket.close()
 
+
 class webhookReceiver(BaseHTTPRequestHandler):
     _bot = None
 
@@ -116,12 +120,14 @@ class webhookReceiver(BaseHTTPRequestHandler):
                 response = "<b>" + str(payload["user_name"][0]) + ":</b> " + str(payload["text"][0])
                 self._scripts_push(conversation_id, response)
 
+
     def _scripts_push(self, conversation_id, message):
         try:
             if not webhookReceiver._bot.send_html_to_user(conversation_id, message):
                 webhookReceiver._bot.send_html_to_conversation(conversation_id, message)
         except Exception as e:
             print(e)
+
 
     def do_POST(self):
         """

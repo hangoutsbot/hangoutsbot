@@ -2,9 +2,11 @@ import asyncio
 
 from hangups.ui.utils import get_conv_name
 
+
 def _initialise(Handlers, bot=None):
     Handlers.register_admin_command(["kick"])
     return []
+
 
 def kick(bot, event, *args):
     user_ids_to_remove = list(set(args))

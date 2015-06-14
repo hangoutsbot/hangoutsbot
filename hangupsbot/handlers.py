@@ -15,11 +15,13 @@ class EventHandler(object):
         self.bot = bot
         self.bot_command = bot_command
 
-        self.explicit_admin_commands = [] # plugins can force some commands to be admin-only via register_admin_command()
+        self.explicit_user_commands = [] # plugins can force some commands to be user via register_user_command()
+        self.explicit_admin_commands = [] # TODO : Delete it after cleaning it in code
 
         self.pluggables = { "message":[], "membership":[], "rename":[], "sending":[] }
 
     def plugin_preinit_stats(self, plugin_metadata):
+        # TODO : Ajouter Mod/Caster
         """
         hacky implementation for tracking commands a plugin registers
         called automatically by Hangupsbot._load_plugins() at start of each plugin load
@@ -34,9 +36,10 @@ class EventHandler(object):
 
     def plugin_get_stats(self):
         """called automatically by Hangupsbot._load_plugins()"""
-        self._current_plugin["commands"]["all"] = list(
-            set(self._current_plugin["commands"]["admin"] +
-                self._current_plugin["commands"]["user"]))
+        commands_all_list = []
+        for role in self._current_plugin["commands"]:
+            commands_all_list = commands_all_list + self._current_plugin["commands"][role]
+        self._current_plugin["commands"]["all"] = list(set(commands_all_list))
         return self._current_plugin
 
     def all_plugins_loaded(self):
@@ -48,21 +51,29 @@ class EventHandler(object):
 
     def _plugin_register_command(self, type, command_names):
         """call during plugin init to register commands"""
+        # Wrap into a list for consistent processing
+        if not isinstance(command_names, list):
+            command_names = [command_names]
+        # Register commands in the given type
         self._current_plugin["commands"][type].extend(command_names)
         self._current_plugin["commands"][type] = list(set(self._current_plugin["commands"][type]))
+        # TODO : Necessary? Register commands in admin type to get all commands in admin
+        #if type != "admin":
+        #    self._current_plugin["commands"]["admin"].extend(command_names)
+        #    self._current_plugin["commands"]["admin"] = list(set(self._current_plugin["commands"]["admin"]))
+
+    def register_command(self, command_names):
+        """call during plugin init to register command by default set to admin"""
+        register_admin_command(command_names)
 
     def register_user_command(self, command_names):
         """call during plugin init to register user commands"""
-        if not isinstance(command_names, list):
-            command_names = [command_names] # wrap into a list for consistent processing
         self._plugin_register_command("user", command_names)
+        self.explicit_user_commands.extend(command_names)
 
     def register_admin_command(self, command_names):
         """call during plugin init to register admin commands"""
-        if not isinstance(command_names, list):
-            command_names = [command_names] # wrap into a list for consistent processing
         self._plugin_register_command("admin", command_names)
-        self.explicit_admin_commands.extend(command_names)
 
     def register_object(self, id, objectref, forgiving=True):
         """registers a shared object into bot.shared"""
@@ -78,13 +89,13 @@ class EventHandler(object):
         """call during plugin init to register a handler for a specific bot event"""
         self.pluggables[type].append((function, priority, self._current_plugin["metadata"]))
 
-    def get_admin_commands(self, conversation_id):
-        # get list of commands that are admin-only, set in config.json OR plugin-registered
-        commands_admin_list = self.bot.get_config_suboption(conversation_id, 'commands_admin')
-        if not commands_admin_list:
-            commands_admin_list = []
-        commands_admin_list = list(set(commands_admin_list + self.explicit_admin_commands))
-        return commands_admin_list
+    def get_user_commands(self):
+        # get list of commands that are user available, set in config.json OR plugin-registered
+        commands_user_list = self.bot.get_config_option('commands_user')
+        if not commands_user_list:
+            commands_user_list = []
+        commands_user_list = list(set(commands_user_list + self.explicit_user_commands))
+        return commands_user_list
 
     @asyncio.coroutine
     def handle_chat_message(self, event):
@@ -131,10 +142,10 @@ class EventHandler(object):
             self.bot.send_message(event.conv, _('{}: missing parameter(s)').format(event.user.full_name))
             return
 
-        # only admins can run admin commands
-        commands_admin_list = self.get_admin_commands(event.conv_id)
-        if commands_admin_list and line_args[1].lower() in commands_admin_list:
-            if not initiator_is_admin:
+        # Only admins can run admin commands
+        if not initiator_is_admin:
+            commands_user_list = self.get_user_commands()
+            if commands_user_list and not line_args[1].lower() in commands_user_list:
                 self.bot.send_message(event.conv, _('{}: Can\'t do that.').format(event.user.full_name))
                 return
 

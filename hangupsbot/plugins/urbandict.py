@@ -55,6 +55,11 @@ class UrbanDictParser(HTMLParser):
         self.translations[-1][self._section] += normalize_newlines(data)
 
 
+def _initialise(Handlers, bot=None):
+    Handlers.register_user_command(["urbandict"])
+    return []
+
+
 def normalize_newlines(text):
     return text.replace('\r\n', '\n').replace('\r', '\n')
 
@@ -94,8 +99,3 @@ def urbandict(bot, event, *args):
             bot.send_message_parsed(event.conv, _('<i>no urban dictionary definition for "{}"</i>').format(term))
         else:
             bot.send_message_parsed(event.conv, _('<i>no term from urban dictionary</i>'))
-
-
-def _initialise(Handlers, bot=None):
-    Handlers.register_user_command(["urbandict"])
-    return []

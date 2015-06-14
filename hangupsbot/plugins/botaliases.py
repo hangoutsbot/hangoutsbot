@@ -31,10 +31,9 @@ def _initialise(Handlers, bot=None):
     Handlers.bot_command = bot_command_aliases
     print(_("bot aliases: {}").format(bot_command_aliases))
 
-    Handlers.register_user_command(["botalias"])
+    Handlers.register_admin_command(["botalias"])
 
     return []
-
 
 def botalias(bot, event, *args):
     """shows, adds and removes bot command aliases"""

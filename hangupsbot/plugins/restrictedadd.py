@@ -21,7 +21,7 @@ def _initialise(Handlers, bot=None):
         return []
     else:
         print(_("RESTRICTEDADD: LEGACY FRAMEWORK MODE"))
-        return ["allowbotadd", "removebotadd"]
+        return []
 
 
 @asyncio.coroutine

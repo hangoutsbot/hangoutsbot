@@ -4,7 +4,7 @@ def _initialise(Handlers, bot=None):
         return []
     else:
         print(_("SYNCROOMS_CONFIG: LEGACY FRAMEWORK MODE"))
-        return ["attachsyncout", "detachsyncout"]
+        return []
 
 
 def attachsyncout(bot, event, *args):

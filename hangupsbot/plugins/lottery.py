@@ -10,7 +10,7 @@ def _initialise(Handlers, bot=None):
         return []
     else:
         print(_("LOTTERY: LEGACY FRAMEWORK MODE"))
-        return ["prepare"]
+        return []
 
 
 @asyncio.coroutine
