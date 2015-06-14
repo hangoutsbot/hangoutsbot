@@ -53,7 +53,6 @@ class CommandDispatcher(object):
 command = CommandDispatcher()
 
 
-# TODO : Turn into usercommand
 @command.register
 def help(bot, event, cmd=None, *args):
     """list supported commands, /bot help <command> will show additional details"""
@@ -95,14 +94,12 @@ def help(bot, event, cmd=None, *args):
         bot.send_message_parsed(event.conv, _("<i>{}, before I can help you, you need to private message me and say hi.</i>").format(event.user.full_name))
 
 
-# TODO : Turn into usercommand
 @command.register
 def ping(bot, event, *args):
     """reply to a ping"""
     bot.send_message(event.conv, _('pong'))
 
 
-# TODO : Turn into usercommand
 @command.register
 def optout(bot, event, *args):
     """toggle opt-out of bot PM"""

@@ -16,12 +16,10 @@ class EventHandler(object):
         self.bot_command = bot_command
 
         self.explicit_user_commands = [] # plugins can force some commands to be user via register_user_command()
-        self.explicit_admin_commands = [] # TODO : Delete it after cleaning it in code
 
         self.pluggables = { "message":[], "membership":[], "rename":[], "sending":[] }
 
     def plugin_preinit_stats(self, plugin_metadata):
-        # TODO : Ajouter Mod/Caster
         """
         hacky implementation for tracking commands a plugin registers
         called automatically by Hangupsbot._load_plugins() at start of each plugin load
@@ -57,10 +55,6 @@ class EventHandler(object):
         # Register commands in the given type
         self._current_plugin["commands"][type].extend(command_names)
         self._current_plugin["commands"][type] = list(set(self._current_plugin["commands"][type]))
-        # TODO : Necessary? Register commands in admin type to get all commands in admin
-        #if type != "admin":
-        #    self._current_plugin["commands"]["admin"].extend(command_names)
-        #    self._current_plugin["commands"]["admin"] = list(set(self._current_plugin["commands"]["admin"]))
 
     def register_command(self, command_names):
         """call during plugin init to register command by default set to admin"""
