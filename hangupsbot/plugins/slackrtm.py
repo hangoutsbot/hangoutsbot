@@ -214,16 +214,20 @@ class SlackMessage(object):
 
 
 class SlackRTMSync(object):
-    def __init__(self, channelid, hangoutid, hotag, sync_joins=True):
+    def __init__(self, channelid, hangoutid, hotag, sync_joins=True, image_upload=True):
         self.channelid = channelid
         self.hangoutid = hangoutid
         self.hotag = hotag
         self.sync_joins = sync_joins
+        self.image_upload = image_upload
 
     def fromDict(sync_dict):
         sync_joins = True
         if 'sync_joins' in sync_dict and not sync_dict['sync_joins']:
             sync_joins = False
+        image_upload = True
+        if 'image_upload' in sync_dict and not sync_dict['image_upload']:
+            image_upload = False
         return SlackRTMSync(sync_dict['channelid'], sync_dict['hangoutid'], sync_dict['hotag'], sync_joins)
 
     def toDict(self):
@@ -232,12 +236,14 @@ class SlackRTMSync(object):
             'hangoutid': self.hangoutid,
             'hotag': self.hotag,
             'sync_joins': self.sync_joins,
+            'image_upload': self.image_upload,
             }
 
     def getPrintableOptions(self):
-        return 'hotag="%s", sync_joins=%s' % (
+        return 'hotag="%s", sync_joins=%s, image_upload=%s' % (
             self.hotag if self.hotag else 'NONE',
             self.sync_joins,
+            self.image_upload,
             )
 
 class SlackRTM(object):
@@ -435,7 +441,7 @@ class SlackRTM(object):
             traceback.print_exc()
 
     def handleCommands(self, msg):
-        cmdfmt = re.compile(r'^<@'+self.my_uid+'>:?\s+(help|whereami|whoami|whois|admins|hangouts|listsyncs|syncto|disconnect|setsyncjoinmsgs|sethotag)', re.IGNORECASE)
+        cmdfmt = re.compile(r'^<@'+self.my_uid+'>:?\s+(help|whereami|whoami|whois|admins|hangouts|listsyncs|syncto|disconnect|setsyncjoinmsgs|sethotag|setimageupload)', re.IGNORECASE)
         match = cmdfmt.match(msg.text)
         if not match:
             return
@@ -454,6 +460,7 @@ class SlackRTM(object):
             message += u'<@%s> disconnect HangoutId _stops syncing messages from current channel/group to specified Hangout (only available for admins)_\n' % self.my_uid
             message += u'<@%s> setsyncjoinmsgs HangoutId [true|false] _enable/disable messages about joins/leaves/adds/invites/kicks in synced Hangout/channel, default is enabled (only available for admins)_\n' % self.my_uid
             message += u'<@%s> sethotag HangoutId [HOTAG|none] _set the tag, that is displayed in Slack for messages from that Hangout (behind the user\'s name), default is the hangout title when sync was set up, use "none" if you want to disable tag display  (only available for admins)_\n' % self.my_uid
+            message += u'<@%s> setimageupload HangoutId [true|false] _enable/disable upload of shared images in synced Hangout, default is enabled (only available for admins)_\n' % self.my_uid
             self.slack.api_call('chat.postMessage',
                                 channel=msg.channel,
                                 text=message,
@@ -693,6 +700,46 @@ class SlackRTM(object):
                 message += u'OK, messages from Hangout _%s_ will %s in slack channel %s.' % (hangoutname, oktext, channelname)
             self.slack.api_call('chat.postMessage', channel=msg.channel, text=message, as_user=True, link_names=True)
 
+        if command == 'setimageupload':
+            message = '@%s: ' % msg.username
+            if len(args) != 2:
+                message += u'sorry, but you have to specify a Hangout Id and a `true` or `false` for command `setimageupload`'
+                self.slack.api_call('chat.postMessage', channel=msg.channel, text=message, as_user=True, link_names=True)
+                return
+
+            hangoutid = args[0]
+            upload = args[1]
+            for c in self.bot.list_conversations():
+                if c.id_ == hangoutid:
+                    hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
+                    break
+            if not hangoutname:
+                message += u'sorry, but I\'m not a member of a Hangout with Id %s' % hangoutid
+                self.slack.api_call('chat.postMessage', channel=msg.channel, text=message, as_user=True, link_names=True)
+                return
+
+            if msg.channel.startswith('D'):
+                channelname = 'DM'
+            else:
+                channelname = '#%s' % self.get_channelname(msg.channel)
+
+            if upload.lower() in [ 'true', 'on', 'y', 'yes' ]:
+                upload = True
+            elif upload.lower() in [ 'false', 'off', 'n', 'no' ]:
+                upload = False
+            else:
+                message += u'sorry, but "%s" is not "true" or "false"' % upload
+                self.slack.api_call('chat.postMessage', channel=msg.channel, text=message, as_user=True, link_names=True)
+                return
+
+            try:
+                self.setimageupload(msg.channel, hangoutid, upload)
+            except NotSyncingError:
+                message += u'This channel (%s) is not synced with Hangout _%s_, not changing imageupload.' % (channelname, hangoutname)
+            else:
+                message += u'OK, I will %s upload images shared in this channel (%s) with Hangout _%s_.' % (('now' if upload else 'no longer'), channelname, hangoutname)
+            self.slack.api_call('chat.postMessage', channel=msg.channel, text=message, as_user=True, link_names=True)
+
     def syncto(self, channel, hangoutid, shortname):
         for sync in self.syncs:
             if sync.channelid == channel and sync.hangoutid == hangoutid:
@@ -764,6 +811,26 @@ class SlackRTM(object):
         self.bot.user_memory_set(self.name, 'synced_conversations', syncs)
         return
 
+    def setimageupload(self, channel, hangoutid, upload):
+        sync = None
+        for s in self.syncs:
+            if s.channelid == channel and s.hangoutid == hangoutid:
+                sync = s
+        if not sync:
+            raise NotSyncingError
+
+        sync.image_upload = upload
+
+        syncs = self.bot.user_memory_get(self.name, 'synced_conversations')
+        if not syncs:
+            syncs = []
+        for s in syncs:
+            if s['channelid'] == channel and s['hangoutid'] == hangoutid:
+                syncs.remove(s)
+        syncs.append(sync.toDict())
+        self.bot.user_memory_set(self.name, 'synced_conversations', syncs)
+        return
+
     def handle_reply(self, reply):
         try:
             msg = SlackMessage(self, reply)
@@ -786,7 +853,11 @@ class SlackRTM(object):
             if not msg.from_ho_id == sync.hangoutid:
                 print('slackrtm: forwarding to HO %s: %s' % (sync.hangoutid, response.encode('utf-8')))
                 if msg.file_attachment:
-                    self.loop.call_soon_threadsafe(asyncio.async, self.upload_image(sync.hangoutid, msg.file_attachment))
+                    if sync.image_upload:
+                        self.loop.call_soon_threadsafe(asyncio.async, self.upload_image(sync.hangoutid, msg.file_attachment))
+                    else:
+                        # we should not upload the images, so we have to send the url instead
+                        response += msg.file_attachment
                 self.bot.send_html_to_conversation(sync.hangoutid, response)
 
     def handle_ho_message(self, event):
@@ -954,7 +1025,7 @@ def _initialise(Handlers, bot=None):
     Handlers.register_handler(_handle_membership_change, type="membership")
     Handlers.register_handler(_handle_rename, type="rename")
 
-    Handlers.register_admin_command(["slacks", "slack_channels", "slack_listsyncs", "slack_syncto", "slack_disconnect", "slack_setsyncjoinmsgs", "slack_sethotag"])
+    Handlers.register_admin_command(["slacks", "slack_channels", "slack_listsyncs", "slack_syncto", "slack_disconnect", "slack_setsyncjoinmsgs", "slack_setimageupload", "slack_sethotag"])
     return []
 
 @asyncio.coroutine
@@ -1173,6 +1244,45 @@ def slack_setsyncjoinmsgs(bot, event, *args):
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('This Hangout is NOT synced to %s:%s.' % (slackname, channelname), is_bold=True)])
     else:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('OK, I will %s sync join/leave messages in this Hangout with %s:%s.' % (('now' if enable else 'no longer'), slackname, channelname), is_bold=True)])
+
+
+def slack_setimageupload(bot, event, *args):
+    """enable/disable image uplad to current hangout when shared in given slack channel in given slack team, default is enabled"""
+    if len(args) != 3:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name, a channel and "true" or "false"', is_bold=True)])
+        return
+
+    slackname = args[0]
+    slackrtm = None
+    for s in slackrtms:
+        if s.name == slackname:
+            slackrtm = s
+            break
+    if not slackrtm:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a configured slack team with name "%s", use /bot slacks to list all teams' % slackname, is_bold=True)])
+        return
+
+    channelid = args[1]
+    channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
+    if not channelname:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a channel with id "%s" in team "%s", use /bot slack_channels %s to list all teams' % (channelid, slackname, slackname), is_bold=True)])
+        return
+    
+    upload = args[2]
+    if upload.lower() in [ 'true', 'on', 'y', 'yes' ]:
+        upload = True
+    elif upload.lower() in [ 'false', 'off', 'n', 'no' ]:
+        upload = False
+    else:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('sorry, but "%s" is not "true" or "false"' % upload, is_bold=True)])
+        return
+
+    try:
+        slackrtm.setimageupload(channelid, event.conv.id_, upload)
+    except NotSyncingError:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('This Hangout is NOT synced to %s:%s.' % (slackname, channelname), is_bold=True)])
+    else:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('OK, I will %s upload images to this Hangout when shared in %s:%s.' % (('now' if upload else 'no longer'), slackname, channelname), is_bold=True)])
 
 
 def slack_sethotag(bot, event, *args):
