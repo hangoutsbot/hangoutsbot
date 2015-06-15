@@ -234,6 +234,12 @@ class SlackRTMSync(object):
             'sync_joins': self.sync_joins,
             }
 
+    def getPrintableOptions(self):
+        return 'hotag="%s", sync_joins=%s' % (
+            self.hotag if self.hotag else 'NONE',
+            self.sync_joins,
+            )
+
 class SlackRTM(object):
     def __init__(self, sink_config, bot, loop, threaded=False):
         self.bot = bot
@@ -429,7 +435,7 @@ class SlackRTM(object):
             traceback.print_exc()
 
     def handleCommands(self, msg):
-        cmdfmt = re.compile(r'^<@'+self.my_uid+'>:?\s+(help|whereami|whoami|whois|admins|hangouts|syncto|disconnect|setsyncjoinmsgs|sethotag)', re.IGNORECASE)
+        cmdfmt = re.compile(r'^<@'+self.my_uid+'>:?\s+(help|whereami|whoami|whois|admins|hangouts|listsyncs|syncto|disconnect|setsyncjoinmsgs|sethotag)', re.IGNORECASE)
         match = cmdfmt.match(msg.text)
         if not match:
             return
@@ -443,6 +449,7 @@ class SlackRTM(object):
             message += u'<@%s> whois @username _tells you the user id of @username_\n' % self.my_uid
             message += u'<@%s> admins _lists the slack users with admin priveledges_\n' % self.my_uid
             message += u'<@%s> hangouts _lists all connected hangouts (only available for admins, use in DM with me suggested)_\n' % self.my_uid
+            message += u'<@%s> listsyncs _lists all runnging sync connections (only available for admins, use in DM with me suggested)_\n' % self.my_uid
             message += u'<@%s> syncto HangoutId [shortname] _starts syncing messages from current channel/group to specified Hangout, if shortname given, messages from the Hangout will be tagged with shortname instead of Hangout title (only available for admins)_\n' % self.my_uid
             message += u'<@%s> disconnect HangoutId _stops syncing messages from current channel/group to specified Hangout (only available for admins)_\n' % self.my_uid
             message += u'<@%s> setsyncjoinmsgs HangoutId [true|false] _enable/disable messages about joins/leaves/adds/invites/kicks in synced Hangout/channel, default is enabled (only available for admins)_\n' % self.my_uid
@@ -516,6 +523,27 @@ class SlackRTM(object):
             message = '@%s: list of active hangouts:\n' % msg.username
             for c in self.bot.list_conversations():
                 message += '*%s:* _%s_\n' % (hangups.ui.utils.get_conv_name(c, truncate=True), c.id_)
+            self.slack.api_call('chat.postMessage',
+                                channel=msg.channel,
+                                text=message,
+                                as_user=True,
+                                link_names=True)
+
+        if command == 'listsyncs':
+            message = '@%s: list of current sync connections with this slack team:\n' % msg.username
+            for sync in self.syncs:
+                hangoutname = 'unknown'
+                for c in self.bot.list_conversations():
+                    if c.id_ == sync.hangoutid:
+                        hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
+                        break
+                message += '*%s(%s) : %s(%s)* _%s_\n' % (
+                    self.get_channelname(sync.channelid),
+                    sync.channelid,
+                    hangoutname,
+                    sync.hangoutid,
+                    sync.getPrintableOptions()
+                    )
             self.slack.api_call('chat.postMessage',
                                 channel=msg.channel,
                                 text=message,
@@ -926,7 +954,7 @@ def _initialise(Handlers, bot=None):
     Handlers.register_handler(_handle_membership_change, type="membership")
     Handlers.register_handler(_handle_rename, type="rename")
 
-    Handlers.register_admin_command(["slacks", "slack_channels", "slack_syncto", "slack_disconnect", "slack_setsyncjoinmsgs", "slack_sethotag"])
+    Handlers.register_admin_command(["slacks", "slack_channels", "slack_listsyncs", "slack_syncto", "slack_disconnect", "slack_setsyncjoinmsgs", "slack_sethotag"])
     return []
 
 @asyncio.coroutine
@@ -1009,6 +1037,38 @@ def slack_channels(bot, event, *args):
     for id in slackrtm.groupnames:
         segments.append(hangups.ChatMessageSegment('%s (%s)' % (slackrtm.groupnames[id], id)))
         segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+                
+    bot.send_message_segments(event.conv, segments)
+
+def slack_listsyncs(bot, event, *args):
+    segments = [ 
+        hangups.ChatMessageSegment('list of current sync connections:', is_bold=True),
+        hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)
+        ]
+    for slackrtm in slackrtms:
+        for sync in slackrtm.syncs:
+            hangoutname = 'unknown'
+            for c in bot.list_conversations():
+                if c.id_ == sync.hangoutid:
+                    hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
+                    break
+            segments.extend(
+                [
+                    hangups.ChatMessageSegment(
+                        '%s:%s(%s) : %s(%s)' % (
+                            slackrtm.name,
+                            slackrtm.get_channelname(sync.channelid),
+                            sync.channelid,
+                            hangoutname,
+                            sync.hangoutid
+                            ),
+                        is_bold=True
+                        ),
+                    hangups.ChatMessageSegment(' '),
+                    hangups.ChatMessageSegment(sync.getPrintableOptions(), is_italic=True),
+                    hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
+                    ]
+                )
                 
     bot.send_message_segments(event.conv, segments)
 
