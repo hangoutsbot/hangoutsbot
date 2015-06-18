@@ -18,7 +18,7 @@ def _handle_autoreply(bot, event, command):
         for kwds, sentence in autoreplies_list:
             for kw in kwds:
                 if words_in_text(kw, event.text) or kw == "*":
-                    bot.send_message(event.conv, sentence)
+                    bot.send_message_parsed(event.conv, sentence)
                     break
 
 def words_in_text(word, text):
