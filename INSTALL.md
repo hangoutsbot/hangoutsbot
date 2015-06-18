@@ -5,9 +5,10 @@
 wget https://www.python.org/ftp/python/3.4.2/Python-3.4.2.tgz
 tar xvf Python-3.4.2.tgz
 cd Python-3.4.2
-./config
+./configure
 make
-make install
+make test
+sudo make install
 ```
 
 **git clone the repository**
