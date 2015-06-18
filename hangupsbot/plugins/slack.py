@@ -3,7 +3,10 @@ from urllib.parse import urlparse, parse_qs
 from threading import Thread
 from hangups.ui.utils import get_conv_name
 from pyslack import SlackClient
-import emoji
+try:
+    import emoji
+except ImportError:
+    print("Error: You need to install the python emoji library!")
 
 import ssl
 import asyncio
@@ -112,10 +115,16 @@ class webhookReceiver(BaseHTTPRequestHandler):
             print(_("conversation id must be provided as part of path"))
             return
 
-        if "text" in payload and "user_name" in payload:
-            if "slackbot" not in str(payload["user_name"][0]):
-                response = "<b>" + str(payload["user_name"][0]) + ":</b> " + emoji.emojize(str(payload["text"][0]), use_aliases=True)
-                self._scripts_push(conversation_id, response)
+        if "text" in payload:
+            try:
+                text = emoji.emojize(str(payload["text"][0]), use_aliases=True)
+            except NameError: # emoji library likely missing
+                text = str(payload["text"][0])
+                
+            if "user_name" in payload:
+                if "slackbot" not in str(payload["user_name"][0]):
+                    response = "<b>" + str(payload["user_name"][0]) + ":</b> " + text
+                    self._scripts_push(conversation_id, response)
 
     def _scripts_push(self, conversation_id, message):
 
