@@ -11,6 +11,13 @@ def _initialise(command):
 
 @asyncio.coroutine
 def _handle_autoreply(bot, event, command):
+
+    autoreplies_enabled = bot.get_config_suboption(event.conv.id_, 'autoreplies_enabled')
+    if not autoreplies_enabled:
+        logging.info(_("autoreplies in {} disabled/unset").format(event.conv.id_))
+        return
+
+
     """Handle autoreplies to keywords in messages"""
 
     autoreplies_list = bot.get_config_suboption(event.conv_id, 'autoreplies')
