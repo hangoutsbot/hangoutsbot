@@ -103,6 +103,13 @@ There are three general types of interactions with the bot:
 Please see the wiki for the **[list of plugins]
   (https://github.com/nylonee/hangupsbot/wiki/Plugin-List)** to find out more
   about each plugin and their usage.
+  
+# Updating
+
+* Navigate to the bot directory (eg. `cd ~/hangupsbot`)
+* Change to the latest stable branch using `git checkout master`. If you're feeling adventurous, switch to the unstable but bleeding edge branch using `git checkout staging`.
+* `git pull` to pull the latest version of hangupsbot
+* Restart the bot
 
 # Debugging
 
