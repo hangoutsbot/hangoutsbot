@@ -114,7 +114,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
 
         if "text" in payload and "user_name" in payload:
             if "slackbot" not in str(payload["user_name"][0]):
-                response = "<b>" + str(payload["user_name"][0]) + ":</b> " + pymoji.replaceAliases(str(payload["text"][0]))
+                response = "<b>" + str(payload["user_name"][0]) + ":</b> " + pymoji.replaceAliases(str(payload["text"][0])).encode('ascii', errors='backslashreplace')
                 self._scripts_push(conversation_id, response)
 
     def _scripts_push(self, conversation_id, message):
