@@ -8,5 +8,5 @@ goslate
 wikipedia
 wolframalpha
 git+https://github.com/loisaidasam/pyslack.git
-git+https://github.com/nylonee/pymoji.git
+git+https://github.com/carpedm20/emoji
 selenium
