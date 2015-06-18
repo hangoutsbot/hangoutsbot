@@ -31,10 +31,21 @@ def _initialise(Handlers, bot=None):
 
 def echo(bot, event, *args):
     """echo back requested text"""
-    text = ' '.join(args)
+
+    # Check if the first argument is a known conv_id match
+    if args[0] in list(bot.memory.get_by_path(["conv_data"]).keys()):
+        text = ' '.join(args[1:])
+        conv_id = args[0]
+
+    else:
+        text = ' '.join(args)
+        conv_id = event.conv_id
+
     if text.lower().strip().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
         text = _("NOPE! Some things aren't worth repeating.")
-    bot.send_message(event.conv, text)
+        conv_id = event.conv_id
+
+    bot.send_message(conv_id, text)
 
 
 def echoparsed(bot, event, *args):
@@ -63,9 +74,9 @@ def broadcast(bot, event, *args):
                 return
             bot.send_message_parsed(event.conv, _(
                                             "<b>message:</b><br />"
-                                            "{}<br />" 
+                                            "{}<br />"
                                             "<b>to:</b><br />"
-                                            "{}".format(_internal["broadcast"]["message"], 
+                                            "{}".format(_internal["broadcast"]["message"],
                                                 "<br />".join(conv_info))))
         elif subcmd == "message":
             """set broadcast message"""
