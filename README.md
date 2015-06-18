@@ -94,9 +94,22 @@ There are three general types of interactions with the bot:
 `/bot ping`
 * Bot replies with a `pong`.
 
+`/bot optout`
+* Toggles opt-in/opt-out of advanced bot features.
+* Works by making existing 1-on-1 chat with the specific user invisible to the bot
+  * Bot will continue responding to the user in a group chat, but any feature/plugin
+    which requires a 1-on-1 chat is effectively disabled when toggled ON.
+
 Please see the wiki for the **[list of plugins]
   (https://github.com/nylonee/hangupsbot/wiki/Plugin-List)** to find out more
   about each plugin and their usage.
+  
+# Updating
+
+* Navigate to the bot directory (eg. `cd ~/hangupsbot`)
+* Change to the latest stable branch using `git checkout master`. If you're feeling adventurous, switch to the unstable but bleeding edge branch using `git checkout staging`.
+* `git pull` to pull the latest version of hangupsbot
+* Restart the bot
 
 # Debugging
 

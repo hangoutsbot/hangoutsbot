@@ -1,16 +1,14 @@
-import asyncio,re
+import asyncio
+import re
 
 from random import shuffle
 
+import plugins
 
-def _initialise(Handlers, bot=None):
-    Handlers.register_handler(_handle_me_action)
-    if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
-        Handlers.register_admin_command(["prepare", "perform_drawing"])
-        return []
-    else:
-        print(_("LOTTERY: LEGACY FRAMEWORK MODE"))
-        return ["prepare"]
+
+def _initialise(bot):
+    plugins.register_handler(_handle_me_action)
+    plugins.register_admin_command(["prepare", "perform_drawing"])
 
 
 @asyncio.coroutine

@@ -4,6 +4,9 @@ import time
 
 from hangups.ui.utils import get_conv_name
 
+import plugins
+
+
 class __internal_vars():
     def __init__(self):
         self.last_verified = {}
@@ -12,16 +15,10 @@ class __internal_vars():
 _internal = __internal_vars()
 
 
-def _initialise(Handlers, bot=None):
-    Handlers.register_handler(_check_if_admin_added_me, type="membership")
-    Handlers.register_handler(_verify_botkeeper_presence, type="message")
-
-    if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
-        Handlers.register_admin_command(["allowbotadd", "removebotadd"])
-        return []
-    else:
-        print(_("RESTRICTEDADD: LEGACY FRAMEWORK MODE"))
-        return ["allowbotadd", "removebotadd"]
+def _initialise(bot):
+    plugins.register_handler(_check_if_admin_added_me, type="membership")
+    plugins.register_handler(_verify_botkeeper_presence, type="message")
+    plugins.register_admin_command(["allowbotadd", "removebotadd"])
 
 
 @asyncio.coroutine

@@ -1,8 +1,9 @@
-"""
-add aliases for the bot
-"""
+"""aliases for the bot"""
 
-def _initialise(Handlers, bot=None):
+import plugins
+
+
+def _initialise(bot):
     """load in bot aliases from memory, create defaults if none"""
 
     if bot.memory.exists(["bot.command_aliases"]):
@@ -28,10 +29,10 @@ def _initialise(Handlers, bot=None):
     if len(bot_command_aliases) == 0:
         bot.append("/bot")
 
-    Handlers.bot_command = bot_command_aliases
+    bot._handlers.bot_command = bot_command_aliases
     print(_("bot aliases: {}").format(bot_command_aliases))
 
-    Handlers.register_user_command(["botalias"])
+    plugins.register_user_command(["botalias"])
 
     return []
 

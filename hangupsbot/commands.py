@@ -3,15 +3,27 @@ import sys, json, asyncio, logging, os
 import hangups
 from hangups.ui.utils import get_conv_name
 
+from version import __version__
 from utils import text_to_segments
+
+import plugins
 
 
 class CommandDispatcher(object):
     """Register commands and run them"""
     def __init__(self):
         self.commands = {}
+        self.admin_commands = []
         self.unknown_command = None
+        self.tracking = None
 
+    def set_tracking(self, tracking):
+        self.tracking = tracking
+
+    def get_admin_commands(self, bot, conv_id):
+        """Get list of admin-only commands (set by plugins or in config.json)"""
+        commands_admin = bot.get_config_suboption(conv_id, 'commands_admin') or []
+        return list(set(commands_admin + self.admin_commands))
 
     @asyncio.coroutine
     def run(self, bot, event, *args, **kwds):
@@ -24,10 +36,6 @@ class CommandDispatcher(object):
             else:
                 raise
 
-        # Automatically wrap command function in coroutine
-        # (so we don't have to write @asyncio.coroutine decorator before every command function)
-        func = asyncio.coroutine(func)
-
         args = list(args[1:])
 
         try:
@@ -37,15 +45,30 @@ class CommandDispatcher(object):
             print(_("EXCEPTION in {}").format(message))
             logging.exception(message)
 
-
-    def register(self, func):
+    def register(self, *args, admin=False):
         """Decorator for registering command"""
-        self.commands[func.__name__] = func
-        return func
+        def wrapper(func):
+            # Automatically wrap command function in coroutine
+            func = asyncio.coroutine(func)
+            self.commands[func.__name__] = func
+            if self.tracking:
+                plugins.tracking.register_command("user", [func.__name__])
+            if admin:
+                self.admin_commands.append(func.__name__)
+                if self.tracking:
+                    plugins.tracking.register_command("admin", [func.__name__])
+            return func
+
+        # If there is one (and only one) positional argument and this argument is callable,
+        # assume it is the decorator (without any optional keyword arguments)
+        if len(args) == 1 and callable(args[0]):
+            return wrapper(args[0])
+        else:
+            return wrapper
 
     def register_unknown(self, func):
         """Decorator for registering unknown command"""
-        self.unknown_command = func
+        self.unknown_command = asyncio.coroutine(func)
         return func
 
 
@@ -61,7 +84,7 @@ def help(bot, event, cmd=None, *args):
         admins_list = bot.get_config_suboption(event.conv_id, 'admins')
 
         commands_all = command.commands.keys()
-        commands_admin = bot._handlers.get_admin_commands(event.conv_id)
+        commands_admin = command.get_admin_commands(bot, event.conv_id)
         commands_nonadmin = list(set(commands_all) - set(commands_admin))
 
         help_lines.append(_('<b>User commands:</b>'))
@@ -113,9 +136,15 @@ def optout(bot, event, *args):
     bot.memory.save()
 
     if optout:
-        bot.send_message_parsed(event.conv, _('<i>{}, you <b>opted-out</b> from bot private messages</i>'.format(event.user.full_name)))
+        bot.send_message_parsed(event.conv, _('<i>{}, you <b>opted-out</b> from bot private messages</i>').format(event.user.full_name))
     else:
-        bot.send_message_parsed(event.conv, _('<i>{}, you <b>opted-in</b> for bot private messages</i>'.format(event.user.full_name)))
+        bot.send_message_parsed(event.conv, _('<i>{}, you <b>opted-in</b> for bot private messages</i>').format(event.user.full_name))
+
+
+@command.register
+def version(bot, event, *args):
+    """get the version of the bot"""
+    bot.send_message_parsed(event.conv, _("Bot Version: <b>{}</b>").format(__version__))
 
 
 @command.register_unknown

@@ -6,7 +6,6 @@ gettext.install('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 
 
 import appdirs
 import hangups
-from threading import Thread
 
 from utils import simple_parse_to_segments, class_from_name
 from hangups.ui.utils import get_conv_name
@@ -19,10 +18,12 @@ import config
 import handlers
 import version
 from commands import command
+from handlers import handler # shim for handler decorator
 
-from sinks.listener import start_listening
+import hooks
+import sinks
+import plugins
 
-from inspect import getmembers, isfunction
 
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
@@ -133,10 +134,16 @@ class HangupsBot(object):
         except NotImplementedError:
             pass
 
-    def register_shared(self, id, objectref):
+    def register_shared(self, id, objectref, forgiving=False):
         if id in self.shared:
-            raise RuntimeError(_("{} already registered in shared").format(id))
+            message = _("{} already registered in shared").format(id)
+            if forgiving:
+                print(message)
+                logging.info(message)
+            else:
+                raise RuntimeError(message)
         self.shared[id] = objectref
+        plugins.tracking.register_shared(id, objectref, forgiving=forgiving)
 
     def call_shared(self, id, *args, **kwargs):
         object = self.shared[id]
@@ -164,8 +171,8 @@ class HangupsBot(object):
             loop = asyncio.get_event_loop()
 
             # initialise pluggable framework
-            self._load_hooks()
-            self._start_sinks(loop)
+            hooks.load(self)
+            sinks.start(self, loop)
 
             # Connect to Hangouts
             # If we are forcefully disconnected, try connecting again
@@ -348,6 +355,9 @@ class HangupsBot(object):
         print()
 
     def get_1on1_conversation(self, chat_id):
+        """find a 1-to-1 conversation with specified user
+        maintained for functionality with older plugins that do not use get_1to1()
+        """
         self.initialise_memory(chat_id, "user_data")
 
         if self.memory.exists(["user_data", chat_id, "optout"]):
@@ -375,6 +385,68 @@ class HangupsBot(object):
 
         return conversation
 
+
+    @asyncio.coroutine
+    def get_1to1(self, chat_id):
+        """find/create a 1-to-1 conversation with specified user
+        config.autocreate-1to1 = true to enable conversation creation, otherwise will revert to
+            legacy behaviour of finding an existing 1-to-1
+        config.bot_introduction = "some text or html" to show to users when a new conversation
+            is created - "{0}" will be substituted with first bot alias
+        """
+        self.initialise_memory(chat_id, "user_data")
+
+        if self.memory.exists(["user_data", chat_id, "optout"]):
+            if self.memory.get_by_path(["user_data", chat_id, "optout"]):
+                return False
+
+        conversation = None
+
+        if self.memory.exists(["user_data", chat_id, "1on1"]):
+            conversation_id = self.memory.get_by_path(["user_data", chat_id, "1on1"])
+            conversation = FakeConversation(self._client, conversation_id)
+            logging.info("get_1on1: remembered {} for {}".format(conversation_id, chat_id))
+        else:
+            if self.get_config_option('autocreate-1to1'):
+                """create a new 1-to-1 conversation with the designated chat id
+                send an introduction message as well to the user as part of the chat creation
+                """
+                logging.info("get_1on1: creating 1to1 with {}".format(chat_id))
+                try:
+                    introduction = self.get_config_option('bot_introduction')
+                    if not introduction:
+                        introduction =_("<i>Hi there! I'll be using this channel to send private "
+                                        "messages and alerts. "
+                                        "For help, type <b>{0} help</b>. "
+                                        "To keep me quiet, reply with <b>{0} opt-out</b>.</i>").format(self._handlers.bot_command[0])
+                    response = yield from self._client.createconversation([chat_id])
+                    new_conversation_id = response['conversation']['id']['id']
+                    self.send_html_to_conversation(new_conversation_id, introduction)
+                    conversation = FakeConversation(self._client, new_conversation_id)
+                except Exception as e:
+                    logging.exception("GET_1TO1: failed to create 1-to-1 for user {}", chat_id)
+            else:
+                """legacy behaviour: user must say hi to the bot first
+                this creates a conversation entry in self._conv_list (even if the bot receives
+                a chat invite only - a message sent on the channel auto-accepts the invite)
+                """
+                logging.info("get_1on1: searching for existing 1to1 with {}".format(chat_id))
+                for c in self.list_conversations():
+                    if len(c.users) == 2:
+                        for u in c.users:
+                            if u.id_.chat_id == chat_id:
+                                conversation = c
+                                break
+
+            if conversation is not None:
+                # remember the conversation so we don't have to do this again
+                logging.info("get_1on1: determined {} for {}".format(conversation.id_, chat_id))
+                self.memory.set_by_path(["user_data", chat_id, "1on1"], conversation.id_)
+                self.memory.save()
+
+        return conversation
+
+
     def initialise_memory(self, chat_id, datatype):
         if not self.memory.exists([datatype]):
             # create the datatype grouping if it does not exist
@@ -394,180 +466,6 @@ class HangupsBot(object):
     def _messagecontext_legacy(self):
         return self.messagecontext("unknown", 50, ["legacy"])
 
-    def _load_plugins(self):
-        plugin_list = self.get_config_option('plugins')
-        if plugin_list is None:
-            print(_("HangupsBot: config.plugins is not defined, using ALL"))
-            plugin_path = os.path.dirname(os.path.realpath(sys.argv[0])) + os.sep + "plugins"
-            plugin_list = [ os.path.splitext(f)[0]  # take only base name (no extension)...
-                for f in os.listdir(plugin_path)    # ...by iterating through each node in the plugin_path...
-                    if os.path.isfile(os.path.join(plugin_path,f))
-                        and not f.startswith(("_", ".")) # ...that does not start with _ .
-                        and f.endswith(".py")] # ...and must end with .py
-
-        for module in plugin_list:
-            module_path = "plugins.{}".format(module)
-
-            try:
-                exec("import {}".format(module_path))
-            except Exception as e:
-                message = "{} @ {}".format(e, module_path)
-                print(_("EXCEPTION during plugin import: {}").format(message))
-                logging.exception(message)
-                continue
-
-            print(_("plugin: {}").format(module))
-            public_functions = [o for o in getmembers(sys.modules[module_path], isfunction)]
-
-            candidate_commands = []
-
-            """
-            pass 1: run _initialise()/_initialize() and filter out "hidden" functions
-
-            legacy notice:
-            older plugins will return a list of user-available functions via _initialise/_initialize().
-            this LEGACY behaviour will continue to be supported. however, it is HIGHLY RECOMMENDED to
-            use register_user_command(<LIST command_names>) and register_admin_command(<LIST command_names>)
-            for better security
-            """
-            available_commands = False # default: ALL
-            try:
-                self._handlers.plugin_preinit_stats((module, module_path))
-                for function_name, the_function in public_functions:
-                    if function_name ==  "_initialise" or function_name ==  "_initialize":
-                        try:
-                            _return = the_function(self._handlers, bot=self)
-                        except TypeError as e:
-                            # implement legacy support for plugins that don't support the bot reference
-                            _return = the_function(self._handlers)
-                        if type(_return) is list:
-                            available_commands = _return
-                    elif function_name.startswith("_"):
-                        pass
-                    else:
-                        candidate_commands.append((function_name, the_function))
-                if available_commands is False:
-                    # implicit init, legacy support: assume all candidate_commands are user-available
-                    self._handlers.register_user_command([function_name for function_name, function in candidate_commands])
-                elif available_commands is []:
-                    # explicit init, no user-available commands
-                    pass
-                else:
-                    # explicit init, legacy support: _initialise() returned user-available commands
-                    self._handlers.register_user_command(available_commands)
-            except Exception as e:
-                message = "{} @ {}".format(e, module_path)
-                print(_("EXCEPTION during plugin init: {}").format(message))
-                logging.exception(message)
-                continue # skip this, attempt next plugin
-
-            """
-            pass 2: register filtered functions
-            """
-            plugin_tracking = self._handlers.plugin_get_stats()
-            explicit_admin_commands = plugin_tracking["commands"]["admin"]
-            all_commands = plugin_tracking["commands"]["all"]
-            registered_commands = []
-            for function_name, the_function in candidate_commands:
-                if function_name in all_commands:
-                    command.register(the_function)
-                    text_function_name = function_name
-                    if function_name in explicit_admin_commands:
-                        text_function_name = "*" + text_function_name
-                    registered_commands.append(text_function_name)
-
-            if registered_commands:
-                print(_("added: {}").format(", ".join(registered_commands)))
-
-        self._handlers.all_plugins_loaded()
-
-
-    def _start_sinks(self, shared_loop):
-        jsonrpc_sinks = self.get_config_option('jsonrpc')
-        itemNo = -1
-        threads = []
-
-        if isinstance(jsonrpc_sinks, list):
-            for sinkConfig in jsonrpc_sinks:
-                itemNo += 1
-
-                try:
-                    module = sinkConfig["module"].split(".")
-                    if len(module) < 4:
-                        print(_("config.jsonrpc[{}].module should have at least 4 packages {}").format(itemNo, module))
-                        continue
-                    module_name = ".".join(module[0:-1])
-                    class_name = ".".join(module[-1:])
-                    if not module_name or not class_name:
-                        print(_("config.jsonrpc[{}].module must be a valid package name").format(itemNo))
-                        continue
-
-                    certfile = sinkConfig["certfile"]
-                    if not certfile:
-                        print(_("config.jsonrpc[{}].certfile must be configured").format(itemNo))
-                        continue
-
-                    name = sinkConfig["name"]
-                    port = sinkConfig["port"]
-                except KeyError as e:
-                    print(_("config.jsonrpc[{}] missing keyword").format(itemNo), e)
-                    continue
-
-                # start up rpc listener in a separate thread
-                print(_("_start_sinks(): {}").format(module))
-                t = Thread(target=start_listening, args=(
-                  self,
-                  shared_loop,
-                  name,
-                  port,
-                  certfile,
-                  class_from_name(module_name, class_name),
-                  module_name))
-
-                t.daemon = True
-                t.start()
-
-                threads.append(t)
-
-        message = _("_start_sinks(): {} sink thread(s) started").format(len(threads))
-        logging.info(message)
-
-    def _load_hooks(self):
-        hook_packages = self.get_config_option('hooks')
-        itemNo = -1
-        self._hooks = []
-
-        if isinstance(hook_packages, list):
-            for hook_config in hook_packages:
-                try:
-                    module = hook_config["module"].split(".")
-                    if len(module) < 4:
-                        print(_("config.hooks[{}].module should have at least 4 packages {}").format(itemNo, module))
-                        continue
-                    module_name = ".".join(module[0:-1])
-                    class_name = ".".join(module[-1:])
-                    if not module_name or not class_name:
-                        print(_("config.hooks[{}].module must be a valid package name").format(itemNo))
-                        continue
-                except KeyError as e:
-                    print(_("config.hooks[{}] missing keyword").format(itemNo), e)
-                    continue
-
-                theClass = class_from_name(module_name, class_name)
-                theClass._bot = self
-                if "config" in hook_config:
-                    # allow separate configuration file to be loaded
-                    theClass._config = hook_config["config"]
-
-                if theClass.init():
-                    print(_("_load_hooks(): {}").format(module))
-                    self._hooks.append(theClass)
-                else:
-                    print(_("_load_hooks(): hook failed to initialise"))
-
-        message = _("_load_hooks(): {} hook(s) loaded").format(len(self._hooks))
-        logging.info(message)
-
     def _on_message_sent(self, future):
         """Handle showing an error if a message fails to send"""
         try:
@@ -579,7 +477,9 @@ class HangupsBot(object):
     def _on_connect(self, initial_data):
         """Handle connecting for the first time"""
         print(_('Connected!'))
+
         self._handlers = handlers.EventHandler(self)
+        handlers.handler.set_bot(self) # shim for handler decorator
 
         try:
             # hangups-201504090500
@@ -599,7 +499,7 @@ class HangupsBot(object):
                                                    initial_data.sync_timestamp)
         self._conv_list.on_event.add_observer(self._on_event)
 
-        self._load_plugins()
+        plugins.load(self, command)
 
     def _on_event(self, conv_event):
         """Handle conversation events"""

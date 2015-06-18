@@ -8,6 +8,9 @@ except ImportError:
 
 from random import randrange
 
+import plugins
+
+
 __cleverbots = dict()
 
 """ Cleverbot API adapted from https://github.com/folz/cleverbot.py """
@@ -28,6 +31,7 @@ class Cleverbot:
         'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
         'Accept-Language': 'en-us,en;q=0.8,en-us;q=0.5,en;q=0.3',
         'Cache-Control': 'no-cache',
+        'Cookie': 'XVIS=TEI939AFFIAGAYQZ',
         'Host': HOST,
         'Referer': PROTOCOL + HOST + '/',
         'Pragma': 'no-cache'
@@ -158,14 +162,11 @@ class Cleverbot:
 
         return parsed_dict
 
-def _initialise(Handlers, bot=None):
 
-    Handlers.register_handler(_handle_incoming_message, type="message")
+def _initialise(bot):
+    plugins.register_handler(_handle_incoming_message, type="message")
+    plugins.register_user_command(["chat"])
 
-    if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
-        Handlers.register_admin_command([])
-        Handlers.register_user_command(["chat"])
-        return []
 
 @asyncio.coroutine
 def _handle_incoming_message(bot, event, context):
@@ -176,8 +177,9 @@ def _handle_incoming_message(bot, event, context):
 
     percentage = bot.get_config_suboption(event.conv_id, 'cleverbot_percentage_replies')
 
-    if randrange(0, 101, 2) < float(percentage):
+    if randrange(0, 101, 1) < float(percentage):
         chat(bot, event, event.text)
+
 
 def chat(bot, event, *args):
     """Cleverbot for Hangupsbot"""

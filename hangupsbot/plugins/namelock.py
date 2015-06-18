@@ -5,10 +5,12 @@ import asyncio
 
 import hangups
 
-def _initialise(Handlers, bot=None):
-    Handlers.register_handler(_watch_rename, type="rename")
-    Handlers.register_admin_command(["topic"])
-    return []
+import plugins
+
+
+def _initialise(bot):
+    plugins.register_handler(_watch_rename, type="rename")
+    plugins.register_admin_command(["topic"])
 
 
 @asyncio.coroutine
