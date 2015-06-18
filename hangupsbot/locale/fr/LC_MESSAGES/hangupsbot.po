@@ -51,7 +51,7 @@ msgstr "pong"
 
 #: commands.py:139
 msgid "<i>{}, you <b>opted-out</b> from bot private messages</i>"
-msgstr ""<i>{}, tu <b>refuses</b> les messages privés du bot</i>"
+msgstr "<i>{}, tu <b>refuses</b> les messages privés du bot</i>"
 
 #: commands.py:141
 msgid "<i>{}, you <b>opted-in</b> for bot private messages</i>"
@@ -409,7 +409,7 @@ msgstr "<b>résultats pour les hangouts nommés \"{}\"</b><br />"
 
 #: plugins/default.py:225
 msgid "I'll be back!"
-msgstr "Sarah Connor" (désolé Jocely)
+msgstr "Sarah Connor"
 
 #: plugins/default.py:237
 msgid "HangupsBot killed by user {} from conversation {}"
@@ -425,7 +425,7 @@ msgstr "Erreur de suppression dans une liste inexstante"
 
 #: plugins/default.py:311
 msgid "Parameter does not exist!"
-msgstr “Paramètre inexistant"
+msgstr "Paramètre inexistant"
 
 #: plugins/default.py:333
 msgid "<b>{}</b>, chat_id = <i>{}</i>"
@@ -983,7 +983,7 @@ msgstr "<i>Utilisateur verifie possede une conversion privee avec moi</i>"
 #: plugins/starter.py:70
 msgid ""
 "<i>User must say \"hi\" to me first via a 1-on-1 hangout with <b>{}</b>."
-msgstr ""<i>L'utilisateur doit d'abord me dire \"hi\" en conversation privée sur hangout avec <b>{}</b>.""
+msgstr "<i>L'utilisateur doit d'abord me dire \"hi\" en conversation privée sur hangout avec <b>{}</b>."
 
 #: plugins/starter.py:71
 msgid "Then let me know by sending <b>/bot verifyme</b> in this chat.</i>"
@@ -1012,7 +1012,7 @@ msgstr "subscribe: L'utilisateur {} ({}) ne peut pas etre alerte en prive"
 #: plugins/subscribe.py:92
 msgid ""
 "Note: I am unable to ping you until you start a 1 on 1 conversation with me!"
-msgstr ""Remarque: Il m'est impossible de vous pinger avant que vous n'ayez commencé une conversation privée avec moi!""
+msgstr "Remarque: Il m'est impossible de vous pinger avant que vous n'ayez commencé une conversation privée avec moi!"
 
 #: plugins/subscribe.py:96
 msgid "Usage: /bot subscribe [keyword]"
