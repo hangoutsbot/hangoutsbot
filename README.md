@@ -109,6 +109,7 @@ Please see the wiki for the **[list of plugins]
 * Navigate to the bot directory (eg. `cd ~/hangupsbot`)
 * Change to the latest stable branch using `git checkout master`. If you're feeling adventurous, switch to the unstable but bleeding edge branch using `git checkout staging`.
 * `git pull` to pull the latest version of hangupsbot
+* `pip3 install -r requirements.txt`
 * Restart the bot
 
 # Debugging
