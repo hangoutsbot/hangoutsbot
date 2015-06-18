@@ -3,6 +3,7 @@ from urllib.parse import urlparse, parse_qs
 from threading import Thread
 from hangups.ui.utils import get_conv_name
 from pyslack import SlackClient
+import pymoji
 
 import ssl
 import asyncio
@@ -117,6 +118,8 @@ class webhookReceiver(BaseHTTPRequestHandler):
                 self._scripts_push(conversation_id, response)
 
     def _scripts_push(self, conversation_id, message):
+        message = pymoji.replaceAliases(message)
+
         try:
             if not webhookReceiver._bot.send_html_to_user(conversation_id, message):
                 webhookReceiver._bot.send_html_to_conversation(conversation_id, message)
