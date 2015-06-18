@@ -409,7 +409,7 @@ msgstr "<b>résultats pour les hangouts nommés \"{}\"</b><br />"
 
 #: plugins/default.py:225
 msgid "I'll be back!"
-msgstr "Sarah Connor" (désolé Jocely)
+msgstr "I'll be back!"
 
 #: plugins/default.py:237
 msgid "HangupsBot killed by user {} from conversation {}"
