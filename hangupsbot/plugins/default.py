@@ -50,12 +50,23 @@ def echo(bot, event, *args):
 
 def echoparsed(bot, event, *args):
     """echo back requested text"""
-    formatted_text = ' '.join(args)
+
+    # Check if the first argument is a known conv_id match
+    if args[0] in list(bot.memory.get_by_path(["conv_data"]).keys()):
+        formatted_text = ' '.join(args[1:])
+        conv_id = args[0]
+
+    else:
+        formatted_text = ' '.join(args)
+        conv_id = event.conv_id
+
     test_segments = simple_parse_to_segments(formatted_text)
     if test_segments:
         if test_segments[0].text.strip().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
             formatted_text = _("NOPE! Some things aren't worth repeating.")
-        bot.send_message_parsed(event.conv, formatted_text)
+            conv_id = event.conv_id
+
+    bot.send_message_parsed(conv_id, formatted_text)
 
 
 def broadcast(bot, event, *args):
