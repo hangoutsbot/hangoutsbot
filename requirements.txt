@@ -7,5 +7,5 @@ beautifulsoup4
 goslate
 wikipedia
 wolframalpha
-pyslack
+git+https://github.com/loisaidasam/pyslack.git
 selenium
