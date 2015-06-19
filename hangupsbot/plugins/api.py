@@ -43,7 +43,15 @@ class ConversationEvent(object):
         self.text = None
 
     def print_debug(self):
-        print("fake ConversationEvent from plugins/api.py created")
+        """Print informations about conversation event"""
+        print(_('eid/dtime: {}/{}').format(self.event_id, self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
+        print(_('cid/cname: {}/{}').format(self.conv_id, get_conv_name(self.conv, truncate=True)))
+        if(self.user_id.chat_id == self.user_id.gaia_id):
+            print(_('uid/uname: {}/{}').format(self.user_id.chat_id, self.user.full_name))
+        else:
+            print(_('uid/uname: {}!{}/{}').format(self.user_id.chat_id, self.user_id.gaia_id, self.user.full_name))
+        print(_('txtlen/tx: {}/{}').format(len(self.text), self.text))
+        print(_('eventdump: completed --8<--'))
 
 def _start_api(bot):
     # Start and asyncio event loop
@@ -151,6 +159,8 @@ class webhookReceiver(BaseHTTPRequestHandler):
             event.user = event.conv.get_user(event.user_id)
             event.timestamp = time.time()
             event.text = content.strip()
+
+            event.print_debug()
 
             webhookReceiver._bot._handlers.handle_command(event)
         except Exception as e:
