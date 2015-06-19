@@ -10,6 +10,7 @@ import ssl
 import asyncio
 import logging
 import hangups
+import time
 
 def _initialise(Handlers, bot):
     if bot:
@@ -151,7 +152,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
             event.timestamp = time.time()
             event.text = content.strip()
 
-            webhookReceiver._bot._handlers.handle_command(webhookReceiver._bot, event)
+            webhookReceiver._bot._handlers.handle_command(event)
         except Exception as e:
             print(e)
 
