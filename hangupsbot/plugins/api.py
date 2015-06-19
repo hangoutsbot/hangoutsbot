@@ -24,6 +24,7 @@ def _initialise(Handlers, bot):
 """ API plugin for listening for server commands and treating them as ConversationEvents
 config.json will have to be configured as follows:
 
+"api_key": "API_KEY",
 "api": [{
   "certfile": null,
   "name": SERVER_NAME,
@@ -112,8 +113,10 @@ class webhookReceiver(BaseHTTPRequestHandler):
 
     def _handle_incoming(self, path, query_string, payload):
 
-        #path if needed for API
-        #path = path.split("/")
+        path = path.split("/")
+        if path[1] is not webhookReceiver._bot.get_config_option('api_key'):
+            print(_("API Key not provided"))
+            return
 
         if "content" in payload and "sendto" in payload:
             self._scripts_command(payload["sendto"], payload["content"])
