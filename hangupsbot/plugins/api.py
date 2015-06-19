@@ -114,7 +114,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
     def _handle_incoming(self, path, query_string, payload):
 
         path = path.split("/")
-        if path[1] is not webhookReceiver._bot.get_config_option('api_key'):
+        if not path[1] is webhookReceiver._bot.get_config_option('api_key'):
             print(_("API Key not provided. {} doesn't match {}".format(path[1], webhookReceiver._bot.get_config_option('api_key'))))
             return
 
