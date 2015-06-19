@@ -10,7 +10,7 @@ import ssl
 import asyncio
 import logging
 import hangups
-import time
+import datetime
 
 def _initialise(Handlers, bot):
     if bot:
@@ -44,7 +44,6 @@ class ConversationEvent(object):
 
     def print_debug(self):
         """Print informations about conversation event"""
-        print(_('eid/dtime: {}/{}').format(self.event_id, self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
         print(_('cid/cname: {}/{}').format(self.conv_id, get_conv_name(self.conv, truncate=True)))
         if(self.user_id.chat_id == self.user_id.gaia_id):
             print(_('uid/uname: {}/{}').format(self.user_id.chat_id, self.user.full_name))
@@ -157,7 +156,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
             event.conv = webhookReceiver._bot._conv_list.get(event.conv_id)
             event.event_id = randrange(1, 9999999999, 1) # Create a random event_id
             event.user = event.conv.get_user(event.user_id)
-            event.timestamp = time.time()
+            event.timestamp = datetime.datetime.now()
             event.text = content.strip()
 
             event.print_debug()
