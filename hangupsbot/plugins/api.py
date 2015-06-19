@@ -1,4 +1,4 @@
-from http.server import BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
 from threading import Thread
 from hangups.ui.utils import get_conv_name
@@ -17,6 +17,17 @@ def _initialise(Handlers, bot):
     else:
         print("API could not be initialized.")
     return []
+
+""" API plugin for listening for server commands and treating them as ConversationEvents
+config.json will have to be configured as follows:
+
+"api": [{
+  "certfile": null,
+  "name": SERVER_NAME,
+  "port": LISTENING_PORT,
+}]
+
+"""
 
 class ConversationEvent(object):
     """Fake Conversation event"""
