@@ -139,7 +139,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
             if conv_or_user_id.isdigit(): # Assuming user_id is always digit only
                 # Private chat
                 event.user_id = conv_or_user_id
-                event.conv_id = webhookReceiver._bot.get_1to1(conv_or_user_id).id_
+                event.conv_id = webhookReceiver._bot.get_1to1(conv_or_user_id)
             else:
                 # Potentially group chat. Pick first user found in group chat
                 event.user_id = webhookReceiver._bot.get_users_in_conversation(conv_or_user_id)[0]
