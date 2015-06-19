@@ -68,7 +68,7 @@ def _start_api(bot):
                 continue
 
             # start up api listener in a separate thread
-            print("Starting API on {}:{}".format(name, port))
+            print("Starting API on https://{}:{}/".format(name, port))
             t = Thread(target=start_listening, args=(
               bot,
               loop,
@@ -85,7 +85,7 @@ def _start_api(bot):
     logging.info(message)
 
 def start_listening(bot, loop=None, name="", port=8007, certfile=None):
-    webhook = webhookReceiver(bot)
+    webhook = webhookReceiver
 
     if loop:
         asyncio.set_event_loop(loop)
@@ -116,9 +116,7 @@ def start_listening(bot, loop=None, name="", port=8007, certfile=None):
         httpd.socket.close()
 
 class webhookReceiver(BaseHTTPRequestHandler):
-    def __init__(self, bot):
-        # Load bot
-        self._bot = bot
+    _bot = None
 
     def _handle_incoming(self, path, query_string, payload):
 
@@ -141,19 +139,19 @@ class webhookReceiver(BaseHTTPRequestHandler):
             if conv_or_user_id.isdigit(): # Assuming user_id is always digit only
                 # Private chat
                 event.user_id = conv_or_user_id
-                event.conv_id = self._bot.get_1to1(conv_or_user_id).id_
+                event.conv_id = webhookReceiver._bot.get_1to1(conv_or_user_id).id_
             else:
                 # Potentially group chat. Pick first user found in group chat
-                event.user_id = self._bot.get_users_in_conversation(conv_or_user_id)[0]
+                event.user_id = webhookReceiver._bot.get_users_in_conversation(conv_or_user_id)[0]
                 event.conv_id = conv_or_user_id
 
-            event.conv = self._bot._conv_list.get(event.conv_id)
+            event.conv = webhookReceiver._bot._conv_list.get(event.conv_id)
             event.event_id = randrange(1, 9999999999, 1) # Create a random event_id
             event.user = event.conv.get_user(event.user_id)
             event.timestamp = time.time()
             event.text = content.strip()
 
-            handle_command(self._bot, event)
+            webhookReceiver._bot._handlers.handle_command(webhookReceiver._bot, event)
         except Exception as e:
             print(e)
 
