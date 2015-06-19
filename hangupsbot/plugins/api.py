@@ -11,12 +11,14 @@ import asyncio
 import logging
 import hangups
 import datetime
+import plugins
 
 def _initialise(Handlers, bot):
     if bot:
         _start_api(bot)
     else:
         print("API could not be initialized.")
+    plugins.register_handler(_handle_incoming_message, type="allmessages")
     return []
 
 """ API plugin for listening for server commands and treating them as ConversationEvents
@@ -30,27 +32,9 @@ config.json will have to be configured as follows:
 
 """
 
-class ConversationEvent(object):
-    """Fake Conversation event"""
-    def __init__(self):
-        self.conv_event = None
-        self.conv_id = None
-        self.conv = None
-        self.event_id = None
-        self.user_id = None
-        self.user = None
-        self.timestamp = None
-        self.text = None
-
-    def print_debug(self):
-        """Print informations about conversation event"""
-        print(_('cid/cname: {}/{}').format(self.conv_id, get_conv_name(self.conv, truncate=True)))
-        if(self.user_id.chat_id == self.user_id.gaia_id):
-            print(_('uid/uname: {}/{}').format(self.user_id.chat_id, self.user.full_name))
-        else:
-            print(_('uid/uname: {}!{}/{}').format(self.user_id.chat_id, self.user_id.gaia_id, self.user.full_name))
-        print(_('txtlen/tx: {}/{}').format(len(self.text), self.text))
-        print(_('eventdump: completed --8<--'))
+def _handle_incoming_message(bot, event, command):
+    if event.user.is_self:
+        yield from bot._handlers.handle_command(event)
 
 def _start_api(bot):
     # Start and asyncio event loop
@@ -141,29 +125,8 @@ class webhookReceiver(BaseHTTPRequestHandler):
 
     def _scripts_command(self, conv_or_user_id, content):
         try:
-            # Create the fake ConversationEvent to pass the command through
-            event = ConversationEvent()
-
-            if conv_or_user_id.isdigit(): # Assuming user_id is always digit only
-                # Private chat
-                event.user_id.chat_id = conv_or_user_id
-                event.user_id.gaia_id = event.user_id.chat_id
-                event.conv_id = webhookReceiver._bot.get_1to1(conv_or_user_id)
-            else:
-                # Potentially group chat. Pick first user found in group chat
-                event.user_id.chat_id = webhookReceiver._bot.get_users_in_conversation(conv_or_user_id)[0]
-                event.user_id.gaia_id = event.user_id.chat_id
-                event.conv_id = conv_or_user_id
-
-            event.conv = webhookReceiver._bot._conv_list.get(event.conv_id)
-            event.event_id = randrange(1, 9999999999, 1) # Create a random event_id
-            event.user = event.conv.get_user(event.user_id)
-            event.timestamp = datetime.datetime.now()
-            event.text = content.strip()
-
-            event.print_debug()
-
-            webhookReceiver._bot._handlers.handle_command(event)
+            if not webhookReceiver._bot.send_html_to_user(conv_or_user_id, content): # Not a user id
+                webhookReceiver._bot.send_html_to_conversation(conv_or_user_id, content)
         except Exception as e:
             print(e)
 
