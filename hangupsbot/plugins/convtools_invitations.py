@@ -112,7 +112,14 @@ def _issue_invite_on_exit(bot, event, command):
 
 
 def invite(bot, event, *args):
-    """create invitations for users"""
+    """create invitations for users
+    If the 'to' conv_id is not specified then a new conversation is created
+    If the 'from' conv_id is not specified then it is assumed to be the current one
+    If users are not specified then all users from 'from' conversation are invited
+
+    /bot invite list # Lists all pending invites
+    /bot invite purge # Deletes all pending invites
+    """
     everyone = True
     wildcards = 0
 
