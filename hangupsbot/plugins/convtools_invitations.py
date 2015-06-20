@@ -98,6 +98,11 @@ def _claim_invite(bot, invite_code, user_id):
 
 
 def _issue_invite_on_exit(bot, event, command):
+
+    # Check if issue_invite_on_exit is disabled
+    if bot.get_config_suboption(event.conv_id, 'disable_invites_on_exit'):
+        return
+
     if event.conv_event.type_ == hangups.MembershipChangeType.LEAVE:
         event_users = [event.conv.get_user(user_id) for user_id
                        in event.conv_event.participant_ids]
