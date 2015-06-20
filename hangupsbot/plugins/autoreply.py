@@ -6,7 +6,7 @@ import plugins
 
 def _initialise(command):
     command.register_handler(_handle_autoreply)
-    plugins.register_admin_command(["autoreplies"])
+    plugins.register_admin_command(["autoreply"])
 
 @asyncio.coroutine
 def _handle_autoreply(bot, event, command):
@@ -33,11 +33,12 @@ def _words_in_text(word, text):
 
     return True if re.search(regexword, text, re.IGNORECASE) else False
 
-def autoreplies(bot, event, cmd=None, *args):
+def autoreply(bot, event, cmd=None, *args):
     """adds or removes an autoreply.
     Format:
-    /bot autoreply add [["question1","question2"],"answer"]
-    /bot autoreply remove [["question"],"answer"]
+    /bot autoreply add [["question1","question2"],"answer"] // add an autoreply
+    /bot autoreply remove [["question"],"answer"] // remove an autoreply
+    /bot autoreply // view all autoreplies
     """
 
     path = ["autoreplies"]
