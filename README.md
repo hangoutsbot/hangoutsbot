@@ -147,3 +147,10 @@ Please see the wiki for the **[list of plugins]
 # Extending
 
 Please see https://github.com/nylonee/hangupsbot/wiki/Authoring-Bot-Extensions
+
+# Credits / History
+
+This version of Hangupsbot is derived from the [mogunsamang](https://gitlab.sabah.io/eol/mogunsamang) bot, 
+  which itself is a fork of the xmikos's [Hangupsbot](https://github.com/xmikos/hangupsbot).
+
+On 2015-06-20, this fork was detached and made standalone on GitHub.
