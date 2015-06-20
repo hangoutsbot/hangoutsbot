@@ -4,9 +4,10 @@ import json
 from hangups.ui.utils import get_conv_name
 import plugins
 
-def _initialise(command):
-    command.register_handler(_handle_autoreply)
+def _initialise(bot):
+    plugins.register_handler(_handle_autoreply, type="message")
     plugins.register_admin_command(["autoreply"])
+    plugins.register_user_command(["rsvp"])
 
 @asyncio.coroutine
 def _handle_autoreply(bot, event, command):
@@ -60,7 +61,7 @@ def autoreply(bot, event, cmd=None, *args):
             bot.config.save()
         else:
             html = "Remove failed on non-list"
-            
+
     # Reload the config
     bot.config.load()
 
