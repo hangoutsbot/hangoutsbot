@@ -57,6 +57,38 @@ POST:
 GET:
 "%3Cb%3EHello%3C%2Fb%3E%20World%21"
 "%2Fbot%20ping"
+===================================
+EXAMPLE COMMANDS:
+===================================
+Add user to a chat (requires convtools.py)
+
+GET:
+https://[ADDRESS]/[APIKEY]/[YOURGID]/%2Fbot%20addusers%20[GID]%20into%20[CID]
+
+POST:
+'key': 'APIKEY'
+'sendto': 'YOURGID'
+'content': '/bot addusers [GID] into [CID]'
+========================
+Create a conversation between several users (requires convtools.py)
+
+GET:
+https://[ADDRESS]/[APIKEY]/[YOURGID]/%2Fbot%20createconversation%20[GID1]%20[GID2]%20[GID3]
+
+POST:
+'key': 'APIKEY'
+'sendto': 'YOURGID'
+'content': '/bot createconversation [GID1] [GID2] [GID3]'
+========================
+Create a syncout between two or more chats (requires syncrooms_config.py)
+
+GET:
+https://[ADDRESS]/[APIKEY]/[YOURGID]/%2Fbot%20attachsyncout%20[CID1]%20[CID2]%20[CID3]
+
+POST:
+'key': 'APIKEY'
+'sendto': 'YOURGID'
+'content': '/bot attachsyncout [CID1] [CID2] [CID3]'
 
 """
 
