@@ -127,6 +127,34 @@ def invite(bot, event, *args):
         if wildcards > 0 and wildcards < 150:
             # check allows user ids to pass-through
             del(parameters[0])
+    elif parameters[0] == "list" or parameters[0] == "purge":
+        # List all pending invites
+        invites = []
+        if bot.memory.exists(["invites"]):
+            for invite_id, invite in bot.memory["invites"].items():
+                #if invite["user_id"] in ("*", event.user.id_.chat_id):
+                if invite["expiry"] > time.time():
+                    invites.append(invite)
+
+        if len(invites) > 0:
+            lines = []
+            for invite in invites:
+                conversation_name = get_conv_name(bot._conv_list.get(invite["group_id"]))
+                user_id = invite["user_id"]
+
+
+                if parameters[0] == "purge":
+                    _remove_invite(bot, invite["id"])
+                    lines.append("<b>REMOVED</b> <i>{}</i>'s invite for <b>{}</b><br />".format(user_id, conversation_name))
+                else:
+                    expiry_in_days = round((invite["expiry"] - time.time()) / 86400, 1)
+                    lines.append("User <i>{}</i> invited to <b>{}</b> ... {} ({} days left) <br />".format(user_id, conversation_name, invite["id"], expiry_in_days))
+
+            lines.append("")
+            bot.send_html_to_conversation(event.conv_id, "<br />".join(lines))
+        else:
+            bot.send_html_to_conversation(event.conv_id, _("<em>no invites to list</em>"))
+        return
 
     state = ["users"]
     for parameter in parameters:
