@@ -23,7 +23,14 @@ def lookup(bot, event, *args):
     spreadsheet_url = bot.get_config_option('spreadsheet_url')
     table_class = "waffle" # Name of table class to search. Note that 'waffle' seems to be the default for all spreadsheets
 
-    keyword = ' '.join(args)
+    if args[0].startswith('<'):
+        counter_max = int(args[0][1:]) # Maximum rows displayed per query
+        keyword = ' '.join(args[1:])
+    else:
+        counter_max = 5
+        keyword = ' '.join(args)
+
+    print("Keyword: {} Max Counter: {}".format(keyword, counter_max))
 
     htmlmessage = _('Results for keyword <b>{}</b>:<br />').format(keyword)
 
@@ -37,7 +44,6 @@ def lookup(bot, event, *args):
     data = []
 
     counter = 0
-    counter_max = 5 # Maximum rows displayed per query
 
     # Adapted from http://stackoverflow.com/questions/23377533/python-beautifulsoup-parsing-table
     from bs4 import BeautifulSoup
@@ -72,6 +78,9 @@ def lookup(bot, event, *args):
 
     if counter > counter_max:
         htmlmessage += _('<br />{0} rows found. Only returning first {1}.').format(counter, counter_max)
+        if counter_max == 5:
+            htmlmessage += _('<br />Hint: Use <b>/bot lookup <{0} {1}</b> to view {0} rows').format(counter_max*2, keyword)
+
     if counter == 0:
         htmlmessage += _('No match found')
 
