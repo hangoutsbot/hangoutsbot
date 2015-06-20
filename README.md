@@ -32,7 +32,7 @@ Please see:
 # IMPORTANT
 
 * To execute: `python3 hangupsbot.py`
-
+```
 usage: hangupsbot [-h] [-d] [--log LOG] [--cookies COOKIES] [--memory MEMORY] [--config CONFIG] [--version]
 
 optional arguments:
@@ -47,7 +47,7 @@ optional arguments:
 --config CONFIG    config storage path (default:
                    ~/.local/share/hangupsbot/config.json)
 --version          show program's version number and exit
-
+```
 # Bot Configuration for Administrators
 
 Configuration directives can be specified in `config.json`.
@@ -135,15 +135,14 @@ Please see the wiki for the **[list of plugins]
   on the output of the log file instead.
 
 ## Tips for troubleshooting
-** Program isn't running: **
+**Program isn't running:**
 * Update `hangupsbot` and `hangups`
 * Run `hangups` to check if the original hangups library is working
   * If there are errors, delete the cookie at ``~/.local/share/hangupsbot/cookies.json` and try again
   * Log into your Google Account from the server's address.
 
-** Bot isn't responding to messages: **
+**Bot isn't responding to messages:**
 * Check that the chats are not going into the 'Invites' section of Hangouts.
-* Check the error log
 
 # Extending
 
