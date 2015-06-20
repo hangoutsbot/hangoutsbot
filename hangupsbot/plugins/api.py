@@ -3,14 +3,12 @@ from urllib.parse import urlparse, parse_qs, unquote
 from threading import Thread
 from hangups.ui.utils import get_conv_name
 from commands import command
-from random import randrange
 
 import json
 import ssl
 import asyncio
 import logging
 import hangups
-import datetime
 import plugins
 import urllib
 
