@@ -34,6 +34,30 @@ config.json will have to be configured as follows:
 
 Also you will need to append the bot's own user_id to the admin list if you want
 to be able to run admin commands externally
+
+===================================
+Using POST:
+Ensure that you have "Content-length" in your header
+Params (in JSON):
+{
+    "key": "api_key"
+    "sendto": "user_id or chat_id to send the message to"
+    "content": "content of message"
+}
+===================================
+Using GET:
+Path:
+https://[NAMEOFSERVER]:[NAMEOFPORT]/[APIKEY]/[SENDTO]/[CONTENT]
+===================================
+Example content:
+POST:
+"<b>Hello</b> World!"
+"/bot ping"
+
+GET:
+"%3Cb%3EHello%3C%2Fb%3E%20World%21"
+"%2Fbot%20ping"
+
 """
 
 def _handle_incoming_message(bot, event, command):
@@ -80,7 +104,7 @@ def _start_api(bot):
     message = _("_start_api(): {} api started").format(len(threads))
     logging.info(message)
 
-def start_listening(bot, loop=None, name="", port=8007, certfile=None):
+def start_listening(bot, loop=None, name="127.0.0.1", port=8007, certfile=None):
     webhook = webhookReceiver
 
     if loop:
@@ -116,11 +140,16 @@ class webhookReceiver(BaseHTTPRequestHandler):
 
     def _handle_incoming(self, key, query_string, payload):
 
-        if "content" in payload and "sendto" in payload:
-            self._scripts_command(payload["sendto"], payload["content"])
+        api_key = webhookReceiver._bot.get_config_option("api_key")
 
+        if "key" in payload and "content" in payload and "sendto" in payload:
+            if payload["key"] == api_key:
+                self._scripts_command(payload["sendto"], payload["content"])
+            else:
+                print(_("API Key does not match"))
+                return
         else:
-            print("Invalid payload: {}".format(payload))
+            print(_("Invalid payload"))
 
         print(_("handler finished"))
 
@@ -177,8 +206,8 @@ class webhookReceiver(BaseHTTPRequestHandler):
         response = "OK"
 
         try:
-            payload = {"sendto": str(path[2]), "content": unquote(str(path[3]))}
-            self._handle_incoming(path[1], query_string, payload)
+            payload = {"key": str(path[1]), "sendto": str(path[2]), "content": unquote(str(path[3]))}
+            self._handle_incoming(_parsed.path, query_string, payload)
         except Exception as e:
             response = "ERROR: {}".format(e)
 
