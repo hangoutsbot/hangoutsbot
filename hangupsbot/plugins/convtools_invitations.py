@@ -175,18 +175,27 @@ def invite(bot, event, *args):
                 raise ValueError("UNKNOWN STATE: {}".format(state[-1]))
 
     if not targetconv and not sourceconv:
-        bot.send_html_to_conversation(event.conv_id, _("<em>invite: missing \"to\" or \"from\"</em>"))
-        return
+        bot.send_html_to_conversation(event.conv_id, _("</b>Creating new conversation for invites</b>"))
+        sourceconv == event.conv_id
+
+        response = yield from bot._client.createconversation(list(), True)
+        new_conversation_id = response['conversation']['id']['id']
+        bot.send_html_to_conversation(new_conversation_id, "<i>conversation created</i>")
+        targetconv = new_conversation_id
+
     elif not targetconv:
         if sourceconv == event.conv_id:
-            bot.send_html_to_conversation(event.conv_id, _("<em>invite: missing \"to\"</em>"))
-            return
+            bot.send_html_to_conversation(event.conv_id, _("<b>Creating new conversation for invites</b>"))
+            response = yield from bot._client.createconversation(list(), True)
+            new_conversation_id = response['conversation']['id']['id']
+            bot.send_html_to_conversation(new_conversation_id, "<i>conversation created</i>")
+            targetconv = new_conversation_id
         else:
             targetconv = event.conv_id
     elif not sourceconv:
         if len(list_users) == 0:
             if targetconv == event.conv_id:
-                bot.send_html_to_conversation(event.conv_id, _("<em>invite: specify \"from\" or explicit list of \"users\"</em>"))
+                bot.send_html_to_conversation(event.conv_id, _("<b>invite: specify \"from\" or explicit list of \"users\"</b>"))
                 return
             else:
                 sourceconv = event.conv_id
