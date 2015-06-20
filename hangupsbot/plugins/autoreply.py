@@ -60,9 +60,11 @@ def autoreply(bot, event, cmd=None, *args):
             bot.config.save()
         else:
             html = "Remove failed on non-list"
+            
+    # Reload the config
+    bot.config.load()
 
     if html == "":
-        bot.config.load()
         value = bot.config.get_by_path(path)
         html = "<b>Autoreply config:</b> <br /> {}".format(value)
 
