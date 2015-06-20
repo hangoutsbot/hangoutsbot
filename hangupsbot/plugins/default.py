@@ -13,7 +13,7 @@ _internal = {} # non-persistent internal state independent of config.json/memory
 _internal["broadcast"] = { "message": "", "conversations": [] } # /bot broadcast
 
 def _initialise(Handlers, bot=None):
-    admin_commands = ["broadcast", "users", "user", "hangouts", "hangout", "rename", "leave", "reload", "quit", "config", "whereami"]
+    admin_commands = ["broadcast", "users", "hangouts", "rename", "leave", "reload", "quit", "config", "whereami"]
     user_commands = ["echo", "echoparsed", "whoami"]
     try:
         plugins.register_admin_command(admin_commands)
@@ -186,41 +186,19 @@ def user(bot, event, username, *args):
 
 
 def hangouts(bot, event, *args):
-    """list all active hangouts. Use '/bot hangouts id' to return the conv_id too
-    key: c = commands enabled
+    """list all active hangouts.
+    Use '/bot hangouts <keyword>' to search for all hangouts that has keyword in the title.
     """
 
-    line = _("<b>list of active hangouts:</b><br />")
+    text_search = " ".join(args)
+    line = "<b>List of hangouts with keyword:</b> \"{}\"<br />".format(text_search)
 
-    for c in bot.list_conversations():
-        line += "<b>{}</b>: <i>{}</i>".format(get_conv_name(c, truncate=True), c.id_)
-
-        suboptions = []
-
-        _value = bot.get_config_suboption(c.id_, 'commands_enabled')
-        if _value:
-            suboptions.append("c")
-        if len(suboptions) > 0:
-            line += ' [ ' + ', '.join(suboptions) + ' ]'
-
-        line += "<br />"
-
-    bot.send_message_parsed(event.conv, line)
-
-
-def hangout(bot, event, *args):
-    """list all hangouts matching search text"""
-    text_search = ' '.join(args)
-    if not text_search:
-        return
-    text_message = _('<b>results for hangouts named "{}"</b><br />').format(text_search)
     for conv in bot.list_conversations():
         conv_name = get_conv_name(conv)
-        if text_search.lower() in conv_name.lower():
-            text_message = text_message + "<i>" + conv_name + "</i>"
-            text_message = text_message + " ... " + conv.id_
-            text_message = text_message + "<br />"
-    bot.send_message_parsed(event.conv.id_, text_message)
+        if text_search.lower() in conv_name.lower(): # For blank keywords, returns True
+            line += "<b>{}</b>: <i>{}</i><br />".format(conv_name, conv.id_)
+
+    bot.send_message_parsed(event.conv, line)
 
 
 def rename(bot, event, *args):
