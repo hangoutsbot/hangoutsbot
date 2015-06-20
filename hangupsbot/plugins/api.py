@@ -1,5 +1,5 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 from threading import Thread
 from hangups.ui.utils import get_conv_name
 from commands import command
@@ -12,6 +12,7 @@ import logging
 import hangups
 import datetime
 import plugins
+import urllib
 
 def _initialise(Handlers, bot):
     if bot:
@@ -27,10 +28,12 @@ config.json will have to be configured as follows:
 "api_key": "API_KEY",
 "api": [{
   "certfile": null,
-  "name": SERVER_NAME,
-  "port": LISTENING_PORT,
+  "name": "SERVER_NAME",
+  "port": LISTENING_PORT
 }]
 
+Also you will need to append the bot's own user_id to the admin list if you want
+to be able to run admin commands externally
 """
 
 def _handle_incoming_message(bot, event, command):
@@ -111,9 +114,7 @@ def start_listening(bot, loop=None, name="", port=8007, certfile=None):
 class webhookReceiver(BaseHTTPRequestHandler):
     _bot = None
 
-    def _handle_incoming(self, path, query_string, payload):
-
-        path = path.split("/")
+    def _handle_incoming(self, key, query_string, payload):
 
         if "content" in payload and "sendto" in payload:
             self._scripts_command(payload["sendto"], payload["content"])
@@ -151,9 +152,41 @@ class webhookReceiver(BaseHTTPRequestHandler):
 
         print(_("incoming path: {}").format(path))
 
+        path = path.split("/")
+
         # parse incoming data
         payload = json.loads(data_string)
 
         print(_("payload {}").format(payload))
 
-        self._handle_incoming(path, query_string, payload)
+        self._handle_incoming(path[1], query_string, payload)
+
+    def do_GET(self):
+        """
+            receives post, handles it
+        """
+        print(_('receiving GET: {}'.format(self.path)))
+
+        _parsed = urlparse(self.path)
+        path = _parsed.path
+        query_string = parse_qs(_parsed.query)
+
+        print(_("incoming path: {}").format(path))
+
+        path = path.split("/")
+        response = "OK"
+
+        try:
+            payload = {"sendto": str(path[2]), "content": unquote(str(path[3]))}
+            self._handle_incoming(path[1], query_string, payload)
+        except Exception as e:
+            response = "ERROR: {}".format(e)
+
+        # Sending the message from outdata back to GET request
+        message = bytes(response, 'UTF-8')
+        print(message)
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(message)
+        print(_('connection closed'))
