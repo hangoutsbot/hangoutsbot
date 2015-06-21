@@ -22,8 +22,13 @@ class CommandDispatcher(object):
 
     def get_admin_commands(self, bot, conv_id):
         """Get list of admin-only commands (set by plugins or in config.json)"""
-        commands_admin = bot.get_config_suboption(conv_id, 'commands_admin') or []
-        return list(set(commands_admin + self.admin_commands))
+        whitelisted_commands = bot.get_config_suboption(conv_id, 'commands_user') or []
+        if whitelisted_commands:
+            admin_command_list = self.commands.keys() - whitelisted_commands
+        else:
+            commands_admin = bot.get_config_suboption(conv_id, 'commands_admin') or []
+            admin_command_list = commands_admin + self.admin_commands
+        return list(set(admin_command_list))
 
     @asyncio.coroutine
     def run(self, bot, event, *args, **kwds):
