@@ -21,7 +21,14 @@ class CommandDispatcher(object):
         self.tracking = tracking
 
     def get_admin_commands(self, bot, conv_id):
-        """Get list of admin-only commands (set by plugins or in config.json)"""
+        """Get list of admin-only commands (set by plugins or in config.json)
+        list of commands is determined via one of two methods:
+            default mode allows individual plugins to make the determination for admin and user
+              commands, user commands can be "promoted" to admin commands via config.json:commands_admin
+            override this behaviour by defining config.json:commands_user, which will only allow
+              commands which are explicitly defined in this config key to be executed by users.
+              note: overriding default behaviour makes all commands admin-only by default
+        """
         whitelisted_commands = bot.get_config_suboption(conv_id, 'commands_user') or []
         if whitelisted_commands:
             admin_command_list = self.commands.keys() - whitelisted_commands
