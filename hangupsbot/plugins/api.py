@@ -12,12 +12,14 @@ import hangups
 import plugins
 import urllib
 
+message_expected = False # Is the plugin expecting a message from itself?
+
 def _initialise(Handlers, bot):
     if bot:
         _start_api(bot)
+        plugins.register_handler(_handle_incoming_message, type="allmessages")
     else:
         print("API could not be initialized.")
-    plugins.register_handler(_handle_incoming_message, type="allmessages")
     return []
 
 """ API plugin for listening for server commands and treating them as ConversationEvents
@@ -91,8 +93,17 @@ POST:
 """
 
 def _handle_incoming_message(bot, event, command):
-    if event.user.is_self:
+    """ The API requests cannot fire commands without creating an event,
+    so this plugin will force the bot to send a message as a command in order
+    to create an event.
+    message_expected is needed to prevent other stray bot events causing trouble
+    eg. mentions """
+
+    global message_expected
+
+    if event.user.is_self and message_expected:
         yield from bot._handlers.handle_command(event)
+        message_expected = False
 
 def _start_api(bot):
     # Start and asyncio event loop
@@ -184,9 +195,11 @@ class webhookReceiver(BaseHTTPRequestHandler):
         print(_("handler finished"))
 
     def _scripts_command(self, conv_or_user_id, content):
+        global message_expected
         try:
             if not webhookReceiver._bot.send_html_to_user(conv_or_user_id, content): # Not a user id
                 webhookReceiver._bot.send_html_to_conversation(conv_or_user_id, content)
+            message_expected = True # Tell the plugin that a message is expected
         except Exception as e:
             print(e)
 
