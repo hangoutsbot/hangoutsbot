@@ -441,7 +441,7 @@ class SlackRTM(object):
             traceback.print_exc()
 
     def handleCommands(self, msg):
-        cmdfmt = re.compile(r'^<@'+self.my_uid+'>:?\s+(help|whereami|whoami|whois|admins|hangouts|listsyncs|syncto|disconnect|setsyncjoinmsgs|sethotag|setimageupload)', re.IGNORECASE)
+        cmdfmt = re.compile(r'^<@'+self.my_uid+'>:?\s+(help|whereami|whoami|whois|admins|hangoutmembers|hangouts|listsyncs|syncto|disconnect|setsyncjoinmsgs|sethotag|setimageupload)', re.IGNORECASE)
         match = cmdfmt.match(msg.text)
         if not match:
             return
@@ -454,6 +454,7 @@ class SlackRTM(object):
             message += u'<@%s> whoami _tells you your own user id_\n' % self.my_uid
             message += u'<@%s> whois @username _tells you the user id of @username_\n' % self.my_uid
             message += u'<@%s> admins _lists the slack users with admin priveledges_\n' % self.my_uid
+            message += u'<@%s> hangoutmembers _lists the users of the hangouts synced to this channel_\n' % self.my_uid
             message += u'<@%s> hangouts _lists all connected hangouts (only available for admins, use in DM with me suggested)_\n' % self.my_uid
             message += u'<@%s> listsyncs _lists all runnging sync connections (only available for admins, use in DM with me suggested)_\n' % self.my_uid
             message += u'<@%s> syncto HangoutId [shortname] _starts syncing messages from current channel/group to specified Hangout, if shortname given, messages from the Hangout will be tagged with shortname instead of Hangout title (only available for admins)_\n' % self.my_uid
@@ -511,6 +512,25 @@ class SlackRTM(object):
             message = '@%s: my admins are:\n' % msg.username
             for a in self.admins:
                 message += '@%s: _%s_\n' % (self.get_username(a), a)
+            self.slack.api_call('chat.postMessage',
+                                channel=msg.channel,
+                                text=message,
+                                as_user=True,
+                                link_names=True)
+
+        if command == 'hangoutmembers':
+            message = '@%s: the following users are in the synced Hangout(s):\n' % msg.username
+            for sync in self.get_syncs(channelid = msg.channel):
+                hangoutname = 'unknown'
+                conv = None
+                for c in self.bot.list_conversations():
+                    if c.id_ == sync.hangoutid:
+                        conv = c
+                        hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
+                        break
+                message += '%s aka %s (%s):\n' % (hangoutname, sync.hotag if sync.hotag else 'untagged', sync.hangoutid)
+                for u in conv.users:
+                    message += ' + <https://plus.google.com/%s|%s>\n' % (u.id_.gaia_id, u.full_name)
             self.slack.api_call('chat.postMessage',
                                 channel=msg.channel,
                                 text=message,
