@@ -223,7 +223,8 @@ class HangupsBot(object):
         # add default context if none exists
         if not context:
             context = {}
-        context["base"] = self._messagecontext_legacy()
+        if "base" not in context:
+            context["base"] = self._messagecontext_legacy()
 
         # reduce conversation to the only things we need: the id and history
         if isinstance(conversation, (FakeConversation, hangups.conversation.Conversation)):

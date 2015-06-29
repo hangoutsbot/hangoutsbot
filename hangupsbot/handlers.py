@@ -67,8 +67,12 @@ class EventHandler:
             event.print_debug()
 
         if event.text:
+            if event.user.is_self:
+                event.from_bot = True
+            else:
+                event.from_bot = False
             yield from self.run_pluggable_omnibus("allmessages", self.bot, event, command)
-            if not event.user.is_self:
+            if not event.from_bot:
                 yield from self.run_pluggable_omnibus("message", self.bot, event, command)
                 yield from self.handle_command(event)
 
