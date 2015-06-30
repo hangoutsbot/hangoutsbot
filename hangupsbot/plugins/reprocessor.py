@@ -23,15 +23,16 @@ def _attach_reprocessor(func):
 
 
 def _scan_for_reprocessor_context(bot, event, command):
-    last_segment = event.conv_event.segments[-1]
-    if last_segment.link_target:
-        if last_segment.link_target.startswith(prefix):
-            _id = last_segment.link_target[len(prefix):]
-            if _id in _reprocessors:
-                print("valid uuid: {}".format(_id))
-                event.conv_event.segments.pop()
-                _reprocessors[_id](bot, event, _id)
-                del _reprocessors[_id]
+    if len(event.conv_event.segments) > 0:
+        last_segment = event.conv_event.segments[-1]
+        if last_segment.link_target:
+            if last_segment.link_target.startswith(prefix):
+                _id = last_segment.link_target[len(prefix):]
+                if _id in _reprocessors:
+                    print("valid uuid: {}".format(_id))
+                    event.conv_event.segments.pop()
+                    _reprocessors[_id](bot, event, _id)
+                    del _reprocessors[_id]
 
 
 def testcontext(bot, event, *args):
