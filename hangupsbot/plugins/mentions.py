@@ -194,6 +194,11 @@ def mention(bot, event, *args):
                 logging.info(_("suppressing @all for {} ({})").format(event.user.full_name, event.user.id_.chat_id))
                 continue
 
+            if u.id_.chat_id == event.user.id_.chat_id and not noisy_mention_test:
+                """prevent initiating user from mentioning themselves"""
+                logging.info(_("suppressing @self for {} ({})").format(event.user.full_name, event.user.id_.chat_id))
+                continue
+
             if u.id_.chat_id in mention_chat_ids:
                 """prevent most duplicate mentions (in the case of syncouts)"""
                 logging.info(_("suppressing duplicate mention for {} ({})").format(event.user.full_name, event.user.id_.chat_id))
