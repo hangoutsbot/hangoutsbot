@@ -96,6 +96,9 @@ class AlreadySyncingError(Exception):
 class NotSyncingError(Exception):
     pass
 
+class ConnectionFailedError(Exception):
+    pass
+
 class SlackMessage(object):
     def __init__(self, slackrtm, reply):
         self.text = None
@@ -255,7 +258,11 @@ class SlackRTM(object):
         self.threadname = None
 
         self.slack = SlackClient(self.apikey)
-        self.slack.rtm_connect()
+        if not self.slack.rtm_connect():
+            raise ConnectionFailedError
+        for keys in [ 'self' , 'team', 'users', 'channels', 'groups' ]:
+            if not key in self.slack.server.login_data:
+                raise IncompleteLoginError
         if threaded:
             if 'name' in self.config:
                 self.name = self.config['name']
@@ -1016,12 +1023,20 @@ class SlackRTMThread(threading.Thread):
                 if now > last_ping + 30:
                     self._listener.ping()
                     last_ping = now
-                time.sleep(1)
+                time.sleep(.1)
         except KeyboardInterrupt:
             # close, nothing to do
             return
         except WebSocketConnectionClosedException as e:
             print('slackrtm: SlackRTMThread: got WebSocketConnectionClosedException("%s")' % str(e))
+            return self.run()
+        except IncompleteLoginError:
+            print('slackrtm: SlackRTMThread: got IncompleteLoginError, restarting')
+            time.sleep(1)
+            return self.run()
+        except ConnectionFailedError:
+            print('slackrtm: SlackRTMThread: got ConnectionFailedError, waiting 10 sec trying to restart')
+            time.sleep(10)
             return self.run()
         except Exception as e:
             print('slackrtm: SlackRTMThread: unhandled exception: %s' % str(e))
