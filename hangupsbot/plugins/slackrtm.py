@@ -99,6 +99,9 @@ class NotSyncingError(Exception):
 class ConnectionFailedError(Exception):
     pass
 
+class IncompleteLoginError(Exception):
+    pass
+
 class SlackMessage(object):
     def __init__(self, slackrtm, reply):
         self.text = None
