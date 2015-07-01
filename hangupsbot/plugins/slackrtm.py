@@ -263,7 +263,7 @@ class SlackRTM(object):
         self.slack = SlackClient(self.apikey)
         if not self.slack.rtm_connect():
             raise ConnectionFailedError
-        for keys in [ 'self' , 'team', 'users', 'channels', 'groups' ]:
+        for key in [ 'self' , 'team', 'users', 'channels', 'groups' ]:
             if not key in self.slack.server.login_data:
                 raise IncompleteLoginError
         if threaded:
