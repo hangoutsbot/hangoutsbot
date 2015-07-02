@@ -110,9 +110,11 @@ def start_listening(bot=None, loop=None, name="", port=8014, certfile=None):
         httpd.socket.close()
 
 def _slack_repeater_cleaner(bot, event, id):
-    event.text = event.text.split(":", maxsplit=1)[1].strip()
+    event_tokens = event.text.split(":", maxsplit=1)
+    event.text = event_tokens[1].strip()
     event.from_bot = False
     event._slack_no_repeat = True
+    event._external_source = event_tokens[0].strip() + "@slack"
 
 
 class webhookReceiver(BaseHTTPRequestHandler):
