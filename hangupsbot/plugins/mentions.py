@@ -238,6 +238,12 @@ def mention(bot, event, *args):
         logging.info(_("@{} not sent due to multiple recipients").format(username_lower))
         return #SHORT-CIRCUIT
 
+    """support for reprocessor
+    override the source name by defining event._external_source"""
+    source_name = event.user.full_name
+    if hasattr(event, '_external_source'):
+        source_name = event._external_source
+
     """send @mention alerts"""
     for u in mention_list:
             alert_via_1on1 = True
@@ -250,7 +256,7 @@ def mention(bot, event, *args):
                         pb = PushBullet(pushbullet_config["api"])
                         success, push = pb.push_note(
                             _("{} mentioned you in {}").format(
-                                    event.user.full_name,
+                                    source_name,
                                     conversation_name),
                                 event.text)
                         if success:
@@ -271,7 +277,7 @@ def mention(bot, event, *args):
                     bot.send_message_parsed(
                         conv_1on1,
                         _("<b>{}</b> @mentioned you in <i>{}</i>:<br />{}").format(
-                            event.user.full_name,
+                            source_name,
                             conversation_name,
                             event.text)) # prevent internal parser from removing <tags>
                     mention_chat_ids.append(u.id_.chat_id)
