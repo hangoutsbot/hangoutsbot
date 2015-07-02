@@ -5,7 +5,7 @@ import asyncio
 
 import hangups
 
-from hangups.ui.utils import get_conv_name
+from utils import get_conv_name
 
 import plugins
 
@@ -146,7 +146,7 @@ def invite(bot, event, *args):
         if len(invites) > 0:
             lines = []
             for invite in invites:
-                conversation_name = get_conv_name(bot._conv_list.get(invite["group_id"]))
+                conversation_name = get_conv_name(invite["group_id"])
                 user_id = invite["user_id"]
 
 
@@ -260,7 +260,7 @@ def rsvp(bot, event, *args):
             lines = []
             lines.append(_("<b>Invites for {}:</b>").format(event.user.full_name))
             for invite in invites:
-                conversation_name = get_conv_name(bot._conv_list.get(invite["group_id"]))
+                conversation_name = get_conv_name(invite["group_id"])
                 expiry_in_days = round((invite["expiry"] - time.time()) / 86400, 1)
                 lines.append("<b>{}</b> ... {} ({} days left)".format(conversation_name, invite["id"], expiry_in_days))
             lines.append("")

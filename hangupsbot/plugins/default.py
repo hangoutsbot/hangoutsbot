@@ -1,11 +1,10 @@
 import json
 
 import hangups
-from hangups.ui.utils import get_conv_name
 
 import plugins
 
-from utils import text_to_segments, simple_parse_to_segments
+from utils import text_to_segments, simple_parse_to_segments, get_conv_name
 
 
 _internal = {} # non-persistent internal state independent of config.json/memory.json
@@ -203,6 +202,12 @@ def leave(bot, event, conversation_id=None, *args):
         if not leave_quietly:
             bot.send_message_parsed(c_id, _('I\'ll be back!'))
         yield from bot._conv_list.leave_conversation(c_id)
+        try:
+            """support convmem plugin"""
+            bot.call_shared("convmem.removeconv", bot, c_id)
+        except KeyError:
+            print("bot left {}, convmem plugin not available".format(c_id))
+
 
 
 def reload(bot, event, *args):
