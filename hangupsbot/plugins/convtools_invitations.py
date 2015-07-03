@@ -5,7 +5,7 @@ import asyncio
 
 import hangups
 
-from hangups.ui.utils import get_conv_name
+from utils import get_conv_name
 
 import plugins
 
@@ -98,6 +98,11 @@ def _claim_invite(bot, invite_code, user_id):
 
 
 def _issue_invite_on_exit(bot, event, command):
+
+    # Check if issue_invite_on_exit is disabled
+    if bot.get_config_suboption(event.conv_id, 'disable_invites_on_exit'):
+        return
+
     if event.conv_event.type_ == hangups.MembershipChangeType.LEAVE:
         event_users = [event.conv.get_user(user_id) for user_id
                        in event.conv_event.participant_ids]
@@ -107,7 +112,14 @@ def _issue_invite_on_exit(bot, event, command):
 
 
 def invite(bot, event, *args):
-    """create invitations for users"""
+    """create invitations for users
+    If the 'to' conv_id is not specified then a new conversation is created
+    If the 'from' conv_id is not specified then it is assumed to be the current one
+    If users are not specified then all users from 'from' conversation are invited
+
+    /bot invite list # Lists all pending invites
+    /bot invite purge # Deletes all pending invites
+    """
     everyone = True
     wildcards = 0
 
@@ -122,6 +134,34 @@ def invite(bot, event, *args):
         if wildcards > 0 and wildcards < 150:
             # check allows user ids to pass-through
             del(parameters[0])
+    elif parameters[0] == "list" or parameters[0] == "purge":
+        # List all pending invites
+        invites = []
+        if bot.memory.exists(["invites"]):
+            for invite_id, invite in bot.memory["invites"].items():
+                #if invite["user_id"] in ("*", event.user.id_.chat_id):
+                if invite["expiry"] > time.time():
+                    invites.append(invite)
+
+        if len(invites) > 0:
+            lines = []
+            for invite in invites:
+                conversation_name = get_conv_name(invite["group_id"])
+                user_id = invite["user_id"]
+
+
+                if parameters[0] == "purge":
+                    _remove_invite(bot, invite["id"])
+                    lines.append("<b>REMOVED</b> <i>{}</i>'s invite for <b>{}</b><br />".format(user_id, conversation_name))
+                else:
+                    expiry_in_days = round((invite["expiry"] - time.time()) / 86400, 1)
+                    lines.append("User <i>{}</i> invited to <b>{}</b> ... {} ({} days left) <br />".format(user_id, conversation_name, invite["id"], expiry_in_days))
+
+            lines.append("")
+            bot.send_html_to_conversation(event.conv_id, "<br />".join(lines))
+        else:
+            bot.send_html_to_conversation(event.conv_id, _("<em>no invites to list</em>"))
+        return
 
     state = ["users"]
     for parameter in parameters:
@@ -142,18 +182,27 @@ def invite(bot, event, *args):
                 raise ValueError("UNKNOWN STATE: {}".format(state[-1]))
 
     if not targetconv and not sourceconv:
-        bot.send_html_to_conversation(event.conv_id, _("<em>invite: missing \"to\" or \"from\"</em>"))
-        return
+        bot.send_html_to_conversation(event.conv_id, _("</b>Creating new conversation for invites</b>"))
+        sourceconv == event.conv_id
+
+        response = yield from bot._client.createconversation(list(), True)
+        new_conversation_id = response['conversation']['id']['id']
+        bot.send_html_to_conversation(new_conversation_id, "<i>conversation created</i>")
+        targetconv = new_conversation_id
+
     elif not targetconv:
         if sourceconv == event.conv_id:
-            bot.send_html_to_conversation(event.conv_id, _("<em>invite: missing \"to\"</em>"))
-            return
+            bot.send_html_to_conversation(event.conv_id, _("<b>Creating new conversation for invites</b>"))
+            response = yield from bot._client.createconversation(list(), True)
+            new_conversation_id = response['conversation']['id']['id']
+            bot.send_html_to_conversation(new_conversation_id, "<i>conversation created</i>")
+            targetconv = new_conversation_id
         else:
             targetconv = event.conv_id
     elif not sourceconv:
         if len(list_users) == 0:
             if targetconv == event.conv_id:
-                bot.send_html_to_conversation(event.conv_id, _("<em>invite: specify \"from\" or explicit list of \"users\"</em>"))
+                bot.send_html_to_conversation(event.conv_id, _("<b>invite: specify \"from\" or explicit list of \"users\"</b>"))
                 return
             else:
                 sourceconv = event.conv_id
@@ -211,7 +260,7 @@ def rsvp(bot, event, *args):
             lines = []
             lines.append(_("<b>Invites for {}:</b>").format(event.user.full_name))
             for invite in invites:
-                conversation_name = get_conv_name(bot._conv_list.get(invite["group_id"]))
+                conversation_name = get_conv_name(invite["group_id"])
                 expiry_in_days = round((invite["expiry"] - time.time()) / 86400, 1)
                 lines.append("<b>{}</b> ... {} ({} days left)".format(conversation_name, invite["id"], expiry_in_days))
             lines.append("")
