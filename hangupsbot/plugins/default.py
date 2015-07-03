@@ -12,7 +12,7 @@ _internal = {} # non-persistent internal state independent of config.json/memory
 _internal["broadcast"] = { "message": "", "conversations": [] } # /bot broadcast
 
 def _initialise(Handlers, bot=None):
-    admin_commands = ["broadcast", "users", "hangouts", "rename", "leave", "reload", "quit", "config", "whereami"]
+    admin_commands = ["broadcast", "users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whereami"]
     user_commands = ["echo", "echoparsed", "whoami"]
     try:
         plugins.register_admin_command(admin_commands)
