@@ -1005,7 +1005,8 @@ class SlackRTMThread(threading.Thread):
 
         try:
             self._listener = SlackRTM(self._config, self._bot, self._loop, threaded=True)
-            slackrtms.append(self._listener)
+            if not self._listener in slackrtms:
+                slackrtms.append(self._listener)
             last_ping = int(time.time())
             while True:
                 if self.stopped():
