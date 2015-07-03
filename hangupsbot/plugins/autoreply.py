@@ -7,7 +7,6 @@ import plugins
 def _initialise(bot):
     plugins.register_handler(_handle_autoreply, type="message")
     plugins.register_admin_command(["autoreply"])
-    plugins.register_user_command(["rsvp"])
 
 @asyncio.coroutine
 def _handle_autoreply(bot, event, command):
