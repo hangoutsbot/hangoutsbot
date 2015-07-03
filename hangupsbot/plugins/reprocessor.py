@@ -10,7 +10,7 @@ _reprocessors = {}
 prefix = "uuid://"
 
 def _initialise(bot):
-    plugins.register_user_command(["testcontext"])
+    plugins.register_admin_command(["testcontext"])
     plugins.register_handler(_scan_for_reprocessor_context, type="allmessages")
     plugins.register_shared('reprocessor.attach_reprocessor', _attach_reprocessor)
 
@@ -24,18 +24,18 @@ def _attach_reprocessor(func):
 
 def _scan_for_reprocessor_context(bot, event, command):
     if len(event.conv_event.segments) > 0:
-        last_segment = event.conv_event.segments[-1]
-        if last_segment.link_target:
-            if last_segment.link_target.startswith(prefix):
-                _id = last_segment.link_target[len(prefix):]
-                if _id in _reprocessors:
-                    print("valid uuid: {}".format(_id))
-                    event.conv_event.segments.pop()
-                    _reprocessors[_id](bot, event, _id)
-                    del _reprocessors[_id]
+        for segment in event.conv_event.segments:
+            if segment.link_target:
+                if segment.link_target.startswith(prefix):
+                    _id = segment.link_target[len(prefix):]
+                    if _id in _reprocessors:
+                        print("valid uuid found: {}".format(_id))
+                        _reprocessors[_id](bot, event, _id)
+                        del _reprocessors[_id]
 
 
 def testcontext(bot, event, *args):
+    """test hidden context"""
     bot.send_message_parsed(event.conv_id, "This message has hidden context" + bot.call_shared("reprocessor.attach_reprocessor", _reprocess_the_event))
 
 def _reprocess_the_event(bot, event, id):
