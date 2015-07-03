@@ -1,9 +1,12 @@
 import importlib
 import unicodedata
+import sys
 
 import hangups
 
 from parsers import simple_parse_to_segments, segment_to_html
+
+from hangups.ui.utils import get_conv_name as hangups_get_conv_name
 
 
 def text_to_segments(text):
@@ -38,3 +41,25 @@ def class_from_name(module_name, class_name):
     # get the class, will raise AttributeError if class cannot be found
     c = getattr(m, class_name)
     return c
+
+
+def get_conv_name(conv, truncate=False):
+    """drop-in replacement for hangups.ui.utils.get_conv_name
+    truncate added for backward-compatibility, should be always False
+    """
+    if isinstance(conv, str):
+        convid = conv
+    else:
+        convid = conv.id_
+
+    try:
+        convdata = sys.modules[__name__]._conversation_list_cache[convid]
+        title = convdata["title"]
+    except (KeyError, AttributeError) as e:
+        if not isinstance(conv, str):
+            title = hangups_get_conv_name(conv, truncate=False)
+        else:
+            raise ValueError("could not determine conversation name")
+
+    return title
+
