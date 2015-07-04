@@ -1,26 +1,4 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import urlparse, parse_qs, unquote
-from threading import Thread
-from hangups.ui.utils import get_conv_name
-from commands import command
-
-import json
-import ssl
-import asyncio
-import logging
-import hangups
-import plugins
-import urllib
-
-def _initialise(Handlers, bot):
-    if bot:
-        _start_api(bot)
-        plugins.register_handler(_handle_incoming_message, type="allmessages")
-    else:
-        print("API could not be initialized.")
-    return []
-
-""" API plugin for listening for server commands and treating them as ConversationEvents
+"""API plugin for listening for server commands and treating them as ConversationEvents
 config.json will have to be configured as follows:
 
 "api_key": "API_KEY",
@@ -33,71 +11,28 @@ config.json will have to be configured as follows:
 Also you will need to append the bot's own user_id to the admin list if you want
 to be able to run admin commands externally
 
-===================================
-Using POST:
-Ensure that you have "Content-length" in your header
-Params (in JSON):
-{
-    "key": "api_key"
-    "sendto": "user_id or chat_id to send the message to"
-    "content": "content of message"
-}
-===================================
-Using GET:
-Path:
-https://[NAMEOFSERVER]:[NAMEOFPORT]/[APIKEY]/[SENDTO]/[CONTENT]
-===================================
-Example content:
-POST:
-"<b>Hello</b> World!"
-"/bot ping"
-
-GET:
-"%3Cb%3EHello%3C%2Fb%3E%20World%21"
-"%2Fbot%20ping"
-===================================
-EXAMPLE COMMANDS:
-===================================
-Add user to a chat (requires convtools.py)
-
-GET:
-https://[ADDRESS]/[APIKEY]/[YOURGID]/%2Fbot%20addusers%20[GID]%20into%20[CID]
-
-POST:
-'key': 'APIKEY'
-'sendto': 'YOURGID'
-'content': '/bot addusers [GID] into [CID]'
-========================
-Create a conversation between several users (requires convtools.py)
-
-GET:
-https://[ADDRESS]/[APIKEY]/[YOURGID]/%2Fbot%20createconversation%20[GID1]%20[GID2]%20[GID3]
-
-POST:
-'key': 'APIKEY'
-'sendto': 'YOURGID'
-'content': '/bot createconversation [GID1] [GID2] [GID3]'
-========================
-Create a syncout between two or more chats (requires syncrooms_config.py)
-
-GET:
-https://[ADDRESS]/[APIKEY]/[YOURGID]/%2Fbot%20attachsyncout%20[CID1]%20[CID2]%20[CID3]
-
-POST:
-'key': 'APIKEY'
-'sendto': 'YOURGID'
-'content': '/bot attachsyncout [CID1] [CID2] [CID3]'
-
+More info: https://github.com/hangoutsbot/hangoutsbot/wiki/API-Plugin
 """
 
-def _handle_incoming_message(bot, event, command):
-    """ The API requests cannot fire commands without creating an event,
-    so this plugin will force the bot to send a message as a command in order
-    to create an event"""
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlparse, parse_qs, unquote
+from threading import Thread
 
-    if event.text.endswith(" [APICALL]"):
-        event.user.is_self = False
-        event.text.rstrip(" [APICALL]")
+import json
+import ssl
+import asyncio
+import logging
+import hangups
+import plugins
+import urllib
+
+def _initialise(bot):
+    _start_api(bot)
+
+
+def _reprocess_the_event(bot, event, id):
+    event.from_bot = False
+
 
 def _start_api(bot):
     # Start and asyncio event loop
@@ -123,7 +58,7 @@ def _start_api(bot):
                 continue
 
             # start up api listener in a separate thread
-            print("Starting API on https://{}:{}/".format(name, port))
+            print("api: started on https://{}:{}/".format(name, port))
             t = Thread(target=start_listening, args=(
               bot,
               loop,
@@ -189,11 +124,17 @@ class webhookReceiver(BaseHTTPRequestHandler):
         print(_("handler finished"))
 
     def _scripts_command(self, conv_or_user_id, content):
-        content = content + " [APICALL]"
+        # reprocessor: attach unique identifier
+        try:
+            content = content + webhookReceiver._bot.call_shared("reprocessor.attach_reprocessor", _reprocess_the_event)
+        except KeyError as e:
+            print('EXCEPTION in api: {}, reprocessor plugin loaded?'.format(e))
+            return
+
         try:
             if not webhookReceiver._bot.send_html_to_user(conv_or_user_id, content): # Not a user id
                 webhookReceiver._bot.send_html_to_conversation(conv_or_user_id, content)
-            print(_("Received API Request, sending to {}: '{}'".format(conv_or_user_id, content)))
+            print('api: {}: "{}"'.format(conv_or_user_id, content))
         except Exception as e:
             print(e)
 
@@ -243,6 +184,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
         response = "OK"
 
         try:
+            print("SECURITY WARNING: sending API commands via GET is INSECURE, please use POST")
             payload = {"key": str(path[1]), "sendto": str(path[2]), "content": unquote(str(path[3]))}
             self._handle_incoming(_parsed.path, query_string, payload)
         except Exception as e:
