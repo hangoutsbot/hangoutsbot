@@ -1,3 +1,6 @@
 [submodule "hubot-web"]
 	path = hubot-web
 	url = git@github.com:endofline/hubot-web.git
+[submodule "hangupsbot/plugins/chat_framework"]
+	path = hangupsbot/plugins/chat_framework
+	url = https://github.com/hangoutsbot/chat_framework.git
