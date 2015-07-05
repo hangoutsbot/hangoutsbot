@@ -11,7 +11,9 @@ from utils import class_from_name
 from sinks.base_bot_request_handler import BaseBotRequestHandler
 
 
-def start(bot, shared_loop):
+def start(bot):
+    shared_loop = asyncio.get_event_loop()
+
     jsonrpc_sinks = bot.get_config_option('jsonrpc')
     itemNo = -1
     threads = []
