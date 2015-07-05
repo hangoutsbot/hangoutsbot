@@ -10,13 +10,14 @@ from utils import class_from_name
 
 from sinks.base_bot_request_handler import BaseBotRequestHandler
 
+import thread_manager
+
 
 def start(bot):
     shared_loop = asyncio.get_event_loop()
 
     jsonrpc_sinks = bot.get_config_option('jsonrpc')
     itemNo = -1
-    threads = []
 
     if isinstance(jsonrpc_sinks, list):
         for sinkConfig in jsonrpc_sinks:
@@ -54,22 +55,19 @@ def start(bot):
 
             # start up rpc listener in a separate thread
             print(_("_start_sinks(): {}").format(module))
-            t = Thread(target=start_listening, args=(
-              bot,
-              shared_loop,
-              name,
-              port,
-              certfile,
-              handler_class,
-              module_name))
 
-            t.daemon = True
-            t.start()
+            thread_manager.start_thread(start_listening, args=(
+                bot,
+                shared_loop,
+                name,
+                port,
+                certfile,
+                handler_class,
+                module_name))
 
-            threads.append(t)
-
-    message = _("_start_sinks(): {} sink thread(s) started").format(len(threads))
+    message = _("_start_sinks(): {} sink thread(s) started").format(len(thread_manager.threads))
     logging.info(message)
+
 
 def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webhookReceiver=BaseHTTPRequestHandler, friendlyName="UNKNOWN"):
     if loop:
