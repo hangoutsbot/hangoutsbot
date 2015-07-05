@@ -10,7 +10,7 @@ def _initialise(Handlers, bot=None):
     if bot:
         _migrate_mention_config_to_memory(bot)
     Handlers.register_handler(_handle_mention, "message")
-    return ["mention", "pushbulletapi", "setnickname"]
+    return ["mention", "pushbulletapi", "setnickname", "bemorespecific"]
 
 
 def _migrate_mention_config_to_memory(bot):
@@ -239,17 +239,26 @@ def mention(bot, event, *args):
         mention_list = exact_fragment_matches
 
     if len(mention_list) > 1 and username_lower != "all":
-        if conv_1on1_initiator:
-            text_html = _('{} users would be mentioned with "@{}"! Be more specific. List of matching users:<br />').format(
-                len(mention_list), username, conversation_name)
 
-            for u in mention_list:
-                text_html += u.full_name
-                if bot.memory.exists(['user_data', u.id_.chat_id, "nickname"]):
-                    text_html += ' (' + bot.memory.get_by_path(['user_data', u.id_.chat_id, "nickname"]) + ')'
-                text_html += '<br />'
+        send_multiple_user_message = True
 
-            bot.send_message_parsed(conv_1on1_initiator, text_html)
+        if bot.memory.exists(['user_data', event.user.id_.chat_id, "mentionmultipleusermessage"]):
+            send_multiple_user_message = bot.memory.get_by_path(['user_data', event.user.id_.chat_id, "mentionmultipleusermessage"])
+
+        if send_multiple_user_message or noisy_mention_test:
+            if conv_1on1_initiator:
+                text_html = _('{} users would be mentioned with "@{}"! Be more specific. List of matching users:<br />').format(
+                    len(mention_list), username, conversation_name)
+
+                for u in mention_list:
+                    text_html += u.full_name
+                    if bot.memory.exists(['user_data', u.id_.chat_id, "nickname"]):
+                        text_html += ' (' + bot.memory.get_by_path(['user_data', u.id_.chat_id, "nickname"]) + ')'
+                    text_html += '<br />'
+
+                text_html += "<br /><em>To toggle this message on/off, use <b>/bot bemorespecific</b></em>"
+
+                bot.send_message_parsed(conv_1on1_initiator, text_html)
 
         logging.info(_("@{} not sent due to multiple recipients").format(username_lower))
         return #SHORT-CIRCUIT
@@ -351,6 +360,26 @@ def pushbulletapi(bot, event, *args):
         bot.send_message_parsed(
             event.conv,
             _("pushbullet configuration not changed"))
+
+
+def bemorespecific(bot, event, *args):
+    """toggle the "be more specific message" on and off permanently"""
+    bot.initialise_memory(event.user.id_.chat_id, "user_data")
+    if bot.memory.exists(['user_data', event.user.id_.chat_id, "mentionmultipleusermessage"]):
+        _toggle = bot.memory.get_by_path(['user_data', event.user.id_.chat_id, "mentionmultipleusermessage"])
+        _toggle = not _toggle
+    else:
+        _toggle = False
+    bot.memory.set_by_path(['user_data', event.user.id_.chat_id, "mentionmultipleusermessage"], _toggle)
+    bot.memory.save();
+    if _toggle:
+        bot.send_message_parsed(
+            event.conv,
+            _('<em>"be more specific" for mentions toggled ON</em>'))
+    else:
+        bot.send_message_parsed(
+            event.conv,
+            _('<em>"be more specific" for mentions toggled OFF</em>'))
 
 
 def setnickname(bot, event, *args):
