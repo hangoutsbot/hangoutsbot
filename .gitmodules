@@ -1,3 +1,6 @@
 [submodule "hubot-web"]
 	path = hubot-web
 	url = git@github.com:endofline/hubot-web.git
+[submodule "hangupsbot/locale"]
+	path = hangupsbot/locale
+	url = git@github.com:hangoutsbot/hangoutsbot-locales.git
