@@ -166,6 +166,7 @@ def mention(bot, event, *args):
 
     """generate a list of users to be @mentioned"""
     exact_nickname_matches = []
+    exact_fragment_matches = []
     mention_list = []
     for u in users_in_chat:
 
@@ -180,7 +181,8 @@ def mention(bot, event, *args):
         if username_lower == "all" or \
                 username_lower in u.full_name.replace(" ", "").lower() or \
                 username_lower in u.full_name.replace(" ", "_").lower() or \
-                username_lower == nickname_lower:
+                username_lower == nickname_lower or \
+                username in u.full_name.split(" "):
 
             logging.info(_("user {} ({}) is present").format(u.full_name, u.id_.chat_id))
 
@@ -214,13 +216,24 @@ def mention(bot, event, *args):
                 if u not in exact_nickname_matches:
                     exact_nickname_matches.append(u)
 
+            if username in u.full_name.split(" "):
+                if u not in exact_fragment_matches:
+                    exact_fragment_matches.append(u)
+
             if u not in mention_list:
                 mention_list.append(u)
 
-    """prioritise exact nickname matches"""
     if len(exact_nickname_matches) == 1:
+        """prioritise exact nickname matches"""
         logging.info(_("prioritising nickname match for {}").format(exact_nickname_matches[0].full_name))
         mention_list = exact_nickname_matches
+    elif len(exact_fragment_matches) == 1:
+        """prioritise case-sensitive fragment matches"""
+        logging.info(_("prioritising single case-sensitive fragment match for {}").format(exact_fragment_matches[0].full_name))
+        mention_list = exact_fragment_matches
+    elif len(exact_fragment_matches) > 1 and len(exact_fragment_matches) < len(mention_list):
+        logging.info(_("prioritising multiple case-sensitive fragment match for {}").format(exact_fragment_matches[0].full_name))
+        mention_list = exact_fragment_matches
 
     if len(mention_list) > 1 and username_lower != "all":
         if conv_1on1_initiator:
