@@ -1,5 +1,14 @@
 import hangups
 
+from utils import unicode_to_ascii
+
+import plugins
+
+
+def _initialise(bot):
+    plugins.register_user_command(["lookup"])
+
+
 def lookup(bot, event, *args):
     """find keywords in a specified spreadsheet"""
 
@@ -14,7 +23,14 @@ def lookup(bot, event, *args):
     spreadsheet_url = bot.get_config_option('spreadsheet_url')
     table_class = "waffle" # Name of table class to search. Note that 'waffle' seems to be the default for all spreadsheets
 
-    keyword = ' '.join(args)
+    if args[0].startswith('<'):
+        counter_max = int(args[0][1:]) # Maximum rows displayed per query
+        keyword = ' '.join(args[1:])
+    else:
+        counter_max = 5
+        keyword = ' '.join(args)
+
+    print("Keyword: {} Max Counter: {}".format(keyword, counter_max))
 
     htmlmessage = _('Results for keyword <b>{}</b>:<br />').format(keyword)
 
@@ -22,12 +38,12 @@ def lookup(bot, event, *args):
     import urllib.request
     html = urllib.request.urlopen(spreadsheet_url).read()
 
-    keyword_lower = keyword.strip().lower()
+    keyword_raw = keyword.strip().lower()
+    keyword_ascii = unicode_to_ascii(keyword_raw)
 
     data = []
 
     counter = 0
-    counter_max = 5 # Maximum rows displayed per query
 
     # Adapted from http://stackoverflow.com/questions/23377533/python-beautifulsoup-parsing-table
     from bs4 import BeautifulSoup
@@ -44,21 +60,27 @@ def lookup(bot, event, *args):
         data.append([ele for ele in cols if ele]) # Get rid of empty values
 
     for row in data:
-        matchfound = 0
         for cell in row:
-            testcell = str(cell).lower().strip()
-            if (keyword_lower in testcell) and counter < counter_max and matchfound == 0:
-                htmlmessage += _('<br />Row {}: ').format(counter+1)
-                for datapoint in row:
-                    htmlmessage += '{} | '.format(datapoint)
-                htmlmessage += '<br />'
-                counter += 1
-                matchfound = 1
-            elif (keyword_lower in testcell) and counter >= counter_max:
-                counter += 1
+            cellcontent_raw = str(cell).lower().strip()
+            cellcontent_ascii = unicode_to_ascii(cellcontent_raw)
+
+            if keyword_raw in cellcontent_raw or keyword_ascii in cellcontent_ascii:
+                if counter < counter_max:
+                    htmlmessage += _('<br />Row {}: ').format(counter+1)
+                    for datapoint in row:
+                        htmlmessage += '{} | '.format(datapoint)
+                    htmlmessage += '<br />'
+                    counter += 1
+                    break # prevent multiple subsequent cell matches appending identical rows
+                else:
+                    # count row matches only beyond the limit, to avoid over-long message
+                    counter += 1
 
     if counter > counter_max:
         htmlmessage += _('<br />{0} rows found. Only returning first {1}.').format(counter, counter_max)
+        if counter_max == 5:
+            htmlmessage += _('<br />Hint: Use <b>/bot lookup <{0} {1}</b> to view {0} rows').format(counter_max*2, keyword)
+
     if counter == 0:
         htmlmessage += _('No match found')
 

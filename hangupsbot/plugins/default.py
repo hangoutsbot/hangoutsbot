@@ -1,106 +1,182 @@
 import json
 
 import hangups
-from hangups.ui.utils import get_conv_name
 
-from utils import text_to_segments
-from version import __version__
+import plugins
+
+from utils import text_to_segments, simple_parse_to_segments, get_conv_name
+
+
+_internal = {} # non-persistent internal state independent of config.json/memory.json
+
+_internal["broadcast"] = { "message": "", "conversations": [] } # /bot broadcast
 
 def _initialise(Handlers, bot=None):
-    if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
-        Handlers.register_admin_command(["users", "user", "hangouts", "hangout", "rename", "leave", "reload", "quit", "config", "whereami"])
-        Handlers.register_user_command(["whoami", "echo", "version"])
-        return []
-    else:
-        print(_("DEFAULT: LEGACY FRAMEWORK MODE"))
-        return ["users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whoami", "whereami", "echo", "hangout" ,"version"]
+    admin_commands = ["broadcast", "users", "hangouts", "rename", "leave", "reload", "quit", "config", "whereami"]
+    user_commands = ["echo", "echoparsed", "whoami"]
+    try:
+        plugins.register_admin_command(admin_commands)
+        plugins.register_user_command(user_commands)
+    except Exception as e:
+        if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
+            print(_("DEFAULT: LEGACY FRAMEWORK MODE"))
+            Handlers.register_admin_command(admin_commands)
+            Handlers.register_user_command(user_commands)
+        else:
+            print(_("DEFAULT: OBSOLETE FRAMEWORK MODE"))
+            return admin_commands + user_commands
+    return []
 
 
 def echo(bot, event, *args):
     """echo back requested text"""
-    text = ' '.join(args)
-    if text.lower().strip().startswith("/bot "):
+
+    # Check if the first argument is a known conv_id match
+    if args[0] in list(bot.memory.get_by_path(["conv_data"]).keys()):
+        text = ' '.join(args[1:])
+        conv_id = args[0]
+
+    else:
+        text = ' '.join(args)
+        conv_id = event.conv_id
+
+    if text.lower().strip().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
         text = _("NOPE! Some things aren't worth repeating.")
-    bot.send_message(event.conv, text)
+        conv_id = event.conv_id
+
+    bot.send_message(conv_id, text)
+
+
+def echoparsed(bot, event, *args):
+    """echo back requested text"""
+
+    # Check if the first argument is a known conv_id match
+    if args[0] in list(bot.memory.get_by_path(["conv_data"]).keys()):
+        formatted_text = ' '.join(args[1:])
+        conv_id = args[0]
+
+    else:
+        formatted_text = ' '.join(args)
+        conv_id = event.conv_id
+
+    test_segments = simple_parse_to_segments(formatted_text)
+    if test_segments:
+        if test_segments[0].text.strip().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
+            formatted_text = _("NOPE! Some things aren't worth repeating.")
+            conv_id = event.conv_id
+
+    bot.send_message_parsed(conv_id, formatted_text)
+
+
+def broadcast(bot, event, *args):
+    """broadcast a message to chats, use with care"""
+    if args:
+        subcmd = args[0]
+        parameters = args[1:]
+        if subcmd == "info":
+            """display broadcast data such as message and target rooms"""
+            conv_info = ["<b>{}</b> ... {}".format(get_conv_name(_), _.id_) for _ in _internal["broadcast"]["conversations"]]
+            if not _internal["broadcast"]["message"]:
+                bot.send_message_parsed(event.conv, _("broadcast: no message set"))
+                return
+            if not conv_info:
+                bot.send_message_parsed(event.conv, _("broadcast: no conversations available"))
+                return
+            bot.send_message_parsed(event.conv, _(
+                                            "<b>message:</b><br />"
+                                            "{}<br />"
+                                            "<b>to:</b><br />"
+                                            "{}".format(_internal["broadcast"]["message"],
+                                                "<br />".join(conv_info))))
+        elif subcmd == "message":
+            """set broadcast message"""
+            message = ' '.join(parameters)
+            if message:
+                if message.lower().strip().startswith(tuple([_.lower() for _ in bot._handlers.bot_command])):
+                    bot.send_message_parsed(event.conv, _("broadcast: message not allowed"))
+                    return
+                _internal["broadcast"]["message"] = message
+            else:
+                bot.send_message_parsed(event.conv, _("broadcast: message must be supplied after subcommand"))
+        elif subcmd == "add":
+            """add conversations to a broadcast"""
+            if parameters[0] == "groups":
+                """add all groups (chats with users > 2)"""
+                for conv in bot.list_conversations():
+                    if len(conv.users) > 2:
+                        _internal["broadcast"]["conversations"].append(conv)
+            elif parameters[0] == "ALL":
+                """add EVERYTHING - try not to use this, will message 1-to-1s as well"""
+                for conv in bot.list_conversations():
+                    _internal["broadcast"]["conversations"].append(conv)
+            else:
+                """add by wild card search of title or id"""
+                search = " ".join(parameters)
+                for conv in bot.list_conversations():
+                    if search.lower() in get_conv_name(conv).lower() or search in conv.id_:
+                        _internal["broadcast"]["conversations"].append(conv)
+            _internal["broadcast"]["conversations"] = list(set(_internal["broadcast"]["conversations"]))
+            bot.send_message_parsed(event.conv, _("broadcast: {} conversation(s)".format(len(_internal["broadcast"]["conversations"]))))
+        elif subcmd == "remove":
+            if parameters[0].lower() == "all":
+                """remove all conversations from broadcast"""
+                _internal["broadcast"]["conversations"] = []
+            else:
+                """remove by wild card search of title or id"""
+                search = " ".join(parameters)
+                removed = []
+                for conv in _internal["broadcast"]["conversations"]:
+                    if search.lower() in get_conv_name(conv).lower() or search in conv.id_:
+                        _internal["broadcast"]["conversations"].remove(conv)
+                        removed.append("<b>{}</b> ({})".format(get_conv_name(conv), conv.id_))
+                if removed:
+                    bot.send_message_parsed(event.conv, _("broadcast: removed {}".format(", ".join(removed))))
+        elif subcmd == "NOW":
+            """send the broadcast - no turning back!"""
+            context = { "explicit_relay": True } # prevent echos across syncrooms
+            for conv in _internal["broadcast"]["conversations"]:
+                bot.send_message_parsed(conv, _internal["broadcast"]["message"], context=context)
+            bot.send_message_parsed(event.conv, _("broadcast: message sent to {} chats".format(len(_internal["broadcast"]["conversations"]))))
+        else:
+            bot.send_message_parsed(event.conv, _("broadcast: /bot broadcast [info|message|add|remove|NOW] ..."))
+    else:
+        bot.send_message_parsed(event.conv, _("broadcast: /bot broadcast [info|message|add|remove|NOW]"))
 
 
 def users(bot, event, *args):
-    """list all users in current hangout (include g+ and email links)"""
-    segments = [hangups.ChatMessageSegment('User List (total {}):'.format(len(event.conv.users)),
-                                           is_bold=True),
-                hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
+    """list users with a linked G+ and email (if available)
+    /bot users test // will return all users who have the keyword 'test' in their name
+    /bot users // will return all users in current chat"""
+
+    username_lower = ' '.join(args).strip().lower()
+
+    html = '<b>Results for user named "{}":</b><br />'.format(' '.join(args)) if username_lower else '<b>Users in chat (total {}):</b><br />'.format(len(event.conv.users))
+
     for u in sorted(event.conv.users, key=lambda x: x.full_name.split()[-1]):
-        link = 'https://plus.google.com/u/0/{}/about'.format(u.id_.chat_id)
-        segments.append(hangups.ChatMessageSegment(u.full_name, hangups.SegmentType.LINK,
-                                                   link_target=link))
-        if u.emails:
-            segments.append(hangups.ChatMessageSegment(' ('))
-            segments.append(hangups.ChatMessageSegment(u.emails[0], hangups.SegmentType.LINK,
-                                                       link_target='mailto:{}'.format(u.emails[0])))
-            segments.append(hangups.ChatMessageSegment(')'))
-        segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
-    bot.send_message_segments(event.conv, segments)
+        if username_lower in u.full_name.lower():
+            link = 'https://plus.google.com/u/0/{}/about'.format(u.id_.chat_id)
+            html += '<a href="{}">{}</a>'.format(link, u.full_name)
+            if u.emails:
+                html += ' (<a href="mailto:{}">{}</a>)'.format(u.emails[0], u.emails[0])
+            html += '<br /><i>{}</i><br />'.format(u.id_.chat_id)
 
-
-def user(bot, event, username, *args):
-    """find people by name"""
-    username_lower = username.strip().lower()
-    segments = [hangups.ChatMessageSegment(_('results for user named "{}":').format(username),
-                                           is_bold=True),
-                hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
-    for u in sorted(bot._user_list._user_dict.values(), key=lambda x: x.full_name.split()[-1]):
-        if not username_lower in u.full_name.lower():
-            continue
-
-        link = 'https://plus.google.com/u/0/{}/about'.format(u.id_.chat_id)
-        segments.append(hangups.ChatMessageSegment(u.full_name, hangups.SegmentType.LINK,
-                                                   link_target=link))
-        if u.emails:
-            segments.append(hangups.ChatMessageSegment(' ('))
-            segments.append(hangups.ChatMessageSegment(u.emails[0], hangups.SegmentType.LINK,
-                                                       link_target='mailto:{}'.format(u.emails[0])))
-            segments.append(hangups.ChatMessageSegment(')'))
-        segments.append(hangups.ChatMessageSegment(' ... {}'.format(u.id_.chat_id)))
-        segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
-    bot.send_message_segments(event.conv, segments)
+    bot.send_message_parsed(event.conv, html)
 
 
 def hangouts(bot, event, *args):
-    """list all active hangouts. Use '/bot hangouts id' to return the conv_id too
-    key: c = commands enabled
+    """list all active hangouts.
+    Use '/bot hangouts <keyword>' to search for all hangouts that has keyword in the title.
     """
 
-    line = _("<b>list of active hangouts:</b><br />")
+    text_search = " ".join(args)
+    line = "<b>List of hangouts with keyword:</b> \"{}\"<br />".format(text_search)
 
-    for c in bot.list_conversations():
-        line += "<b>{}</b>: <i>{}</i>".format(get_conv_name(c, truncate=True), c.id_)
-
-        suboptions = []
-
-        _value = bot.get_config_suboption(c.id_, 'commands_enabled')
-        if _value:
-            suboptions.append("c")
-        if len(suboptions) > 0:
-            line += ' [ ' + ', '.join(suboptions) + ' ]'
-
-        line += "<br />"
-
-    bot.send_message_parsed(event.conv, line)
-
-
-def hangout(bot, event, *args):
-    """list all hangouts matching search text"""
-    text_search = ' '.join(args)
-    if not text_search:
-        return
-    text_message = _('<b>results for hangouts named "{}"</b><br />').format(text_search)
     for conv in bot.list_conversations():
         conv_name = get_conv_name(conv)
-        if text_search.lower() in conv_name.lower():
-            text_message = text_message + "<i>" + conv_name + "</i>"
-            text_message = text_message + " ... " + conv.id_
-            text_message = text_message + "<br />"
-    bot.send_message_parsed(event.conv.id_, text_message)
+        if text_search.lower() in conv_name.lower(): # For blank keywords, returns True
+            line += "<b>{}</b>: <i>{}</i><br />".format(conv_name, conv.id_)
+
+    bot.send_message_parsed(event.conv, line)
 
 
 def rename(bot, event, *args):
@@ -126,6 +202,12 @@ def leave(bot, event, conversation_id=None, *args):
         if not leave_quietly:
             bot.send_message_parsed(c_id, _('I\'ll be back!'))
         yield from bot._conv_list.leave_conversation(c_id)
+        try:
+            """support convmem plugin"""
+            bot.call_shared("convmem.removeconv", bot, c_id)
+        except KeyError:
+            print("bot left {}, convmem plugin not available".format(c_id))
+
 
 
 def reload(bot, event, *args):
@@ -243,8 +325,3 @@ def whereami(bot, event, *args):
       _("You are at <b>{}</b>, conv_id = <i>{}</i>").format(
         get_conv_name(event.conv, truncate=True),
         event.conv.id_))
-
-def version(bot, event, *args):
-    """ Return the current version of the bot """
-
-    bot.send_message_parsed(event.conv, _("<b>Bot Version:</b> {}").format(__version__))

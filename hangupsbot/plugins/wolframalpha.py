@@ -10,16 +10,20 @@ instructions:
 
 import wolframalpha
 
+import plugins
+
+
 _internal = {}
 
-def _initialise(Handlers, bot):
+
+def _initialise(bot):
     apikey = bot.get_config_option("wolframalpha-apikey")
     if apikey:
         _internal["client"] = wolframalpha.Client(apikey)
-        Handlers.register_user_command(["ask"])
+        plugins.register_user_command(["ask"])
     else:
         print(_("WOLFRAMALPHA: config.wolframalpha-apikey required"))
-    return []
+
 
 def ask(bot, event, *args):
     """request data from wolfram alpha"""

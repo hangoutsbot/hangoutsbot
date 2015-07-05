@@ -1,5 +1,3 @@
-from bs4 import BeautifulSoup
-
 import os
 import random
 import asyncio
@@ -7,12 +5,16 @@ import aiohttp
 import hangups
 import urllib.request
 
+from bs4 import BeautifulSoup
+
+import plugins
+
+
 _externals = { "running": False }
 
 
-def _initialise(Handlers, bot=None):
-    Handlers.register_user_command(["meme"])
-    return []
+def _initialise(bot):
+    plugins.register_user_command(["meme"])
 
 
 @asyncio.coroutine

@@ -3,17 +3,15 @@ import goslate
 
 from hangups.ui.utils import get_conv_name
 
+import plugins
+
+
 gs = goslate.Goslate()
 
 
-def _initialise(Handlers, bot=None):
-    Handlers.register_handler(_translate_message, type="sending")
-    if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
-        Handlers.register_admin_command(['roomlanguage'])
-        return []
-    else:
-        print(_("SYNCROOMS_AUTOTRANSLATE: LEGACY FRAMEWORK MODE"))
-        return ['roomlanguage']
+def _initialise(bot):
+    plugins.register_handler(_translate_message, type="sending")
+    plugins.register_admin_command(['roomlanguage'])
 
 
 def _translate_message(bot, broadcast_list, context):

@@ -1,90 +1,64 @@
-import logging, shlex, asyncio
+import logging
+import shlex
+import asyncio
+import inspect
 
 import hangups
-
-import re, time
-
-from commands import command
-
 from hangups.ui.utils import get_conv_name
 
-class EventHandler(object):
+import plugins
+from commands import command
+
+
+class EventHandler:
     """Handle Hangups conversation events"""
 
     def __init__(self, bot, bot_command='/bot'):
         self.bot = bot
         self.bot_command = bot_command
 
-        self.explicit_admin_commands = [] # plugins can force some commands to be admin-only via register_admin_command()
-
-        self.pluggables = { "message":[], "membership":[], "rename":[], "sending":[] }
-
-    def plugin_preinit_stats(self, plugin_metadata):
-        """
-        hacky implementation for tracking commands a plugin registers
-        called automatically by Hangupsbot._load_plugins() at start of each plugin load
-        """
-        self._current_plugin = {
-            "commands": {
-                "admin": [],
-                "user": []
-            },
-            "metadata": plugin_metadata
-        }
-
-    def plugin_get_stats(self):
-        """called automatically by Hangupsbot._load_plugins()"""
-        self._current_plugin["commands"]["all"] = list(
-            set(self._current_plugin["commands"]["admin"] +
-                self._current_plugin["commands"]["user"]))
-        return self._current_plugin
-
-    def all_plugins_loaded(self):
-        """called automatically by HangupsBot._load_plugins() after everything is done.
-        used to finish plugins loading and to do any house-keeping
-        """
-        for type in self.pluggables:
-            self.pluggables[type].sort(key=lambda tup: tup[1])
-
-    def _plugin_register_command(self, type, command_names):
-        """call during plugin init to register commands"""
-        self._current_plugin["commands"][type].extend(command_names)
-        self._current_plugin["commands"][type] = list(set(self._current_plugin["commands"][type]))
-
-    def register_user_command(self, command_names):
-        """call during plugin init to register user commands"""
-        if not isinstance(command_names, list):
-            command_names = [command_names] # wrap into a list for consistent processing
-        self._plugin_register_command("user", command_names)
-
-    def register_admin_command(self, command_names):
-        """call during plugin init to register admin commands"""
-        if not isinstance(command_names, list):
-            command_names = [command_names] # wrap into a list for consistent processing
-        self._plugin_register_command("admin", command_names)
-        self.explicit_admin_commands.extend(command_names)
-
-    def register_object(self, id, objectref, forgiving=True):
-        """registers a shared object into bot.shared"""
-        try:
-            self.bot.register_shared(id, objectref)
-        except RuntimeError:
-            if forgiving:
-                print(_("register_object(): {} already registered").format(id))
-            else:
-                raise
+        self.pluggables = { "allmessages": [], "message":[], "membership":[], "rename":[], "sending":[] }
 
     def register_handler(self, function, type="message", priority=50):
-        """call during plugin init to register a handler for a specific bot event"""
-        self.pluggables[type].append((function, priority, self._current_plugin["metadata"]))
+        """registers extra event handlers"""
+        if type in ["allmessages", "message", "membership", "rename"]:
+            if not asyncio.iscoroutine(function):
+                # transparently convert into coroutine
+                function = asyncio.coroutine(function)
+        elif type in ["sending"]:
+            if asyncio.iscoroutine(function):
+                raise RuntimeError("{} handler cannot be a coroutine".format(type))
+        else:
+            raise ValueError("unknown event type for handler: {}".format(type))
+
+        current_plugin = plugins.tracking.current()
+        self.pluggables[type].append((function, priority, current_plugin["metadata"]))
+        self.pluggables[type].sort(key=lambda tup: tup[1])
+
+        plugins.tracking.register_handler(function, type, priority)
+
+    """legacy helpers, pre-2.4"""
+
+    def register_object(self, id, objectref, forgiving=True):
+        """registers a shared object into bot.shared
+        historically, this function was more lenient than the actual bot function it calls
+        """
+        print("LEGACY handlers.register_object(): use plugins.register_shared")
+        self.bot.register_shared(id, objectref, forgiving=forgiving)
+
+    def register_user_command(self, command_names):
+        print("LEGACY handlers.register_user_command(): use plugins.register_user_command")
+        plugins.register_user_command(command_names)
+
+    def register_admin_command(self, command_names):
+        print("LEGACY handlers.register_admin_command(): use plugins.register_admin_command")
+        plugins.register_admin_command(command_names)
 
     def get_admin_commands(self, conversation_id):
-        # get list of commands that are admin-only, set in config.json OR plugin-registered
-        commands_admin_list = self.bot.get_config_suboption(conversation_id, 'commands_admin')
-        if not commands_admin_list:
-            commands_admin_list = []
-        commands_admin_list = list(set(commands_admin_list + self.explicit_admin_commands))
-        return commands_admin_list
+        print("LEGACY handlers.get_admin_commands(): use command.get_admin_commands")
+        return command.get_admin_commands(self.bot, conversation_id)
+
+    """handler core"""
 
     @asyncio.coroutine
     def handle_chat_message(self, event):
@@ -92,12 +66,11 @@ class EventHandler(object):
         if logging.root.level == logging.DEBUG:
             event.print_debug()
 
-        if not event.user.is_self and event.text:
-            # handlers from plugins
-            yield from self.run_pluggable_omnibus("message", self.bot, event, command)
-
-            # Run command
-            yield from self.handle_command(event)
+        if event.text:
+            yield from self.run_pluggable_omnibus("allmessages", self.bot, event, command)
+            if not event.user.is_self:
+                yield from self.run_pluggable_omnibus("message", self.bot, event, command)
+                yield from self.handle_command(event)
 
     @asyncio.coroutine
     def handle_command(self, event):
@@ -132,7 +105,7 @@ class EventHandler(object):
             return
 
         # only admins can run admin commands
-        commands_admin_list = self.get_admin_commands(event.conv_id)
+        commands_admin_list = command.get_admin_commands(self.bot, event.conv_id)
         if commands_admin_list and line_args[1].lower() in commands_admin_list:
             if not initiator_is_admin:
                 self.bot.send_message(event.conv, _('{}: Can\'t do that.').format(event.user.full_name))
@@ -160,18 +133,26 @@ class EventHandler(object):
                 for function, priority, plugin_metadata in self.pluggables[name]:
                     message = ["{}: {}.{}".format(
                                 name,
-                                plugin_metadata[1],
+                                plugin_metadata["module.path"],
                                 function.__name__)]
 
                     try:
+                        """accepted handler signatures:
+                        coroutine(bot, event, command)
+                        coroutine(bot, event)
+                        function(bot, event, context)
+                        function(bot, event)
+                        """
+                        _expected = list(inspect.signature(function).parameters)
+                        _passed = args[0:len(_expected)]
                         if asyncio.iscoroutinefunction(function):
                             message.append(_("coroutine"))
                             print(" : ".join(message))
-                            yield from function(*args, **kwargs)
+                            yield from function(*_passed)
                         else:
                             message.append(_("function"))
                             print(" : ".join(message))
-                            function(*args, **kwargs)
+                            function(*_passed)
                     except self.bot.Exceptions.SuppressHandler:
                         # skip this pluggable, continue with next
                         message.append(_("SuppressHandler"))
@@ -193,3 +174,45 @@ class EventHandler(object):
                 pass
             except:
                 raise
+
+class HandlerBridge:
+    """shim for xmikosbot handler decorator"""
+
+    def set_bot(self, bot):
+        """shim requires a reference to the bot's actual EventHandler to register handlers"""
+        self.bot = bot
+
+    def register(self, *args, priority=10, event=None):
+        """Decorator for registering event handler"""
+
+        # make compatible with this bot fork
+        scaled_priority = priority * 10 # scale for compatibility - xmikos range 1 - 10
+        if event is hangups.ChatMessageEvent:
+            event_type = "message"
+        elif event is hangups.hangups.MembershipChangeEvent:
+            event_type = "membership"
+        elif event is hangups.hangups.RenameEvent:
+            event_type = "rename"
+        elif type(event) is str:
+            event_type = str # accept all kinds of strings, just like register_handler
+        else:
+            raise ValueError("unrecognised event {}".format(event))
+
+        def wrapper(func):
+            def thunk(bot, event, command):
+                # command is an extra parameter supplied in this fork
+                return func(bot, event)
+
+            # Automatically wrap handler function in coroutine
+            compatible_func = asyncio.coroutine(thunk)
+            self.bot._handlers.register_handler(compatible_func, event_type, scaled_priority)
+            return compatible_func
+
+        # If there is one (and only one) positional argument and this argument is callable,
+        # assume it is the decorator (without any optional keyword arguments)
+        if len(args) == 1 and callable(args[0]):
+            return wrapper(args[0])
+        else:
+            return wrapper
+
+handler = HandlerBridge()
