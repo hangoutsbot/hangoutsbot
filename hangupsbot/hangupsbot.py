@@ -3,6 +3,9 @@ import os, sys, argparse, logging, shutil, asyncio, time, signal
 
 import gettext
 gettext.install('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'))
+#Uncomment and change language to choose a different one from the env
+#locale = gettext.translation('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'), languages=['en'])
+#locale.install()
 
 import appdirs
 import hangups
