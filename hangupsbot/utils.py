@@ -9,6 +9,9 @@ from parsers import simple_parse_to_segments, segment_to_html
 from hangups.ui.utils import get_conv_name as hangups_get_conv_name
 
 
+_conversation_list_cache = {}
+
+
 def text_to_segments(text):
     """Create list of message segments from text"""
     # Replace two consecutive spaces with space and non-breakable space,
@@ -53,7 +56,7 @@ def get_conv_name(conv, truncate=False):
         convid = conv.id_
 
     try:
-        convdata = sys.modules[__name__]._conversation_list_cache[convid]
+        convdata = _conversation_list_cache[convid]
         title = convdata["title"]
     except (KeyError, AttributeError) as e:
         if not isinstance(conv, str):
@@ -62,4 +65,8 @@ def get_conv_name(conv, truncate=False):
             raise ValueError("could not determine conversation name")
 
     return title
+
+
+def get_all_conversations():
+    return _conversation_list_cache
 

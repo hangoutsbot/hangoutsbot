@@ -10,7 +10,7 @@ def _initialise(Handlers, bot=None):
     if bot:
         _migrate_mention_config_to_memory(bot)
     Handlers.register_handler(_handle_mention, "message")
-    return ["mention", "pushbulletapi", "setnickname"]
+    return ["mention", "pushbulletapi", "setnickname", "bemorespecific"]
 
 
 def _migrate_mention_config_to_memory(bot):
@@ -56,8 +56,11 @@ def mention(bot, event, *args):
     """alert a @mentioned user"""
 
     """minimum length check for @mention"""
+    minimum_length = bot.get_config_suboption(event.conv_id, 'mentionminlength')
+    if not minimum_length:
+        minimum_length = 2
     username = args[0].strip()
-    if len(username) < 2:
+    if len(username) < minimum_length:
         logging.warning(_("@mention from {} ({}) too short (== '{}')").format(event.user.full_name, event.user.id_.chat_id, username))
         return
 
@@ -166,6 +169,7 @@ def mention(bot, event, *args):
 
     """generate a list of users to be @mentioned"""
     exact_nickname_matches = []
+    exact_fragment_matches = []
     mention_list = []
     for u in users_in_chat:
 
@@ -180,7 +184,8 @@ def mention(bot, event, *args):
         if username_lower == "all" or \
                 username_lower in u.full_name.replace(" ", "").lower() or \
                 username_lower in u.full_name.replace(" ", "_").lower() or \
-                username_lower == nickname_lower:
+                username_lower == nickname_lower or \
+                username in u.full_name.split(" "):
 
             logging.info(_("user {} ({}) is present").format(u.full_name, u.id_.chat_id))
 
@@ -192,6 +197,11 @@ def mention(bot, event, *args):
             if u.id_.chat_id == event.user.id_.chat_id and username_lower == "all":
                 """prevent initiating user from receiving duplicate @all"""
                 logging.info(_("suppressing @all for {} ({})").format(event.user.full_name, event.user.id_.chat_id))
+                continue
+
+            if u.id_.chat_id == event.user.id_.chat_id and not noisy_mention_test:
+                """prevent initiating user from mentioning themselves"""
+                logging.info(_("suppressing @self for {} ({})").format(event.user.full_name, event.user.id_.chat_id))
                 continue
 
             if u.id_.chat_id in mention_chat_ids:
@@ -209,29 +219,55 @@ def mention(bot, event, *args):
                 if u not in exact_nickname_matches:
                     exact_nickname_matches.append(u)
 
+            if username in u.full_name.split(" "):
+                if u not in exact_fragment_matches:
+                    exact_fragment_matches.append(u)
+
             if u not in mention_list:
                 mention_list.append(u)
 
-    """prioritise exact nickname matches"""
     if len(exact_nickname_matches) == 1:
+        """prioritise exact nickname matches"""
         logging.info(_("prioritising nickname match for {}").format(exact_nickname_matches[0].full_name))
         mention_list = exact_nickname_matches
+    elif len(exact_fragment_matches) == 1:
+        """prioritise case-sensitive fragment matches"""
+        logging.info(_("prioritising single case-sensitive fragment match for {}").format(exact_fragment_matches[0].full_name))
+        mention_list = exact_fragment_matches
+    elif len(exact_fragment_matches) > 1 and len(exact_fragment_matches) < len(mention_list):
+        logging.info(_("prioritising multiple case-sensitive fragment match for {}").format(exact_fragment_matches[0].full_name))
+        mention_list = exact_fragment_matches
 
     if len(mention_list) > 1 and username_lower != "all":
-        if conv_1on1_initiator:
-            text_html = _('{} users would be mentioned with "@{}"! Be more specific. List of matching users:<br />').format(
-                len(mention_list), username, conversation_name)
 
-            for u in mention_list:
-                text_html += u.full_name
-                if bot.memory.exists(['user_data', u.id_.chat_id, "nickname"]):
-                    text_html += ' (' + bot.memory.get_by_path(['user_data', u.id_.chat_id, "nickname"]) + ')'
-                text_html += '<br />'
+        send_multiple_user_message = True
 
-            bot.send_message_parsed(conv_1on1_initiator, text_html)
+        if bot.memory.exists(['user_data', event.user.id_.chat_id, "mentionmultipleusermessage"]):
+            send_multiple_user_message = bot.memory.get_by_path(['user_data', event.user.id_.chat_id, "mentionmultipleusermessage"])
+
+        if send_multiple_user_message or noisy_mention_test:
+            if conv_1on1_initiator:
+                text_html = _('{} users would be mentioned with "@{}"! Be more specific. List of matching users:<br />').format(
+                    len(mention_list), username, conversation_name)
+
+                for u in mention_list:
+                    text_html += u.full_name
+                    if bot.memory.exists(['user_data', u.id_.chat_id, "nickname"]):
+                        text_html += ' (' + bot.memory.get_by_path(['user_data', u.id_.chat_id, "nickname"]) + ')'
+                    text_html += '<br />'
+
+                text_html += "<br /><em>To toggle this message on/off, use <b>/bot bemorespecific</b></em>"
+
+                bot.send_message_parsed(conv_1on1_initiator, text_html)
 
         logging.info(_("@{} not sent due to multiple recipients").format(username_lower))
         return #SHORT-CIRCUIT
+
+    """support for reprocessor
+    override the source name by defining event._external_source"""
+    source_name = event.user.full_name
+    if hasattr(event, '_external_source'):
+        source_name = event._external_source
 
     """send @mention alerts"""
     for u in mention_list:
@@ -245,7 +281,7 @@ def mention(bot, event, *args):
                         pb = PushBullet(pushbullet_config["api"])
                         success, push = pb.push_note(
                             _("{} mentioned you in {}").format(
-                                    event.user.full_name,
+                                    source_name,
                                     conversation_name),
                                 event.text)
                         if success:
@@ -266,7 +302,7 @@ def mention(bot, event, *args):
                     bot.send_message_parsed(
                         conv_1on1,
                         _("<b>{}</b> @mentioned you in <i>{}</i>:<br />{}").format(
-                            event.user.full_name,
+                            source_name,
                             conversation_name,
                             event.text)) # prevent internal parser from removing <tags>
                     mention_chat_ids.append(u.id_.chat_id)
@@ -324,6 +360,26 @@ def pushbulletapi(bot, event, *args):
         bot.send_message_parsed(
             event.conv,
             _("pushbullet configuration not changed"))
+
+
+def bemorespecific(bot, event, *args):
+    """toggle the "be more specific message" on and off permanently"""
+    bot.initialise_memory(event.user.id_.chat_id, "user_data")
+    if bot.memory.exists(['user_data', event.user.id_.chat_id, "mentionmultipleusermessage"]):
+        _toggle = bot.memory.get_by_path(['user_data', event.user.id_.chat_id, "mentionmultipleusermessage"])
+        _toggle = not _toggle
+    else:
+        _toggle = False
+    bot.memory.set_by_path(['user_data', event.user.id_.chat_id, "mentionmultipleusermessage"], _toggle)
+    bot.memory.save();
+    if _toggle:
+        bot.send_message_parsed(
+            event.conv,
+            _('<em>"be more specific" for mentions toggled ON</em>'))
+    else:
+        bot.send_message_parsed(
+            event.conv,
+            _('<em>"be more specific" for mentions toggled OFF</em>'))
 
 
 def setnickname(bot, event, *args):
