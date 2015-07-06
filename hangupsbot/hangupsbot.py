@@ -4,6 +4,14 @@ import os, sys, argparse, logging, shutil, asyncio, time, signal
 import gettext
 gettext.install('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'))
 
+"""set environment variable to determine localisation:
+    export HANGOUTSBOT_LOCALE=<supported language>
+"""
+HANGOUTSBOT_LOCALE = os.environ.get("HANGOUTSBOT_LOCALE")
+if HANGOUTSBOT_LOCALE:
+    locale = gettext.translation('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'), languages=[HANGOUTSBOT_LOCALE])
+    locale.install()
+
 import appdirs
 import hangups
 
