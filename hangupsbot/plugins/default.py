@@ -31,12 +31,19 @@ def _initialise(Handlers, bot=None):
 def echo(bot, event, *args):
     """echo back requested text"""
 
+    text = ''
     # Check if the first argument is a known conv_id match
-    if args[0] in list(bot.memory.get_by_path(["conv_data"]).keys()):
-        text = ' '.join(args[1:])
-        conv_id = args[0]
+    if bot.memory.get_by_path(["conv_data"]):
+        if args[0] in list(bot.memory.get_by_path(["conv_data"]).keys()):
+            text = ' '.join(args[1:])
+            conv_id = args[0]
 
-    else:
+    elif bot.memory.get_by_path(["convmem"]):
+        if args[0] in list(bot.memory.get_by_path(["convmem"]).keys()):
+            text = ' '.join(args[1:])
+            conv_id = args[0]
+
+    if text is '': # First argument isn't a known conv_id
         text = ' '.join(args)
         conv_id = event.conv_id
 
@@ -50,12 +57,19 @@ def echo(bot, event, *args):
 def echoparsed(bot, event, *args):
     """echo back requested text"""
 
+    formatted_text = ''
     # Check if the first argument is a known conv_id match
-    if args[0] in list(bot.memory.get_by_path(["conv_data"]).keys()):
-        formatted_text = ' '.join(args[1:])
-        conv_id = args[0]
+    if bot.memory.get_by_path(["conv_data"]):
+        if args[0] in list(bot.memory.get_by_path(["conv_data"]).keys()):
+            formatted_text = ' '.join(args[1:])
+            conv_id = args[0]
 
-    else:
+    elif bot.memory.get_by_path(["convmem"]):
+        if args[0] in list(bot.memory.get_by_path(["convmem"]).keys()):
+            formatted_text = ' '.join(args[1:])
+            conv_id = args[0]
+
+    if formatted_text is '': # First argument isn't a known conv_id
         formatted_text = ' '.join(args)
         conv_id = event.conv_id
 
