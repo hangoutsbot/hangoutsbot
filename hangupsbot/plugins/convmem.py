@@ -65,6 +65,7 @@ def _memory_load(bot):
 
 
 def dumpconv(bot, event, *args):
+    """dump all conversations known to the bot"""
     text_search = " ".join(args)
     lines = []
     for convid, convdata in utils._conversation_list_cache.items():
