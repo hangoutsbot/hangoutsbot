@@ -145,10 +145,12 @@ class webhookReceiver(BaseHTTPRequestHandler):
         return text
 
     def _slack_label_users(self, text):
-        for fragment in re.findall("<@[A-Z0-9]+>", text):
-            id = fragment[2:-1]
+        for fragment in re.findall("(<@([A-Z0-9]+)(\|[^>]*?)?>)", text):
+            """detect and map <@Uididid> and <@Uididid|namename>"""
+            full_token = fragment[0]
+            id = full_token[2:-1].split("|", maxsplit=1)[0]
             username = self._slack_get_label(id, "user")
-            text = text.replace(fragment, username)
+            text = text.replace(full_token, username)
         return text
 
     def _slack_label_channels(self, text):
