@@ -7,6 +7,13 @@ Please see:
 * [Issue tracker](https://github.com/nylonee/hangupsbot/issues) for bugs, issues and feature requests
 * [Wiki](https://github.com/nylonee/hangupsbot/wiki) for everything else
 
+
+## quick repo links
+* [github org] (https://github.com/hangoutsbot) 
+* [locales] (https://github.com/hangupsbot/hangoutsbot-locales) 
+* [hangups] (https://github.com/hangoutsbot/hangups) 
+* [chat framework] (https://github.com/hangoutsbot/chat_framework) 
+
 ## Features
 * **Mentions** :
   If somebody mentions you in a room, receive a private hangout from the bot with details onthe mention,
