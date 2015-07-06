@@ -22,6 +22,8 @@ def _initialise(bot):
 
 
 def redditmemeword(bot, event, *args):
+    """trigger popular reddit meme images (eg. type 'slowclap.gif').
+    Full list at http://goo.gl/ORmisN"""
     if len(args) == 1:
         image_link = _get_a_link(args[0])
     bot.send_html_to_conversation(event.conv_id, "this one? {}".format(image_link))
