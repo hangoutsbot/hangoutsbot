@@ -113,8 +113,9 @@ def convusers(bot, event, *args):
         """don't do it in all conversations - might crash hangups"""
         text = _("<em>retrieving ALL conversations blocked</em>")
     else:
-        lines = []
+        chunks = [] # one "chunk" = info for 1 hangout
         for convid, convdata in get_all_conversations(filter=posix_args[0]).items():
+            lines = []
             lines.append('<b>{}</b>'.format(convdata["title"], len(convdata["users"])))
             for user in convdata["users"]:
                 # name and G+ link
@@ -130,7 +131,8 @@ def convusers(bot, event, *args):
                 _line += "<br />... {}".format(user[0][0]) # user id
                 lines.append(_line)
             lines.append(_('<b>Users: {}</b>').format(len(convdata["users"])))
-        text = '<br />'.join(lines)
+            chunks.append('<br />'.join(lines))
+        text = '<br /><br />'.join(chunks) 
 
     bot.send_message_parsed(event.conv_id, text)
 
