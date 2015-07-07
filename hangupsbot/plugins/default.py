@@ -30,6 +30,10 @@ def convfilter(bot, event, *args):
     """display raw list of conversations returned by filter"""
     fragment = ' '.join(args)
 
+    if fragment.startswith('"') and fragment.endswith('"'):
+        # strip away double-quotes if supplied
+        fragment = fragment[1:-1]
+
     lines = []
     for convid, convdata in get_all_conversations(filter=fragment).items():
         lines.append("`{}` <b>{}</b> ({})".format(convid, convdata["title"], len(convdata["users"])))
