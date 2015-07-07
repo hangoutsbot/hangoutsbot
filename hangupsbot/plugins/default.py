@@ -115,10 +115,21 @@ def convusers(bot, event, *args):
     else:
         lines = []
         for convid, convdata in get_all_conversations(filter=posix_args[0]).items():
-            lines.append('<b>{}</b> ({})'.format(convdata["title"], len(convdata["users"])))
-            for users in convdata["users"]:
-                lines.append('{} <b>{}</b>'.format(users[0][0], users[1]))
-            lines.append('')
+            lines.append('<b>{}</b>'.format(convdata["title"], len(convdata["users"])))
+            for user in convdata["users"]:
+                # name and G+ link
+                _line = '<b><a href="https://plus.google.com/u/0/{}/about">{}</a></b>'.format(
+                    user[0][0], user[1])
+                # email from hangups UserList (if available)
+                user_id = hangups.user.UserID(chat_id=user[0][0], gaia_id=user[0][1])
+                if user_id in bot._user_list._user_dict:
+                    _u = bot._user_list._user_dict[user_id]
+                    if _u.emails:
+                        _line += '<br />... (<a href="mailto:{0}">{0}</a>)'.format(_u.emails[0])
+                # user id
+                _line += "<br />... {}".format(user[0][0]) # user id
+                lines.append(_line)
+            lines.append(_('<b>Users: {}</b>').format(len(convdata["users"])))
         text = '<br />'.join(lines)
 
     bot.send_message_parsed(event.conv_id, text)
@@ -206,20 +217,7 @@ def broadcast(bot, event, *args):
 
 def users(bot, event, *args):
     """list all users in current hangout (include g+ and email links)"""
-    segments = [hangups.ChatMessageSegment('User List (total {}):'.format(len(event.conv.users)),
-                                           is_bold=True),
-                hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
-    for u in sorted(event.conv.users, key=lambda x: x.full_name.split()[-1]):
-        link = 'https://plus.google.com/u/0/{}/about'.format(u.id_.chat_id)
-        segments.append(hangups.ChatMessageSegment(u.full_name, hangups.SegmentType.LINK,
-                                                   link_target=link))
-        if u.emails:
-            segments.append(hangups.ChatMessageSegment(' ('))
-            segments.append(hangups.ChatMessageSegment(u.emails[0], hangups.SegmentType.LINK,
-                                                       link_target='mailto:{}'.format(u.emails[0])))
-            segments.append(hangups.ChatMessageSegment(')'))
-        segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
-    bot.send_message_segments(event.conv, segments)
+    yield from command.run(bot, event, *["convusers", "id:" + event.conv_id])
 
 
 def user(bot, event, username, *args):
