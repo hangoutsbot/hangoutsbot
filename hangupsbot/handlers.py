@@ -101,7 +101,12 @@ class EventHandler:
 
         # Parse message
         event.text = event.text.replace(u'\xa0', u' ') # convert non-breaking space in Latin1 (ISO 8859-1)
-        line_args = shlex.split(event.text, posix=False)
+        try:
+            line_args = shlex.split(event.text, posix=False)
+        except Exception as e:
+            print("EXCEPTION in {}: {}".format("handle_command", e))
+            logging.exception(e)
+            return
 
         # Test if command length is sufficient
         if len(line_args) < 2:
