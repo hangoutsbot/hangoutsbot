@@ -14,8 +14,16 @@ _internal = {} # non-persistent internal state independent of config.json/memory
 _internal["broadcast"] = { "message": "", "conversations": [] } # /bot broadcast
 
 def _initialise(bot):
-    plugins.register_admin_command(["broadcast", "convecho", "convfilter", "users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whereami"])
+    plugins.register_admin_command(["broadcast", "convecho", "convfilter", "convrename", "users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whereami"])
     plugins.register_user_command(["echo", "whoami"])
+
+
+def get_posix_args(rawargs):
+    lexer = shlex.shlex(" ".join(rawargs), posix=True)
+    lexer.commenters = ""
+    lexer.wordchars += "!@#$%^&*():/.<>?[]"
+    posix_args = list(lexer)
+    return posix_args
 
 
 def convfilter(bot, event, *args):
@@ -32,9 +40,7 @@ def convfilter(bot, event, *args):
 
 def convecho(bot, event, *args):
     """echo back text into filtered conversations"""
-    lexer = shlex.shlex(" ".join(args), posix=True)
-    lexer.wordchars += ":/.<>"
-    posix_args = list(lexer)
+    posix_args = get_posix_args(args)
 
     if(len(posix_args) > 1):
         convlist = get_all_conversations(filter=posix_args[0])
@@ -43,18 +49,46 @@ def convecho(bot, event, *args):
         test_segments = simple_parse_to_segments(text)
         if test_segments:
             if test_segments[0].text.lower().strip().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
-                text = _("command echo blocked")
+                text = _("<em>command echo blocked</em>")
                 convlist = get_all_conversations(filter=event.conv_id)
+    elif len(posix_args) == 1 and posix_args[0].startswith("id:"):
+        """specialised error message for /bot echo (implied convid: <event.conv_id>)"""
+        text = _("<em>missing text</em>")
+        convlist = get_all_conversations(filter=event.conv_id)
     else:
-        text = _("required parameters: convfilter text")
+        """general error"""
+        text = _("<em>required parameters: convfilter text</em>")
         convlist = get_all_conversations(filter=event.conv_id)
 
     if not convlist:
-        text = _("no conversations filtered")
+        text = _("<em>no conversations filtered</em>")
         convlist = get_all_conversations(filter=event.conv_id)
 
     for convid, convdata in convlist.items():
         bot.send_message_parsed(convid, text)
+
+
+def convrename(bot, event, *args):
+    """renames a single specified conversation"""
+    posix_args = get_posix_args(args)
+
+    if len(posix_args) > 1:
+        if not posix_args[0].startswith("id:"):
+            # force single matching conversation
+            posix_args[0] = "id:" + posix_args[0]
+        convlist = get_all_conversations(filter=posix_args[0])
+        title = ' '.join(posix_args[1:])
+        yield from bot._client.setchatname(list(convlist.keys())[0], title)
+    elif len(posix_args) == 1 and posix_args[0].startswith("id:"):
+        """specialised error message for /bot rename (implied convid: <event.conv_id>)"""
+        text = _("<em>missing title</em>")
+        convlist = get_all_conversations(filter=event.conv_id)
+        yield from command.run(bot, event, *["convecho", "id:" + event.conv_id, text])
+    else:
+        """general error"""
+        text = _("<em>required parameters: convfilter title</em>")
+        convlist = get_all_conversations(filter=event.conv_id)
+        yield from command.run(bot, event, *["convecho", "id:" + event.conv_id, text])
 
 
 def echo(bot, event, *args):
@@ -196,8 +230,8 @@ def hangouts(bot, event, *args):
 
 
 def rename(bot, event, *args):
-    """rename Hangout"""
-    yield from bot._client.setchatname(event.conv_id, ' '.join(args))
+    """rename current hangout"""
+    yield from command.run(bot, event, *["convrename", "id:" + event.conv_id, " ".join(args)])
 
 
 def leave(bot, event, conversation_id=None, *args):
