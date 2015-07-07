@@ -87,16 +87,16 @@ def help(bot, event, cmd=None, *args):
         commands_admin = command.get_admin_commands(bot, event.conv_id)
         commands_nonadmin = list(set(commands_all) - set(commands_admin))
 
-        help_lines.append(_('<b>User commands:</b>'))
+        help_lines.append(_("<b>User commands:</b>"))
         help_lines.append(', '.join(sorted(commands_nonadmin)))
 
         if link_to_guide:
             help_lines.append('')
-            help_lines.append(_('<i>For more information, please see: {}</i>').format(link_to_guide))
+            help_lines.append(_("<i>For more information, please see: {}</i>").format(link_to_guide))
 
         if event.user_id.chat_id in admins_list:
             help_lines.append('')
-            help_lines.append(_('<b>Admin commands:</b>'))
+            help_lines.append(_("<b>Admin commands:</b>"))
             help_lines.append(', '.join(sorted(commands_admin)))
     else:
         try:
@@ -119,7 +119,7 @@ def help(bot, event, cmd=None, *args):
 @command.register
 def ping(bot, event, *args):
     """reply to a ping"""
-    bot.send_message(event.conv, _('pong'))
+    bot.send_message(event.conv, _("pong"))
 
 
 @command.register
@@ -136,9 +136,9 @@ def optout(bot, event, *args):
     bot.memory.save()
 
     if optout:
-        bot.send_message_parsed(event.conv, _('<i>{}, you <b>opted-out</b> from bot private messages</i>').format(event.user.full_name))
+        bot.send_message_parsed(event.conv, _("<i>{}, you <b>opted-out</b> from bot private messages</i>").format(event.user.full_name))
     else:
-        bot.send_message_parsed(event.conv, _('<i>{}, you <b>opted-in</b> for bot private messages</i>').format(event.user.full_name))
+        bot.send_message_parsed(event.conv, _("<i>{}, you <b>opted-in</b> for bot private messages</i>").format(event.user.full_name))
 
 
 @command.register
@@ -151,4 +151,4 @@ def version(bot, event, *args):
 def unknown_command(bot, event, *args):
     """handle unknown commands"""
     bot.send_message(event.conv,
-                     _('{}: unknown command').format(event.user.full_name))
+                     _("{}: unknown command").format(event.user.full_name))
