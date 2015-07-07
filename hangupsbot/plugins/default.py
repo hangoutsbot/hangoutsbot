@@ -21,25 +21,27 @@ def _initialise(bot):
 def get_posix_args(rawargs):
     lexer = shlex.shlex(" ".join(rawargs), posix=True)
     lexer.commenters = ""
-    lexer.wordchars += "!@#$%^&*():/.<>?[]-"
+    lexer.wordchars += "!@#$%^&*():/.<>?[]-,"
     posix_args = list(lexer)
     return posix_args
 
 
 def convfilter(bot, event, *args):
-    """display raw list of conversations returned by filter"""
-    fragment = ' '.join(args)
+    """test filter and return matched conversations"""
+    posix_args = get_posix_args(args)
 
-    if fragment.startswith('"') and fragment.endswith('"'):
-        # strip away double-quotes if supplied
-        fragment = fragment[1:-1]
-
-    lines = []
-    for convid, convdata in get_all_conversations(filter=fragment).items():
-        lines.append("`{}` <b>{}</b> ({})".format(convid, convdata["title"], len(convdata["users"])))
-    lines.append(_('<b>Total: {}</b>').format(len(lines)))
-
-    bot.send_message_parsed(event.conv_id, '<br />'.join(lines))
+    if len(posix_args) > 1:
+        bot.send_message_parsed(event.conv_id, 
+            _("<em>1 parameter required, {} supplied - enclose parameter in double-quotes</em>").format(len(posix_args)))
+    elif len(posix_args) <= 0:
+        bot.send_message_parsed(event.conv_id, 
+            _("<em>supply 1 parameter</em>"))
+    else:
+        lines = []
+        for convid, convdata in get_all_conversations(filter=posix_args[0]).items():
+            lines.append("`{}` <b>{}</b> ({})".format(convid, convdata["title"], len(convdata["users"])))
+        lines.append(_('<b>Total: {}</b>').format(len(lines)))
+        bot.send_message_parsed(event.conv_id, '<br />'.join(lines))
 
 
 def convecho(bot, event, *args):
