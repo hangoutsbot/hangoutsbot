@@ -21,7 +21,7 @@ def _initialise(bot):
 def get_posix_args(rawargs):
     lexer = shlex.shlex(" ".join(rawargs), posix=True)
     lexer.commenters = ""
-    lexer.wordchars += "!@#$%^&*():/.<>?[]"
+    lexer.wordchars += "!@#$%^&*():/.<>?[]-"
     posix_args = list(lexer)
     return posix_args
 
@@ -32,7 +32,7 @@ def convfilter(bot, event, *args):
 
     lines = []
     for convid, convdata in get_all_conversations(filter=fragment).items():
-        lines.append("{} <b>{}</b>".format(convid, convdata["title"], len(convdata["users"])))
+        lines.append("`{}` <b>{}</b> ({})".format(convid, convdata["title"], len(convdata["users"])))
     lines.append(_('<b>Total: {}</b>').format(len(lines)))
 
     bot.send_message_parsed(event.conv_id, '<br />'.join(lines))
@@ -220,9 +220,9 @@ def hangouts(bot, event, *args):
 
     lines = []
     for convid, convdata in get_all_conversations(filter="text:" + text_search).items():
-        lines.append("<b>{}</b>: <em>{}</em>".format(convdata["title"], convid))
+        lines.append("<b>{}</b>: <em>`{}`</em>".format(convdata["title"], convid))
 
-    lines.append(_('<b>Total: {}</b>').format(len(lines)-1))
+    lines.append(_('<b>Total: {}</b>').format(len(lines)))
     if text_search:
         lines.insert(0, _('<b>List of hangouts with keyword:</b> "{}"').format(text_search))
 
