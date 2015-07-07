@@ -32,7 +32,7 @@ def segment_to_html(segment):
     elif segment.type_ == hangups.schemas.SegmentType.LINE_BREAK:
         message.append('<br>\n')
     else:
-        logging.warning('Ignoring unknown chat message segment type: {}'.format(segment.type_))
+        logging.warning("Ignoring unknown chat message segment type: {}".format(segment.type_))
 
     if not segment.type_ == hangups.schemas.SegmentType.LINE_BREAK:
         for is_f, f in ((segment.is_bold, 'b'), (segment.is_italic, 'i'),

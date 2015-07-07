@@ -2,7 +2,7 @@
 import os, sys, argparse, logging, shutil, asyncio, time, signal
 
 import gettext
-gettext.install('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'))
+gettext.install('hangoutsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'))
 
 import appdirs
 import hangups
@@ -88,7 +88,7 @@ class ConversationEvent(object):
         else:
             print(_('uid/uname: {}!{}/{}').format(self.user_id.chat_id, self.user_id.gaia_id, self.user.full_name))
         print(_('txtlen/tx: {}/{}').format(len(self.text), self.text))
-        print(_('eventdump: completed --8<--'))
+        print(_("eventdump: completed --8<--"))
 
 
 class HangupsBot(object):
@@ -123,7 +123,7 @@ class HangupsBot(object):
                     self.memory.force_taint()
                     self.memory.save()
                 except (OSError, IOError) as e:
-                    sys.exit(_('failed to create default memory file: {}').format(e))
+                    sys.exit(_("failed to create default memory file: {}").format(e))
 
         # Handle signals on Unix
         # (add_signal_handler is not implemented on Windows)
@@ -160,7 +160,7 @@ class HangupsBot(object):
             cookies = hangups.auth.get_auth_stdin(cookies_path)
             return cookies
         except hangups.GoogleAuthError as e:
-            print(_('Login failed ({})').format(e))
+            print(_("Login failed ({})").format(e))
             return False
 
     def run(self):
@@ -187,11 +187,11 @@ class HangupsBot(object):
                     sys.exit(0)
                 except Exception as e:
                     logging.exception(_("unrecoverable low-level error"))
-                    print(_('Client unexpectedly disconnected:\n{}').format(e))
-                    print(_('Waiting {} seconds...').format(5 + retry * 5))
+                    print(_("Client unexpectedly disconnected:\n{}").format(e))
+                    print(_("Waiting {} seconds...").format(5 + retry * 5))
                     time.sleep(5 + retry * 5)
-                    print(_('Trying to connect again (try {} of {})...').format(retry + 1, self._max_retries))
-            print(_('Maximum number of retries reached! Exiting...'))
+                    print(_("Trying to connect again (attempt {} of {})...").format(retry + 1, self._max_retries))
+            print(_("Maximum number of retries reached! Exiting..."))
         sys.exit(1)
 
     def stop(self):
@@ -245,7 +245,7 @@ class HangupsBot(object):
             except (KeyError, AttributeError):
                 pass
         else:
-            raise ValueError(_('could not identify conversation id'))
+            raise ValueError(_("could not identify conversation id"))
 
         # by default, a response always goes into a single conversation only
         broadcast_list = [(conversation_id, segments)]
@@ -347,7 +347,7 @@ class HangupsBot(object):
         return value
 
     def print_conversations(self):
-        print(_('Conversations:'))
+        print(_("Conversations:"))
         for c in self.list_conversations():
             print('  {} ({}) u:{}'.format(get_conv_name(c, truncate=True), c.id_, len(c.users)))
             for u in c.users:
@@ -471,12 +471,12 @@ class HangupsBot(object):
         try:
             future.result()
         except hangups.NetworkError:
-            print(_('_on_message_sent(): failed to send message'))
+            print(_("_on_message_sent(): failed to send message"))
 
     @asyncio.coroutine
     def _on_connect(self, initial_data):
         """Handle connecting for the first time"""
-        print(_('Connected!'))
+        print(_("Connected!"))
 
         self._handlers = handlers.EventHandler(self)
         handlers.handler.set_bot(self) # shim for handler decorator
@@ -543,14 +543,14 @@ class HangupsBot(object):
 
     def _on_disconnect(self):
         """Handle disconnecting"""
-        print(_('Connection lost!'))
+        print(_("Connection lost!"))
 
     def external_send_message(self, conversation_id, text):
         """
         LEGACY
             use send_html_to_conversation()
         """
-        print(_('DEPRECATED: external_send_message(), use send_html_to_conversation()'))
+        print(_("DEPRECATED: external_send_message(), use send_html_to_conversation()"))
         self.send_html_to_conversation(conversation_id, text)
 
     def external_send_message_parsed(self, conversation_id, html):
@@ -558,19 +558,19 @@ class HangupsBot(object):
         LEGACY
             use send_html_to_conversation()
         """
-        print(_('DEPRECATED: external_send_message_parsed(), use send_html_to_conversation()'))
+        print(_("DEPRECATED: external_send_message_parsed(), use send_html_to_conversation()"))
         self.send_html_to_conversation(conversation_id, html)
 
     def send_html_to_conversation(self, conversation_id, html, context=None):
-        print(_('send_html_to_conversation(): sending to {}').format(conversation_id))
+        print(_("send_html_to_conversation(): sending to {}").format(conversation_id))
         self.send_message_parsed(conversation_id, html, context)
 
     def send_html_to_user(self, user_id, html, context=None):
         conversation = self.get_1on1_conversation(user_id)
         if not conversation:
-            print(_('send_html_to_user(): 1-to-1 conversation not found'))
+            print(_("send_html_to_user(): 1-to-1 conversation not found"))
             return False
-        print(_('send_html_to_user(): sending to {}').format(user_id))
+        print(_("send_html_to_user(): sending to {}").format(user_id))
         self.send_message_parsed(conversation, html, context)
         return True
 
@@ -579,7 +579,7 @@ class HangupsBot(object):
         # NOTE: Assumption that a conversation_id will never match a user_id
         if not self.send_html_to_user(user_id_or_conversation_id, html, context):
             self.send_html_to_conversation(user_id_or_conversation_id, html, context)
-        print(_('DEPRECATED: send_html_to_user_or_conversation(), use send_html_to_conversation() or send_html_to_user()'))
+        print(_("DEPRECATED: send_html_to_user_or_conversation(), use send_html_to_conversation() or send_html_to_user()"))
 
     def user_self(self):
         myself = {
@@ -610,17 +610,17 @@ def main():
     parser = argparse.ArgumentParser(prog='hangupsbot',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-d', '--debug', action='store_true',
-                        help=_('log detailed debugging messages'))
+                        help=_("log detailed debugging messages"))
     parser.add_argument('--log', default=default_log_path,
-                        help=_('log file path'))
+                        help=_("log file path"))
     parser.add_argument('--cookies', default=default_cookies_path,
-                        help=_('cookie storage path'))
+                        help=_("cookie storage path"))
     parser.add_argument('--memory', default=default_memory_path,
-                        help=_('memory storage path'))
+                        help=_("memory storage path"))
     parser.add_argument('--config', default=default_config_path,
-                        help=_('config storage path'))
+                        help=_("config storage path"))
     parser.add_argument('--version', action='version', version='%(prog)s {}'.format(version.__version__),
-                        help=_('show program\'s version number and exit'))
+                        help=_("show program\'s version number and exit"))
     args = parser.parse_args()
 
     # Create all necessary directories.
@@ -630,7 +630,7 @@ def main():
             try:
                 os.makedirs(directory)
             except OSError as e:
-                sys.exit(_('Failed to create directory: {}').format(e))
+                sys.exit(_("Failed to create directory: {}").format(e))
 
     # If there is no config file in user data directory, copy default one there
     if not os.path.isfile(args.config):
@@ -638,7 +638,7 @@ def main():
             shutil.copy(os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), 'config.json')),
                         args.config)
         except (OSError, IOError) as e:
-            sys.exit(_('Failed to copy default config file: {}').format(e))
+            sys.exit(_("Failed to copy default config file: {}").format(e))
 
     # Configure logging
     log_level = logging.DEBUG if args.debug else logging.INFO
