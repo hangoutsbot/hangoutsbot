@@ -30,6 +30,8 @@ def _retrieve(url, css_selector, attribute):
 
 
 def meme(bot, event, *args):
+    """Searches for a meme related to <something>;
+    grabs a random meme when none provided"""
     if _externals["running"]:
         bot.send_html_to_conversation(event.conv_id, "<i>busy, give me a moment...</i>")
         return
