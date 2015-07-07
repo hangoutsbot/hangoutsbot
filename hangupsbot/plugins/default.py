@@ -14,7 +14,7 @@ _internal = {} # non-persistent internal state independent of config.json/memory
 _internal["broadcast"] = { "message": "", "conversations": [] } # /bot broadcast
 
 def _initialise(bot):
-    plugins.register_admin_command(["broadcast", "convecho", "convfilter", "convrename", "convusers", "users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whereami"])
+    plugins.register_admin_command(["broadcast", "convecho", "convfilter", "convleave", "convrename", "convusers", "users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whereami"])
     plugins.register_user_command(["echo", "whoami"])
 
 
@@ -133,6 +133,36 @@ def convusers(bot, event, *args):
         text = '<br />'.join(lines)
 
     bot.send_message_parsed(event.conv_id, text)
+
+
+def convleave(bot, event, *args):
+    """leave specified conversation(s)"""
+    posix_args = get_posix_args(args)
+
+    if(len(posix_args) >= 1):
+        if not posix_args[0]:
+            """block leaving ALL conversations"""
+            bot.send_message_parsed(event.conv_id, 
+                _("<em>cannot leave ALL conversations</em>"))
+            return
+        else:
+            convlist = get_all_conversations(filter=posix_args[0])
+    else:
+        """general error"""
+        bot.send_message_parsed(event.conv_id, 
+            _("<em>required parameters: convfilter</em>"))
+        return
+
+    for convid, convdata in convlist.items():
+        if not "quietly" in posix_args:
+            bot.send_message_parsed(convid, _('I\'ll be back!'))
+        yield from bot._conv_list.leave_conversation(convid)
+        try:
+            """support convmem plugin"""
+            bot.call_shared("convmem.removeconv", bot, convid)
+        except KeyError:
+            print("bot left {}, convmem plugin not available".format(convid))
+
 
 
 def echo(bot, event, *args):
@@ -267,27 +297,16 @@ def rename(bot, event, *args):
 def leave(bot, event, conversation_id=None, *args):
     """exits current or other specified hangout"""
 
-    leave_quietly = False
-    convs = []
+    arglist = list(args)
+
+    if conversation_id == "quietly":
+        arglist.append("quietly")
+        conversation_id = False
 
     if not conversation_id:
-        convs.append(event.conv.id_)
-    elif conversation_id=="quietly":
-        convs.append(event.conv.id_)
-        leave_quietly = True
-    else:
-        convs.append(conversation_id)
+        conversation_id = event.conv_id
 
-    for c_id in convs:
-        if not leave_quietly:
-            bot.send_message_parsed(c_id, _('I\'ll be back!'))
-        yield from bot._conv_list.leave_conversation(c_id)
-        try:
-            """support convmem plugin"""
-            bot.call_shared("convmem.removeconv", bot, c_id)
-        except KeyError:
-            print("bot left {}, convmem plugin not available".format(c_id))
-
+    yield from command.run(bot, event, *["convleave", "id:" + conversation_id, " ".join(arglist)])
 
 
 def reload(bot, event, *args):
