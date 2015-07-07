@@ -14,7 +14,7 @@ _internal = {} # non-persistent internal state independent of config.json/memory
 _internal["broadcast"] = { "message": "", "conversations": [] } # /bot broadcast
 
 def _initialise(bot):
-    plugins.register_admin_command(["broadcast", "convecho", "convfilter", "convrename", "users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whereami"])
+    plugins.register_admin_command(["broadcast", "convecho", "convfilter", "convrename", "convusers", "users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whereami"])
     plugins.register_user_command(["echo", "whoami"])
 
 
@@ -49,14 +49,19 @@ def convecho(bot, event, *args):
     posix_args = get_posix_args(args)
 
     if(len(posix_args) > 1):
-        convlist = get_all_conversations(filter=posix_args[0])
-        text = ' '.join(posix_args[1:])
-        # detect and reject attempts to exploit bot command aliases
-        test_segments = simple_parse_to_segments(text)
-        if test_segments:
-            if test_segments[0].text.lower().strip().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
-                text = _("<em>command echo blocked</em>")
-                convlist = get_all_conversations(filter=event.conv_id)
+        if not posix_args[0]:
+            """block spamming ALL conversations"""
+            text = _("<em>sending to ALL conversations not allowed</em>")
+            convlist = get_all_conversations(filter=event.conv_id)
+        else:
+            convlist = get_all_conversations(filter=posix_args[0])
+            text = ' '.join(posix_args[1:])
+            test_segments = simple_parse_to_segments(text)
+            if test_segments:
+                if test_segments[0].text.lower().strip().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
+                    """detect and reject attempts to exploit botalias"""
+                    text = _("<em>command echo blocked</em>")
+                    convlist = get_all_conversations(filter=event.conv_id)
     elif len(posix_args) == 1 and posix_args[0].startswith("id:"):
         """specialised error message for /bot echo (implied convid: <event.conv_id>)"""
         text = _("<em>missing text</em>")
@@ -96,6 +101,27 @@ def convrename(bot, event, *args):
         text = _("<em>required parameters: convfilter title</em>")
         convlist = get_all_conversations(filter=event.conv_id)
         yield from command.run(bot, event, *["convecho", "id:" + event.conv_id, text])
+
+
+def convusers(bot, event, *args):
+    """gets list of users for specified conversation filter"""
+    posix_args = get_posix_args(args)
+
+    if len(posix_args) != 1:
+        text = _("<em>should be 1 parameter, {} supplied</em>".format(len(posix_args)))
+    elif not posix_args[0]:
+        """don't do it in all conversations - might crash hangups"""
+        text = _("<em>retrieving ALL conversations blocked</em>")
+    else:
+        lines = []
+        for convid, convdata in get_all_conversations(filter=posix_args[0]).items():
+            lines.append('<b>{}</b> ({})'.format(convdata["title"], len(convdata["users"])))
+            for users in convdata["users"]:
+                lines.append('{} <b>{}</b>'.format(users[0][0], users[1]))
+            lines.append('')
+        text = '<br />'.join(lines)
+
+    bot.send_message_parsed(event.conv_id, text)
 
 
 def echo(bot, event, *args):
