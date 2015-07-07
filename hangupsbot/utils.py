@@ -67,6 +67,22 @@ def get_conv_name(conv, truncate=False):
     return title
 
 
-def get_all_conversations():
-    return _conversation_list_cache
+def get_all_conversations(filter=False, inexact=True):
+    filtered = {} # function always return subset of conversation list
 
+    if not filter:
+        # return everything
+        filtered = _conversation_list_cache
+    elif filter in _conversation_list_cache:
+        # prioritise exact convid matches
+        filtered[filter] = _conversation_list_cache[filter]
+    elif inexact:
+        # perform inexact matching, special flags still required - don't guess user intent!
+        if filter.startswith("text:"):
+            # perform case-insensitive search
+            filter_lower = filter[5:].lower()
+            for convid, convdata in _conversation_list_cache.items():
+                if filter_lower in convdata["title"].lower():
+                    filtered[convid] = convdata
+
+    return filtered

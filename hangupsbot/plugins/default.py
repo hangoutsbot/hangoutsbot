@@ -1,4 +1,4 @@
-import json
+import json, shlex
 
 import hangups
 
@@ -12,39 +12,42 @@ _internal = {} # non-persistent internal state independent of config.json/memory
 _internal["broadcast"] = { "message": "", "conversations": [] } # /bot broadcast
 
 def _initialise(bot):
-    plugins.register_admin_command(["broadcast", "convfilter", "users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whereami"])
+    plugins.register_admin_command(["broadcast", "convecho", "convfilter", "users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whereami"])
     plugins.register_user_command(["echo", "echoparsed", "whoami"])
-
-def _filter_convlist(bot, fragment):
-    # get definitive list of all conversations
-    convs = get_all_conversations()
-
-    filtered = [] # function always return tuple(convid, convdata)
-
-    if fragment in convs:
-        # prioritise exact convid matches
-        filtered.append((fragment, convs[fragment]))
-    else:
-        # perform case-insensitive search
-        fragment_lower = fragment.lower()
-        for convid, convdata in convs.items():
-            if fragment_lower in convdata["title"].lower():
-                filtered.append((convid, convdata))
-
-    return filtered
 
 
 def convfilter(bot, event, *args):
     fragment = ' '.join(args)
 
-    convlist = _filter_convlist(bot, fragment)
-
     lines = []
-    for convid, convdata in convlist:
+    for convid, convdata in get_all_conversations(filter=fragment, inexact=True).items():
         lines.append("{} <b>{}</b>".format(convid, convdata["title"], len(convdata["users"])))
     lines.append("Total: {}".format(len(lines)))
 
     bot.send_message_parsed(event.conv_id, '<br />'.join(lines))
+
+
+def convecho(bot, event, *args):
+    lexer = shlex.shlex(" ".join(args), posix=True)
+    lexer.wordchars += ":/"
+    posix_args = list(lexer)
+
+    if(len(posix_args) > 1):
+        convlist = get_all_conversations(filter=posix_args[0])
+        text = ' '.join(posix_args[1:])
+        if text.lower().strip().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
+            text = _("command echo blocked")
+            convlist = get_all_conversations(filter=event.conv_id)
+    else:
+        text = _("required parameters: convfilter text")
+        convlist = get_all_conversations(filter=event.conv_id)
+
+    if not convlist:
+        text = _("no conversations filtered")
+        convlist = get_all_conversations(filter=event.conv_id)
+
+    for convid, convdata in convlist.items():
+        print("convecho: {} {}".format(convid, text))
 
 
 def echo(bot, event, *args):
