@@ -6,6 +6,8 @@ import plugins
 
 from utils import text_to_segments, simple_parse_to_segments, get_conv_name, get_all_conversations
 
+from commands import command
+
 
 _internal = {} # non-persistent internal state independent of config.json/memory.json
 
@@ -13,14 +15,15 @@ _internal["broadcast"] = { "message": "", "conversations": [] } # /bot broadcast
 
 def _initialise(bot):
     plugins.register_admin_command(["broadcast", "convecho", "convfilter", "users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whereami"])
-    plugins.register_user_command(["echo", "echoparsed", "whoami"])
+    plugins.register_user_command(["echo", "whoami"])
 
 
 def convfilter(bot, event, *args):
+    """display raw list of conversations returned by filter"""
     fragment = ' '.join(args)
 
     lines = []
-    for convid, convdata in get_all_conversations(filter=fragment, inexact=True).items():
+    for convid, convdata in get_all_conversations(filter=fragment).items():
         lines.append("{} <b>{}</b>".format(convid, convdata["title"], len(convdata["users"])))
     lines.append("Total: {}".format(len(lines)))
 
@@ -28,16 +31,20 @@ def convfilter(bot, event, *args):
 
 
 def convecho(bot, event, *args):
+    """echo back text into filtered conversations"""
     lexer = shlex.shlex(" ".join(args), posix=True)
-    lexer.wordchars += ":/"
+    lexer.wordchars += ":/.<>"
     posix_args = list(lexer)
 
     if(len(posix_args) > 1):
         convlist = get_all_conversations(filter=posix_args[0])
         text = ' '.join(posix_args[1:])
-        if text.lower().strip().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
-            text = _("command echo blocked")
-            convlist = get_all_conversations(filter=event.conv_id)
+        # detect and reject attempts to exploit bot command aliases
+        test_segments = simple_parse_to_segments(text)
+        if test_segments:
+            if test_segments[0].text.lower().strip().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
+                text = _("command echo blocked")
+                convlist = get_all_conversations(filter=event.conv_id)
     else:
         text = _("required parameters: convfilter text")
         convlist = get_all_conversations(filter=event.conv_id)
@@ -47,61 +54,12 @@ def convecho(bot, event, *args):
         convlist = get_all_conversations(filter=event.conv_id)
 
     for convid, convdata in convlist.items():
-        print("convecho: {} {}".format(convid, text))
+        bot.send_message_parsed(convid, text)
 
 
 def echo(bot, event, *args):
-    """echo back requested text"""
-
-    text = ''
-    # Check if the first argument is a known conv_id match
-    if bot.memory.get_by_path(["conv_data"]):
-        if args[0] in list(bot.memory.get_by_path(["conv_data"]).keys()):
-            text = ' '.join(args[1:])
-            conv_id = args[0]
-
-    elif bot.memory.get_by_path(["convmem"]):
-        if args[0] in list(bot.memory.get_by_path(["convmem"]).keys()):
-            text = ' '.join(args[1:])
-            conv_id = args[0]
-
-    if text is '': # First argument isn't a known conv_id
-        text = ' '.join(args)
-        conv_id = event.conv_id
-
-    if text.lower().strip().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
-        text = _("NOPE! Some things aren't worth repeating.")
-        conv_id = event.conv_id
-
-    bot.send_message(conv_id, text)
-
-
-def echoparsed(bot, event, *args):
-    """echo back requested text"""
-
-    formatted_text = ''
-    # Check if the first argument is a known conv_id match
-    if bot.memory.get_by_path(["conv_data"]):
-        if args[0] in list(bot.memory.get_by_path(["conv_data"]).keys()):
-            formatted_text = ' '.join(args[1:])
-            conv_id = args[0]
-
-    elif bot.memory.get_by_path(["convmem"]):
-        if args[0] in list(bot.memory.get_by_path(["convmem"]).keys()):
-            formatted_text = ' '.join(args[1:])
-            conv_id = args[0]
-
-    if formatted_text is '': # First argument isn't a known conv_id
-        formatted_text = ' '.join(args)
-        conv_id = event.conv_id
-
-    test_segments = simple_parse_to_segments(formatted_text)
-    if test_segments:
-        if test_segments[0].text.strip().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
-            formatted_text = _("NOPE! Some things aren't worth repeating.")
-            conv_id = event.conv_id
-
-    bot.send_message_parsed(conv_id, formatted_text)
+    """echo back text into current conversation"""
+    yield from command.run(bot, event, *["convecho", "id:" + event.conv_id, " ".join(args)])
 
 
 def broadcast(bot, event, *args):
