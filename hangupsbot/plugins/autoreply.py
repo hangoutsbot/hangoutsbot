@@ -10,13 +10,13 @@ def _initialise(bot):
 
 @asyncio.coroutine
 def _handle_autoreply(bot, event, command):
-
     autoreplies_enabled = bot.get_config_suboption(event.conv.id_, 'autoreplies_enabled')
     if not autoreplies_enabled:
-        logging.info(_("autoreplies in {} disabled/unset").format(event.conv.id_))
         return
 
     """Handle autoreplies to keywords in messages"""
+
+    logging.info("autoreply: {}".format(event.conv.id_))
 
     autoreplies_list = bot.get_config_suboption(event.conv_id, 'autoreplies')
     if autoreplies_list:
@@ -26,12 +26,19 @@ def _handle_autoreply(bot, event, command):
                     bot.send_message_parsed(event.conv, sentence)
                     break
 
+
 def _words_in_text(word, text):
     """Return True if word is in text"""
 
-    regexword = "\\b" + word + "\\b"
+    if word.startswith("regex:"):
+        word = word[6:]
+    else:
+        word = re.escape(word)
+
+    regexword = "(?<!\w)" + word + "(?!\w)"
 
     return True if re.search(regexword, text, re.IGNORECASE) else False
+
 
 def autoreply(bot, event, cmd=None, *args):
     """adds or removes an autoreply.
