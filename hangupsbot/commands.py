@@ -53,8 +53,8 @@ class CommandDispatcher(object):
         try:
             yield from func(bot, event, *args, **kwds)
         except Exception as e:
-            message = _("CommandDispatcher.run: {}").format(func.__name__)
-            print(_("EXCEPTION in {}").format(message))
+            message = "CommandDispatcher.run: {}".format(func.__name__)
+            print("EXCEPTION in {}".format(message))
             logging.exception(message)
 
     def register(self, *args, admin=False):
@@ -131,7 +131,7 @@ def help(bot, event, cmd=None, *args):
 @command.register
 def ping(bot, event, *args):
     """reply to a ping"""
-    bot.send_message(event.conv, _('pong'))
+    bot.send_message(event.conv, 'pong')
 
 
 @command.register

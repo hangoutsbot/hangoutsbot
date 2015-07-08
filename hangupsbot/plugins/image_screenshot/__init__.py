@@ -21,7 +21,7 @@ def _initialise(bot):
     plugins.register_admin_command(["seturl", "clearurl"])
 
 def seturl(bot, event, *args):
-    """set url for current converation for the screenshot command. 
+    """set url for current converation for the screenshot command.
     use /bot clearurl to clear the previous url before setting a new one.
     """
     url = bot.conversation_memory_get(event.conv_id, 'url')
@@ -35,7 +35,7 @@ def seturl(bot, event, *args):
         bot.send_html_to_conversation(event.conv, html)
 
 def clearurl(bot, event, *args):
-    """clear url for current converation for the screenshot command. 
+    """clear url for current converation for the screenshot command.
     """
     url = bot.conversation_memory_get(event.conv_id, 'url')
     if url is None:
@@ -47,7 +47,7 @@ def clearurl(bot, event, *args):
         bot.send_html_to_conversation(event.conv, html)
 
 def screenshot(bot, event, *args):
-    """get a screenshot of a user provided URL or the default URL of the hangout. 
+    """get a screenshot of a user provided URL or the default URL of the hangout.
     """
     if args:
         url = args[0]
