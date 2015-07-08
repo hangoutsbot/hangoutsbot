@@ -48,6 +48,7 @@ def _watch_new_adds(bot, event, command):
         bot.send_html_to_conversation(event.conv, html)
 
 def addmod(bot, event, *args):
+    """add user id(s) to the whitelist of who can add to a hangout"""
     mod_ids = list(args)
     if(bot.get_config_suboption(event.conv_id, 'mods') != None):
         for mod in bot.get_config_suboption(event.conv_id, 'mods'):
@@ -63,15 +64,16 @@ def addmod(bot, event, *args):
         bot.send_message_parsed(event.conv, html_message.format(args[0]))
 
 def delmod(bot, event, *args):
+    """remove user id(s) from the whitelist of who can add to a hangout"""
     if not bot.get_config_option('mods'):
         return
-    
+
     mods = bot.get_config_option('mods')
     mods_new = []
     for mod in mods:
         if args[0] != mod:
             mods_new.append(mod)
-    
+
     bot.config.set_by_path(["mods"], mods_new)
     bot.config.save()
     html_message = _("<i>Moderators updated: {} removed</i>")
