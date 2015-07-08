@@ -96,6 +96,9 @@ def _handle_incoming_message(bot, event, command):
     if not bot.get_config_option('syncing_enabled'):
         return
 
+    if "_slack_no_repeat" in dir(event) and event._slack_no_repeat:
+        return
+
     syncouts = bot.get_config_option('sync_rooms')
 
     if not syncouts:

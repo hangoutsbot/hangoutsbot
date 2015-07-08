@@ -35,7 +35,7 @@ def _initialise(Handlers, bot=None):
         _start_slack_sinks(bot)
     else:
         print("Slack sinks could not be initialized.")
-    Handlers.register_handler(_handle_slackout)
+    Handlers.register_handler(_handle_slackout, type="allmessages")
     return []
 
 def _start_slack_sinks(bot):
