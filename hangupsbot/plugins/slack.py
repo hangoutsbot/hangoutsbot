@@ -111,7 +111,10 @@ def start_listening(bot=None, loop=None, name="", port=8014, certfile=None):
 
 def _slack_repeater_cleaner(bot, event, id):
     event_tokens = event.text.split(":", maxsplit=1)
-    event.text = event_tokens[1].strip()
+    event_text = event_tokens[1].strip()
+    if event_text.lower().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
+        event_text = bot._handlers.bot_command[0] + " [REDACTED]"
+    event.text = event_text
     event.from_bot = False
     event._slack_no_repeat = True
     event._external_source = event_tokens[0].strip() + "@slack"
