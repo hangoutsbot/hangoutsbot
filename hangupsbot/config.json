@@ -1,6 +1,7 @@
 {
   "admins": [
   ],
+  "autocreate-1to1": true,
   "autoreplies": [
     [
       [
@@ -10,6 +11,7 @@
       "Hello world!"
     ]
   ],
+  "cleverbot_percentage_replies": "0",
   "commands_admin": [
     "rename",
     "leave",
@@ -22,21 +24,14 @@
     "config",
     "topic"
   ],
-  "spreadsheet_enabled": false,
-  "spreadsheet_url": "INSERT_PUBLIC_URL_OF_GSHEET_HERE",
-  "syncing_enabled": false,
-  "sync_rooms": [["CONV1_ID", "CONV2_ID"],[]],
   "commands_enabled": true,
   "conversations": {
     "CONV2_ID": {
       "autoreplies_enabled": false,
       "commands_enabled": false,
-      "mentionall": false,
-      "mentionallwhitelist": []
     }
   },
-  "pushbullet": {
-  },
+  "donotdisturb": [],
   "jsonrpc": [
     {
       "module": "sinks.generic.simpledemo.webhookReceiver",
@@ -45,13 +40,13 @@
       "port": 9001
     },
   ],
-  "mentionerrors": true,
+  "link_to_guide": "https://github.com/hangoutsbot/hangoutsbot/wiki/User-Guide",
   "mentionall":true,
   "mentionallwhitelist": [],
+  "mentionerrors": true,
   "mentionquidproquo": false,
-  "donotdisturb": [],
   "plugins": null,
-  "strict_botkeeper_check": false,
+  "pushbullet": {},
   "slack": [
     {
     "certfile": null,
@@ -62,7 +57,10 @@
     "synced_conversations": ["CONV_ID1", "CONV_ID2"]
     }
   ],
-  "cleverbot_percentage_replies": "0",
-  "watch_new_adds": false,
-  "link_to_guide": "https://github.com/hangoutsbot/hangoutsbot/wiki/User-Guide"
+  "spreadsheet_enabled": false,
+  "spreadsheet_url": "INSERT_PUBLIC_URL_OF_GSHEET_HERE",
+  "strict_botkeeper_check": false,
+  "sync_rooms": [["CONV1_ID", "CONV2_ID"],[]],
+  "syncing_enabled": false,
+  "watch_new_adds": false
 }
