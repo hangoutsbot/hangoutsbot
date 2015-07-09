@@ -44,30 +44,6 @@
       "name": "127.0.0.1",
       "port": 9001
     },
-    {
-      "module": "sinks.gitlab.simplepush.webhookReceiver",
-      "certfile": null,
-      "name": "",
-      "port": 8000
-    },
-    {
-      "module": "sinks.github.simplepush.webhookReceiver",
-      "certfile": null,
-      "name": "",
-      "port": 8001
-    },
-    {
-      "certfile": null,
-      "module": "sinks.hubotreceive.post.receiver",
-      "name": "127.0.0.1",
-      "port": 8081
-    },
-    {
-      "certfile": null,
-      "module": "sinks.google.scripts.webhookReceiver",
-      "name": "127.0.0.1",
-      "port": 8002
-    }
   ],
   "mentionerrors": true,
   "mentionall":true,
