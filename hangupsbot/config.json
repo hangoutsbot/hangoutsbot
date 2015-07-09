@@ -69,15 +69,6 @@
       "port": 8002
     }
   ],
-  "hooks": [
-    {
-      "module": "hooks.chatlogger.writer.logger",
-      "config":
-      {
-        "storage_path": false
-      }
-    }
-  ],
   "mentionerrors": true,
   "mentionall":true,
   "mentionallwhitelist": [],
