@@ -21,7 +21,6 @@
       "commands_enabled": false,
     }
   },
-  "donotdisturb": [],
   "jsonrpc": [
     {
       "module": "sinks.generic.simpledemo.webhookReceiver",
