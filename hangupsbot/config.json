@@ -13,18 +13,7 @@
     ]
   ],
   "cleverbot_percentage_replies": "0",
-  "commands_admin": [
-    "rename",
-    "leave",
-    "easteregg",
-    "user",
-    "users",
-    "hangouts",
-    "reload",
-    "quit",
-    "config",
-    "topic"
-  ],
+  "commands_admin": [],
   "commands_enabled": true,
   "conversations": {
     "CONV2_ID": {
