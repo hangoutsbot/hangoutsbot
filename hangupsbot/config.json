@@ -13,7 +13,7 @@
     ]
   ],
   "cleverbot_percentage_replies": "0",
-  "commands_admin": [],
+  "commands_user": [],
   "commands_enabled": true,
   "conversations": {
     "CONV2_ID": {
