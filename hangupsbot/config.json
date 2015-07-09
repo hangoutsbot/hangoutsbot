@@ -18,7 +18,7 @@
   "conversations": {
     "CONV2_ID": {
       "autoreplies_enabled": false,
-      "commands_enabled": false,
+      "commands_enabled": false
     }
   },
   "jsonrpc": [
@@ -27,7 +27,7 @@
       "certfile": null,
       "name": "127.0.0.1",
       "port": 9001
-    },
+    }
   ],
   "link_to_guide": "https://github.com/hangoutsbot/hangoutsbot/wiki/User-Guide",
   "mentionall":true,
