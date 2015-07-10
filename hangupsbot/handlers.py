@@ -121,7 +121,6 @@ class EventHandler:
                 return
 
         # Run command
-        yield from asyncio.sleep(0.2)
         yield from command.run(self.bot, event, *line_args[1:])
 
     @asyncio.coroutine
