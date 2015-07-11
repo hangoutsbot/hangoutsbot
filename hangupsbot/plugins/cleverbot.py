@@ -182,7 +182,7 @@ def _handle_incoming_message(bot, event, context):
 
 
 def chat(bot, event, *args):
-    """Cleverbot for Hangupsbot"""
+    """chat to Cleverbot"""
     try:
         if not __cleverbots[event.conv.id_]:
             __cleverbots[event.conv.id_] = Cleverbot()

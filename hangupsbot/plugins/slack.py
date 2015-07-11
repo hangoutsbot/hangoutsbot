@@ -96,22 +96,32 @@ def start_listening(bot=None, loop=None, name="", port=8014, certfile=None):
           server_side=True)
 
         sa = httpd.socket.getsockname()
-        print(_("listener: slack sink on {}, port {}...").format(sa[0], sa[1]))
+
+        message = "slack: {}:{} : starting...".format(name, port)
+        print(message)
 
         httpd.serve_forever()
-    except IOError:
-        # do not run sink without https!
-        print(_("listener: slack : pem file possibly missing or broken (== '{}')").format(certfile))
-        httpd.socket.close()
+
     except OSError as e:
-        # Could not connect to HTTPServer!
-        print(_("listener: slack : requested access could not be assigned. Is something else using that port? (== '{}:{}')").format(name, port))
+        message = "SLACK: {}:{} : {}".format(name, port, e)
+        print(message)
+        logging.error(message)
+        logging.exception(e)
+
+        try:
+            httpd.socket.close()
+        except Exception as e:
+            pass
+
     except KeyboardInterrupt:
         httpd.socket.close()
 
 def _slack_repeater_cleaner(bot, event, id):
     event_tokens = event.text.split(":", maxsplit=1)
-    event.text = event_tokens[1].strip()
+    event_text = event_tokens[1].strip()
+    if event_text.lower().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
+        event_text = bot._handlers.bot_command[0] + " [REDACTED]"
+    event.text = event_text
     event.from_bot = False
     event._slack_no_repeat = True
     event._external_source = event_tokens[0].strip() + "@slack"
@@ -145,10 +155,12 @@ class webhookReceiver(BaseHTTPRequestHandler):
         return text
 
     def _slack_label_users(self, text):
-        for fragment in re.findall("<@[A-Z0-9]+>", text):
-            id = fragment[2:-1]
+        for fragment in re.findall("(<@([A-Z0-9]+)(\|[^>]*?)?>)", text):
+            """detect and map <@Uididid> and <@Uididid|namename>"""
+            full_token = fragment[0]
+            id = full_token[2:-1].split("|", maxsplit=1)[0]
             username = self._slack_get_label(id, "user")
-            text = text.replace(fragment, username)
+            text = text.replace(full_token, username)
         return text
 
     def _slack_label_channels(self, text):

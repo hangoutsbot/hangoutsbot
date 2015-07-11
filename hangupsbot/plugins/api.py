@@ -32,7 +32,7 @@ def _initialise(bot):
 
 def _reprocess_the_event(bot, event, id):
     event.from_bot = False
-
+    event._syncroom_no_repeat = True
 
 def _start_api(bot):
     # Start and asyncio event loop

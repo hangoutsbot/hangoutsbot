@@ -53,8 +53,8 @@ class CommandDispatcher(object):
         try:
             yield from func(bot, event, *args, **kwds)
         except Exception as e:
-            message = _("CommandDispatcher.run: {}").format(func.__name__)
-            print(_("EXCEPTION in {}").format(message))
+            message = "CommandDispatcher.run: {}".format(func.__name__)
+            print("EXCEPTION in {}".format(message))
             logging.exception(message)
 
     def register(self, *args, admin=False):
@@ -119,7 +119,12 @@ def help(bot, event, cmd=None, *args):
             return
 
     # help can get pretty long, so we send a short message publicly, and the actual help privately
-    conv_1on1_initiator = bot.get_1on1_conversation(event.user.id_.chat_id)
+
+    if "get_1to1" in dir(bot):
+        conv_1on1_initiator = yield from bot.get_1to1(event.user.id_.chat_id)
+    else:
+        conv_1on1_initiator = bot.get_1on1_conversation(event.user.id_.chat_id)
+
     if conv_1on1_initiator:
         bot.send_message_parsed(conv_1on1_initiator, "<br />".join(help_lines))
         if conv_1on1_initiator.id_ != event.conv_id:
@@ -131,7 +136,7 @@ def help(bot, event, cmd=None, *args):
 @command.register
 def ping(bot, event, *args):
     """reply to a ping"""
-    bot.send_message(event.conv, _('pong'))
+    bot.send_message(event.conv, 'pong')
 
 
 @command.register
