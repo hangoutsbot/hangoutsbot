@@ -182,7 +182,7 @@ def invite(bot, event, *args):
                 raise ValueError("UNKNOWN STATE: {}".format(state[-1]))
 
     if not targetconv and not sourceconv:
-        bot.send_html_to_conversation(event.conv_id, _("</b>Creating new conversation for invites</b>"))
+        bot.send_html_to_conversation(event.conv_id, _("<b>Creating new conversation for invites</b>"))
         sourceconv == event.conv_id
 
         response = yield from bot._client.createconversation(list(), True)
