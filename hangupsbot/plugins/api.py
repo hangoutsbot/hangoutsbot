@@ -17,7 +17,7 @@ import asyncio, json, logging
 
 import hangups
 
-import thread_manager
+import threadmanager
 
 from urllib.parse import urlparse, parse_qs, unquote
 
@@ -58,7 +58,7 @@ def _start_api(bot):
 
             print("api: started on https://{}:{}/".format(name, port))
 
-            thread_manager.start_thread(start_listening, args=(
+            threadmanager.start_thread(start_listening, args=(
                 bot,
                 loop,
                 name,

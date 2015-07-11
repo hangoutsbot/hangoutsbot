@@ -10,7 +10,7 @@ from utils import class_from_name
 
 from sinks.base_bot_request_handler import BaseBotRequestHandler
 
-import thread_manager
+import threadmanager
 
 
 def start(bot):
@@ -56,7 +56,7 @@ def start(bot):
             # start up rpc listener in a separate thread
             print(_("_start_sinks(): {}").format(module))
 
-            thread_manager.start_thread(start_listening, args=(
+            threadmanager.start_thread(start_listening, args=(
                 bot,
                 shared_loop,
                 name,
@@ -65,7 +65,7 @@ def start(bot):
                 handler_class,
                 module_name))
 
-    message = _("_start_sinks(): {} sink thread(s) started").format(len(thread_manager.threads))
+    message = _("_start_sinks(): {} sink thread(s) started").format(len(threadmanager.threads))
     logging.info(message)
 
 

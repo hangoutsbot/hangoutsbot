@@ -1,11 +1,11 @@
 import plugins
 
-from chatbridge import ChatFramework, IncomingRequestHandler
+from webbridge import WebFramework, IncomingRequestHandler
 
 
-class BridgeInstance(ChatFramework):
+class BridgeInstance(WebFramework):
     """initialises the base framework
-    to send messages to external chats, override ChatFramework._send_to_external_chat()
+    to send messages to external chats, override WebFramework._send_to_external_chat()
     """
     pass
 

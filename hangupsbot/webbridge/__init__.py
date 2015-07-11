@@ -1,13 +1,13 @@
 import asyncio, logging
 
 import plugins
-import thread_manager
+import threadmanager
 
 from sinks import start_listening
 from sinks.base_bot_request_handler import BaseBotRequestHandler as IncomingRequestHandler
 
 
-class ChatFramework:
+class WebFramework:
     def __init__(self, bot, configkey, RequestHandler=IncomingRequestHandler):
         self._bot = bot
 
@@ -16,15 +16,15 @@ class ChatFramework:
         self.RequestHandler = RequestHandler
 
         if not self.configuration:
-            print("chatbridge: no configuration for {}, aborting...".format(self.configkey))
+            print("webbridge: no configuration for {}, aborting...".format(self.configkey))
             return
 
-        self._start_chat_sinks(bot)
+        self._start_sinks(bot)
 
-        plugins.register_handler(self._handle_chatsync)
+        plugins.register_handler(self._handle_websync)
 
 
-    def _start_chat_sinks(self, bot):
+    def _start_sinks(self, bot):
         loop = asyncio.get_event_loop()
 
         itemNo = -1
@@ -45,7 +45,7 @@ class ChatFramework:
                     print(_("config.{}[{}] missing keyword").format(self.configkey, itemNo), e)
                     continue
 
-                thread_manager.start_thread(start_listening, args=(
+                threadmanager.start_thread(start_listening, args=(
                     bot,
                     loop,
                     name,
@@ -54,11 +54,11 @@ class ChatFramework:
                     self.RequestHandler,
                     self.configkey))
 
-        message = _("chatbridge.sinks: {} thread(s) started for {}").format(itemNo, self.configkey)
+        message = _("webbridge.sinks: {} thread(s) started for {}").format(itemNo, self.configkey)
         logging.info(message)
 
 
-    def _handle_chatsync(self, bot, event, command):
+    def _handle_websync(self, bot, event, command):
         """Handle hangouts messages, preparing them to be sent to the
         external service
         """
@@ -73,5 +73,5 @@ class ChatFramework:
                     print("Could not handle external chat syncing. is config.json properly configured?", e)
 
     def _send_to_external_chat(self, bot, event, config):
-        print("chatbridge._send_to_external_chat(): {} {}".format(self.configkey, config))
+        print("webbridge._send_to_external_chat(): {} {}".format(self.configkey, config))
 
