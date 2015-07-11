@@ -14,7 +14,7 @@ def tldr(bot, event, *args):
     All tldr's can be retrieved by /bot tldr (without any parameters)
     tldr's can be deleted using /bot tldr clear"""
 
-    tldr = ' '.join(args).replace("'", "")
+    tldr = ' '.join(args).replace("'", "").replace('"', '')
 
     # Initialize tldr for chat (or if 'clear' argument is passed)
     if not bot.memory.exists(['tldr']):
