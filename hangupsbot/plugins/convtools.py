@@ -72,7 +72,7 @@ def refresh(bot, event, *args):
     Usage: /bot refresh
     conversation <chat id>
     [without <user id(s)>]
-    [add <user id(s)>]"""
+    [add <user id(s)>] [quietly]"""
     parameters = list(args)
 
     if _externals["authorisation"] not in parameters:
@@ -87,6 +87,7 @@ def refresh(bot, event, *args):
         parameters.remove(_externals["authorisation"])
         _externals["authorisation"] = False
 
+        quietly = False
         target_conv = False
         list_remove = []
         list_add = []
@@ -102,6 +103,8 @@ def refresh(bot, event, *args):
                 state.append("adduser")
             elif parameter == "conversation":
                 state.append("conversation")
+            elif parameter == "quietly":
+                quietly = True
             else:
                 if state[-1] == "adduser":
                     list_add.append(parameter)
@@ -143,3 +146,5 @@ def refresh(bot, event, *args):
             new_conversation_id = response['conversation']['id']['id']
             bot.send_html_to_conversation(new_conversation_id, _("<i>group refreshed</i><br />"))
             bot.send_html_to_conversation(event.conv_id, _("<b>group obsoleted</b>"))
+            if not quietly:
+                bot.send_html_to_conversation(target_conv, _("<b>group obsoleted</b>"))
