@@ -15,7 +15,7 @@ if HANGOUTSBOT_LOCALE:
 import appdirs
 import hangups
 
-from utils import simple_parse_to_segments, class_from_name
+from utils import simple_parse_to_segments, class_from_name, conversation_memory
 from hangups.ui.utils import get_conv_name
 try:
     from hangups.schemas import OffTheRecordStatus
@@ -180,7 +180,7 @@ class HangupsBot(object):
 
             # initialise pluggable framework
             hooks.load(self)
-            sinks.start(self, loop)
+            sinks.start(self)
 
             # Connect to Hangouts
             # If we are forcefully disconnected, try connecting again
@@ -508,6 +508,8 @@ class HangupsBot(object):
                                                    initial_data.sync_timestamp)
         self._conv_list.on_event.add_observer(self._on_event)
 
+        self.conversations = conversation_memory(self)
+
         plugins.load(self, command)
 
     def _on_event(self, conv_event):
@@ -526,6 +528,8 @@ class HangupsBot(object):
             print("{} {}".format(conv_event.id_, conv_event.timestamp))
 
         event = ConversationEvent(self, conv_event)
+
+        self.conversations.update(self._conv_list.get(conv_event.conversation_id), source="event")
 
         if isinstance(conv_event, hangups.ChatMessageEvent):
             self._execute_hook("on_chat_message", event)

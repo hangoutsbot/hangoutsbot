@@ -2,6 +2,7 @@ import logging
 import shlex
 import asyncio
 import inspect
+import uuid
 
 import hangups
 from hangups.ui.utils import get_conv_name
@@ -17,7 +18,13 @@ class EventHandler:
         self.bot = bot
         self.bot_command = bot_command
 
+        self._prefix_reprocessor = "uuid://"
+        self._reprocessors = {}
+
         self.pluggables = { "allmessages": [], "message":[], "membership":[], "rename":[], "sending":[] }
+
+        bot.register_shared('reprocessor.attach_reprocessor', self.attach_reprocessor)
+
 
     def register_handler(self, function, type="message", priority=50):
         """registers extra event handlers"""
@@ -36,6 +43,16 @@ class EventHandler:
         self.pluggables[type].sort(key=lambda tup: tup[1])
 
         plugins.tracking.register_handler(function, type, priority)
+
+    def attach_reprocessor(self, callable):
+        """reprocessor: map callable to a special hidden context link that can be added anywhere 
+        in a message. when the message is sent and subsequently received by the bot, it will be 
+        passed to the callable, which can modify the event object by reference
+        """
+        _id = str(uuid.uuid4())
+        self._reprocessors[_id] = callable
+        context_fragment = '<a href="' + self._prefix_reprocessor + _id + '"> </a>'
+        return context_fragment
 
     """legacy helpers, pre-2.4"""
 
@@ -71,6 +88,18 @@ class EventHandler:
                 event.from_bot = True
             else:
                 event.from_bot = False
+
+            """reprocessor - process event with hidden context from handler.attach_reprocessor()"""
+            if len(event.conv_event.segments) > 0:
+                for segment in event.conv_event.segments:
+                    if segment.link_target:
+                        if segment.link_target.startswith(self._prefix_reprocessor):
+                            _id = segment.link_target[len(self._prefix_reprocessor):]
+                            if _id in self._reprocessors:
+                                logging.info("reprocessor: valid uuid found: {}".format(_id))
+                                self._reprocessors[_id](self.bot, event, _id)
+                                del self._reprocessors[_id]
+
             yield from self.run_pluggable_omnibus("allmessages", self.bot, event, command)
             if not event.from_bot:
                 yield from self.run_pluggable_omnibus("message", self.bot, event, command)
@@ -121,7 +150,6 @@ class EventHandler:
                 return
 
         # Run command
-        yield from asyncio.sleep(0.2)
         yield from command.run(self.bot, event, *line_args[1:])
 
     @asyncio.coroutine
