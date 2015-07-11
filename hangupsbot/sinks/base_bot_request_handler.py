@@ -42,7 +42,13 @@ class BaseBotRequestHandler(BaseHTTPRequestHandler):
         print("{}: incoming: {} {} {} bytes".format(self.sinkname, path, query_string, len(content)))
 
         # process the payload
-        asyncio.async(self.process_request(path, query_string, content))
+        try:
+            asyncio.async(
+                self.process_request(path, query_string, content)
+            ).add_done_callback(lambda future: future.result())
+
+        except Exception as e:
+            logging.exception(e)
 
 
     @asyncio.coroutine
