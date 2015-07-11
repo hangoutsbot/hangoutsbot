@@ -180,7 +180,7 @@ class HangupsBot(object):
 
             # initialise pluggable framework
             hooks.load(self)
-            sinks.start(self, loop)
+            sinks.start(self)
 
             # Connect to Hangouts
             # If we are forcefully disconnected, try connecting again
