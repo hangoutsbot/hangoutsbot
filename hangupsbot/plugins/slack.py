@@ -96,16 +96,23 @@ def start_listening(bot=None, loop=None, name="", port=8014, certfile=None):
           server_side=True)
 
         sa = httpd.socket.getsockname()
-        print(_("listener: slack sink on {}, port {}...").format(sa[0], sa[1]))
+
+        message = "slack: {}:{} : starting...".format(name, port)
+        print(message)
 
         httpd.serve_forever()
-    except IOError:
-        # do not run sink without https!
-        print(_("listener: slack : pem file possibly missing or broken (== '{}')").format(certfile))
-        httpd.socket.close()
+
     except OSError as e:
-        # Could not connect to HTTPServer!
-        print(_("listener: slack : requested access could not be assigned. Is something else using that port? (== '{}:{}')").format(name, port))
+        message = "SLACK: {}:{} : {}".format(name, port, e)
+        print(message)
+        logging.error(message)
+        logging.exception(e)
+
+        try:
+            httpd.socket.close()
+        except Exception as e:
+            pass
+
     except KeyboardInterrupt:
         httpd.socket.close()
 
