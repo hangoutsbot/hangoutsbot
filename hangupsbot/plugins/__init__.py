@@ -11,7 +11,7 @@ class tracker:
     def __init__(self):
         self.bot = None
         self.list = []
-        self._current = None
+        self.reset()
 
     def set_bot(self, bot):
         self.bot = bot

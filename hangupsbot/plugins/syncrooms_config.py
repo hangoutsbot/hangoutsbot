@@ -107,4 +107,4 @@ def detachsyncout(bot, event, target_conversation_id=None, *args):
     if _detached:
         bot.config.set_by_path(["sync_rooms"], syncouts)
         bot.config.save()
-        bot.send_message_parsed(event.conv, _("<i>{} was detached</b></i>").format(target_conversation_id))
+        bot.send_message_parsed(event.conv, _("<i>`{}` was detached</i>").format(target_conversation_id))

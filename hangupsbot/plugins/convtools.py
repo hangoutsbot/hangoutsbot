@@ -13,6 +13,10 @@ def _initialise(bot):
 
 
 def addusers(bot, event, *args):
+    """adds user(s) into a chat
+    Usage: /bot addusers
+    <user id(s)>
+    [into <chat id>]"""
     list_add = []
     target_conv = event.conv_id
 
@@ -37,12 +41,16 @@ def addusers(bot, event, *args):
 
 
 def addme(bot, event, *args):
+    """add yourself into a chat
+    Usage: /bot addme <conv id>"""
     if len(args) == 1:
         target_conv = args[0]
         yield from addusers(bot, event, *[event.user.id_.chat_id, "into", target_conv])
 
 
 def createconversation(bot, event, *args):
+    """create a new conversation with the bot and the specified user(s)
+    Usage: /bot createconversation <user id(s)>"""
     parameters = list(args)
 
     force_group = False # default: defer to hangups client decision
@@ -60,6 +68,11 @@ def createconversation(bot, event, *args):
 
 
 def refresh(bot, event, *args):
+    """refresh a chat
+    Usage: /bot refresh
+    conversation <chat id>
+    [without <user id(s)>]
+    [add <user id(s)>] [quietly]"""
     parameters = list(args)
 
     if _externals["authorisation"] not in parameters:
@@ -74,6 +87,7 @@ def refresh(bot, event, *args):
         parameters.remove(_externals["authorisation"])
         _externals["authorisation"] = False
 
+        quietly = False
         target_conv = False
         list_remove = []
         list_add = []
@@ -89,6 +103,8 @@ def refresh(bot, event, *args):
                 state.append("adduser")
             elif parameter == "conversation":
                 state.append("conversation")
+            elif parameter == "quietly":
+                quietly = True
             else:
                 if state[-1] == "adduser":
                     list_add.append(parameter)
@@ -130,3 +146,5 @@ def refresh(bot, event, *args):
             new_conversation_id = response['conversation']['id']['id']
             bot.send_html_to_conversation(new_conversation_id, _("<i>group refreshed</i><br />"))
             bot.send_html_to_conversation(event.conv_id, _("<b>group obsoleted</b>"))
+            if not quietly:
+                bot.send_html_to_conversation(target_conv, _("<b>group obsoleted</b>"))

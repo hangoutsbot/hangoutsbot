@@ -13,6 +13,10 @@ import asyncio
 import logging
 import hangups
 
+import re
+from urllib.request import urlopen
+import json
+
 """ Slack plugin for listening to hangouts and slack and syncing messages between the two.
 config.json will have to be configured as follows:
 "slack": [{
@@ -92,18 +96,36 @@ def start_listening(bot=None, loop=None, name="", port=8014, certfile=None):
           server_side=True)
 
         sa = httpd.socket.getsockname()
-        print(_("listener: slack sink on {}, port {}...").format(sa[0], sa[1]))
+
+        message = "slack: {}:{} : starting...".format(name, port)
+        print(message)
 
         httpd.serve_forever()
-    except IOError:
-        # do not run sink without https!
-        print(_("listener: slack : pem file possibly missing or broken (== '{}')").format(certfile))
-        httpd.socket.close()
+
     except OSError as e:
-        # Could not connect to HTTPServer!
-        print(_("listener: slack : requested access could not be assigned. Is something else using that port? (== '{}:{}')").format(name, port))
+        message = "SLACK: {}:{} : {}".format(name, port, e)
+        print(message)
+        logging.error(message)
+        logging.exception(e)
+
+        try:
+            httpd.socket.close()
+        except Exception as e:
+            pass
+
     except KeyboardInterrupt:
         httpd.socket.close()
+
+def _slack_repeater_cleaner(bot, event, id):
+    event_tokens = event.text.split(":", maxsplit=1)
+    event_text = event_tokens[1].strip()
+    if event_text.lower().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
+        event_text = bot._handlers.bot_command[0] + " [REDACTED]"
+    event.text = event_text
+    event.from_bot = False
+    event._slack_no_repeat = True
+    event._external_source = event_tokens[0].strip() + "@slack"
+
 
 class webhookReceiver(BaseHTTPRequestHandler):
     _bot = None
@@ -123,16 +145,71 @@ class webhookReceiver(BaseHTTPRequestHandler):
                 
             if "user_name" in payload:
                 if "slackbot" not in str(payload["user_name"][0]):
+                    text = self._remap_internal_slack_ids(text)
                     response = "<b>" + str(payload["user_name"][0]) + ":</b> " + text
                     self._scripts_push(conversation_id, response)
 
-    def _scripts_push(self, conversation_id, message):
+    def _remap_internal_slack_ids(self, text):
+        text = self._slack_label_users(text)
+        text = self._slack_label_channels(text)
+        return text
 
-        try:
-            if not webhookReceiver._bot.send_html_to_user(conversation_id, message):
-                webhookReceiver._bot.send_html_to_conversation(conversation_id, message)
-        except Exception as e:
-            print(e)
+    def _slack_label_users(self, text):
+        for fragment in re.findall("(<@([A-Z0-9]+)(\|[^>]*?)?>)", text):
+            """detect and map <@Uididid> and <@Uididid|namename>"""
+            full_token = fragment[0]
+            id = full_token[2:-1].split("|", maxsplit=1)[0]
+            username = self._slack_get_label(id, "user")
+            text = text.replace(full_token, username)
+        return text
+
+    def _slack_label_channels(self, text):
+        for fragment in re.findall("<#[A-Z0-9]+>", text):
+            id = fragment[2:-1]
+            username = self._slack_get_label(id, "channel")
+            text = text.replace(fragment, username)
+        return text
+
+    _slack_cache = {"user": {}, "channel": {}}
+
+    def _slack_get_label(self, id, type_str):
+        # hacky way to get the first token:
+        slack_sink_configuration = self._bot.get_config_option('slack')
+        token = slack_sink_configuration[0]["key"]
+
+        prefix = "?"
+        if type_str == "user":
+            url = 'https://slack.com/api/users.info?token=' + token + '&user=' + id
+            prefix = "@"
+        elif type_str == "channel":
+            url = 'https://slack.com/api/channels.info?token=' + token + '&channel=' + id
+            prefix = "#"
+        else:
+            raise ValueError('unknown label type_str')
+
+        label = "UNKNOWN"
+        if id in self._slack_cache[type_str]:
+            label = self._slack_cache[type_str][id]
+            print("_slack_get_label(): from cache {} = {}".format(id, label))
+        else:
+            try:
+                response = urlopen(url)
+                json_string = str(response.read().decode('utf-8'))
+                data = json.loads(json_string)
+                if type_str in data:
+                    label = data[type_str]["name"]
+                    self._slack_cache[type_str][id] = label
+                    print("_slack_get_label(): from API {} = {}".format(id, label))
+            except Exception as e:
+                print("EXCEPTION in _slack_get_label(): {}".format(e))
+
+        return prefix + label
+
+    def _scripts_push(self, conversation_id, message):
+        webhookReceiver._bot.send_html_to_conversation(
+            conversation_id, 
+            message + self._bot.call_shared("reprocessor.attach_reprocessor", _slack_repeater_cleaner), 
+            context = {'base': {'tags': ['slack', 'relay'], 'source': 'slack', 'importance': 50}})
 
     def do_POST(self):
         """
@@ -165,6 +242,9 @@ class webhookReceiver(BaseHTTPRequestHandler):
 
 @asyncio.coroutine
 def _handle_slackout(bot, event, command):
+    if "_slack_no_repeat" in dir(event) and event._slack_no_repeat:
+        return
+
     """forward messages to slack over webhook"""
 
     slack_sink = bot.get_config_option('slack')

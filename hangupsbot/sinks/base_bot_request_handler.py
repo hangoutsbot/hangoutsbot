@@ -42,7 +42,13 @@ class BaseBotRequestHandler(BaseHTTPRequestHandler):
         print("{}: incoming: {} {} {} bytes".format(self.sinkname, path, query_string, len(content)))
 
         # process the payload
-        asyncio.async(self.process_request(path, query_string, content))
+        try:
+            asyncio.async(
+                self.process_request(path, query_string, content)
+            ).add_done_callback(lambda future: future.result())
+
+        except Exception as e:
+            logging.exception(e)
 
 
     @asyncio.coroutine
@@ -60,7 +66,7 @@ class BaseBotRequestHandler(BaseHTTPRequestHandler):
 
         path = path.split("/")
         conversation_id = path[1]
-        if conversation_id is None:
+        if not conversation_id:
             print("{}: conversation id must be provided as part of path".format(self.sinkname))
             return
 
@@ -68,9 +74,9 @@ class BaseBotRequestHandler(BaseHTTPRequestHandler):
         if "echo" in payload:
             html = payload["echo"]
 
+        image_data = None
+        image_filename = None
         if "image" in payload:
-            image_data = False
-            image_filename = False
             if "base64encoded" in payload["image"]:
                 raw = base64.b64decode(payload["image"]["base64encoded"])
                 image_data = io.BytesIO(raw)

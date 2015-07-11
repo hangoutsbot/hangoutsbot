@@ -4,10 +4,18 @@ import os, sys, argparse, logging, shutil, asyncio, time, signal
 import gettext
 gettext.install('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'))
 
+"""set environment variable to determine localisation:
+    export HANGOUTSBOT_LOCALE=<supported language>
+"""
+HANGOUTSBOT_LOCALE = os.environ.get("HANGOUTSBOT_LOCALE")
+if HANGOUTSBOT_LOCALE:
+    locale = gettext.translation('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'), languages=[HANGOUTSBOT_LOCALE])
+    locale.install()
+
 import appdirs
 import hangups
 
-from utils import simple_parse_to_segments, class_from_name
+from utils import simple_parse_to_segments, class_from_name, conversation_memory
 from hangups.ui.utils import get_conv_name
 try:
     from hangups.schemas import OffTheRecordStatus
@@ -172,7 +180,7 @@ class HangupsBot(object):
 
             # initialise pluggable framework
             hooks.load(self)
-            sinks.start(self, loop)
+            sinks.start(self)
 
             # Connect to Hangouts
             # If we are forcefully disconnected, try connecting again
@@ -223,7 +231,8 @@ class HangupsBot(object):
         # add default context if none exists
         if not context:
             context = {}
-        context["base"] = self._messagecontext_legacy()
+        if "base" not in context:
+            context["base"] = self._messagecontext_legacy()
 
         # reduce conversation to the only things we need: the id and history
         if isinstance(conversation, (FakeConversation, hangups.conversation.Conversation)):
@@ -499,6 +508,8 @@ class HangupsBot(object):
                                                    initial_data.sync_timestamp)
         self._conv_list.on_event.add_observer(self._on_event)
 
+        self.conversations = conversation_memory(self)
+
         plugins.load(self, command)
 
     def _on_event(self, conv_event):
@@ -517,6 +528,8 @@ class HangupsBot(object):
             print("{} {}".format(conv_event.id_, conv_event.timestamp))
 
         event = ConversationEvent(self, conv_event)
+
+        self.conversations.update(self._conv_list.get(conv_event.conversation_id), source="event")
 
         if isinstance(conv_event, hangups.ChatMessageEvent):
             self._execute_hook("on_chat_message", event)

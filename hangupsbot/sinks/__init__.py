@@ -10,11 +10,14 @@ from utils import class_from_name
 
 from sinks.base_bot_request_handler import BaseBotRequestHandler
 
+import threadmanager
 
-def start(bot, shared_loop):
+
+def start(bot):
+    shared_loop = asyncio.get_event_loop()
+
     jsonrpc_sinks = bot.get_config_option('jsonrpc')
     itemNo = -1
-    threads = []
 
     if isinstance(jsonrpc_sinks, list):
         for sinkConfig in jsonrpc_sinks:
@@ -52,22 +55,19 @@ def start(bot, shared_loop):
 
             # start up rpc listener in a separate thread
             print(_("_start_sinks(): {}").format(module))
-            t = Thread(target=start_listening, args=(
-              bot,
-              shared_loop,
-              name,
-              port,
-              certfile,
-              handler_class,
-              module_name))
 
-            t.daemon = True
-            t.start()
+            threadmanager.start_thread(start_listening, args=(
+                bot,
+                shared_loop,
+                name,
+                port,
+                certfile,
+                handler_class,
+                module_name))
 
-            threads.append(t)
-
-    message = _("_start_sinks(): {} sink thread(s) started").format(len(threads))
+    message = _("_start_sinks(): {} sink thread(s) started").format(len(threadmanager.threads))
     logging.info(message)
+
 
 def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webhookReceiver=BaseHTTPRequestHandler, friendlyName="UNKNOWN"):
     if loop:
@@ -85,15 +85,22 @@ def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webh
           server_side=True)
 
         sa = httpd.socket.getsockname()
-        print(_("listener: {} : sink on {}, port {}...").format(friendlyName, sa[0], sa[1]))
+
+        message = "sink: {} : {}:{}...".format(friendlyName, sa[0], sa[1])
+        print(message)
 
         httpd.serve_forever()
-    except IOError:
-        # do not run sink without https!
-        print(_("listener: {} : pem file possibly missing or broken (== '{}')").format(friendlyName, certfile))
-        httpd.socket.close()
+
     except OSError as e:
-        # Could not connect to HTTPServer!
-        print(_("listener: {} : requested access could not be assigned. Is something else using that port? (== '{}:{}')").format(friendlyName, name, port))
+        message = "SINK: {} : {}:{} : {}".format(friendlyName, name, port, e)
+        print(message)
+        logging.error(message)
+        logging.exception(e)
+
+        try:
+            httpd.socket.close()
+        except Exception as e:
+            pass
+
     except KeyboardInterrupt:
         httpd.socket.close()

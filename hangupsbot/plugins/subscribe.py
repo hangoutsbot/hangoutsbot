@@ -58,6 +58,12 @@ def _send_notification(bot, event, phrase, user):
     conversation_name = get_conv_name(event.conv, truncate=True);
     logging.info(_("subscribe: keyword '{}' in '{}' ({})").format(phrase, conversation_name, event.conv.id_))
 
+    """support for reprocessor
+    override the source name by defining event._external_source"""
+    source_name = event.user.full_name
+    if hasattr(event, '_external_source'):
+        source_name = event._external_source
+
     """send alert with 1on1 conversation"""
     conv_1on1 = bot.get_1on1_conversation(user.id_.chat_id)
     if conv_1on1:
@@ -69,7 +75,7 @@ def _send_notification(bot, event, phrase, user):
             bot.send_message_parsed(
                 conv_1on1,
                 _("<b>{}</b> mentioned '{}' in <i>{}</i>:<br />{}").format(
-                    event.user.full_name,
+                    source_name,
                     phrase,
                     conversation_name,
                     event.text))
