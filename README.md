@@ -8,11 +8,11 @@ Please see:
 * [Wiki](https://github.com/nylonee/hangupsbot/wiki) for everything else
 
 
-## quick repo links
-* [github org] (https://github.com/hangoutsbot) 
-* [locales] (https://github.com/hangupsbot/hangoutsbot-locales) 
-* [hangups] (https://github.com/hangoutsbot/hangups) 
-* [chat framework] (https://github.com/hangoutsbot/chat_framework) 
+## Repository Links
+* [GitHub Organisation](https://github.com/hangoutsbot)
+* [Translation Project](https://github.com/hangoutsbot/hangoutsbot-locales)
+* [Reference Hangups Library](https://github.com/hangoutsbot/hangups)
+
 
 ## Features
 * **Mentions** :
