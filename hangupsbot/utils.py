@@ -118,7 +118,7 @@ class conversation_memory:
             "updated": datetime.datetime.now().strftime("%Y%m%d%H%M%S")}
 
         """store the user list"""
-        self.catalog[conv.id_]["users"] = [[ user.id_, user.full_name ] for user in conv.users if not user.is_self]
+        self.catalog[conv.id_]["users"] = [[[user.id_.chat_id, user.id_.gaia_id], user.full_name ] for user in conv.users if not user.is_self]
 
         """store the conversation type: GROUP, ONE_TO_ONE"""
         if conv._conversation.type_ == hangups.schemas.ConversationType.GROUP:
