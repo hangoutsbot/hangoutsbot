@@ -110,6 +110,7 @@ def _new_group_conversation(bot, initiator_id):
     response = yield from bot._client.createconversation([initiator_id], force_group=True)
     new_conversation_id = response['conversation']['id']['id']
     bot.send_html_to_conversation(new_conversation_id, _("<i>group created</i>"))
+    yield from asyncio.sleep(1) # allow convmem to update
     yield from bot._client.setchatname(new_conversation_id, _("GROUP: {}").format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
     return new_conversation_id
 
@@ -222,7 +223,7 @@ def invite(bot, event, *args):
             targetconv = new blank conversation
         """
         sourceconv = event.conv_id
-        targetconv = yield from _new_group_conversation(bot, event.user.id_.chat_id)
+        targetconv = "NEW_GROUP"
 
     elif not targetconv:
         """
@@ -231,13 +232,13 @@ def invite(bot, event, *args):
             targetconv = new blank conversation
         from = other, to = None:
             sourceconv = other
-            targetconv = current (or new, if not GROUP
+            targetconv = current (or new, if not GROUP)
         """
         if sourceconv == event.conv_id:
-            targetconv = yield from _new_group_conversation(bot, event.user.id_.chat_id)
+            targetconv = "NEW GROUP"
         else:
             if bot.conversations.catalog[event.conv_id]["type"] != "GROUP":
-                targetconv = yield from _new_group_conversation(bot, event.user.id_.chat_id)
+                targetconv = "NEW_GROUP"
             else:
                 targetconv = event.conv_id
 
@@ -263,7 +264,7 @@ def invite(bot, event, *args):
 
     """sanity checking"""
 
-    if not targetconv:
+    if targetconv != "NEW_GROUP" and targetconv not in bot.conversations.get():
         bot.send_html_to_conversation(event.conv_id, 
             _('<em>invite: could not identify target conversation'))
         return
@@ -274,7 +275,9 @@ def invite(bot, event, *args):
 
     if wildcards > 0:
         """wildcards can be used by any user to enter a targetconv"""
-        invitations.append(("*", targetconv, wildcards))
+        invitations.append({ 
+            "user_id": "*", 
+            "uses": wildcards })
 
         logging.info("convtools_invitations: {} wildcard invite for {}".format(wildcards, targetconv))
 
@@ -296,28 +299,45 @@ def invite(bot, event, *args):
             logging.info("convtools_invitations: shortlisted {}".format(len(shortlisted), sourceconv))
 
         """exclude users who are already in the target conversation"""
-        targetconv_users = _get_user_list(bot, targetconv)
+        if targetconv == "NEW_GROUP":
+            # fake user list - _new_group_conversation() always creates group with bot and initiator
+            targetconv_users = [[[event.user.id_.chat_id]], [[bot.user_self()["chat_id"]]]]
+        else:
+            targetconv_users = _get_user_list(bot, targetconv)
         invited_users = []
         for uid in shortlisted:
             if uid not in [u[0][0] for u in targetconv_users]:
                 invited_users.append(uid)
+            else:
+                logging.info("convtools_invitations: rejecting {}, already in {}".format(uid, targetconv))
         invited_users = list(set(invited_users))
 
         logging.info("convtools_invitations: inviting {} to {}".format(len(invited_users), targetconv))
 
-        if len(invited_users) == 0:
-             bot.send_html_to_conversation(event.conv_id, 
-                _('<em>invite: nobody invited</em>'))
-             return
-
         for uid in invited_users:
-            invitations.append((uid, targetconv))
+            invitations.append({
+                "user_id": uid, 
+                "uses": 1 })
+
+    """last sanity check before we do irreversible things (like create groups)"""
+
+    if len(invitations) == 0:
+        bot.send_html_to_conversation(event.conv_id, 
+            _('<em>invite: nobody invited</em>'))
+        logging.info("convtools_invitations: nobody invited, aborting...")
+        return
+
+    """create new conversation (if required)"""
+
+    if targetconv == "NEW_GROUP":
+        targetconv = yield from _new_group_conversation(bot, event.user.id_.chat_id)
 
     """issue the invites"""
 
     invitation_ids = []
     for invite in invitations:
-        invitation_ids.append(_issue_invite(bot, *invite))
+        invitation_ids.append(
+            _issue_invite(bot, invite["user_id"], targetconv, invite["uses"]))
 
     bot.send_html_to_conversation(event.conv_id, 
         _("<em>invite: {} invitations created</em>").format(len(invitation_ids)))
