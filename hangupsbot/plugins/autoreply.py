@@ -1,14 +1,13 @@
-import asyncio, re, logging
-import json
+import asyncio, re, logging, json, random
 
-from hangups.ui.utils import get_conv_name
 import plugins
+
 
 def _initialise(bot):
     plugins.register_handler(_handle_autoreply, type="message")
     plugins.register_admin_command(["autoreply"])
 
-@asyncio.coroutine
+
 def _handle_autoreply(bot, event, command):
     autoreplies_enabled = bot.get_config_suboption(event.conv.id_, 'autoreplies_enabled')
     if not autoreplies_enabled:
@@ -20,10 +19,14 @@ def _handle_autoreply(bot, event, command):
 
     autoreplies_list = bot.get_config_suboption(event.conv_id, 'autoreplies')
     if autoreplies_list:
-        for kwds, sentence in autoreplies_list:
+        for kwds, sentences in autoreplies_list:
             for kw in kwds:
                 if _words_in_text(kw, event.text) or kw == "*":
-                    bot.send_message_parsed(event.conv, sentence)
+                    if isinstance(sentences, list):
+                        message = random.choice(sentences)
+                    else:
+                        message = sentences
+                    bot.send_message_parsed(event.conv, message)
                     break
 
 
