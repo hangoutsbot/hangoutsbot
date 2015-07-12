@@ -100,6 +100,14 @@ class EventHandler:
                                 self._reprocessors[_id](self.bot, event, _id)
                                 del self._reprocessors[_id]
 
+            """auto opt-in - opted-out users who chat with the bot will be opted-in again"""
+            if self.bot.conversations.catalog[event.conv_id]["type"] == "ONE_TO_ONE":
+                if self.bot.memory.exists(["user_data", event.user.id_.chat_id, "optout"]):
+                    if self.bot.memory.get_by_path(["user_data", event.user.id_.chat_id, "optout"]):
+                        yield from command.run(self.bot, event, *["optout"])
+                        logging.info("auto opt-in for {}".format(event.user.id_.chat_id))
+                        return
+
             yield from self.run_pluggable_omnibus("allmessages", self.bot, event, command)
             if not event.from_bot:
                 yield from self.run_pluggable_omnibus("message", self.bot, event, command)
@@ -226,9 +234,9 @@ class HandlerBridge:
         scaled_priority = priority * 10 # scale for compatibility - xmikos range 1 - 10
         if event is hangups.ChatMessageEvent:
             event_type = "message"
-        elif event is hangups.hangups.MembershipChangeEvent:
+        elif event is hangups.MembershipChangeEvent:
             event_type = "membership"
-        elif event is hangups.hangups.RenameEvent:
+        elif event is hangups.RenameEvent:
             event_type = "rename"
         elif type(event) is str:
             event_type = str # accept all kinds of strings, just like register_handler

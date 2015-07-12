@@ -128,9 +128,18 @@ def help(bot, event, cmd=None, *args):
     if conv_1on1_initiator:
         bot.send_message_parsed(conv_1on1_initiator, "<br />".join(help_lines))
         if conv_1on1_initiator.id_ != event.conv_id:
-            bot.send_message_parsed(event.conv, _("<i>{}, I've sent you some help ;)</i>").format(event.user.full_name))
+            bot.send_message_parsed(event.conv, _("<i>{}, I've sent you some help ;)</i>")
+                .format(event.user.full_name))
     else:
-        bot.send_message_parsed(event.conv, _("<i>{}, before I can help you, you need to private message me and say hi.</i>").format(event.user.full_name))
+        if type(conv_1on1_initiator) is bool:
+            bot.send_message_parsed(event.conv, 
+                _("<i>{}, you are currently opted-out. Private message me or enter <b>{} optout</b> to get me to talk to you.</i>")
+                    .format(event.user.full_name, min(bot._handlers.bot_command, key=len)))
+        else:
+            # type(conv_1on1_initiator) is NoneType and conv_1on1_initiator is None
+            bot.send_message_parsed(event.conv, 
+                _("<i>{}, before I can help you, you need to private message me and say hi.</i>")
+                    .format(event.user.full_name))
 
 
 @command.register
