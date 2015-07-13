@@ -244,23 +244,23 @@ def invite(bot, event, *args):
 
     elif not sourceconv:
         """
-        from = None, to = current:
-            list_users = 0:
+        list_users = 0:
+            from = None, to = current:
                 ERROR
-            list_users > 0:
-                sourceconv = *
-                targetconv = current
-        from = None, to = other:
-            sourceconv = current
-            targetconv = other
+            from = None, to = other:
+                sourceconv = current
+                targetconv = other
+        list_users > 0:
+            sourceconv = None
+            targetconv = *
         """
-        if targetconv == event.conv_id:
-            if len(list_users) == 0:
+        if len(list_users) == 0:
+            if targetconv == event.conv_id:
                 bot.send_html_to_conversation(event.conv_id, 
                     _('<em>invite: specify "from" or explicit list of "users"</em>'))
                 return
-        else:
-            sourceconv = event.conv_id
+            else:
+                sourceconv = event.conv_id
 
     """sanity checking"""
 
