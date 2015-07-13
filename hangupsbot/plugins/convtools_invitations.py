@@ -139,6 +139,8 @@ def invite(bot, event, *args):
     /bot invite list # Lists all pending invites
     /bot invite purge # Deletes all pending invites
     """
+    test = False
+
     everyone = True
     wildcards = 0
 
@@ -147,12 +149,18 @@ def invite(bot, event, *args):
     list_users = []
 
     """special cases:
+    * test [set flag, then remove parameter]
     * no parameters [error out]
     * 1st parameter is digit [wildcard invite]
     * any parameter is "list" or "purge" [process then return immediately]
     """
 
     parameters = list(args)
+
+    if "test" in parameters:
+        """turn on test mode for invitation creation - turns off automatic group creation and invitation writes"""
+        test = True
+        parameters.remove("test")
 
     if len(parameters) == 0:
         bot.send_html_to_conversation(event.conv_id, _("<em>Usage: https://github.com/hangoutsbot/hangoutsbot/wiki/Conversation-Invitations-Plugin</em>"))
@@ -271,6 +279,11 @@ def invite(bot, event, *args):
 
     """invitation generation"""
 
+    invitation_log = [] # devnote: no more returns after this line!
+
+    invitation_log.append("source conv: {}, target conv: {}".format(sourceconv, targetconv))
+    invitation_log.append("user list = [{}]".format(len(list_users)))
+
     invitations = []
 
     if wildcards > 0:
@@ -279,6 +292,7 @@ def invite(bot, event, *args):
             "user_id": "*", 
             "uses": wildcards })
 
+        invitation_log.append("wildcard invites: ".format(wildcards))
         logging.info("convtools_invitations: {} wildcard invite for {}".format(wildcards, targetconv))
 
     else:
@@ -290,12 +304,14 @@ def invite(bot, event, *args):
                 if everyone or u[0][0] in list_users:
                     shortlisted.append(u[0][0])
 
+            invitation_log.append("shortlisted: {}/{}".format(len(shortlisted), len(sourceconv_users)))
             logging.info("convtools_invitations: shortlisted {}/{} from {}, everyone={}, list_users=[{}]".format(
                 len(shortlisted), len(sourceconv_users), sourceconv, everyone, len(list_users)))
 
         else:
             shortlisted = list_users
 
+            invitation_log.append("direct list: {}".format(len(shortlisted)))
             logging.info("convtools_invitations: shortlisted {}".format(len(shortlisted), sourceconv))
 
         """exclude users who are already in the target conversation"""
@@ -319,28 +335,42 @@ def invite(bot, event, *args):
                 "user_id": uid, 
                 "uses": 1 })
 
-    """last sanity check before we do irreversible things (like create groups)"""
+    """beyond this point, start doing irreversible things (like create groups)"""
 
     if len(invitations) == 0:
         bot.send_html_to_conversation(event.conv_id, 
             _('<em>invite: nobody invited</em>'))
+
+        invitation_log.append("no invitations were created")
         logging.info("convtools_invitations: nobody invited, aborting...")
-        return
 
-    """create new conversation (if required)"""
+    else:
+        """create new conversation (if required)"""
 
-    if targetconv == "NEW_GROUP":
-        targetconv = yield from _new_group_conversation(bot, event.user.id_.chat_id)
+        if targetconv == "NEW_GROUP":
+            invitation_log.append("create new group")
+            if not test:
+                targetconv = yield from _new_group_conversation(bot, event.user.id_.chat_id)
 
-    """issue the invites"""
+        """issue the invites"""
 
-    invitation_ids = []
-    for invite in invitations:
-        invitation_ids.append(
-            _issue_invite(bot, invite["user_id"], targetconv, invite["uses"]))
+        invitation_ids = []
+        for invite in invitations:
+            invitation_log.append("invite {} to {}, uses: {}".format(
+                invite["user_id"], targetconv, invite["uses"]))
+            if not test:
+                # invites are not created in test mode
+                invitation_ids.append(
+                    _issue_invite(bot, invite["user_id"], targetconv, invite["uses"]))
 
-    bot.send_html_to_conversation(event.conv_id, 
-        _("<em>invite: {} invitations created</em>").format(len(invitation_ids)))
+        if len(invitation_ids) > 0:
+            bot.send_html_to_conversation(event.conv_id, 
+                _("<em>invite: {} invitations created</em>").format(len(invitation_ids)))
+
+    if test:
+        invitation_log.insert(0, "<b>Test Mode</b>")
+        bot.send_html_to_conversation(event.conv_id, 
+            "<br />".join(invitation_log))
 
 
 def rsvp(bot, event, *args):
