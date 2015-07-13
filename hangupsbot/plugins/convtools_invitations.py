@@ -181,13 +181,24 @@ def invite(bot, event, *args):
 
     elif "list" in parameters or "purge" in parameters:
         """[list] all invites inside the bot memory, and [purge] when requested"""
+
+        lines = []
+
+        if "purge" in parameters:
+            lines.append(_("<b>Invitation Purge (Admin)</b>"))
+            _mode = "purge"
+        else:
+            lines.append(_("<b>Invitation List (Admin)</b>"))
+            _mode = "list"
+
         if "expired" in parameters:
             _active_only = False
         else:
             _active_only = True
+
         active_invites = _get_invites(bot, filter_active=_active_only)
+
         if len(active_invites) > 0:
-            lines = []
             for _id, invite in active_invites.items():
                 try:
                     conversation_name = bot.conversations.get_name(invite["group_id"])
@@ -195,19 +206,20 @@ def invite(bot, event, *args):
                     conversation_name = "? ({})".format(invite["group_id"])
 
                 user_id = invite["user_id"]
+                if user_id == "*":
+                    user_id = "anyone"
 
-                if parameters[0] == "purge":
+                if _mode == "purge":
                     _remove_invite(bot, invite["id"])
-                    lines.append("<b>REMOVED</b> <i>{}</i>'s invite for <b>{}</b>".format(user_id, conversation_name))
+                    lines.append("<i>`{}`</i> to <b>`{}`</b>".format(user_id, conversation_name))
                 else:
                     expiry_in_days = round((invite["expiry"] - time.time()) / 86400, 1)
-                    lines.append("User <i>{}</i> invited to <b>{}</b> ... {} ({} days left)".format(user_id, conversation_name, invite["id"], expiry_in_days))
-
-            bot.send_html_to_conversation(event.conv_id, "<br />".join(lines))
+                    lines.append("<i>`{}`</i> to <b>`{}`</b> ... {} ({} days left)".format(user_id, conversation_name, invite["id"], expiry_in_days))
 
         else:
-            bot.send_html_to_conversation(event.conv_id, _("<em>no invites to list</em>"))
+            lines.append(_("<em>no invites found</em>"))
 
+        bot.send_html_to_conversation(event.conv_id, "<br />".join(lines))
         return
 
     """process parameters sequentially using a finite state machine"""
