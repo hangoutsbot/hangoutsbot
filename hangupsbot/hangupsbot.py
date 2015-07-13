@@ -427,7 +427,7 @@ class HangupsBot(object):
                         introduction =_("<i>Hi there! I'll be using this channel to send private "
                                         "messages and alerts. "
                                         "For help, type <b>{0} help</b>. "
-                                        "To keep me quiet, reply with <b>{0} opt-out</b>.</i>").format(self._handlers.bot_command[0])
+                                        "To keep me quiet, reply with <b>{0} optout</b>.</i>").format(self._handlers.bot_command[0])
                     response = yield from self._client.createconversation([chat_id])
                     new_conversation_id = response['conversation']['id']['id']
                     self.send_html_to_conversation(new_conversation_id, introduction)
