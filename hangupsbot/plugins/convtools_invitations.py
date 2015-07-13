@@ -115,14 +115,18 @@ def _new_group_conversation(bot, initiator_id):
     return new_conversation_id
 
 
-def _get_active_invites(bot, filter_user=False):
-    active_invites = []
+def _get_invites(bot, filter_active=True, filter_user=False):
+    invites = {}
     if bot.memory.exists(["invites"]):
-        for invite_id, invite in bot.memory["invites"].items():
-            if invite["expiry"] > time.time():
-                if not filter_user or invite["user_id"] in ("*", filter_user):
-                    active_invites.append(invite)
-    return active_invites
+        for invite_id, invite_data in bot.memory["invites"].items():
+            if filter_active and time.time() > invite_data["expiry"]:
+                continue
+            if not filter_active and time.time() < invite_data["expiry"]:
+                continue
+            if filter_user and invite_data["user_id"] not in ("*", filter_user):
+                continue
+            invites[invite_id] = invite_data
+    return invites
 
 
 def _get_user_list(bot, convid):
@@ -177,10 +181,14 @@ def invite(bot, event, *args):
 
     elif "list" in parameters or "purge" in parameters:
         """[list] all invites inside the bot memory, and [purge] when requested"""
-        active_invites = _get_active_invites(bot)
+        if "expired" in parameters:
+            _active_only = False
+        else:
+            _active_only = True
+        active_invites = _get_invites(bot, filter_active=_active_only)
         if len(active_invites) > 0:
             lines = []
-            for invite in active_invites:
+            for _id, invite in active_invites.items():
                 try:
                     conversation_name = bot.conversations.get_name(invite["group_id"])
                 except ValueError:
@@ -380,12 +388,12 @@ def rsvp(bot, event, *args):
         yield from _claim_invite(bot, args[0], event.user.id_.chat_id)
 
     else:
-        active_invites = _get_active_invites(bot, filter_user=event.user.id_.chat_id)
+        active_invites = _get_invites(bot, filter_user=event.user.id_.chat_id, filter_active=True)
 
         if len(active_invites) > 0:
             lines = []
             lines.append(_("<b>Invites for {}:</b>").format(event.user.full_name))
-            for invite in active_invites:
+            for _id, invite in active_invites.items():
                 conversation_name = bot.conversations.get_name(invite["group_id"])
                 expiry_in_days = round((invite["expiry"] - time.time()) / 86400, 1)
                 lines.append("<b>{}</b> ... {} ({} days left)".format(conversation_name, invite["id"], expiry_in_days))
