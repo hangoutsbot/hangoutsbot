@@ -345,6 +345,7 @@ def invite(bot, event, *args):
             if uid not in [u[0][0] for u in targetconv_users]:
                 invited_users.append(uid)
             else:
+                invitation_log.append("excluding existing: {}".format(uid))
                 logging.info("convtools_invitations: rejecting {}, already in {}".format(uid, targetconv))
         invited_users = list(set(invited_users))
 
