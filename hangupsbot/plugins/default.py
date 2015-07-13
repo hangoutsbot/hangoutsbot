@@ -335,7 +335,7 @@ def config(bot, event, cmd=None, *args):
     value = []
     state = "key"
     for token in tokens:
-        if token.startswith(("{", "[")):
+        if token.startswith(("{", "[", '"', "'")):
             # apparent start of json array/object, consume into a single list item
             state = "json"
         if state == "key":
@@ -351,6 +351,30 @@ def config(bot, event, cmd=None, *args):
     if cmd == 'get' or cmd is None:
         config_args = list(parameters)
         value = bot.config.get_by_path(config_args) if config_args else dict(bot.config)
+
+    elif cmd == 'test':
+        num_parameters = len(parameters)
+        text_parameters = []
+        last = num_parameters - 1
+        for num, token in enumerate(parameters):
+            if num == last:
+                try:
+                    json.loads(token)
+                    token += " <b>(valid json)</b>"
+                except ValueError:
+                    token += " <em>(INVALID)</em>"
+            text_parameters.append(str(num + 1) + ": " + token)
+        text_parameters.insert(0, "<b>config test</b>")
+
+        if num_parameters == 1:
+            text_parameters.append(_("<em>note: testing single parameter as json</em>"))
+        elif num_parameters < 1:
+            yield from command.unknown_command(bot, event)
+            return
+
+        bot.send_message_parsed(event.conv, "<br />".join(text_parameters))
+        return
+
     elif cmd == 'set':
         config_args = list(parameters[:-1])
         if len(parameters) >= 2:
@@ -360,6 +384,7 @@ def config(bot, event, cmd=None, *args):
         else:
             yield from command.unknown_command(bot, event)
             return
+
     elif cmd == 'append':
         config_args = list(parameters[:-1])
         if len(parameters) >= 2:
@@ -373,6 +398,7 @@ def config(bot, event, cmd=None, *args):
         else:
             yield from command.unknown_command(bot, event)
             return
+
     elif cmd == 'remove':
         config_args = list(parameters[:-1])
         if len(parameters) >= 2:
@@ -386,6 +412,7 @@ def config(bot, event, cmd=None, *args):
         else:
             yield from command.unknown_command(bot, event)
             return
+
     else:
         yield from command.unknown_command(bot, event)
         return
