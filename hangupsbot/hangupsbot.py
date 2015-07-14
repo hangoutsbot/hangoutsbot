@@ -306,13 +306,20 @@ class HangupsBot(object):
         """
         if isinstance(conv_ids, str):
             conv_ids = [conv_ids]
-        all_users = []
         conv_ids = list(set(conv_ids))
-        for conversation in self.list_conversations():
-            for room_id in conv_ids:
-                if room_id in conversation.id_:
-                    all_users += conversation.users
-        all_users = list(set(all_users))
+
+        all_users = {}
+        for convid in conv_ids:
+            conv_data = self.conversations.catalog[convid]
+            for user in conv_data["users"]:
+                UserID = hangups.user.UserID(chat_id=user[0][0], gaia_id=user[0][1])
+                try:
+                    hangups_user = self._user_list._user_dict[UserID]
+                except KeyError as e:
+                    hangups_user = hangups.user.User(UserID, user[1], None, None, [], False)
+                all_users[UserID] = hangups_user
+        all_users = all_users.values()
+
         return all_users
 
     def get_config_option(self, option):
