@@ -52,6 +52,12 @@ To quit the bot from the console, press CTRL-C
 
 # Initial Configuration
 
+DO NOT EDIT the `config.json` supplied with the bot. It is the 
+  reference file used to generate the actual config file, which
+  is located elsewhere. Please see the next section on 
+  **Additional Configuration** to get the location of the 
+  actual configuration file if you need to edit it manually.
+
 You will need to add your actual Hangouts user as a bot administrator.
 
 This will be accomplished using the supplied **starter** plugin with
