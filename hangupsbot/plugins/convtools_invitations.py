@@ -135,13 +135,11 @@ def _get_user_list(bot, convid):
 
 
 def invite(bot, event, *args):
-    """create invitations for users
-    If the 'to' conv_id is not specified then a new conversation is created
-    If the 'from' conv_id is not specified then it is assumed to be the current one
-    If users are not specified then all users from 'from' conversation are invited
-
-    /bot invite list # Lists all pending invites
-    /bot invite purge # Deletes all pending invites
+    """manage invite for users:
+    "list", "purge" allows listing and removing invites - add "expired" to view inactive invites
+    "from" specifies users from source conversation id - if unset, gets users from current group or list of "users"
+    "to" specifies destination conversation id - if unset, uses current group or creates a new one
+    "test" to prevent writing anything to storage
     """
     test = False
 
@@ -162,12 +160,12 @@ def invite(bot, event, *args):
     parameters = list(args)
 
     if "test" in parameters:
-        """turn on test mode for invitation creation - turns off automatic group creation and invitation writes"""
+        """turn on test mode - prevents writes"""
         test = True
         parameters.remove("test")
 
     if len(parameters) == 0:
-        bot.send_html_to_conversation(event.conv_id, _("<em>Usage: https://github.com/hangoutsbot/hangoutsbot/wiki/Conversation-Invitations-Plugin</em>"))
+        bot.send_html_to_conversation(event.conv_id, _("<em>insufficient parameters for invite</em>"))
         return
 
     elif parameters[0].isdigit():
@@ -185,10 +183,13 @@ def invite(bot, event, *args):
         lines = []
 
         if "purge" in parameters:
-            lines.append(_("<b>Invitation Purge (Admin)</b>"))
+            if test:
+                lines.append(_("<b>Test Invitation Purge</b>"))
+            else:
+                lines.append(_("<b>Invitation Purge</b>"))
             _mode = "purge"
         else:
-            lines.append(_("<b>Invitation List (Admin)</b>"))
+            lines.append(_("<b>Invitation List</b>"))
             _mode = "list"
 
         if "expired" in parameters:
@@ -209,12 +210,11 @@ def invite(bot, event, *args):
                 if user_id == "*":
                     user_id = "anyone"
 
-                if _mode == "purge":
+                if not test and _mode == "purge":
                     _remove_invite(bot, invite["id"])
-                    lines.append("<i>`{}`</i> to <b>`{}`</b>".format(user_id, conversation_name))
-                else:
-                    expiry_in_days = round((invite["expiry"] - time.time()) / 86400, 1)
-                    lines.append("<i>`{}`</i> to <b>`{}`</b> ... {} ({} days left)".format(user_id, conversation_name, invite["id"], expiry_in_days))
+
+                expiry_in_days = round((invite["expiry"] - time.time()) / 86400, 1)
+                lines.append("<i>`{}`</i> to <b>`{}`</b> ... {} ({} days left)".format(user_id, conversation_name, invite["id"], expiry_in_days))
 
         else:
             lines.append(_("<em>no invites found</em>"))
@@ -389,7 +389,7 @@ def invite(bot, event, *args):
                 _("<em>invite: {} invitations created</em>").format(len(invitation_ids)))
 
     if test:
-        invitation_log.insert(0, "<b>Test Mode</b>")
+        invitation_log.insert(0, "<b>Invite Test Mode</b>")
         bot.send_html_to_conversation(event.conv_id, 
             "<br />".join(invitation_log))
 
