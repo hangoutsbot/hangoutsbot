@@ -38,7 +38,7 @@ Please see:
 
 # Running The Bot
 
-Note: First-time run? Please see the [installation instructions]
+Note: **First run?** See the [installation instructions]
   (https://github.com/hangoutsbot/hangoutsbot/blob/master/INSTALL.md)
 
 To execute: `python3 hangupsbot.py`
