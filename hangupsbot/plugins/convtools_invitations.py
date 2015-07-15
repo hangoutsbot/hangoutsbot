@@ -115,14 +115,18 @@ def _new_group_conversation(bot, initiator_id):
     return new_conversation_id
 
 
-def _get_active_invites(bot, filter_user=False):
-    active_invites = []
+def _get_invites(bot, filter_active=True, filter_user=False):
+    invites = {}
     if bot.memory.exists(["invites"]):
-        for invite_id, invite in bot.memory["invites"].items():
-            if invite["expiry"] > time.time():
-                if not filter_user or invite["user_id"] in ("*", filter_user):
-                    active_invites.append(invite)
-    return active_invites
+        for invite_id, invite_data in bot.memory["invites"].items():
+            if filter_active and time.time() > invite_data["expiry"]:
+                continue
+            if not filter_active and time.time() < invite_data["expiry"]:
+                continue
+            if filter_user and invite_data["user_id"] not in ("*", filter_user):
+                continue
+            invites[invite_id] = invite_data
+    return invites
 
 
 def _get_user_list(bot, convid):
@@ -131,14 +135,14 @@ def _get_user_list(bot, convid):
 
 
 def invite(bot, event, *args):
-    """create invitations for users
-    If the 'to' conv_id is not specified then a new conversation is created
-    If the 'from' conv_id is not specified then it is assumed to be the current one
-    If users are not specified then all users from 'from' conversation are invited
-
-    /bot invite list # Lists all pending invites
-    /bot invite purge # Deletes all pending invites
+    """manage invite for users:
+    "list", "purge" allows listing and removing invites - add "expired" to view inactive invites
+    "from" specifies users from source conversation id - if unset, gets users from current group or list of "users"
+    "to" specifies destination conversation id - if unset, uses current group or creates a new one
+    "test" to prevent writing anything to storage
     """
+    test = False
+
     everyone = True
     wildcards = 0
 
@@ -147,6 +151,7 @@ def invite(bot, event, *args):
     list_users = []
 
     """special cases:
+    * test [set flag, then remove parameter]
     * no parameters [error out]
     * 1st parameter is digit [wildcard invite]
     * any parameter is "list" or "purge" [process then return immediately]
@@ -154,8 +159,13 @@ def invite(bot, event, *args):
 
     parameters = list(args)
 
+    if "test" in parameters:
+        """turn on test mode - prevents writes"""
+        test = True
+        parameters.remove("test")
+
     if len(parameters) == 0:
-        bot.send_html_to_conversation(event.conv_id, _("<em>Usage: https://github.com/hangoutsbot/hangoutsbot/wiki/Conversation-Invitations-Plugin</em>"))
+        bot.send_html_to_conversation(event.conv_id, _("<em>insufficient parameters for invite</em>"))
         return
 
     elif parameters[0].isdigit():
@@ -169,29 +179,47 @@ def invite(bot, event, *args):
 
     elif "list" in parameters or "purge" in parameters:
         """[list] all invites inside the bot memory, and [purge] when requested"""
-        active_invites = _get_active_invites(bot)
+
+        lines = []
+
+        if "purge" in parameters:
+            if test:
+                lines.append(_("<b>Test Invitation Purge</b>"))
+            else:
+                lines.append(_("<b>Invitation Purge</b>"))
+            _mode = "purge"
+        else:
+            lines.append(_("<b>Invitation List</b>"))
+            _mode = "list"
+
+        if "expired" in parameters:
+            _active_only = False
+        else:
+            _active_only = True
+
+        active_invites = _get_invites(bot, filter_active=_active_only)
+
         if len(active_invites) > 0:
-            lines = []
-            for invite in active_invites:
+            for _id, invite in active_invites.items():
                 try:
                     conversation_name = bot.conversations.get_name(invite["group_id"])
                 except ValueError:
                     conversation_name = "? ({})".format(invite["group_id"])
 
                 user_id = invite["user_id"]
+                if user_id == "*":
+                    user_id = "anyone"
 
-                if parameters[0] == "purge":
+                if not test and _mode == "purge":
                     _remove_invite(bot, invite["id"])
-                    lines.append("<b>REMOVED</b> <i>{}</i>'s invite for <b>{}</b>".format(user_id, conversation_name))
-                else:
-                    expiry_in_days = round((invite["expiry"] - time.time()) / 86400, 1)
-                    lines.append("User <i>{}</i> invited to <b>{}</b> ... {} ({} days left)".format(user_id, conversation_name, invite["id"], expiry_in_days))
 
-            bot.send_html_to_conversation(event.conv_id, "<br />".join(lines))
+                expiry_in_days = round((invite["expiry"] - time.time()) / 86400, 1)
+                lines.append("<i>`{}`</i> to <b>`{}`</b> ... {} ({} days left)".format(user_id, conversation_name, invite["id"], expiry_in_days))
 
         else:
-            bot.send_html_to_conversation(event.conv_id, _("<em>no invites to list</em>"))
+            lines.append(_("<em>no invites found</em>"))
 
+        bot.send_html_to_conversation(event.conv_id, "<br />".join(lines))
         return
 
     """process parameters sequentially using a finite state machine"""
@@ -271,6 +299,11 @@ def invite(bot, event, *args):
 
     """invitation generation"""
 
+    invitation_log = [] # devnote: no more returns after this line!
+
+    invitation_log.append("source conv: {}, target conv: {}".format(sourceconv, targetconv))
+    invitation_log.append("user list = [{}]".format(len(list_users)))
+
     invitations = []
 
     if wildcards > 0:
@@ -279,6 +312,7 @@ def invite(bot, event, *args):
             "user_id": "*", 
             "uses": wildcards })
 
+        invitation_log.append("wildcard invites: ".format(wildcards))
         logging.info("convtools_invitations: {} wildcard invite for {}".format(wildcards, targetconv))
 
     else:
@@ -290,12 +324,14 @@ def invite(bot, event, *args):
                 if everyone or u[0][0] in list_users:
                     shortlisted.append(u[0][0])
 
+            invitation_log.append("shortlisted: {}/{}".format(len(shortlisted), len(sourceconv_users)))
             logging.info("convtools_invitations: shortlisted {}/{} from {}, everyone={}, list_users=[{}]".format(
                 len(shortlisted), len(sourceconv_users), sourceconv, everyone, len(list_users)))
 
         else:
             shortlisted = list_users
 
+            invitation_log.append("direct list: {}".format(len(shortlisted)))
             logging.info("convtools_invitations: shortlisted {}".format(len(shortlisted), sourceconv))
 
         """exclude users who are already in the target conversation"""
@@ -309,6 +345,7 @@ def invite(bot, event, *args):
             if uid not in [u[0][0] for u in targetconv_users]:
                 invited_users.append(uid)
             else:
+                invitation_log.append("excluding existing: {}".format(uid))
                 logging.info("convtools_invitations: rejecting {}, already in {}".format(uid, targetconv))
         invited_users = list(set(invited_users))
 
@@ -319,28 +356,42 @@ def invite(bot, event, *args):
                 "user_id": uid, 
                 "uses": 1 })
 
-    """last sanity check before we do irreversible things (like create groups)"""
+    """beyond this point, start doing irreversible things (like create groups)"""
 
     if len(invitations) == 0:
         bot.send_html_to_conversation(event.conv_id, 
             _('<em>invite: nobody invited</em>'))
+
+        invitation_log.append("no invitations were created")
         logging.info("convtools_invitations: nobody invited, aborting...")
-        return
 
-    """create new conversation (if required)"""
+    else:
+        """create new conversation (if required)"""
 
-    if targetconv == "NEW_GROUP":
-        targetconv = yield from _new_group_conversation(bot, event.user.id_.chat_id)
+        if targetconv == "NEW_GROUP":
+            invitation_log.append("create new group")
+            if not test:
+                targetconv = yield from _new_group_conversation(bot, event.user.id_.chat_id)
 
-    """issue the invites"""
+        """issue the invites"""
 
-    invitation_ids = []
-    for invite in invitations:
-        invitation_ids.append(
-            _issue_invite(bot, invite["user_id"], targetconv, invite["uses"]))
+        invitation_ids = []
+        for invite in invitations:
+            invitation_log.append("invite {} to {}, uses: {}".format(
+                invite["user_id"], targetconv, invite["uses"]))
+            if not test:
+                # invites are not created in test mode
+                invitation_ids.append(
+                    _issue_invite(bot, invite["user_id"], targetconv, invite["uses"]))
 
-    bot.send_html_to_conversation(event.conv_id, 
-        _("<em>invite: {} invitations created</em>").format(len(invitation_ids)))
+        if len(invitation_ids) > 0:
+            bot.send_html_to_conversation(event.conv_id, 
+                _("<em>invite: {} invitations created</em>").format(len(invitation_ids)))
+
+    if test:
+        invitation_log.insert(0, "<b>Invite Test Mode</b>")
+        bot.send_html_to_conversation(event.conv_id, 
+            "<br />".join(invitation_log))
 
 
 def rsvp(bot, event, *args):
@@ -350,12 +401,12 @@ def rsvp(bot, event, *args):
         yield from _claim_invite(bot, args[0], event.user.id_.chat_id)
 
     else:
-        active_invites = _get_active_invites(bot, filter_user=event.user.id_.chat_id)
+        active_invites = _get_invites(bot, filter_user=event.user.id_.chat_id, filter_active=True)
 
         if len(active_invites) > 0:
             lines = []
             lines.append(_("<b>Invites for {}:</b>").format(event.user.full_name))
-            for invite in active_invites:
+            for _id, invite in active_invites.items():
                 conversation_name = bot.conversations.get_name(invite["group_id"])
                 expiry_in_days = round((invite["expiry"] - time.time()) / 86400, 1)
                 lines.append("<b>{}</b> ... {} ({} days left)".format(conversation_name, invite["id"], expiry_in_days))

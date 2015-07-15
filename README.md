@@ -3,9 +3,9 @@
 Hangupsbot is a chat bot designed for working with Google Hangouts.
 
 Please see:
-* [Instructions for installing](https://github.com/nylonee/hangupsbot/blob/master/INSTALL.md)
-* [Issue tracker](https://github.com/nylonee/hangupsbot/issues) for bugs, issues and feature requests
-* [Wiki](https://github.com/nylonee/hangupsbot/wiki) for everything else
+* [Instructions for installing](https://github.com/hangoutsbot/hangoutsbot/blob/master/INSTALL.md)
+* [Issue tracker](https://github.com/hangoutsbot/hangoutsbot/issues) for bugs, issues and feature requests
+* [Wiki](https://github.com/hangoutsbot/hangoutsbot/wiki) for everything else
 
 
 ## Repository Links
@@ -36,9 +36,13 @@ Please see:
   games, nickname support, subscribed keywords, customizable API - **[the list goes on]
     (https://github.com/nylonee/hangupsbot/wiki/Plugin-List)**!
 
-# IMPORTANT
+# Running The Bot
 
-* To execute: `python3 hangupsbot.py`
+Note: **First run?** See the [installation instructions]
+  (https://github.com/hangoutsbot/hangoutsbot/blob/master/INSTALL.md)
+
+To execute: `python3 hangupsbot.py`
+
 ```
 usage: hangupsbot [-h] [-d] [--log LOG] [--cookies COOKIES] [--memory MEMORY] [--config CONFIG] [--version]
 
@@ -55,9 +59,19 @@ optional arguments:
                    ~/.local/share/hangupsbot/config.json)
 --version          show program's version number and exit
 ```
+
 # Bot Configuration for Administrators
 
 Configuration directives can be specified in `config.json`.
+
+Please note that the `config.json` file supplied with the repository is not 
+  supposed to be edited/changed. It is the reference file used by the bot to 
+  create the actual configuration file located elsewhere in the system. To find out 
+  where the actual file is, please see the [**Additional Configuration** section]
+  (https://github.com/hangoutsbot/hangoutsbot/blob/master/INSTALL.md#additional-configuration)
+  in the [installation]
+  (https://github.com/hangoutsbot/hangoutsbot/blob/master/INSTALL.md)
+  instructions.
 
 Most configuration directives are specified **globally**
 * Global directives are always specified in the "root" of `config.json`.
