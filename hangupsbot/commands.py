@@ -1,7 +1,6 @@
 import sys, json, asyncio, logging, os
 
 import hangups
-from hangups.ui.utils import get_conv_name
 
 from version import __version__
 from utils import text_to_segments

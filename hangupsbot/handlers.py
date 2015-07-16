@@ -5,7 +5,6 @@ import inspect
 import uuid
 
 import hangups
-from hangups.ui.utils import get_conv_name
 
 import plugins
 from commands import command

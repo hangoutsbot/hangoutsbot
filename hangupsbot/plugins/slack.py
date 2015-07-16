@@ -1,7 +1,7 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
 from threading import Thread
-from hangups.ui.utils import get_conv_name
+
 from pyslack import SlackClient
 try:
     import emoji
