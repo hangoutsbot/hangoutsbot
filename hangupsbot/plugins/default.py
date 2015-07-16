@@ -167,7 +167,16 @@ def convleave(bot, event, *args):
 
 def echo(bot, event, *args):
     """echo back text into current conversation"""
-    yield from command.run(bot, event, *["convecho", "id:" + event.conv_id, re.escape(" ".join(args))])
+    raw_arguments = event.text.split(maxsplit=2)
+    if len(raw_arguments) == 3:
+        _text = raw_arguments[2].strip()
+        if _text.startswith("raw:"):
+            _text = _text[4:].strip()
+        else:
+            # emulate pre-2.5 bot behaviour and limitations
+            _text = re.escape(_text)
+
+        yield from command.run(bot, event, *["convecho", "id:" + event.conv_id, _text])
 
 
 def broadcast(bot, event, *args):
