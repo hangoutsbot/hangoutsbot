@@ -166,17 +166,32 @@ def convleave(bot, event, *args):
 
 
 def echo(bot, event, *args):
-    """echo back text into current conversation"""
-    raw_arguments = event.text.split(maxsplit=2)
-    if len(raw_arguments) == 3:
-        _text = raw_arguments[2].strip()
+    """echo back text into conversation"""
+    raw_arguments = event.text.split(maxsplit=3)
+    if len(raw_arguments) >= 3:
+        if raw_arguments[2] in bot.conversations.catalog:
+            # e.g. /bot echo <convid> <text>
+            # only admins can echo messages into other conversations
+            admins_list = bot.get_config_suboption(event.conv_id, 'admins')
+            if event.user_id.chat_id in admins_list:
+                convid = raw_arguments[2]
+            else:
+                convid = event.conv_id
+                raw_arguments = [ _("<b>only admins can echo other conversations</b>") ]
+        else:
+            # assumed /bot echo <text>
+            convid = event.conv_id
+            raw_arguments = event.text.split(maxsplit=2)
+
+        _text = raw_arguments[-1].strip()
+
         if _text.startswith("raw:"):
             _text = _text[4:].strip()
         else:
             # emulate pre-2.5 bot behaviour and limitations
             _text = re.escape(_text)
 
-        yield from command.run(bot, event, *["convecho", "id:" + event.conv_id, _text])
+        yield from command.run(bot, event, *["convecho", "id:" + convid, _text])
 
 
 def broadcast(bot, event, *args):
