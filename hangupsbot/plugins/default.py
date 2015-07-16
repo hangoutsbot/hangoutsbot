@@ -1,4 +1,4 @@
-import json, shlex, logging
+import re, json, shlex, logging
 
 import hangups
 
@@ -167,7 +167,7 @@ def convleave(bot, event, *args):
 
 def echo(bot, event, *args):
     """echo back text into current conversation"""
-    yield from command.run(bot, event, *["convecho", "id:" + event.conv_id, " ".join(args)])
+    yield from command.run(bot, event, *["convecho", "id:" + event.conv_id, re.escape(" ".join(args))])
 
 
 def broadcast(bot, event, *args):
