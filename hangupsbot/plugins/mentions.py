@@ -2,7 +2,6 @@ import asyncio, logging, re, string
 
 from pushbullet import PushBullet
 
-from hangups.ui.utils import get_conv_name
 
 nicks = {}
 
@@ -130,7 +129,7 @@ def mention(bot, event, *args):
     begin mentioning users as long as they exist in the current conversation...
     """
 
-    conversation_name = get_conv_name(event.conv, truncate=True);
+    conversation_name = bot.conversations.get_name(event.conv)
     logging.info(_("@mention '{}' in '{}' ({})").format(username, conversation_name, event.conv.id_))
     username_lower = username.lower()
 
