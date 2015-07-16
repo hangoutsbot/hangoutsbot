@@ -141,19 +141,23 @@ class EventHandler:
             line_args = shlex.split(event.text, posix=False)
         except Exception as e:
             print("EXCEPTION in {}: {}".format("handle_command", e))
+            self.bot.send_message_parsed(event.conv, _("{}: {}").format(
+                event.user.full_name, str(e)))
             logging.exception(e)
             return
 
         # Test if command length is sufficient
         if len(line_args) < 2:
-            self.bot.send_message(event.conv, _('{}: missing parameter(s)').format(event.user.full_name))
+            self.bot.send_message_parsed(event.conv, _('{}: Missing parameter(s)').format(
+                event.user.full_name))
             return
 
         # only admins can run admin commands
         commands_admin_list = command.get_admin_commands(self.bot, event.conv_id)
         if commands_admin_list and line_args[1].lower() in commands_admin_list:
             if not initiator_is_admin:
-                self.bot.send_message(event.conv, _('{}: Can\'t do that.').format(event.user.full_name))
+                self.bot.send_message_parsed(event.conv, _('{}: Can\'t do that.').format(
+                    event.user.full_name))
                 return
 
         # Run command
