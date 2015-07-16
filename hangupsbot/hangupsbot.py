@@ -225,12 +225,10 @@ class HangupsBot(object):
 
     def send_message_segments(self, conversation, segments, context=None, image_id=None):
         """Send chat message segments"""
-        otr_status = None
 
         # Ignore if the user hasn't typed a message.
         if type(segments) is list and len(segments) == 0:
             return
-
 
         # add default context if none exists
         if not context:
@@ -238,27 +236,19 @@ class HangupsBot(object):
         if "base" not in context:
             context["base"] = self._messagecontext_legacy()
 
-        # reduce conversation to the only things we need: the id and history
+        # reduce conversation to the only things we need: conversation_id
         if isinstance(conversation, (FakeConversation, hangups.conversation.Conversation)):
             conversation_id = conversation.id_
-            # Turn history off if it's off in the conversation
-            try:
-                otr_status = (OffTheRecordStatus.OFF_THE_RECORD
-                    if conversation.is_off_the_record
-                    else OffTheRecordStatus.ON_THE_RECORD)
-            except (KeyError, AttributeError):
-                pass
         elif isinstance(conversation, str):
             conversation_id = conversation
-            # Turn history off if it's off in the conversation
-            try:
-                otr_status = (OffTheRecordStatus.OFF_THE_RECORD
-                    if self._conv_list.get(conversation).is_off_the_record
-                    else OffTheRecordStatus.ON_THE_RECORD)
-            except (KeyError, AttributeError):
-                pass
         else:
             raise ValueError(_('could not identify conversation id'))
+
+        # determine OTR status based on conversation memory
+        if self.conversations.catalog[conversation_id]["history"]:
+            otr_status = OffTheRecordStatus.ON_THE_RECORD
+        else:
+            otr_status = OffTheRecordStatus.OFF_THE_RECORD
 
         # by default, a response always goes into a single conversation only
         broadcast_list = [(conversation_id, segments)]

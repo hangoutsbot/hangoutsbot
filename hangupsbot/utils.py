@@ -100,6 +100,8 @@ class conversation_memory:
                                         self.catalog[convid]["type"] = "ONE_TO_ONE"
                                         break
 
+                if "history" not in self.catalog[convid]:
+                    self.catalog[convid]["history"] = True
 
     def save_to_memory(self):
         self.bot.memory.set_by_path(['convmem'], self.catalog)
@@ -126,6 +128,12 @@ class conversation_memory:
         else: 
             # conv._conversation.type_ == hangups.schemas.ConversationType.STICKY_ONE_TO_ONE
             self.catalog[conv.id_]["type"] = "ONE_TO_ONE"
+
+        """store the off_the_record state"""
+        if conv.is_off_the_record:
+            self.catalog[conv.id_]["history"] = False
+        else:
+            self.catalog[conv.id_]["history"] = True
 
         if automatic_save:
             self.save_to_memory()
