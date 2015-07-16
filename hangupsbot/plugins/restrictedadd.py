@@ -2,8 +2,6 @@ import asyncio
 import hangups
 import time
 
-from hangups.ui.utils import get_conv_name
-
 import plugins
 
 
