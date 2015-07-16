@@ -16,7 +16,7 @@ import appdirs
 import hangups
 
 from utils import simple_parse_to_segments, class_from_name, conversation_memory
-from hangups.ui.utils import get_conv_name
+
 try:
     from hangups.schemas import OffTheRecordStatus
 except ImportError:
@@ -87,16 +87,20 @@ class ConversationEvent(object):
         self.timestamp = conv_event.timestamp
         self.text = conv_event.text.strip() if isinstance(conv_event, hangups.ChatMessageEvent) else ''
 
-    def print_debug(self):
+    def print_debug(self, bot=None):
         """Print informations about conversation event"""
-        print(_('eid/dtime: {}/{}').format(self.event_id, self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
-        print(_('cid/cname: {}/{}').format(self.conv_id, get_conv_name(self.conv, truncate=True)))
-        if(self.user_id.chat_id == self.user_id.gaia_id):
-            print(_('uid/uname: {}/{}').format(self.user_id.chat_id, self.user.full_name))
+        print('eid/dtime: {}/{}'.format(self.event_id, self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
+        if not bot:
+            # don't crash on old usage, instruct dev to supply bot
+            print('cid/cname: {}/undetermined, supply parameter: bot'.format(self.conv_id))
         else:
-            print(_('uid/uname: {}!{}/{}').format(self.user_id.chat_id, self.user_id.gaia_id, self.user.full_name))
-        print(_('txtlen/tx: {}/{}').format(len(self.text), self.text))
-        print(_('eventdump: completed --8<--'))
+            print('cid/cname: {}/{}'.format(self.conv_id, bot.conversations.get_name(self.conv)))
+        if self.user_id.chat_id == self.user_id.gaia_id:
+            print('uid/uname: {}/{}'.format(self.user_id.chat_id, self.user.full_name))
+        else:
+            print('uid/uname: {}!{}/{}'.format(self.user_id.chat_id, self.user_id.gaia_id, self.user.full_name))
+        print('txtlen/tx: {}/{}'.format(len(self.text), self.text))
+        print('eventdump: completed --8<--')
 
 
 class HangupsBot(object):
@@ -365,7 +369,7 @@ class HangupsBot(object):
     def print_conversations(self):
         print(_('Conversations:'))
         for c in self.list_conversations():
-            print('  {} ({}) u:{}'.format(get_conv_name(c, truncate=True), c.id_, len(c.users)))
+            print('  {} ({}) u:{}'.format(self.conversations.get_name(c), c.id_, len(c.users)))
             for u in c.users:
                 print('    {} ({}) {}'.format(u.first_name, u.full_name, u.id_.chat_id))
         print()
