@@ -8,7 +8,6 @@ import io
 import hangups
 
 from urllib.parse import urlparse
-from hangups.ui.utils import get_conv_name
 
 import plugins
 
@@ -226,7 +225,7 @@ def _handle_syncrooms_membership_change(bot, event, command):
                    in event.conv_event.participant_ids]
     names = ', '.join([user.full_name for user in event_users])
 
-    syncroom_name = '<b>' + get_conv_name(event.conv) + '</b>'
+    syncroom_name = '<b>' + bot.conversations.get_name(event.conv) + '</b>'
 
     # JOIN a specific room
     if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
@@ -282,20 +281,24 @@ def syncusers(bot, event, conversation_id=None, *args):
         _lines.append(_("<b>Standard Room</b>"))
 
     all_users = {}
-    if combined or len(sync_room_list) == 1:
-        all_users["_ALL_"] = bot.get_users_in_conversation(sync_room_list)
-    else:
-        for room_id in sync_room_list:
-            all_users[room_id] = bot.get_users_in_conversation(room_id)
+    try:
+        if combined or len(sync_room_list) == 1:
+            all_users["_ALL_"] = bot.get_users_in_conversation(sync_room_list)
+        else:
+            for room_id in sync_room_list:
+                all_users[room_id] = bot.get_users_in_conversation(room_id)
+    except KeyError as e:
+        # most likely raised if user provides invalid room list
+        bot.send_message_parsed(event.conv, _('<b>failed to retrieve user list</b>'))
+        return
 
     unique_users = []
 
     for room_id in all_users:
         if room_id is not "_ALL_":
             _line_room = '<i>{}</i>'.format(room_id)
-            """XXX: written in this way in case we need to try: get_conv_name in future"""
             _line_room = '<b>{}</b> {}'.format(
-                get_conv_name(bot._conv_list.get(room_id)),
+                bot.conversations.get_name(room_id),
                 _line_room)
             _lines.append(_line_room)
         list_users = all_users[room_id]
