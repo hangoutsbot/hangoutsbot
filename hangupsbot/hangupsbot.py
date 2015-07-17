@@ -15,7 +15,7 @@ if HANGOUTSBOT_LOCALE:
 import appdirs
 import hangups
 
-from utils import simple_parse_to_segments, class_from_name, conversation_memory
+from utils import simple_parse_to_segments, class_from_name, conversation_memory, tags
 
 try:
     from hangups.schemas import OffTheRecordStatus
@@ -510,6 +510,7 @@ class HangupsBot(object):
         self._conv_list.on_event.add_observer(self._on_event)
 
         self.conversations = conversation_memory(self)
+        self.tags = tags(self)
 
         plugins.load(self, command)
 

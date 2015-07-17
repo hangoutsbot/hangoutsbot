@@ -193,3 +193,100 @@ class conversation_memory:
                 raise ValueError("could not determine conversation name")
 
         return title
+
+class tags:
+    bot = None
+
+    indices = {}
+
+    def __init__(self, bot):
+        self.bot = bot
+        self.refresh_indices()
+
+    def _load_from_memory(self, key, type):
+        if self.bot.memory.exists([key]):
+            for id, data in self.bot.memory[key].items():
+                if "tags" in data:
+                    for tag in data["tags"]:
+                        self.add_to_index(type, tag, id)
+
+    def refresh_indices(self):
+        self.indices = { "user":{}, "conv": {} }
+        self._load_from_memory("user_data", "user")
+        self._load_from_memory("conv_data", "conv")
+        logging.info("tags: refreshed user=[{}] conv=[{}]".format(
+            len(self.indices["user"]), len(self.indices["conv"])))
+
+    def add_to_index(self, type, tag, id):
+        if tag not in self.indices[type]:
+            self.indices[type][tag] = []
+        if id not in self.indices[type][tag]:
+            self.indices[type][tag].append(id)
+
+    def remove_from_index(self, type, tag, id):
+        if tag in self.indices[type]:
+            if id in self.indices[type][tag]:
+                self.indices[type][tag].remove(id)
+
+    def update(self, id, action, tag):
+        updated = False
+
+        if id in self.bot.conversations.catalog:
+            tags = self.bot.conversation_memory_get(id, "tags")
+            type = "conv"
+        else:
+            tags = self.bot.user_memory_get(id, "tags")
+            type = "user"
+
+        if not tags:
+            tags = []
+
+        if action == "set":
+            tags.append(tag)
+            self.add_to_index(type, tag, id)
+            updated = True
+
+        elif action == "remove":
+            try:
+                tags.remove(tag)
+                self.remove_from_index(type, tag, id)
+                updated = True
+            except ValueError as e:
+                # in case the value does not exist
+                pass
+
+        else:
+            raise ValueError("tags: unrecognised action {}".format(action))
+
+        tags = list(set(tags))
+
+        if updated:
+            if id in self.bot.conversations.catalog:
+                tags = self.bot.conversation_memory_set(id, "tags", tags)
+            else:
+                tags = self.bot.user_memory_set(id, "tags", tags)
+            logging.info("tags: {}/{} action={} value={}".format(type, id, action, tag))
+        else:
+            logging.info("tags: {}/{} action={} value={} [NO CHANGE]".format(type, id, action, tag))
+
+        return updated
+
+    def add(self, id, tag):
+        """add tag to (conv/user) id"""
+        return self.update(id, "set", tag)
+
+    def remove(self, id, tag):
+        """remove tag from (conv/user) id"""
+        return self.update(id, "remove", tag)
+
+    def user_check(self, id, tag):
+        if tag in self.indices["user"]:
+            if id in self.indices["user"][tag]:
+                return True
+        return False
+
+    def conversation_check(self, id, tag):
+        if tag in self.indices["conv"]:
+            if id in self.indices["conv"][tag]:
+                return True
+        return False
