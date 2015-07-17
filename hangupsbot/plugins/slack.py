@@ -1,5 +1,7 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
+
+from html import unescape
 from threading import Thread
 
 from pyslack import SlackClient
@@ -146,7 +148,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
             if "user_name" in payload:
                 if "slackbot" not in str(payload["user_name"][0]):
                     text = self._remap_internal_slack_ids(text)
-                    response = "<b>" + str(payload["user_name"][0]) + ":</b> " + text
+                    response = "<b>" + str(payload["user_name"][0]) + ":</b> " + unescape(text)
                     self._scripts_push(conversation_id, response)
 
     def _remap_internal_slack_ids(self, text):
