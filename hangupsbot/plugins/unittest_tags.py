@@ -7,35 +7,32 @@ def _initialise(bot):
 
 
 def tagset(bot, event, *args):
-    if len(args) == 2:
-        [id, tag] = args
-        if bot.tags.add(id, tag):
+    if len(args) == 3:
+        [type, id, tag] = args
+        if bot.tags.add(type, id, tag):
             message = _("<b>tagged `{}` with `{}`</b>".format(id, tag))
         else:
             message = _("<b>`{}` not tagged with `{}`</b>".format(id, tag))
     else:
-        message = _("<b>supply id, tag</b>")
+        message = _("<b>supply type, id, tag</b>")
     bot.send_message_parsed(event.conv_id, message)
 
 def tagdel(bot, event, *args):
-    if len(args) == 2:
-        [id, tag] = args
-        if bot.tags.remove(id, tag):
+    if len(args) == 3:
+        [type, id, tag] = args
+        if bot.tags.remove(type, id, tag):
             message = _("<b>removed `{}` from `{}`</b>".format(tag, id))
         else:
             message = _("<b>`{}` unchanged</b>".format(id))
     else:
-        message = _("<b>supply id, tag</b>")
+        message = _("<b>supply type, id, tag</b>")
     bot.send_message_parsed(event.conv_id, message)
 
 def tagcheck(bot, event, *args):
     if len(args) == 3:
         [type, id, tag] = args
 
-        if type == "conv":
-            results = bot.tags.conversation_check(id, tag)
-        else:
-            results = bot.tags.user_check(id, tag)
+        results = bot.tags.check(type, id, tag)
 
         if results:
             message = _("<b>`{}` tagged with `{}`</b>").format(id, tag)

@@ -171,6 +171,13 @@ class conversation_memory:
             for convid, convdata in self.catalog.items():
                 if filter_lower in convdata["title"].lower():
                     filtered[convid] = convdata
+        elif filter.startswith("chat_id:"):
+            # return all conversations user is in
+            chat_id = filter[8:]
+            for convid, convdata in self.catalog.items():
+                for user in convdata["users"]:
+                    if user[0][0] == chat_id:
+                        filtered[convid] = convdata
 
         return filtered
 
@@ -193,6 +200,7 @@ class conversation_memory:
                 raise ValueError("could not determine conversation name")
 
         return title
+
 
 class tags:
     bot = None
@@ -228,15 +236,19 @@ class tags:
             if id in self.indices[type][tag]:
                 self.indices[type][tag].remove(id)
 
-    def update(self, id, action, tag):
+    def update(self, type, id, action, tag):
         updated = False
 
-        if id in self.bot.conversations.catalog:
+        if type == "conv":
+            if id not in bot.conversations.catalog:
+                raise ValueError("tags: conversation {} does not exist".format(id))
             tags = self.bot.conversation_memory_get(id, "tags")
-            type = "conv"
-        else:
+        elif type == "user":
+            if not bot.conversations.get("chat_id:" + id):
+                raise ValueError("tags: user {} does not exist".format(id))
             tags = self.bot.user_memory_get(id, "tags")
-            type = "user"
+        else:
+            raise ValueError("tags: unhandled read type {}".format(type))
 
         if not tags:
             tags = []
@@ -261,32 +273,29 @@ class tags:
         tags = list(set(tags))
 
         if updated:
-            if id in self.bot.conversations.catalog:
+            if type == "conv":
                 tags = self.bot.conversation_memory_set(id, "tags", tags)
-            else:
+            elif type == "user":
                 tags = self.bot.user_memory_set(id, "tags", tags)
+            else:
+                raise ValueError("tags: unhandled update type {}".format(type))
+
             logging.info("tags: {}/{} action={} value={}".format(type, id, action, tag))
         else:
             logging.info("tags: {}/{} action={} value={} [NO CHANGE]".format(type, id, action, tag))
 
         return updated
 
-    def add(self, id, tag):
-        """add tag to (conv/user) id"""
-        return self.update(id, "set", tag)
+    def add(self, type, id, tag):
+        """add tag to (type=conv/user) id"""
+        return self.update(type, id, "set", tag)
 
-    def remove(self, id, tag):
-        """remove tag from (conv/user) id"""
-        return self.update(id, "remove", tag)
+    def remove(self, type, id, tag):
+        """remove tag from (type=conv/user) id"""
+        return self.update(type, id, "remove", tag)
 
-    def user_check(self, id, tag):
-        if tag in self.indices["user"]:
-            if id in self.indices["user"][tag]:
-                return True
-        return False
-
-    def conversation_check(self, id, tag):
-        if tag in self.indices["conv"]:
-            if id in self.indices["conv"][tag]:
+    def check(self, type, id, tag):
+        if tag in self.indices[type]:
+            if id in self.indices[user][tag]:
                 return True
         return False
