@@ -219,17 +219,28 @@ class tags:
                         self.add_to_index(type, tag, id)
 
     def refresh_indices(self):
-        self.indices = { "user":{}, "conv": {} }
+        self.indices = { "user":{}, "conv": {}, "convuser": {} }
+
         self._load_from_memory("user_data", "user")
         self._load_from_memory("conv_data", "conv")
-        logging.info("tags: refreshed user=[{}] conv=[{}]".format(
-            len(self.indices["user"]), len(self.indices["conv"])))
+
+        # XXX: custom iteration to retrieve per-conversation-user-overrides
+        if self.bot.memory.exists(["conv_data"]):
+            for conv_id in self.bot.memory["conv_data"]:
+                if self.bot.memory.exists(["conv_data", conv_id, "tags-users"]):
+                    for chat_id, tags in self.bot.memory["conv_data"][conv_id]["tags-users"].items():
+                        for tag in tags:
+                            self.add_to_index("convuser", tag, conv_id + "|" + chat_id)
+
+        logging.info("tags: refreshed user=[{}] conv=[{}] convuser=[{}]".format(
+            len(self.indices["user"]), len(self.indices["conv"]), len(self.indices["convuser"])))
 
     def add_to_index(self, type, tag, id):
         if tag not in self.indices[type]:
             self.indices[type][tag] = []
         if id not in self.indices[type][tag]:
             self.indices[type][tag].append(id)
+        logging.info("tags: adding {} {} {}".format(type, tag, id))
 
     def remove_from_index(self, type, tag, id):
         if tag in self.indices[type]:
@@ -238,15 +249,30 @@ class tags:
 
     def update(self, type, id, action, tag):
         updated = False
+        tags = None
 
         if type == "conv":
             if id not in bot.conversations.catalog:
                 raise ValueError("tags: conversation {} does not exist".format(id))
             tags = self.bot.conversation_memory_get(id, "tags")
+
         elif type == "user":
             if not bot.conversations.get("chat_id:" + id):
                 raise ValueError("tags: user {} does not exist".format(id))
             tags = self.bot.user_memory_get(id, "tags")
+
+        elif type == "convuser":
+            [conv_id, chat_id] = id.split("|", maxsplit=1)
+            if not bot.conversations.get("chat_id:" + chat_id):
+                raise ValueError("tags: user {} does not exist".format(chat_id))
+            if conv_id not in bot.conversations.catalog:
+                raise ValueError("tags: conversation {} does not exist".format(conv_id))
+            tags_users = self.bot.conversation_memory_get(conv_id, "tags-users")
+            if not tags_users:
+                tags_users = {}
+            if chat_id in tags_users:
+                tags = tags_users[chat_id]
+
         else:
             raise ValueError("tags: unhandled read type {}".format(type))
 
@@ -274,9 +300,15 @@ class tags:
 
         if updated:
             if type == "conv":
-                tags = self.bot.conversation_memory_set(id, "tags", tags)
+                self.bot.conversation_memory_set(id, "tags", tags)
+
             elif type == "user":
-                tags = self.bot.user_memory_set(id, "tags", tags)
+                self.bot.user_memory_set(id, "tags", tags)
+
+            elif type == "convuser":
+                tags_users[chat_id] = tags
+                self.bot.conversation_memory_set(conv_id, "tags-users", tags_users)
+
             else:
                 raise ValueError("tags: unhandled update type {}".format(type))
 

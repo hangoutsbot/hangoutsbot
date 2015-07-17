@@ -45,13 +45,13 @@ def tagcheck(bot, event, *args):
 
 def tagindexdump(bot, event, *args):
     groupings = []
-    for type in ["user", "conv"]:
+    for type in ["user", "conv", "convuser"]:
         for tag, idlist in bot.tags.indices[type].items():
             entries = []
             for id in idlist:
                 if type == "conv":
                     label = bot.conversations.get_name(id)
-                else:
+                elif type == "user":
                     # XXX: needs a more reliable way to get user info
                     try:
                         user_id = hangups.user.UserID(chat_id=id, gaia_id=id)
@@ -59,7 +59,20 @@ def tagindexdump(bot, event, *args):
                         label = _u.full_name
                     except KeyError:
                         label = _("unknown user")
-                entries.append("`{}` <b>`{}`</b>".format(id, label))
+                elif type == "convuser":
+                    # XXX: needs a more reliable way to get user info
+                    [conv_id, chat_id] = id.split("|", maxsplit=1)
+                    try:
+                        user_id = hangups.user.UserID(chat_id=chat_id, gaia_id=chat_id)
+                        _u = bot._user_list._user_dict[user_id]
+                        label = _u.full_name
+                    except KeyError:
+                        label = _("unknown user")
+                    label += " @ " + bot.conversations.get_name(conv_id)
+                else:
+                    raise ValueError("invalid type {}".format(type))
+
+                entries.append("<b>`{}`</b><br />... `{}`".format(label, id))
             if len(entries) > 0:
                 entries.insert(0, _("<b>type: {}, tag: {}</b>").format(type, tag))
                 groupings.append("<br />".join(entries))
