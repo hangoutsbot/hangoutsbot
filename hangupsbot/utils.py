@@ -245,7 +245,8 @@ class tags:
 
         if id not in self.indices[object_to_tag]:
             self.indices[object_to_tag][id] = []
-        self.indices[object_to_tag][id].append(tag)
+        if tag not in self.indices[object_to_tag][id]:
+            self.indices[object_to_tag][id].append(tag)
 
     def remove_from_index(self, type, tag, id):
         tag_to_object = "tag-{}s".format(type)
@@ -295,9 +296,10 @@ class tags:
             tags = []
 
         if action == "set":
-            tags.append(tag)
-            self.add_to_index(index_type, tag, id)
-            updated = True
+            if tag not in tags:
+                tags.append(tag)
+                self.add_to_index(index_type, tag, id)
+                updated = True
 
         elif action == "remove":
             try:
@@ -310,8 +312,6 @@ class tags:
 
         else:
             raise ValueError("tags: unrecognised action {}".format(action))
-
-        tags = list(set(tags))
 
         if updated:
             if type == "conv":
@@ -356,8 +356,13 @@ class tags:
         return []
 
     def userlist(self, conv_id, tags=False):
-        """return dict of participating chat_ids to tags, optionally filtered by tags list"""
+        """return dict of participating chat_ids to tags, optionally filtered by tag/list of tags"""
+
+        if isinstance(tags, str):
+            tags = [tags]
+
         userlist = self.bot.conversations.catalog[conv_id]["users"]
+
         results = {}
         for user in userlist:
             chat_id = user[0][0]
