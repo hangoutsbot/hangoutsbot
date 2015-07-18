@@ -59,20 +59,16 @@ class FakeConversation(object):
 
     @asyncio.coroutine
     def send_message(self, segments, image_id=None, otr_status=None):
-        if segments:
-            serialised_segments = [seg.serialize() for seg in segments]
-        else:
-            serialised_segments = None
+        with (yield from asyncio.Lock()):
+            if segments:
+                serialised_segments = [seg.serialize() for seg in segments]
+            else:
+                serialised_segments = None
 
-        try:
-            yield from self._client.sendchatmessage(self.id_, serialised_segments, image_id=image_id, otr_status=otr_status)
-        except (TypeError, AttributeError):
-            # in the event the hangups library doesn't support image sending
-            try:
-                yield from self._client.sendchatmessage(self.id_, serialised_segments, otr_status=otr_status)
-            except (TypeError, AttributeError):
-                # in the event the hangups library doesn't support otr_status (note that image support assumes otr_status support)
-                yield from self._client.sendchatmessage(self.id_, serialised_segments)
+            yield from self._client.sendchatmessage(
+                self.id_, serialised_segments,
+                image_id=image_id, otr_status=otr_status
+            )
 
 
 class ConversationEvent(object):
