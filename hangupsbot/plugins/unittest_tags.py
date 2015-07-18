@@ -14,7 +14,7 @@ def tagset(bot, event, *args):
         if bot.tags.add(type, id, tag):
             message = _("<b>tagged `{}` with `{}`</b>".format(id, tag))
         else:
-            message = _("<b>`{}` not tagged with `{}`</b>".format(id, tag))
+            message = _("<b>`{}` unchanged</b>".format(id))
     else:
         message = _("<b>supply type, id, tag</b>")
     bot.send_message_parsed(event.conv_id, message)
@@ -43,10 +43,12 @@ def tagindexdump(bot, event, *args):
             lines.append(_("key: {}").format(key))
             for item in list:
                 lines.append("... {}".format(item))
+        if len(lines) == 0:
+            continue
         chunks.append("<br />".join(lines))
 
     if len(chunks) == 0:
-        chunks = [_("no entries to list")]
+        chunks = [_("<b>no entries to list</b>")]
 
     bot.send_message_parsed(event.conv_id, "<br /><br />".join(chunks))
 
