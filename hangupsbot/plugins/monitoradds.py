@@ -33,7 +33,11 @@ def _watch_new_adds(bot, event, command):
         if event.user_id.chat_id in admins_list:
             return
 
-        mods_list = bot.get_config_suboption(event.conv_id, 'mods')
+        config_mods = bot.get_config_suboption(event.conv_id, 'mods') or []
+        tagged_mods = list(bot.tags.userlist(event.conv_id, "mod").keys())
+        tagged_botkeeper = list(bot.tags.userlist(event.conv_id, "botkeeper").keys())
+
+        mods_list = config_mods + tagged_mods + tagged_botkeeper
         try:
             if event.user_id.chat_id in mods_list:
                 return
