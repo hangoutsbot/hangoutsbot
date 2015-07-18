@@ -219,7 +219,7 @@ class tags:
                         self.add_to_index(type, tag, id)
 
     def refresh_indices(self):
-        self.indices = { "user":{}, "conv": {}, "convuser": {} }
+        self.indices = { "user-tags": {}, "tag-users":{}, "conv-tags": {}, "tag-convs": {} }
 
         self._load_from_memory("user_data", "user")
         self._load_from_memory("conv_data", "conv")
@@ -230,38 +230,53 @@ class tags:
                 if self.bot.memory.exists(["conv_data", conv_id, "tags-users"]):
                     for chat_id, tags in self.bot.memory["conv_data"][conv_id]["tags-users"].items():
                         for tag in tags:
-                            self.add_to_index("convuser", tag, conv_id + "|" + chat_id)
+                            self.add_to_index("user", tag, conv_id + "|" + chat_id)
 
-        logging.info("tags: refreshed user=[{}] conv=[{}] convuser=[{}]".format(
-            len(self.indices["user"]), len(self.indices["conv"]), len(self.indices["convuser"])))
+        logging.info("tags: refreshed")
 
     def add_to_index(self, type, tag, id):
-        if tag not in self.indices[type]:
-            self.indices[type][tag] = []
-        if id not in self.indices[type][tag]:
-            self.indices[type][tag].append(id)
-        logging.info("tags: adding {} {} {}".format(type, tag, id))
+        tag_to_object = "tag-{}s".format(type)
+        object_to_tag = "{}-tags".format(type)
+
+        if tag not in self.indices[tag_to_object]:
+            self.indices[tag_to_object][tag] = []
+        if id not in self.indices[tag_to_object][tag]:
+            self.indices[tag_to_object][tag].append(id)
+
+        if id not in self.indices[object_to_tag]:
+            self.indices[object_to_tag][id] = []
+        self.indices[object_to_tag][id].append(tag)
 
     def remove_from_index(self, type, tag, id):
-        if tag in self.indices[type]:
-            if id in self.indices[type][tag]:
-                self.indices[type][tag].remove(id)
+        tag_to_object = "tag-{}s".format(type)
+        object_to_tag = "{}-tags".format(type)
+
+        if tag in self.indices[tag_to_object]:
+            if id in self.indices[tag_to_object][tag]:
+                self.indices[tag_to_object][tag].remove(id)
+
+        if id in self.indices[object_to_tag]:
+            if tag in self.indices[object_to_tag][id]:
+                self.indices[object_to_tag][id].remove(tag)
 
     def update(self, type, id, action, tag):
         updated = False
         tags = None
 
         if type == "conv":
+            index_type = "conv"
             if id not in bot.conversations.catalog:
                 raise ValueError("tags: conversation {} does not exist".format(id))
             tags = self.bot.conversation_memory_get(id, "tags")
 
         elif type == "user":
+            index_type = "user"
             if not bot.conversations.get("chat_id:" + id):
                 raise ValueError("tags: user {} does not exist".format(id))
             tags = self.bot.user_memory_get(id, "tags")
 
         elif type == "convuser":
+            index_type = "user"
             [conv_id, chat_id] = id.split("|", maxsplit=1)
             if not bot.conversations.get("chat_id:" + chat_id):
                 raise ValueError("tags: user {} does not exist".format(chat_id))
@@ -281,13 +296,13 @@ class tags:
 
         if action == "set":
             tags.append(tag)
-            self.add_to_index(type, tag, id)
+            self.add_to_index(index_type, tag, id)
             updated = True
 
         elif action == "remove":
             try:
                 tags.remove(tag)
-                self.remove_from_index(type, tag, id)
+                self.remove_from_index(index_type, tag, id)
                 updated = True
             except ValueError as e:
                 # in case the value does not exist
@@ -326,8 +341,29 @@ class tags:
         """remove tag from (type=conv/user) id"""
         return self.update(type, id, "remove", tag)
 
-    def check(self, type, id, tag):
-        if tag in self.indices[type]:
-            if id in self.indices[user][tag]:
-                return True
-        return False
+    def useractive(self, chat_id, conv_id="*"):
+        """return active tags of user for current conv_id if supplied, globally if not"""
+        if conv_id != "*":
+            if conv_id not in bot.conversations.catalog:
+                raise ValueError("tags: conversation {} does not exist".format(conv_id))
+            per_conversation_user_override_key = (conv_id + "|" + chat_id)
+            if per_conversation_user_override_key in self.indices["user-tags"]:
+                return self.indices["user-tags"][per_conversation_user_override_key]
+
+        if chat_id in self.indices["user-tags"]:
+            return self.indices["user-tags"][chat_id]
+
+        return []
+
+    def userlist(self, conv_id, tags=False):
+        """return dict of participating chat_ids to tags, optionally filtered by tags list"""
+        userlist = self.bot.conversations.catalog[conv_id]["users"]
+        results = {}
+        for user in userlist:
+            chat_id = user[0][0]
+            user_tags = self.useractive(chat_id, conv_id)
+            if tags and not set(tags).issubset(set(user_tags)):
+                continue
+            results[chat_id] = user_tags
+        return results
+
