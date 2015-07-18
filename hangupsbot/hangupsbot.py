@@ -198,7 +198,7 @@ class HangupsBot(object):
                     loop.run_until_complete(self._client.connect())
                     sys.exit(0)
                 except Exception as e:
-                    logging.exception(_("unrecoverable low-level error"))
+                    logging.exception("CLIENT: unrecoverable low-level error")
                     print(_('Client unexpectedly disconnected:\n{}').format(e))
                     print(_('Waiting {} seconds...').format(5 + retry * 5))
                     time.sleep(5 + retry * 5)
@@ -287,9 +287,9 @@ class HangupsBot(object):
         try:
             _all_conversations = self._conv_list.get_all()
             convs = _all_conversations
-            logging.info(_("list_conversations() returned {} conversation(s)").format(len(convs)))
+            logging.info("list_conversations(): {} returned".format(len(convs)))
         except Exception as e:
-            logging.exception(_("list_conversations()"))
+            logging.exception("LIST_CONVERSATIONS(): failed")
             raise
 
         return convs
@@ -434,7 +434,7 @@ class HangupsBot(object):
                     self.send_html_to_conversation(new_conversation_id, introduction)
                     conversation = FakeConversation(self._client, new_conversation_id)
                 except Exception as e:
-                    logging.exception("GET_1TO1: failed to create 1-to-1 for user {}", chat_id)
+                    logging.exception("GET_1TO1: failed to create 1-to-1 for user {}".format(chat_id))
             else:
                 """legacy behaviour: user must say hi to the bot first
                 this creates a conversation entry in self._conv_list (even if the bot receives
@@ -552,9 +552,7 @@ class HangupsBot(object):
                 try:
                     method(parameters)
                 except Exception as e:
-                    message = _("_execute_hooks()"), hook, e
-                    print(message)
-                    logging.exception(message)
+                    logging.exception("HOOKS: {}".format(hook))
 
     def _on_disconnect(self):
         """Handle disconnecting"""
