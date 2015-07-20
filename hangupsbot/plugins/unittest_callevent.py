@@ -1,3 +1,5 @@
+import time
+
 import plugins
 
 import hangups
@@ -9,5 +11,35 @@ def _initialise(bot):
 
 def on_hangout_call(bot, event, command):
     if event.conv_event._event.hangout_event.event_type == hangups.schemas.ClientHangoutEventType.END_HANGOUT:
-        bot.send_html_to_conversation(event.conv_id, "<i><b>{}</b>, it's been 0 days since the last call</i>".format(event.user.full_name))
+        lastcall = bot.conversation_memory_get(event.conv_id, "lastcall")
+        if lastcall:
+            lastcaller = lastcall["caller"]
+            since = int(time.time() - lastcall["timestamp"])
+
+
+            if since < 60:
+                humantime = "{} seconds".format(since)
+            elif since < 3600:
+                humantime = "{} minutes".format(since // 60)
+            elif since < 86400:
+                humantime = "{} hours".format(since // 3600)
+            else:
+                humantime = "{} days".format(since // 86400)
+
+            if bot.conversations.catalog[event.conv_id]["type"] == "ONE_TO_ONE":
+                """subsequent calls for a ONE_TO_ONE"""
+                bot.send_message_parsed(event.conv_id,
+                    _("<b>It's been {} since the last call. Lonely? I can't reply you as I don't have speech synthesis (or speech recognition either!)</b>").format(humantime))
+
+            else:
+                """subsequent calls for a GROUP"""
+                bot.send_message_parsed(event.conv_id,
+                    _("<b>It's been {} since the last call. The last caller was <i>{}</i>.</b>").format(humantime, lastcaller))
+
+        else:
+            """first ever call for any conversation"""
+            bot.send_message_parsed(event.conv_id,
+                _("<b>No prizes for that call</b>"))
+
+        bot.conversation_memory_set(event.conv_id, "lastcall", { "caller": event.user.full_name, "timestamp": time.time() })
 
