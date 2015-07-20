@@ -87,50 +87,15 @@ class StatusEvent:
         self.text = ''
         self.from_bot = False
 
-    def load_user(self, bot):
-        """XXX: workaround for incomplete hangups user list"""
-
-        try:
-            if bot._user_list._self_user.id_.chat_id == self.user_id.chat_id:
-                """bot doesn't store itself in conversations catalog, so detect it explicitly"""
-                self.from_bot = True
-
-                self.user = bot._user_list._self_user
-
-            else:
-                self.from_bot = False
-
-                UserID = hangups.user.UserID(chat_id=self.user_id.chat_id, gaia_id=self.user_id.gaia_id)
-                try:
-                    """get it from hangups first if we can"""
-                    self.user = bot._user_list._user_dict[UserID]
-                except KeyError as e:
-                    """get it by searching conversation memory"""
-                    for user in bot.conversations.catalog[self.conv_id]["users"]:
-                        if self.user_id.chat_id == user[0][0]:
-                            UserID = hangups.user.UserID(chat_id=user[0][0], gaia_id=user[0][1])
-                            self.user = hangups.user.User(UserID, user[1], None, None, [], False)
-                            break
-
-        except Exception as e:
-            logging.exception("STATUSEVENT: no valid hangups user {}".format(self.user_id))
-
-        if not self.user:
-            self.user = hangups.user.User(
-                self.user_id, 
-                "unknown user (status event)", 
-                None, 
-                None, 
-                [], 
-                False )
-
 
 class TypingEvent(StatusEvent):
     def __init__(self, bot, state_update_event):
         super().__init__(bot, state_update_event)
         self.user_id = state_update_event.user_id
         self.timestamp = state_update_event.timestamp
-        self.load_user(bot)
+        self.user = bot.get_hangups_user(state_update_event.user_id, self.conv_id)
+        if self.user.is_self:
+            self.from_bot = True
         self.text = "typing"
 
 
@@ -139,7 +104,9 @@ class WatermarkEvent(StatusEvent):
         super().__init__(bot, state_update_event)
         self.user_id = state_update_event.participant_id
         self.timestamp = state_update_event.latest_read_timestamp
-        self.load_user(bot)
+        self.user = bot.get_hangups_user(state_update_event.participant_id, self.conv_id)
+        if self.user.is_self:
+            self.from_bot = True
         self.text = "watermark"
 
 
@@ -368,6 +335,61 @@ class HangupsBot(object):
             raise
 
         return convs
+
+    def get_hangups_user(self, user_id, conv_id=False):
+        hangups_user = False
+
+        if isinstance(user_id, str):
+            chat_id = user_id
+            gaia_id = user_id
+        else:
+            chat_id = user_id.chat_id
+            gaia_id = user_id.gaia_id
+
+        UserID = hangups.user.UserID(chat_id=chat_id, gaia_id=gaia_id)
+
+        try:
+            if self._user_list._self_user.id_.chat_id == chat_id:
+                """bot doesn't store itself in conversations catalog, so detect it explicitly"""
+                hangups_user = self._user_list._self_user
+
+            else:
+                try:
+                    """from hangups, if it exists"""
+                    hangups_user = self._user_list._user_dict[UserID]
+
+                except KeyError as e:
+                    """from permanent conversation memory"""
+                    if convid:
+                        conv_ids = [conv_id]
+                    else:
+                        # XXX: inefficient, search ALL conversations
+                        conv_ids = list(self.conversations.catalog.keys())
+
+                    for conv_id in conv_ids:
+                        cached_users = { u[0][0]: u for user in self.conversations.catalog[conv_id]["users"] }
+                        if chat_id in cached_users:
+                            UserID = hangups.user.UserID(
+                                chat_id=cached_users[chat_id][0][0],
+                                gaia_id=cached_users[chat_id][0][1])
+                            hangups_user = hangups.user.User(UserID, user[1], None, None, [], False)
+                            break
+
+        except Exception as e:
+            logging.exception("GET_HANGUPS_USER(): no valid hangups user {}".format(user_id))
+
+        if not hangups_user:
+            """if all else fails, create an "unknown" user"""
+            hangups_user = hangups.user.User(
+                UserID,
+                "unknown user (status event)",
+                None,
+                None,
+                [],
+                False )
+
+        return hangups_user
+
 
     def get_users_in_conversation(self, conv_ids):
         """list all users in supplied conv_id(s).
