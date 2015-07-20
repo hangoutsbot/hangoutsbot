@@ -20,14 +20,21 @@ class EventHandler:
         self._prefix_reprocessor = "uuid://"
         self._reprocessors = {}
 
-        self.pluggables = { "allmessages": [], "message":[], "membership":[], "rename":[], "sending":[] }
+        self.pluggables = { "allmessages": [],
+                            "call": [],
+                            "membership": [],
+                            "message": [],
+                            "rename": [],
+                            "sending":[],
+                            "typing": [],
+                            "watermark": [] }
 
         bot.register_shared('reprocessor.attach_reprocessor', self.attach_reprocessor)
 
 
     def register_handler(self, function, type="message", priority=50):
         """registers extra event handlers"""
-        if type in ["allmessages", "message", "membership", "rename"]:
+        if type in ["allmessages", "call", "membership", "message", "rename", "typing", "watermark"]:
             if not asyncio.iscoroutine(function):
                 # transparently convert into coroutine
                 function = asyncio.coroutine(function)
@@ -173,6 +180,20 @@ class EventHandler:
         """handle conversation name change"""
         yield from self.run_pluggable_omnibus("rename", self.bot, event, command)
 
+    @asyncio.coroutine
+    def handle_call(self, event):
+        """handle conversation name change"""
+        yield from self.run_pluggable_omnibus("call", self.bot, event, command)
+
+    @asyncio.coroutine
+    def handle_typing_notification(self, event):
+        """handle conversation name change"""
+        yield from self.run_pluggable_omnibus("typing", self.bot, event, command)
+
+    @asyncio.coroutine
+    def handle_watermark_notification(self, event):
+        """handle conversation name change"""
+        yield from self.run_pluggable_omnibus("watermark", self.bot, event, command)
 
     @asyncio.coroutine
     def run_pluggable_omnibus(self, name, *args, **kwargs):
