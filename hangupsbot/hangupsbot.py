@@ -512,9 +512,18 @@ class HangupsBot(object):
                                                    initial_data.sync_timestamp)
         self._conv_list.on_event.add_observer(self._on_event)
 
+        self._client.on_state_update.add_observer(self._on_other_event)
+
         self.conversations = conversation_memory(self)
 
         plugins.load(self, command)
+
+    def _on_other_event(self, state_update):
+        if state_update.typing_notification is not None:
+            print("typing notification: {}".format(state_update.typing_notification))
+
+        if state_update.watermark_notification is not None:
+            print("watermark_notification: {}".format(state_update.watermark_notification))
 
     def _on_event(self, conv_event):
         """Handle conversation events"""
