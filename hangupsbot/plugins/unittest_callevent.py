@@ -17,11 +17,11 @@ def on_hangout_call(bot, event, command):
             since = int(time.time() - lastcall["timestamp"])
 
 
-            if since < 60:
+            if since < 120:
                 humantime = "{} seconds".format(since)
-            elif since < 3600:
+            elif since < 7200:
                 humantime = "{} minutes".format(since // 60)
-            elif since < 86400:
+            elif since < 172800:
                 humantime = "{} hours".format(since // 3600)
             else:
                 humantime = "{} days".format(since // 86400)
