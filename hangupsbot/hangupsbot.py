@@ -71,6 +71,78 @@ class FakeConversation(object):
             )
 
 
+class StatusEvent:
+    """base class for all non-ConversationEvent
+        TypingEvent
+        WatermarkEvent
+    """
+    def __init__(self, bot, state_update_event):
+        self.conv_event = state_update_event
+        self.conv_id = state_update_event.conversation_id.id_
+        self.conv = None
+        self.event_id = None
+        self.user_id = None
+        self.user = None
+        self.timestamp = None
+        self.text = ''
+        self.from_bot = False
+
+    def load_user(self, bot):
+        """XXX: workaround for incomplete hangups user list"""
+
+        try:
+            if bot._user_list._self_user.id_.chat_id == self.user_id.chat_id:
+                """bot doesn't store itself in conversations catalog, so detect it explicitly"""
+                self.from_bot = True
+
+                self.user = bot._user_list._self_user
+
+            else:
+                self.from_bot = False
+
+                UserID = hangups.user.UserID(chat_id=self.user_id.chat_id, gaia_id=self.user_id.gaia_id)
+                try:
+                    """get it from hangups first if we can"""
+                    self.user = bot._user_list._user_dict[UserID]
+                except KeyError as e:
+                    """get it by searching conversation memory"""
+                    for user in bot.conversations.catalog[self.conv_id]["users"]:
+                        if self.user_id.chat_id == user[0][0]:
+                            UserID = hangups.user.UserID(chat_id=user[0][0], gaia_id=user[0][1])
+                            self.user = hangups.user.User(UserID, user[1], None, None, [], False)
+                            break
+
+        except Exception as e:
+            logging.exception("STATUSEVENT: no valid hangups user {}".format(self.user_id))
+
+        if not self.user:
+            self.user = hangups.user.User(
+                self.user_id, 
+                "unknown user (status event)", 
+                None, 
+                None, 
+                [], 
+                False )
+
+
+class TypingEvent(StatusEvent):
+    def __init__(self, bot, state_update_event):
+        super().__init__(bot, state_update_event)
+        self.user_id = state_update_event.user_id
+        self.timestamp = state_update_event.timestamp
+        self.load_user(bot)
+        self.text = "typing"
+
+
+class WatermarkEvent(StatusEvent):
+    def __init__(self, bot, state_update_event):
+        super().__init__(bot, state_update_event)
+        self.user_id = state_update_event.participant_id
+        self.timestamp = state_update_event.latest_read_timestamp
+        self.load_user(bot)
+        self.text = "watermark"
+
+
 class ConversationEvent(object):
     """Conversation event"""
     def __init__(self, bot, conv_event):
@@ -512,18 +584,28 @@ class HangupsBot(object):
                                                    initial_data.sync_timestamp)
         self._conv_list.on_event.add_observer(self._on_event)
 
-        self._client.on_state_update.add_observer(self._on_other_event)
+        self._client.on_state_update.add_observer(self._on_status_changes)
 
         self.conversations = conversation_memory(self)
 
         plugins.load(self, command)
 
-    def _on_other_event(self, state_update):
+
+    def _on_status_changes(self, state_update):
         if state_update.typing_notification is not None:
-            print("typing_notification: {}".format(state_update.typing_notification))
+            asyncio.async(
+                self._handlers.handle_typing_notification(
+                    TypingEvent(self, state_update.typing_notification)
+                )
+            ).add_done_callback(lambda future: future.result())
 
         if state_update.watermark_notification is not None:
-            print("watermark_notification: {}".format(state_update.watermark_notification))
+            asyncio.async(
+                self._handlers.handle_watermark_notification(
+                    WatermarkEvent(self, state_update.watermark_notification)
+                )
+            ).add_done_callback(lambda future: future.result())
+
 
     def _on_event(self, conv_event):
         """Handle conversation events"""
@@ -558,7 +640,12 @@ class HangupsBot(object):
 
         elif type(conv_event) is hangups.conversation_event.ConversationEvent:
             if conv_event._event.hangout_event:
-                print("hangouts_event: {}".format(conv_event._event.hangout_event))
+                asyncio.async(
+                    self._handlers.handle_call(event)
+                ).add_done_callback(lambda future: future.result())
+
+        else:
+            logging.warning("_on_event(): unrecognised event type: {}".format(type(conv_event)))
 
 
     def _execute_hook(self, funcname, parameters=None):
