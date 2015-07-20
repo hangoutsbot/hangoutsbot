@@ -520,7 +520,7 @@ class HangupsBot(object):
 
     def _on_other_event(self, state_update):
         if state_update.typing_notification is not None:
-            print("typing notification: {}".format(state_update.typing_notification))
+            print("typing_notification: {}".format(state_update.typing_notification))
 
         if state_update.watermark_notification is not None:
             print("watermark_notification: {}".format(state_update.watermark_notification))
@@ -555,6 +555,11 @@ class HangupsBot(object):
         elif isinstance(conv_event, hangups.RenameEvent):
             self._execute_hook("on_rename", event)
             asyncio.async(self._handlers.handle_chat_rename(event))
+
+        elif type(conv_event) is hangups.conversation_event.ConversationEvent:
+            if conv_event._event.hangout_event:
+                print("hangouts_event: {}".format(conv_event._event.hangout_event))
+
 
     def _execute_hook(self, funcname, parameters=None):
         for hook in self._hooks:
