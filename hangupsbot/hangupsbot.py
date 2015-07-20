@@ -382,7 +382,7 @@ class HangupsBot(object):
             """if all else fails, create an "unknown" user"""
             hangups_user = hangups.user.User(
                 UserID,
-                "unknown user (status event)",
+                "unknown user",
                 None,
                 None,
                 [],
