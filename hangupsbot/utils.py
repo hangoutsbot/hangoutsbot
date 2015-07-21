@@ -343,10 +343,10 @@ class conversation_memory:
                     filtered[convid] = convdata
         elif filter.startswith("chat_id:"):
             # return all conversations user is in
-            chat_id = filter[8:]
+            filter_chat_id = filter[8:]
             for convid, convdata in self.catalog.items():
-                for user in convdata["users"]:
-                    if user[0][0] == chat_id:
+                for chat_id in convdata["participants"]:
+                    if filter_chat_id == chat_id:
                         filtered[convid] = convdata
 
         return filtered
