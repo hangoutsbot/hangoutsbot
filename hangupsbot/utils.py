@@ -103,6 +103,11 @@ class conversation_memory:
         if self.bot.memory.exists(['convmem']):
             convs = self.bot.memory.get_by_path(['convmem'])
             logging.info("permanent: loading {} conversations from memory".format(len(convs)))
+
+            _users_added = {}
+            _users_incomplete = {}
+            _users_unknown = {}
+
             for convid in convs:
                 self.catalog[convid] = convs[convid]
 
@@ -133,17 +138,16 @@ class conversation_memory:
                 if "participants" not in self.catalog[convid]:
                     self.catalog[convid]["participants"] = [ u[0][0] for u in self.catalog[convid]["users"] ]
 
-                """add to permanent user memory if the record is valid"""
+                """legacy "users" list can construct a User with chat_id, full_name"""
 
                 if "users" in self.catalog[convid] and len(self.catalog[convid]["users"]) > 0:
-                    _added = []
 
                     for _u in self.catalog[convid]["users"]:
                         UserID = hangups.user.UserID(chat_id=_u[0][0], gaia_id=_u[0][1])
+
                         try:
                             User = self.bot._user_list._user_dict[UserID]
-                            results = self.store_user_memory(
-                                User, is_definitive=True, automatic_save=False)
+                            results = self.store_user_memory(User, is_definitive=True, automatic_save=False)
 
                         except KeyError:
                             User = hangups.user.User(
@@ -153,16 +157,44 @@ class conversation_memory:
                                 None,
                                 [],
                                 False)
-
-                            results = self.store_user_memory(
-                                User, is_definitive=False, automatic_save=False)
+                            results = self.store_user_memory(User, is_definitive=False, automatic_save=False)
 
                         if results:
-                            _added.append((_u[0][0], _u[1]))
+                            _users_added[ _u[0][0] ] = _u[1]
 
-                    if len(_added) > 0:
-                        logging.info("permanent: users added when loading {}: {}".format(
-                            convid, _added))
+                """simplified "participants" list has insufficient data to construct a passable User"""
+
+                if "participants" in self.catalog[convid] and len(self.catalog[convid]["participants"]) > 0:
+
+                    for _chat_id in self.catalog[convid]["participants"]:
+                        try:
+                            UserID = hangups.user.UserID(chat_id=_chat_id, gaia_id=_chat_id)
+                            User = self.bot._user_list._user_dict[UserID]
+                            results = self.store_user_memory(User, is_definitive=True, automatic_save=False)
+                            if results:
+                                _users_added[_chat_id] = User.full_name
+
+                        except KeyError:
+                            cached = False
+                            if self.bot.memory.exists(["user_data", _chat_id, "_hangups"]):
+                                cached = self.bot.memory.get_by_path(["user_data", _chat_id, "_hangups"])
+                                if cached["is_definitive"]:
+                                    # ignore definitive entries
+                                    continue
+
+                            if cached:
+                                _users_incomplete[_chat_id] = cached["full_name"]
+                            else:
+                                _users_unknown[_chat_id] = "unidentified"
+
+            if len(_users_added) > 0:
+                logging.info("permanent: added users {}".format(_users_added))
+
+            if len(_users_incomplete) > 0:
+                logging.info("permanent: incomplete users {}".format(_users_incomplete))
+
+            if len(_users_unknown) > 0:
+                logging.warning("permanent: unknown users {}".format(_users_unknown))
 
 
     def save_to_memory(self):
