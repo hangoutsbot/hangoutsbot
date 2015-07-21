@@ -109,36 +109,74 @@ class conversation_memory:
 
     def update(self, conv, source="unknown", automatic_save=True):
         conv_title = hangups_get_conv_name(conv)
+
         if conv.id_ not in self.catalog:
             self.catalog[conv.id_] = {}
 
+        original = self.catalog[conv.id_]
+        memory = {}
+
         """base information"""
-        self.catalog[conv.id_] = {
+        memory = {
             "title": conv_title,
             "source": source,
-            "users" : [], # uninitialised
-            "updated": datetime.datetime.now().strftime("%Y%m%d%H%M%S")}
+            "users" : [] }
 
         """store the user list"""
-        self.catalog[conv.id_]["users"] = [[[user.id_.chat_id, user.id_.gaia_id], user.full_name ] for user in conv.users if not user.is_self]
+        memory["users"] = [[[user.id_.chat_id, user.id_.gaia_id], user.full_name ] for user in conv.users if not user.is_self]
 
         """store the conversation type: GROUP, ONE_TO_ONE"""
         if conv._conversation.type_ == hangups.schemas.ConversationType.GROUP:
-            self.catalog[conv.id_]["type"] = "GROUP"
+            memory["type"] = "GROUP"
         else: 
             # conv._conversation.type_ == hangups.schemas.ConversationType.STICKY_ONE_TO_ONE
-            self.catalog[conv.id_]["type"] = "ONE_TO_ONE"
+            memory["type"] = "ONE_TO_ONE"
 
         """store the off_the_record state"""
         if conv.is_off_the_record:
-            self.catalog[conv.id_]["history"] = False
+            memory["history"] = False
         else:
-            self.catalog[conv.id_]["history"] = True
+            memory["history"] = True
 
-        if automatic_save:
-            self.save_to_memory()
+        """check for taint, reduce disk trashing
+            only write if its a new conversation, or there is a change in:
+                title, type (should not be possible!), history, users
+        """
 
-        logging.info("conversation_memory(): updated {} {}".format(conv.id_, conv_title))
+        changed = False
+
+        if original:
+            """existing tracked conversation"""
+            for key in ["title", "type", "history", "users"]:
+                if key == "users":
+                    """special processing for users list"""
+                    if (set([ (u[0][0], u[0][1], u[1]) for u in original["users"] ])
+                            != set([ (u[0][0], u[0][1], u[1]) for u in memory["users"] ])):
+                        logging.info("convmem: users changed {} ({})".format(conv_title, conv.id_))
+                        changed = True
+                        break
+                else:
+                    if original[key] != memory[key]:
+                        logging.info("convmem: {} changed {} ({})".format(key,  conv_title, conv.id_))
+                        changed = True
+                        break
+        else:
+            """new conversation"""
+            logging.info("convmem: new {} ({})".format(conv_title, conv.id_))
+            changed = True
+
+        if changed:
+            memory["updated"] = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            self.catalog[conv.id_] = memory
+
+            if automatic_save:
+                self.save_to_memory()
+
+            logging.info("convmem: {} updated {}".format(conv.id_, conv_title))
+
+        else:
+            logging.info("convmem: {} unchanged {}".format(conv.id_, conv_title))
+
 
     def remove(self, convid):
         if convid in self.catalog:
@@ -171,6 +209,13 @@ class conversation_memory:
             for convid, convdata in self.catalog.items():
                 if filter_lower in convdata["title"].lower():
                     filtered[convid] = convdata
+        elif filter.startswith("chat_id:"):
+            # return all conversations user is in
+            chat_id = filter[8:]
+            for convid, convdata in self.catalog.items():
+                for user in convdata["users"]:
+                    if user[0][0] == chat_id:
+                        filtered[convid] = convdata
 
         return filtered
 
