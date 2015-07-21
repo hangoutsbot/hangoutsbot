@@ -93,7 +93,7 @@ class TypingEvent(StatusEvent):
         super().__init__(bot, state_update_event)
         self.user_id = state_update_event.user_id
         self.timestamp = state_update_event.timestamp
-        self.user = bot.get_hangups_user(state_update_event.user_id, self.conv_id)
+        self.user = bot.get_hangups_user(state_update_event.user_id)
         if self.user.is_self:
             self.from_bot = True
         self.text = "typing"
@@ -104,7 +104,7 @@ class WatermarkEvent(StatusEvent):
         super().__init__(bot, state_update_event)
         self.user_id = state_update_event.participant_id
         self.timestamp = state_update_event.latest_read_timestamp
-        self.user = bot.get_hangups_user(state_update_event.participant_id, self.conv_id)
+        self.user = bot.get_hangups_user(state_update_event.participant_id)
         if self.user.is_self:
             self.from_bot = True
         self.text = "watermark"
@@ -336,7 +336,7 @@ class HangupsBot(object):
 
         return convs
 
-    def get_hangups_user(self, user_id, conv_id=False):
+    def get_hangups_user(self, user_id):
         hangups_user = False
 
         if isinstance(user_id, str):
@@ -348,38 +348,28 @@ class HangupsBot(object):
 
         UserID = hangups.user.UserID(chat_id=chat_id, gaia_id=gaia_id)
 
-        try:
-            if self._user_list._self_user.id_.chat_id == chat_id:
-                """bot doesn't store itself in conversations catalog, so detect it explicitly"""
-                hangups_user = self._user_list._self_user
-
-            else:
-                try:
-                    """from hangups, if it exists"""
-                    hangups_user = self._user_list._user_dict[UserID]
-
-                except KeyError as e:
-                    """from permanent conversation memory"""
-                    if convid:
-                        conv_ids = [conv_id]
-                    else:
-                        # XXX: inefficient, search ALL conversations
-                        conv_ids = list(self.conversations.catalog.keys())
-
-                    for conv_id in conv_ids:
-                        cached_users = { u[0][0]: u for user in self.conversations.catalog[conv_id]["users"] }
-                        if chat_id in cached_users:
-                            UserID = hangups.user.UserID(
-                                chat_id=cached_users[chat_id][0][0],
-                                gaia_id=cached_users[chat_id][0][1])
-                            hangups_user = hangups.user.User(UserID, user[1], None, None, [], False)
-                            break
-
-        except Exception as e:
-            logging.exception("GET_HANGUPS_USER(): no valid hangups user {}".format(user_id))
-
+        """from hangups, if it exists"""
         if not hangups_user:
-            """if all else fails, create an "unknown" user"""
+            try:
+                hangups_user = self._user_list._user_dict[UserID]
+            except KeyError as e:
+                pass
+
+        """from permanent conversation user/memory"""
+        if not hangups_user:
+            if self.memory.exists(["user_data", chat_id, "_hangups"]):
+                _cached = self.memory.get_by_path(["user_data", chat_id, "_hangups"])
+
+                hangups_user = hangups.user.User(
+                    UserID, 
+                    _cached["full_name"],
+                    _cached["first_name"],
+                    _cached["photo_url"],
+                    _cached["emails"],
+                    _cached["is_self"] )
+
+        """if all else fails, create an "unknown" user"""
+        if not hangups_user:
             hangups_user = hangups.user.User(
                 UserID,
                 "unknown user",
@@ -392,9 +382,8 @@ class HangupsBot(object):
 
 
     def get_users_in_conversation(self, conv_ids):
-        """list all users in supplied conv_id(s).
-        supply many conv_id as a list.
-        """
+        """list all unique users in supplied conv_id or list of conv_ids"""
+
         if isinstance(conv_ids, str):
             conv_ids = [conv_ids]
         conv_ids = list(set(conv_ids))
@@ -402,14 +391,10 @@ class HangupsBot(object):
         all_users = {}
         for convid in conv_ids:
             conv_data = self.conversations.catalog[convid]
-            for user in conv_data["users"]:
-                UserID = hangups.user.UserID(chat_id=user[0][0], gaia_id=user[0][1])
-                try:
-                    hangups_user = self._user_list._user_dict[UserID]
-                except KeyError as e:
-                    hangups_user = hangups.user.User(UserID, user[1], None, None, [], False)
-                all_users[UserID] = hangups_user
-        all_users = all_users.values()
+            for chat_id in conv_data["participants"]:
+                all_users[chat_id] = self.get_hangups_user(chat_id) # by key for uniqueness
+
+        all_users = list(all_users.values())
 
         return all_users
 
@@ -604,6 +589,7 @@ class HangupsBot(object):
                                                    initial_data.conversation_states,
                                                    self._user_list,
                                                    initial_data.sync_timestamp)
+
         self._conv_list.on_event.add_observer(self._on_event)
 
         self._client.on_state_update.add_observer(self._on_status_changes)
