@@ -57,29 +57,40 @@ class conversation_memory:
     bot = None
     catalog = {}
 
+    log_info_unchanged = False
+
     def __init__(self, bot):
         self.bot = bot
         self.catalog = {}
+
         self.load_from_memory()
         self.load_from_hangups()
+
         self.save_to_memory()
-        logging.info("conversation_memory(): {} loaded".format(len(self.catalog)))
+
+        logging.info("convmem: {} unique conversations in permanent memory".format(len(self.catalog)))
+        if self.bot.memory.exists(["user_data"]):
+            logging.info("convmem: {} unique users in permanent memory".format(len(self.bot.memory["user_data"])))
 
         sys.modules[__name__].bot = bot # workaround for drop-ins
 
     def load_from_hangups(self):
-        logging.info("convmem: loading users from hangups")
+        logging.info("convmem: loading {} users from hangups".format(
+            len(self.bot._user_list._user_dict)))
+
         for User in self.bot._user_list.get_all():
             self.store_user_memory(User, automatic_save=False, is_definitive=True)
 
-        logging.info("convmem: loading conversations from hangups")
+        logging.info("convmem: loading {} conversations from hangups".format(
+            len(self.bot._conv_list._conv_dict)))
+
         for Conversation in self.bot._conv_list.get_all():
             self.update(Conversation, source="init", automatic_save=False)
  
     def load_from_memory(self):
         if self.bot.memory.exists(['convmem']):
             convs = self.bot.memory.get_by_path(['convmem'])
-            logging.info("convmem(): loading conversations from memory {}".format(len(convs)))
+            logging.info("convmem: loading {} conversations from memory".format(len(convs)))
             for convid in convs:
                 self.catalog[convid] = convs[convid]
 
@@ -201,7 +212,9 @@ class conversation_memory:
             return True
 
         else:
-            logging.info("convmem: user {} unchanged {}".format(User.id_.chat_id, User.full_name))
+            if self.log_info_unchanged:
+                logging.info("convmem: user {} unchanged".format(User.id_.chat_id))
+
             return False
 
 
@@ -293,20 +306,21 @@ class conversation_memory:
             logging.info("convmem: {} updated {}".format(conv.id_, conv_title))
 
         else:
-            logging.info("convmem: {} unchanged {}".format(conv.id_, conv_title))
+            if self.log_info_unchanged:
+                logging.info("convmem: {} unchanged".format(conv.id_))
 
 
     def remove(self, convid):
         if convid in self.catalog:
             if self.catalog[convid]["type"] == "GROUP":
-                logging.info("conversation_memory(): removing {} {}".format(convid, self.catalog[convid]["title"]))
+                logging.info("convmem: removing {} {}".format(convid, self.catalog[convid]["title"]))
                 del(self.catalog[convid])
                 self.save_to_memory()
             else:
-                logging.warning("conversation_memory(): cannot remove {} {} {}".format(
+                logging.warning("convmem: cannot remove {} {} {}".format(
                     self.catalog[convid]["type"], convid, self.catalog[convid]["title"]))
         else:
-            logging.warning("conversation_memory(): cannot remove {}, not found".format(convid))
+            logging.warning("convmem: cannot remove {}, not found".format(convid))
 
     def get(self, filter=False):
         filtered = {} # function always return subset of self.catalog
