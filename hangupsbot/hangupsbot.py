@@ -394,7 +394,7 @@ class HangupsBot(object):
             for chat_id in conv_data["participants"]:
                 all_users[chat_id] = self.get_hangups_user(chat_id) # by key for uniqueness
 
-        all_users = all_users.values()
+        all_users = list(all_users.values())
 
         return all_users
 
