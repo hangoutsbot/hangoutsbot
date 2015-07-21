@@ -9,6 +9,9 @@ from hangups.ui.utils import get_conv_name as hangups_get_conv_name
 bot = None
 
 
+logger = logging.getLogger(__name__)
+
+
 def text_to_segments(text):
     """Create list of message segments from text"""
     # Replace two consecutive spaces with space and non-breakable space,
@@ -44,12 +47,12 @@ def class_from_name(module_name, class_name):
 
 
 def get_conv_name(conv, truncate=False):
-    logging.warning("DEPRECATED: use bot.conversations.get_name()")
+    logger.warning("DEPRECATED: use bot.conversations.get_name()")
     return bot.conversations.get_name(conv)
 
 
 def get_all_conversations(filter=False):
-    logging.warning("DEPRECATED: use bot.conversations.get()")
+    logger.warning("DEPRECATED: use bot.conversations.get()")
     return bot.conversations.get(filter)
 
 
@@ -68,7 +71,7 @@ class conversation_memory:
 
         self.save_to_memory()
 
-        logging.info("permanent: conversations, total: {}".format(len(self.catalog)))
+        logger.info("total conversations: {}".format(len(self.catalog)))
 
         if self.bot.memory.exists(["user_data"]):
             count_user = 0
@@ -81,19 +84,19 @@ class conversation_memory:
                     if self.bot.memory["user_data"][chat_id]["_hangups"]["is_definitive"]:
                         count_user_cached_definitive = count_user_cached_definitive + 1
 
-            logging.info("permanent: users, total: {} cached: {} definitive: {}".format(
+            logger.info("total users: {} cached: {} definitive: {}".format(
                 len(self.bot.memory["user_data"]), count_user, count_user_cached, count_user_cached_definitive))
 
         sys.modules[__name__].bot = bot # workaround for drop-ins
 
     def load_from_hangups(self):
-        logging.info("permanent: loading {} users from hangups".format(
+        logger.info("loading {} users from hangups".format(
             len(self.bot._user_list._user_dict)))
 
         for User in self.bot._user_list.get_all():
             self.store_user_memory(User, automatic_save=False, is_definitive=True)
 
-        logging.info("permanent: loading {} conversations from hangups".format(
+        logger.info("loading {} conversations from hangups".format(
             len(self.bot._conv_list._conv_dict)))
 
         for Conversation in self.bot._conv_list.get_all():
@@ -102,7 +105,7 @@ class conversation_memory:
     def load_from_memory(self):
         if self.bot.memory.exists(['convmem']):
             convs = self.bot.memory.get_by_path(['convmem'])
-            logging.info("permanent: loading {} conversations from memory".format(len(convs)))
+            logger.info("loading {} conversations from memory".format(len(convs)))
 
             _users_added = {}
             _users_incomplete = {}
@@ -188,13 +191,13 @@ class conversation_memory:
                                 _users_unknown[_chat_id] = "unidentified"
 
             if len(_users_added) > 0:
-                logging.info("permanent: added users {}".format(_users_added))
+                logger.info("added users: {}".format(_users_added))
 
             if len(_users_incomplete) > 0:
-                logging.info("permanent: incomplete users {}".format(_users_incomplete))
+                logger.info("incomplete users: {}".format(_users_incomplete))
 
             if len(_users_unknown) > 0:
-                logging.warning("permanent: unknown users {}".format(_users_unknown))
+                logger.warning("unknown users: {}".format(_users_unknown))
 
 
     def save_to_memory(self):
@@ -209,7 +212,7 @@ class conversation_memory:
         if self.bot.memory.exists(["user_data", User.id_.chat_id, "_hangups"]):
             cached = self.bot.memory.get_by_path(["user_data", User.id_.chat_id, "_hangups"])
             if "is_definitive" in cached and cached["is_definitive"] and is_definitive == False:
-                logging.info("permanent: user {} skipped update {}".format(cached["full_name"], cached["chat_id"]))
+                logger.info("skipped user update: {} ({})".format(cached["full_name"], cached["chat_id"]))
                 return False
 
         user_dict ={
@@ -228,21 +231,21 @@ class conversation_memory:
                 try:
                     if key == "emails":
                         if set(user_dict[key]) != set(cached[key]):
-                            logging.info("permanent: user email changed {} ({})".format(User.full_name, User.id_.chat_id))
+                            logger.info("user email changed {} ({})".format(User.full_name, User.id_.chat_id))
                             changed = True
                             break
                     else:
                         if user_dict[key] != cached[key]:
-                            logging.info("permanent: user {} changed {} ({})".format(key, User.full_name, User.id_.chat_id))
+                            logger.info("user {} changed {} ({})".format(key, User.full_name, User.id_.chat_id))
                             changed = True
                             break
 
                 except KeyError as e:
-                    logging.info("permanent: user {} missing {} ({})".format(key, User.full_name, User.id_.chat_id))
+                    logger.info("user {} missing {} ({})".format(key, User.full_name, User.id_.chat_id))
                     changed = True
                     break
         else:
-            logging.info("permanent: new user {} ({})".format(User.full_name, User.id_.chat_id))
+            logger.info("new user {} ({})".format(User.full_name, User.id_.chat_id))
             changed = True
 
         if changed:
@@ -252,12 +255,12 @@ class conversation_memory:
             if automatic_save:
                 self.save_to_memory()
 
-            logging.info("permanent: user {} updated {}".format(User.id_.chat_id, User.full_name))
+            logger.info("user {} updated {}".format(User.id_.chat_id, User.full_name))
             return True
 
         else:
             if self.log_info_unchanged:
-                logging.info("permanent: user {} unchanged".format(User.id_.chat_id))
+                logger.info("user {} unchanged".format(User.id_.chat_id))
 
             return False
 
@@ -313,7 +316,7 @@ class conversation_memory:
                 try:
                     if key == "participants":
                         if set(original["participants"]) != set(memory["participants"]):
-                            logging.info("permanent: participants changed {} ({})".format(conv_title, conv.id_))
+                            logger.info("conv participants changed {} ({})".format(conv_title, conv.id_))
                             changed = True
                             break
 
@@ -321,23 +324,23 @@ class conversation_memory:
                         """special processing for users list"""
                         if (set([ (u[0][0], u[0][1], u[1]) for u in original["users"] ])
                                 != set([ (u[0][0], u[0][1], u[1]) for u in memory["users"] ])):
-                            logging.info("permanent: users changed {} ({})".format(conv_title, conv.id_))
+                            logger.info("conv users changed {} ({})".format(conv_title, conv.id_))
                             changed = True
                             break
 
                     else:
                         if original[key] != memory[key]:
-                            logging.info("permanent: {} changed {} ({})".format(key,  conv_title, conv.id_))
+                            logger.info("conv {} changed {} ({})".format(key,  conv_title, conv.id_))
                             changed = True
                             break
 
                 except KeyError as e:
-                    logging.info("permanent: missing {} {} ({})".format(key,  conv_title, conv.id_))
+                    logger.info("conv missing {} {} ({})".format(key,  conv_title, conv.id_))
                     changed = True
                     break
         else:
             """new conversation"""
-            logging.info("permanent: new {} ({})".format(conv_title, conv.id_))
+            logger.info("new conv {} ({})".format(conv_title, conv.id_))
             changed = True
 
         if changed:
@@ -347,24 +350,24 @@ class conversation_memory:
             if automatic_save:
                 self.save_to_memory()
 
-            logging.info("permanent: {} updated {}".format(conv.id_, conv_title))
+            logger.info("conv {} updated {}".format(conv.id_, conv_title))
 
         else:
             if self.log_info_unchanged:
-                logging.info("permanent: {} unchanged".format(conv.id_))
+                logger.info("conv {} unchanged".format(conv.id_))
 
 
     def remove(self, convid):
         if convid in self.catalog:
             if self.catalog[convid]["type"] == "GROUP":
-                logging.info("permanent: removing {} {}".format(convid, self.catalog[convid]["title"]))
+                logger.info("removing conv: {} {}".format(convid, self.catalog[convid]["title"]))
                 del(self.catalog[convid])
                 self.save_to_memory()
             else:
-                logging.warning("permanent: cannot remove {} {} {}".format(
+                logger.warning("cannot remove conv: {} {} {}".format(
                     self.catalog[convid]["type"], convid, self.catalog[convid]["title"]))
         else:
-            logging.warning("permanent: cannot remove {}, not found".format(convid))
+            logger.warning("cannot remove: {}, not found".format(convid))
 
     def get(self, filter=False):
         filtered = {} # function always return subset of self.catalog
