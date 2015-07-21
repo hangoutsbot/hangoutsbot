@@ -226,7 +226,8 @@ class conversation_memory:
 
         memory["participants"] = []
         for User in conv.users:
-            memory["participants"].append(User.id_.chat_id)
+            if not User.is_self:
+                memory["participants"].append(User.id_.chat_id)
             self.store_user_memory(User, automatic_save, is_definitive=True)
 
         """store the conversation type: GROUP, ONE_TO_ONE"""
