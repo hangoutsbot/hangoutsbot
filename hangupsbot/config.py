@@ -1,18 +1,23 @@
 import collections, datetime, functools, json, glob, logging, os, shutil, sys, time
 
+from threading import Timer
+
 
 logger = logging.getLogger(__name__)
 
 
 class Config(collections.MutableMapping):
     """Configuration JSON storage class"""
-    def __init__(self, filename, default=None, failsafe_backups=0):
+    def __init__(self, filename, default=None, failsafe_backups=0, save_delay=0):
         self.filename = filename
         self.default = None
         self.config = {}
         self.changed = False
         self.failsafe_backups = failsafe_backups
+        self.save_delay = save_delay
         self.load()
+
+        self._timer_save = False
 
     def _make_failsafe_backup(self):
         try:
@@ -80,7 +85,15 @@ class Config(collections.MutableMapping):
         self.config = json.loads(json_str)
         self.changed = True
 
-    def save(self):
+    def save(self, delay=True):
+        if self.save_delay:
+            if delay:
+                if self._timer_save and self._timer_save.is_alive():
+                    self._timer_save.cancel()
+                self._timer_save = Timer(self.save_delay, self.save, [], {"delay": False})
+                self._timer_save.start()
+                return False
+
         """Save config to file (only if config has changed)"""
         if self.changed:
             start_time = time.time()

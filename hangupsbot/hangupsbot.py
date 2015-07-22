@@ -162,8 +162,13 @@ class HangupsBot(object):
         # load in previous memory, or create new one
         self.memory = None
         if memory_file:
-            print(_("HangupsBot: memory file will be used: {}").format(memory_file))
-            self.memory = config.Config(memory_file, failsafe_backups=3)
+            _failsafe_backups = int(self.get_config_option('memory-failsafe_backups') or 3)
+            _save_delay = int(self.get_config_option('memory-save_delay') or 1)
+
+            logging.info("memory = {}, failsafe = {}, delay = {}".format(
+                memory_file, _failsafe_backups, _save_delay))
+
+            self.memory = config.Config(memory_file, failsafe_backups=_failsafe_backups, save_delay=_save_delay)
             if not os.path.isfile(memory_file):
                 try:
                     print(_("creating memory file: {}").format(memory_file))
