@@ -32,6 +32,11 @@ def text_to_segments(text):
     return segments
 
 
+def remove_accents(text):
+    """remove accents from unicode text, allows east asian languages through"""
+    return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
+
+
 def unicode_to_ascii(text):
     """Transliterate unicode characters to ASCII"""
     return unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode()

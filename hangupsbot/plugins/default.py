@@ -4,7 +4,7 @@ import hangups
 
 import plugins
 
-from utils import text_to_segments, simple_parse_to_segments
+from utils import text_to_segments, simple_parse_to_segments, remove_accents
 
 from commands import command
 
@@ -274,7 +274,10 @@ def users(bot, event, *args):
 
 def user(bot, event, username, *args):
     """find people by name"""
+
     username_lower = username.strip().lower()
+    username_upper = username.strip().upper()
+
     segments = [hangups.ChatMessageSegment(_('results for user named "{}":').format(username),
                                            is_bold=True),
                 hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
@@ -284,7 +287,9 @@ def user(bot, event, username, *args):
         all_known_users[chat_id] = bot.get_hangups_user(chat_id)
 
     for u in sorted(all_known_users.values(), key=lambda x: x.full_name.split()[-1]):
-        if not username_lower in u.full_name.lower():
+        if (not username_lower in u.full_name.lower() and
+            not username_upper in remove_accents(u.full_name.upper())):
+
             continue
 
         link = 'https://plus.google.com/u/0/{}/about'.format(u.id_.chat_id)
