@@ -163,7 +163,7 @@ class HangupsBot(object):
         self.memory = None
         if memory_file:
             print(_("HangupsBot: memory file will be used: {}").format(memory_file))
-            self.memory = config.Config(memory_file)
+            self.memory = config.Config(memory_file, failsafe_backups=3)
             if not os.path.isfile(memory_file):
                 try:
                     print(_("creating memory file: {}").format(memory_file))
