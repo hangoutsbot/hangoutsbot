@@ -114,28 +114,30 @@ class conversation_memory:
         """construct the conversation memory keys and standardisethe stored structure
         devs: migrate new keys here, also add to attribute change checks in .update()
         """
+        memory_updated = False
 
         if not self.bot.memory.exists(['convmem']):
             self.bot.memory.set_by_path(['convmem'], {})
+            memory_updated = True
 
         convs = self.bot.memory.get_by_path(['convmem'])
         for conv_id in convs:
             conv = convs[conv_id]
-            changed = False
+            attribute_modified = False
 
             if "users" not in conv:
                 conv["users"] = []
-                changed = True
+                attribute_modified = True
 
             if "type" not in conv:
                 conv["type"] = "unknown"
-                changed = True
+                attribute_modified = True
 
             if conv["type"] == "unknown":
                 """intelligently guess the type"""
                 if len(conv["users"]) > 1:
                     conv["type"] = "GROUP"
-                    changed = True
+                    attribute_modified = True
                 else:
                     if self.bot.memory.exists(["user_data"]):
                         """inefficient one-off search"""
@@ -143,24 +145,25 @@ class conversation_memory:
                             if self.bot.memory.exists(["user_data", chat_id, "1on1"]):
                                 if self.bot.memory["user_data"][chat_id]["1on1"] == conv_id:
                                     conv["type"] = "ONE_TO_ONE"
-                                    changed = True
+                                    attribute_modified = True
                                     break
 
             if "history" not in conv:
                 conv["history"] = True
-                changed = True
+                attribute_modified = True
 
             if "participants" not in conv:
                 if conv["users"]:
                     conv["participants"] = [ u[0][0] for u in conv["users"] ]
                 else:
                     conv["participants"] = []
-                changed = True
+                attribute_modified = True
 
-            if changed:
+            if attribute_modified:
                 self.bot.memory.set_by_path(['convmem', conv_id, conv])
+                memory_updated = True
 
-        return changed
+        return memory_updated
 
 
     def load_from_memory(self):
