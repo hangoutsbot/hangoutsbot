@@ -32,7 +32,23 @@ class Config(collections.MutableMapping):
 
         return True
 
-    def load(self):
+    def _recover_from_failsafe(self):
+        existing = sorted(glob.glob(self.filename + ".*.bak"))
+        while len(existing) > 0:
+            try:
+                recovery_filename = existing.pop()
+                json.load(open(recovery_filename))
+                shutil.copy2(recovery_filename, self.filename)
+                self.load(recovery=True)
+                logger.info("recovery successful: {}".format(recovery_filename))
+                return True
+            except IOError:
+                pass
+            except ValueError:
+                logger.error("corrupted recovery: {}".format(self.filename))
+        return False
+
+    def load(self, recovery=False):
         """Load config from file"""
         try:
             self.config = json.load(open(self.filename))
@@ -42,6 +58,9 @@ class Config(collections.MutableMapping):
             self.config = {}
 
         except ValueError:
+            if not recovery and self.failsafe_backups > 0 and self._recover_from_failsafe():
+                return
+
             logger.exception("malformed json: {}".format(self.filename))
 
             # instructive error-handling for n00bs, including me!
