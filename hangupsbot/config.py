@@ -1,7 +1,13 @@
 import collections
 import functools
 import json
+import logging
 import sys
+import time
+
+
+logger = logging.getLogger(__name__)
+
 
 class Config(collections.MutableMapping):
     """Configuration JSON storage class"""
@@ -16,13 +22,19 @@ class Config(collections.MutableMapping):
         """Load config from file"""
         try:
             self.config = json.load(open(self.filename))
+            logger.info("{} read".format(self.filename))
+
         except IOError:
             self.config = {}
+
         except ValueError:
-            # better error-handling for n00bs, including me!
-            print(_("exception occurred, config.json likely malformed"))
-            print(_("  check {}").format(self.filename))
-            print(_("  {}").format(sys.exc_info()[1]))
+            logger.exception("malformed json: {}".format(self.filename))
+
+            # instructive error-handling for n00bs, including me!
+            print("EXCEPTION: .json likely malformed")
+            print("  check {}".format(self.filename))
+            print("  {}".format(sys.exc_info()[1]))
+
             sys.exit(0)
 
         self.changed = False
@@ -38,9 +50,16 @@ class Config(collections.MutableMapping):
     def save(self):
         """Save config to file (only if config has changed)"""
         if self.changed:
+            start_time = time.time()
             with open(self.filename, 'w') as f:
                 json.dump(self.config, f, indent=2, sort_keys=True)
                 self.changed = False
+            interval = time.time() - start_time
+
+            logger.info("{} write {}".format(self.filename, interval))
+
+        return self.changed
+
 
     def get_by_path(self, keys_list):
         """Get item from config by path (list of keys)"""
