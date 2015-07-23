@@ -12,15 +12,15 @@ def _initialise(bot):
 def lookup(bot, event, *args):
     """find keywords in a specified spreadsheet"""
 
-    if not bot.get_config_option('spreadsheet_enabled'):
+    if not bot.get_config_suboption(event.conv_id, 'spreadsheet_enabled'):
         bot.send_message_parsed(event.conv, _("Spreadsheet function disabled"))
         return
 
-    if not bot.get_config_option('spreadsheet_url'):
+    if not bot.get_config_suboption(event.conv_id, 'spreadsheet_url'):
         bot.send_message_parsed(event.conv, _("Spreadsheet URL not set"))
         return
 
-    spreadsheet_url = bot.get_config_option('spreadsheet_url')
+    spreadsheet_url = bot.get_config_suboption('spreadsheet_url')
     table_class = "waffle" # Name of table class to search. Note that 'waffle' seems to be the default for all spreadsheets
 
     if args[0].startswith('<'):
