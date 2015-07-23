@@ -7,6 +7,9 @@ import plugins
 import threadmanager
 
 
+logger = logging.getLogger(__name__)
+
+
 def _initialise(bot):
     loop = asyncio.get_event_loop()
     threadmanager.start_thread(_periodic_watermark_update, args=(
@@ -89,7 +92,7 @@ class watermark_updater:
             self.busy = False
             return
 
-        logging.info("botalive: watermarking {}".format(conv_id))
+        logger.info("watermarking {}".format(conv_id))
 
         asyncio.async(
             self.bot._client.updatewatermark(
@@ -105,12 +108,12 @@ class watermark_updater:
         except Exception as e:
             self.critical_errors = self.critical_errors + 1
 
-            message = "botalive: critical error {}, clearing queue".format(self.critical_errors)
+            message = "critical error {}, clearing queue".format(self.critical_errors)
             print(message)
-            logging.exception(message)
+            logger.exception(message)
 
             if self.critical_errors > 3:
-                logging.error("botalive: critical error threshold reached, exiting thread")
+                logger.error("critical error threshold reached, exiting thread")
                 exit()
 
             self.queue.clear()

@@ -25,6 +25,9 @@ from sinks import start_listening
 from sinks.base_bot_request_handler import BaseBotRequestHandler
 
 
+logger = logging.getLogger(__name__)
+
+
 def _initialise(bot):
     _start_api(bot)
 
@@ -48,15 +51,15 @@ def _start_api(bot):
             try:
                 certfile = sinkConfig["certfile"]
                 if not certfile:
-                    print(_("config.api[{}].certfile must be configured").format(itemNo))
+                    print("config.api[{}].certfile must be configured".format(itemNo))
                     continue
                 name = sinkConfig["name"]
                 port = sinkConfig["port"]
             except KeyError as e:
-                print(_("config.api[{}] missing keyword").format(itemNo), e)
+                print("config.api[{}] missing keyword".format(itemNo), e)
                 continue
 
-            print("api: started on https://{}:{}/".format(name, port))
+            logger.info("started on https://{}:{}/".format(name, port))
 
             threadmanager.start_thread(start_listening, args=(
                 bot,
@@ -106,7 +109,7 @@ class APIRequestHandler(BaseBotRequestHandler):
             ).add_done_callback(lambda future: future.result())
 
         except Exception as e:
-            logging.exception(e)
+            logger.exception(e)
 
 
     @asyncio.coroutine

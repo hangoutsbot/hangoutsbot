@@ -32,6 +32,11 @@ def text_to_segments(text):
     return segments
 
 
+def remove_accents(text):
+    """remove accents from unicode text, allows east asian languages through"""
+    return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
+
+
 def unicode_to_ascii(text):
     """Transliterate unicode characters to ASCII"""
     return unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode()
@@ -66,10 +71,13 @@ class conversation_memory:
         self.bot = bot
         self.catalog = {}
 
+        self.standardise_memory()
+
         self.load_from_memory()
+
         self.load_from_hangups()
 
-        self.save_to_memory()
+        self.bot.memory.save() # only if tainted
 
         logger.info("total conversations: {}".format(len(self.catalog)))
 
@@ -101,8 +109,68 @@ class conversation_memory:
 
         for Conversation in self.bot._conv_list.get_all():
             self.update(Conversation, source="init", automatic_save=False)
- 
+
+    def standardise_memory(self):
+        """construct the conversation memory keys and standardisethe stored structure
+        devs: migrate new keys here, also add to attribute change checks in .update()
+        """
+        memory_updated = False
+
+        if not self.bot.memory.exists(['convmem']):
+            self.bot.memory.set_by_path(['convmem'], {})
+            memory_updated = True
+
+        convs = self.bot.memory.get_by_path(['convmem'])
+        for conv_id in convs:
+            conv = convs[conv_id]
+            attribute_modified = False
+
+            if "users" not in conv:
+                conv["users"] = []
+                attribute_modified = True
+
+            if "type" not in conv:
+                conv["type"] = "unknown"
+                attribute_modified = True
+
+            if conv["type"] == "unknown":
+                """intelligently guess the type"""
+                if len(conv["users"]) > 1:
+                    conv["type"] = "GROUP"
+                    attribute_modified = True
+                else:
+                    if self.bot.memory.exists(["user_data"]):
+                        """inefficient one-off search"""
+                        for chat_id in self.bot.memory["user_data"]:
+                            if self.bot.memory.exists(["user_data", chat_id, "1on1"]):
+                                if self.bot.memory["user_data"][chat_id]["1on1"] == conv_id:
+                                    conv["type"] = "ONE_TO_ONE"
+                                    attribute_modified = True
+                                    break
+
+            if "history" not in conv:
+                conv["history"] = True
+                attribute_modified = True
+
+            if "participants" not in conv:
+                if conv["users"]:
+                    conv["participants"] = [ u[0][0] for u in conv["users"] ]
+                else:
+                    conv["participants"] = []
+                attribute_modified = True
+
+            if attribute_modified:
+                self.bot.memory.set_by_path(['convmem', conv_id], conv)
+                memory_updated = True
+
+        return memory_updated
+
+
     def load_from_memory(self):
+        """load "persisted" conversations from memory.json into self.catalog
+        complete internal user list by using (legacy) "users" and "participants" keys
+        """
+
         if self.bot.memory.exists(['convmem']):
             convs = self.bot.memory.get_by_path(['convmem'])
             logger.info("loading {} conversations from memory".format(len(convs)))
@@ -113,33 +181,6 @@ class conversation_memory:
 
             for convid in convs:
                 self.catalog[convid] = convs[convid]
-
-                """devs: add new conversation memory sub-keys here"""
-
-                if "users" not in self.catalog[convid]:
-                    self.catalog[convid]["users"] = []
-
-                if "type" not in self.catalog[convid]:
-                    self.catalog[convid]["type"] = "unknown"
-
-                if self.catalog[convid]["type"] == "unknown":
-                    """intelligently guess the type"""
-                    if len(self.catalog[convid]["users"]) > 1:
-                        self.catalog[convid]["type"] = "GROUP"
-                    else:
-                        if self.bot.memory.exists(["user_data"]):
-                            """inefficient search, but its one-off"""
-                            for userid in self.bot.memory["user_data"]:
-                                if self.bot.memory.exists(["user_data", userid, "1on1"]):
-                                    if self.bot.memory["user_data"][userid]["1on1"] == convid:
-                                        self.catalog[convid]["type"] = "ONE_TO_ONE"
-                                        break
-
-                if "history" not in self.catalog[convid]:
-                    self.catalog[convid]["history"] = True
-
-                if "participants" not in self.catalog[convid]:
-                    self.catalog[convid]["participants"] = [ u[0][0] for u in self.catalog[convid]["users"] ]
 
                 """legacy "users" list can construct a User with chat_id, full_name"""
 
@@ -200,19 +241,19 @@ class conversation_memory:
                 logger.warning("unknown users: {}".format(_users_unknown))
 
 
-    def save_to_memory(self):
-        self.bot.memory.set_by_path(['convmem'], self.catalog)
-        self.bot.memory.save()
-
-
     def store_user_memory(self, User, automatic_save=True, is_definitive=False):
+        """update user memory based on supplied hangups User
+        conservative writing: on User attribute changes only
+        returns True on User change, False on no changes
+        """
         self.bot.initialise_memory(User.id_.chat_id, "user_data")
 
         cached = False
         if self.bot.memory.exists(["user_data", User.id_.chat_id, "_hangups"]):
             cached = self.bot.memory.get_by_path(["user_data", User.id_.chat_id, "_hangups"])
             if "is_definitive" in cached and cached["is_definitive"] and is_definitive == False:
-                logger.info("skipped user update: {} ({})".format(cached["full_name"], cached["chat_id"]))
+                if self.log_info_unchanged:
+                    logger.info("skipped user update: {} ({})".format(cached["full_name"], cached["chat_id"]))
                 return False
 
         user_dict ={
@@ -253,26 +294,28 @@ class conversation_memory:
             self.bot.memory.set_by_path(["user_data", User.id_.chat_id, "_hangups"], user_dict)
 
             if automatic_save:
-                self.save_to_memory()
+                self.bot.memory.save()
 
             logger.info("user {} updated {}".format(User.id_.chat_id, User.full_name))
-            return True
 
         else:
             if self.log_info_unchanged:
                 logger.info("user {} unchanged".format(User.id_.chat_id))
 
-            return False
-
+        return changed
 
 
     def update(self, conv, source="unknown", automatic_save=True):
+        """update conversation memory based on supplied hangups Conversation
+        conservative writing: on changed Conversation and/or User attribute changes
+        return True on Conversation/User change, False on no changes
+        """
         conv_title = hangups_get_conv_name(conv)
 
-        if conv.id_ not in self.catalog:
-            self.catalog[conv.id_] = {}
+        original = {}
+        if self.bot.memory.exists(["convmem", conv.id_]):
+            original = self.bot.memory.get_by_path(["convmem", conv.id_])
 
-        original = self.catalog[conv.id_]
         memory = {}
 
         """base information"""
@@ -281,14 +324,18 @@ class conversation_memory:
             "source": source,
             "users" : [] }
 
-        """store the user list"""
+        """user list + user records writing"""
+
         memory["users"] = [[[user.id_.chat_id, user.id_.gaia_id], user.full_name ] for user in conv.users if not user.is_self]
+
+        users_changed = False # track whether memory["user_data"] was changed
 
         memory["participants"] = []
         for User in conv.users:
             if not User.is_self:
                 memory["participants"].append(User.id_.chat_id)
-            self.store_user_memory(User, automatic_save, is_definitive=True)
+            if self.store_user_memory(User, automatic_save=False, is_definitive=True):
+                users_changed = True
 
         """store the conversation type: GROUP, ONE_TO_ONE"""
         if conv._conversation.type_ == hangups.schemas.ConversationType.GROUP:
@@ -308,7 +355,7 @@ class conversation_memory:
                 title, type (should not be possible!), history, users
         """
 
-        changed = False
+        conv_changed = False
 
         if original:
             """existing tracked conversation"""
@@ -317,7 +364,7 @@ class conversation_memory:
                     if key == "participants":
                         if set(original["participants"]) != set(memory["participants"]):
                             logger.info("conv participants changed {} ({})".format(conv_title, conv.id_))
-                            changed = True
+                            conv_changed = True
                             break
 
                     elif key == "users":
@@ -325,30 +372,33 @@ class conversation_memory:
                         if (set([ (u[0][0], u[0][1], u[1]) for u in original["users"] ])
                                 != set([ (u[0][0], u[0][1], u[1]) for u in memory["users"] ])):
                             logger.info("conv users changed {} ({})".format(conv_title, conv.id_))
-                            changed = True
+                            conv_changed = True
                             break
 
                     else:
                         if original[key] != memory[key]:
                             logger.info("conv {} changed {} ({})".format(key,  conv_title, conv.id_))
-                            changed = True
+                            conv_changed = True
                             break
 
                 except KeyError as e:
                     logger.info("conv missing {} {} ({})".format(key,  conv_title, conv.id_))
-                    changed = True
+                    conv_changed = True
                     break
         else:
             """new conversation"""
             logger.info("new conv {} ({})".format(conv_title, conv.id_))
-            changed = True
+            conv_changed = True
 
-        if changed:
+        if conv_changed:
             memory["updated"] = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            self.bot.memory.set_by_path(["convmem", conv.id_], memory)
+
             self.catalog[conv.id_] = memory
 
             if automatic_save:
-                self.save_to_memory()
+                # if users_changed this would write those changes as well
+                self.bot.memory.save()
 
             logger.info("conv {} updated {}".format(conv.id_, conv_title))
 
@@ -356,18 +406,33 @@ class conversation_memory:
             if self.log_info_unchanged:
                 logger.info("conv {} unchanged".format(conv.id_))
 
+            if users_changed:
+                logger.info("users from conv {} changed".format(conv.id_))
+                self.bot.memory.save()
 
-    def remove(self, convid):
-        if convid in self.catalog:
-            if self.catalog[convid]["type"] == "GROUP":
-                logger.info("removing conv: {} {}".format(convid, self.catalog[convid]["title"]))
-                del(self.catalog[convid])
-                self.save_to_memory()
+            elif self.log_info_unchanged:
+                logger.info("users from conv {} unchanged".format(conv.id_))
+
+        return conv_changed or users_changed
+
+
+    def remove(self, conv_id):
+        if self.bot.memory.exists(["convmem", conv_id]):
+            _cached = self.bot.memory.get_by_path(["convmem", conv_id])
+            if _cached["type"] == "GROUP":
+                logger.info("removing conv: {} {}".format(conv_id, _cached["title"]))
+                self.bot.memory.pop_by_path(["convmem", conv_id])
+                del self.catalog[conv_id]
+
             else:
                 logger.warning("cannot remove conv: {} {} {}".format(
-                    self.catalog[convid]["type"], convid, self.catalog[convid]["title"]))
+                    _cached["type"], conv_id, _cached["title"]))
+
         else:
-            logger.warning("cannot remove: {}, not found".format(convid))
+            logger.warning("cannot remove: {}, not found".format(conv_id))
+
+        self.bot.memory.save()
+
 
     def get(self, filter=False):
         filtered = {} # function always return subset of self.catalog

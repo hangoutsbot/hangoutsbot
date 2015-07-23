@@ -10,6 +10,9 @@ import plugins
 from commands import command
 
 
+logger = logging.getLogger(__name__)
+
+
 class EventHandler:
     """Handle Hangups conversation events"""
 
@@ -102,7 +105,7 @@ class EventHandler:
                         if segment.link_target.startswith(self._prefix_reprocessor):
                             _id = segment.link_target[len(self._prefix_reprocessor):]
                             if _id in self._reprocessors:
-                                logging.info("reprocessor: valid uuid found: {}".format(_id))
+                                logger.info("valid reprocessor uuid found: {}".format(_id))
                                 self._reprocessors[_id](self.bot, event, _id)
                                 del self._reprocessors[_id]
 
@@ -111,7 +114,7 @@ class EventHandler:
                 if self.bot.memory.exists(["user_data", event.user.id_.chat_id, "optout"]):
                     if self.bot.memory.get_by_path(["user_data", event.user.id_.chat_id, "optout"]):
                         yield from command.run(self.bot, event, *["optout"])
-                        logging.info("auto opt-in for {}".format(event.user.id_.chat_id))
+                        logger.info("auto opt-in for {}".format(event.user.id_.chat_id))
                         return
 
             yield from self.run_pluggable_omnibus("allmessages", self.bot, event, command)
@@ -150,7 +153,7 @@ class EventHandler:
             print("EXCEPTION in {}: {}".format("handle_command", e))
             self.bot.send_message_parsed(event.conv, _("{}: {}").format(
                 event.user.full_name, str(e)))
-            logging.exception(e)
+            logger.exception(e)
             return
 
         # Test if command length is sufficient
@@ -215,17 +218,17 @@ class EventHandler:
                         _expected = list(inspect.signature(function).parameters)
                         _passed = args[0:len(_expected)]
                         if asyncio.iscoroutinefunction(function):
-                            message.append(_("coroutine"))
-                            print(" : ".join(message))
+                            message.append("coroutine")
+                            logger.debug(" : ".join(message))
                             yield from function(*_passed)
                         else:
-                            message.append(_("function"))
-                            print(" : ".join(message))
+                            message.append("function")
+                            logger.debug(" : ".join(message))
                             function(*_passed)
                     except self.bot.Exceptions.SuppressHandler:
                         # skip this pluggable, continue with next
-                        message.append(_("SuppressHandler"))
-                        print(" : ".join(message))
+                        message.append("SuppressHandler")
+                        logger.debug(" : ".join(message))
                         pass
                     except (self.bot.Exceptions.SuppressEventHandling,
                             self.bot.Exceptions.SuppressAllHandlers):
@@ -233,14 +236,14 @@ class EventHandler:
                         raise
                     except:
                         message = " : ".join(message)
-                        print(_("EXCEPTION in {}").format(message))
-                        logging.exception(message)
+                        print("EXCEPTION in {}".format(message))
+                        logger.exception(message)
 
             except self.bot.Exceptions.SuppressAllHandlers:
                 # skip all other pluggables, but let the event continue
-                message.append(_("SuppressAllHandlers"))
-                print(" : ".join(message))
-                pass
+                message.append("SuppressAllHandlers")
+                logger.debug(" : ".join(message))
+
             except:
                 raise
 

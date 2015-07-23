@@ -31,7 +31,7 @@ def tldr(bot, event, *args):
     if tldr: # Add message to list
         chat_tldr[time.time()] = tldr
         bot.memory.set_by_path(['tldr', event.conv_id], chat_tldr)
-        bot.send_html_to_conversation(event.conv_id, "Added '{}' to TL;DR. Now at {} entires".format(tldr, len(chat_tldr)))
+        bot.send_html_to_conversation(event.conv_id, "Added '{}' to TL;DR. Now at {} entries".format(tldr, len(chat_tldr)))
     else: # Display all messages
         if len(chat_tldr) > 0:
             html = "<b>TL;DR ({} entries):</b><br />".format(len(chat_tldr))

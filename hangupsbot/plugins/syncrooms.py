@@ -221,7 +221,7 @@ def _handle_syncrooms_membership_change(bot, event, command):
         return
 
     # Generate list of added or removed users for current ROOM (NOT SYNCROOMS!)
-    event_users = [event.conv.get_user(user_id) for user_id
+    event_users = [bot.get_hangups_user(user_id) for user_id
                    in event.conv_event.participant_ids]
     names = ', '.join([user.full_name for user in event_users])
 
