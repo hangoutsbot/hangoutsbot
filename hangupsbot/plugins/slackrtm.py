@@ -25,10 +25,31 @@ import json
 
 try:
     import emoji
-    if emoji.__version__ != '0.3.3':
-        raise Exception('Unsupported emoji module version')
+    if 'decode' in dir(emoji):
+        def emoji_decode(char):
+            return emoji.decode(char)
+    else:
+        # stolen from emoji-0.3.3
+        def emoji_decode(u_code):
+            # for the moment, we return the unicode character as-is as there seems to be many incompatible mappings for slack in the newer emoji module
+            return u_code
+#            try:
+#                u_code = u_code.decode('utf-8')
+#            except:
+#                pass
+#
+#            try:
+#                textemoji = emoji.UNICODE_EMOJI_ALIAS[u_code]
+#                slack_emoji_mapping = {
+#                    ':smiling_face_with_halo:': ':innocent',
+#                    }
+#                if textemoji in slack_emoji_mapping:
+#                    textemoji = slack_emoji_mapping[textemoji]
+#                return textemoji
+#            except KeyError:
+#                raise ValueError("Unicode code is not an emoji: %s" % u_code)
 except Exception as e:
-    print('Please install emoji: pip3 install emoji==0.3.3')
+    print('Please install emoji: pip3 install emoji>=0.3.3')
     raise e
 
 import urllib
@@ -52,7 +73,7 @@ def unicodeemoji2text(text):
     out = u''
     for c in text[:]:
         try:
-            c = emoji.decode(c)
+            c = emoji_decode(c)
         except:
             pass
         out = out + c
@@ -418,7 +439,7 @@ class SlackRTM(object):
     def textToHtml(self, text):
         reffmt = re.compile('<((.)([^|>]*))((\|)([^>]*)|([^>]*))>')
         text = reffmt.sub(self.matchReference, text)
-        text = emoji.emojize(text)
+        text = emoji.emojize(text, use_aliases=True)
         text = ' %s ' % text
         bfmt = re.compile(r'([\s*_`])\*([^*]*)\*([\s*_`])')
         text = bfmt.sub(r'\1<b>\2</b>\3', text)
