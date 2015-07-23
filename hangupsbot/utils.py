@@ -1,4 +1,4 @@
-import importlib, unicodedata, sys, logging, datetime
+import asyncio, importlib, unicodedata, sys, logging, datetime
 
 import hangups
 
@@ -92,7 +92,7 @@ class conversation_memory:
                     if self.bot.memory["user_data"][chat_id]["_hangups"]["is_definitive"]:
                         count_user_cached_definitive = count_user_cached_definitive + 1
 
-            logger.info("total users: {} cached: {} definitive: {}".format(
+            logger.info("total users: {} cached: {} definitive (at start): {}".format(
                 len(self.bot.memory["user_data"]), count_user, count_user_cached, count_user_cached_definitive))
 
         sys.modules[__name__].bot = bot # workaround for drop-ins
@@ -179,6 +179,8 @@ class conversation_memory:
             _users_incomplete = {}
             _users_unknown = {}
 
+            _users_to_fetch = []
+
             for convid in convs:
                 self.catalog[convid] = convs[convid]
 
@@ -231,6 +233,8 @@ class conversation_memory:
                             else:
                                 _users_unknown[_chat_id] = "unidentified"
 
+                            _users_to_fetch.append(_chat_id)
+
             if len(_users_added) > 0:
                 logger.info("added users: {}".format(_users_added))
 
@@ -239,6 +243,39 @@ class conversation_memory:
 
             if len(_users_unknown) > 0:
                 logger.warning("unknown users: {}".format(_users_unknown))
+
+            """attempt to rebuilt the user data with hangups.client.getentitybyid()"""
+
+            if len(_users_to_fetch) > 0:
+                asyncio.async(
+                    self.get_users_from_query(_users_to_fetch)
+                ).add_done_callback(lambda future: future.result())
+
+
+    @asyncio.coroutine
+    def get_users_from_query(self, chat_ids):
+        chat_ids = list(set(chat_ids))
+        logger.debug("getentitybyid(): {}".format(chat_ids))
+
+        response = yield from bot._client.getentitybyid(chat_ids)
+
+        updated_users = 0
+        for _user in response.entities:
+            UserID = hangups.user.UserID(chat_id=_user.id_.chat_id, gaia_id=_user.id_.gaia_id)
+            User = hangups.user.User(
+                UserID,
+                _user.properties.display_name,
+                _user.properties.first_name,
+                _user.properties.photo_url,
+                _user.properties.emails,
+                False)
+
+            if self.store_user_memory(User, is_definitive=True, automatic_save=False):
+                updated_users = updated_users + 1
+
+        if updated_users > 0:
+            self.bot.memory.save()
+            logger.info("getentitybyid(): {} users updated".format(updated_users))
 
 
     def store_user_memory(self, User, automatic_save=True, is_definitive=False):
@@ -328,14 +365,29 @@ class conversation_memory:
 
         memory["users"] = [[[user.id_.chat_id, user.id_.gaia_id], user.full_name ] for user in conv.users if not user.is_self]
 
+        memory["participants"] = []
+
+        _users_to_fetch = [] # track possible unknown users from hangups Conversation
         users_changed = False # track whether memory["user_data"] was changed
 
-        memory["participants"] = []
         for User in conv.users:
             if not User.is_self:
                 memory["participants"].append(User.id_.chat_id)
-            if self.store_user_memory(User, automatic_save=False, is_definitive=True):
+
+            if User.full_name.upper() == "UNKNOWN":
+                _modified = self.store_user_memory(User, automatic_save=False, is_definitive=False)
+                _users_to_fetch.append(User.id_.chat_id)
+            else:
+                _modified = self.store_user_memory(User, automatic_save=False, is_definitive=True)
+
+            if _modified:
                 users_changed = True
+
+        if len(_users_to_fetch) > 0:
+            logger.warning("unknown users returned from {} ({}): {}".format(conv_title, conv.id_, _users_to_fetch))
+            asyncio.async(
+                self.get_users_from_query(_users_to_fetch)
+            ).add_done_callback(lambda future: future.result())
 
         """store the conversation type: GROUP, ONE_TO_ONE"""
         if conv._conversation.type_ == hangups.schemas.ConversationType.GROUP:
