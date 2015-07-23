@@ -160,7 +160,7 @@ class conversation_memory:
                 attribute_modified = True
 
             if attribute_modified:
-                self.bot.memory.set_by_path(['convmem', conv_id, conv])
+                self.bot.memory.set_by_path(['convmem', conv_id], conv)
                 memory_updated = True
 
         return memory_updated
