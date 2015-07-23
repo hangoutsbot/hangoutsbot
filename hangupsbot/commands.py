@@ -8,6 +8,9 @@ from utils import text_to_segments
 import plugins
 
 
+logger = logging.getLogger(__name__)
+
+
 class CommandDispatcher(object):
     """Register commands and run them"""
     def __init__(self):
@@ -54,7 +57,7 @@ class CommandDispatcher(object):
         except Exception as e:
             message = "CommandDispatcher.run: {}".format(func.__name__)
             print("EXCEPTION in {}".format(message))
-            logging.exception(message)
+            logger.exception(message)
 
     def register(self, *args, admin=False):
         """Decorator for registering command"""

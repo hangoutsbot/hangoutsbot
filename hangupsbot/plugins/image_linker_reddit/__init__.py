@@ -3,6 +3,7 @@ based on the word/image list for the image linker bot on reddit
 sauce: http://www.reddit.com/r/image_linker_bot/comments/2znbrg/image_suggestion_thread_20/
 """
 
+import logging
 import io
 import os
 import re
@@ -10,6 +11,9 @@ import random
 import aiohttp
 
 import plugins
+
+
+logger = logging.getLogger(__name__)
 
 
 _lookup = {}
@@ -54,7 +58,7 @@ def _scan_for_triggers(bot, event, command):
             r = yield from aiohttp.request('get', image_link)
             raw = yield from r.read()
             image_data = io.BytesIO(raw)
-            print("image_linker_reddit: attempting to display: {}".format(filename))
+            logger.debug("uploading: {}".format(filename))
             image_id = yield from bot._client.upload_image(image_data, filename=filename)
             bot.send_message_segments(event.conv.id_, None, image_id=image_id)
 
@@ -75,7 +79,7 @@ def _load_all_the_things():
                     _lookup[trigger].extend(images)
                 else:
                     _lookup[trigger] = images
-    print("reddit image meme: {} trigger(s) loaded".format(len(_lookup)))
+    logger.info("{} trigger(s) loaded".format(len(_lookup)))
 
 
 def _get_a_link(trigger):

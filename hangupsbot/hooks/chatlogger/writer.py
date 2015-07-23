@@ -1,7 +1,13 @@
 import os
+import logging
+
 import hangups
 
 from hangups.ui.utils import get_conv_name
+
+
+syslogger = logging.getLogger(__name__)
+
 
 class logger():
     _bot = None
@@ -25,11 +31,10 @@ class logger():
                     try:
                         os.makedirs(directory)
                     except OSError as e:
-                        print('logger failed to create directory: {}'.format(e))
+                        ('logger failed to create directory: {}'.format(e))
                         return False
 
                 logger._log_path = directory
-                print("logger: chats stored in {}".format(logger._log_path))
             else:
                 print("logger: failed to initialise: config.hooks[].storage_path cannot be empty")
                 return False
@@ -37,6 +42,8 @@ class logger():
         else:
             print("logger: failed to initialise: config.hooks[].storage_path not provided")
             return False
+
+        syslogger.info("chats stored in {}".format(logger._log_path))
 
         return True
 

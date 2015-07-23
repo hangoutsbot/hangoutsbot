@@ -1,24 +1,3 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import urlparse, parse_qs
-
-from html import unescape
-from threading import Thread
-
-from pyslack import SlackClient
-try:
-    import emoji
-except ImportError:
-    print("Error: You need to install the python emoji library!")
-
-import ssl
-import asyncio
-import logging
-import hangups
-
-import re
-from urllib.request import urlopen
-import json
-
 """ Slack plugin for listening to hangouts and slack and syncing messages between the two.
 config.json will have to be configured as follows:
 "slack": [{
@@ -32,6 +11,33 @@ config.json will have to be configured as follows:
 
 You can (theoretically) set up as many slack sinks per bot as you like, by extending the list"""
 
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlparse, parse_qs
+
+from html import unescape
+
+from pyslack import SlackClient
+try:
+    import emoji
+except ImportError:
+    print("Error: You need to install the python emoji library!")
+
+import ssl
+import asyncio
+import logging
+
+
+import re
+from urllib.request import urlopen
+import json
+
+import hangups
+
+import threadmanager
+
+logger = logging.getLogger(__name__)
+
+
 def _initialise(Handlers, bot=None):
     if bot:
         _start_slack_sinks(bot)
@@ -40,13 +46,13 @@ def _initialise(Handlers, bot=None):
     Handlers.register_handler(_handle_slackout)
     return []
 
+
 def _start_slack_sinks(bot):
     # Start and asyncio event loop
     loop = asyncio.get_event_loop()
 
     slack_sink = bot.get_config_option('slack')
     itemNo = -1
-    threads = []
 
     if isinstance(slack_sink, list):
         for sinkConfig in slack_sink:
@@ -55,30 +61,25 @@ def _start_slack_sinks(bot):
             try:
                 certfile = sinkConfig["certfile"]
                 if not certfile:
-                    print(_("config.slack[{}].certfile must be configured").format(itemNo))
+                    print("config.slack[{}].certfile must be configured".format(itemNo))
                     continue
                 name = sinkConfig["name"]
                 port = sinkConfig["port"]
             except KeyError as e:
-                print(_("config.slack[{}] missing keyword").format(itemNo), e)
+                print("config.slack[{}] missing keyword".format(itemNo), e)
                 continue
 
-            # start up slack listener in a separate thread
-            print("_start_slack_sinks()")
-            t = Thread(target=start_listening, args=(
-              bot,
-              loop,
-              name,
-              port,
-              certfile))
+            logger.info("started on https://{}:{}/".format(name, port))
 
-            t.daemon = True
-            t.start()
+            threadmanager.start_thread(start_listening, args=(
+                bot,
+                loop,
+                name,
+                port,
+                certfile))
 
-            threads.append(t)
+    logger.info("_start_slack_sinks(): {} sink thread(s) started".format(itemNo + 1))
 
-    message = _("_start_slack_sinks(): {} sink thread(s) started").format(len(threads))
-    logging.info(message)
 
 def start_listening(bot=None, loop=None, name="", port=8014, certfile=None):
     webhook = webhookReceiver
@@ -99,16 +100,14 @@ def start_listening(bot=None, loop=None, name="", port=8014, certfile=None):
 
         sa = httpd.socket.getsockname()
 
-        message = "slack: {}:{} : starting...".format(name, port)
-        print(message)
+        logger.info("listener: {}:{}...".format(sa[0], sa[1]))
 
         httpd.serve_forever()
 
     except OSError as e:
-        message = "SLACK: {}:{} : {}".format(name, port, e)
+        message = "EXCEPTION during start: {}:{} : {}".format(name, port, e)
         print(message)
-        logging.error(message)
-        logging.exception(e)
+        logger.exception(message)
 
         try:
             httpd.socket.close()

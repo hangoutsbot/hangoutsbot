@@ -33,7 +33,8 @@ import sinks
 import plugins
 
 
-LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+LOG_FORMAT = '%(asctime)s %(levelname)s %(name)s: %(message)s'
+LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 
 class SuppressHandler(Exception):
@@ -572,8 +573,9 @@ class HangupsBot(object):
 
     @asyncio.coroutine
     def _on_connect(self, initial_data):
-        """Handle connecting for the first time"""
-        print(_('Connected!'))
+        """handle connection/reconnection"""
+
+        logging.debug("connected")
 
         self._handlers = handlers.EventHandler(self)
         handlers.handler.set_bot(self) # shim for handler decorator
@@ -602,6 +604,8 @@ class HangupsBot(object):
         self.conversations = conversation_memory(self)
 
         plugins.load(self, command)
+
+        logging.info("bot initialised")
 
 
     def _on_status_changes(self, state_update):
@@ -771,11 +775,29 @@ def main():
 
     # Configure logging
     log_level = logging.DEBUG if args.debug else logging.INFO
-    logging.basicConfig(filename=args.log, level=log_level, format=LOG_FORMAT)
+
+    logging.basicConfig(filename=args.log, level=log_level, format=LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+
+    rootLogger = logging.getLogger()
+
+    # output logs to console
+    consoleHandler = logging.StreamHandler(stream=sys.stdout)
+    format = logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+    consoleHandler.setFormatter(format)
+    consoleHandler.setLevel(logging.INFO)
+    rootLogger.addHandler(consoleHandler)
+
     # asyncio's debugging logs are VERY noisy, so adjust the log level
     logging.getLogger('asyncio').setLevel(logging.WARNING)
+
     # hangups log is quite verbose too, suppress so we can debug the bot
     logging.getLogger('hangups').setLevel(logging.WARNING)
+
+    # XXX: suppress erroneous WARNINGs until https://github.com/tdryer/hangups/issues/142 resolved
+    logging.getLogger('hangups.conversation').setLevel(logging.ERROR)
+
+    #requests is freakishly noisy
+    logging.getLogger("requests").setLevel(logging.INFO)
 
     # initialise the bot
     bot = HangupsBot(args.cookies, args.config, memory_file=args.memory)
