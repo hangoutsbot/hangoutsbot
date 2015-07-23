@@ -36,7 +36,7 @@ def lookup(bot, event, *args):
 
     htmlmessage = _('Results for keyword <b>{}</b>:<br />').format(keyword)
 
-    logger.debug("LOOKUP: {0} ({1}) has requested to lookup '{2}'".format(event.user.full_name, event.user.id_.chat_id, keyword))
+    logger.debug("{0} ({1}) has requested to lookup '{2}'".format(event.user.full_name, event.user.id_.chat_id, keyword))
 
     html = urllib.request.urlopen(spreadsheet_url).read()
 
