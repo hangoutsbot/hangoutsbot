@@ -123,7 +123,8 @@ class HangupsBot(object):
         # load in previous memory, or create new one
         self.memory = None
         if memory_file:
-            print(_("HangupsBot: memory file will be used: {}").format(memory_file))
+            if logging.root.level == logging.DEBUG:
+                print(_("HangupsBot: memory file will be used: {}").format(memory_file))
             self.memory = config.Config(memory_file)
             if not os.path.isfile(memory_file):
                 try:

@@ -192,16 +192,19 @@ class EventHandler:
                         _passed = args[0:len(_expected)]
                         if asyncio.iscoroutinefunction(function):
                             message.append(_("coroutine"))
-                            print(" : ".join(message))
+                            if logging.root.level == logging.DEBUG:
+                                print(" : ".join(message))
                             yield from function(*_passed)
                         else:
                             message.append(_("function"))
-                            print(" : ".join(message))
+                            if logging.root.level == logging.DEBUG:
+                                print(" : ".join(message))
                             function(*_passed)
                     except self.bot.Exceptions.SuppressHandler:
                         # skip this pluggable, continue with next
                         message.append(_("SuppressHandler"))
-                        print(" : ".join(message))
+                        if logging.root.level == logging.DEBUG:
+                            print(" : ".join(message))
                         pass
                     except (self.bot.Exceptions.SuppressEventHandling,
                             self.bot.Exceptions.SuppressAllHandlers):
@@ -215,7 +218,8 @@ class EventHandler:
             except self.bot.Exceptions.SuppressAllHandlers:
                 # skip all other pluggables, but let the event continue
                 message.append(_("SuppressAllHandlers"))
-                print(" : ".join(message))
+                if logging.root.level == logging.DEBUG:
+                    print(" : ".join(message))
                 pass
             except:
                 raise

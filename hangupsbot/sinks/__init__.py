@@ -54,7 +54,8 @@ def start(bot):
                 continue
 
             # start up rpc listener in a separate thread
-            print(_("_start_sinks(): {}").format(module))
+            if logging.root.level == logging.DEBUG:
+                print(_("_start_sinks(): {}").format(module))
 
             threadmanager.start_thread(start_listening, args=(
                 bot,
