@@ -129,9 +129,9 @@ def _get_invites(bot, filter_active=True, filter_user=False):
     return invites
 
 
-def _get_user_list(bot, convid):
-    convlist = bot.conversations.get(convid)
-    return convlist[convid]["users"]
+def _get_user_list(bot, conv_id):
+    convlist = bot.conversations.get(conv_id)
+    return convlist[conv_id]["participants"]
 
 
 def invite(bot, event, *args):
@@ -320,9 +320,9 @@ def invite(bot, event, *args):
         shortlisted = []
         if sourceconv:
             sourceconv_users = _get_user_list(bot, sourceconv)
-            for u in sourceconv_users:
-                if everyone or u[0][0] in list_users:
-                    shortlisted.append(u[0][0])
+            for chat_id in sourceconv_users:
+                if everyone or chat_id in list_users:
+                    shortlisted.append(chat_id)
 
             invitation_log.append("shortlisted: {}/{}".format(len(shortlisted), len(sourceconv_users)))
             logging.info("convtools_invitations: shortlisted {}/{} from {}, everyone={}, list_users=[{}]".format(
@@ -337,12 +337,12 @@ def invite(bot, event, *args):
         """exclude users who are already in the target conversation"""
         if targetconv == "NEW_GROUP":
             # fake user list - _new_group_conversation() always creates group with bot and initiator
-            targetconv_users = [[[event.user.id_.chat_id]], [[bot.user_self()["chat_id"]]]]
+            targetconv_users = [ event.user.id_.chat_id, bot.user_self()["chat_id"] ]
         else:
             targetconv_users = _get_user_list(bot, targetconv)
         invited_users = []
         for uid in shortlisted:
-            if uid not in [u[0][0] for u in targetconv_users]:
+            if uid not in targetconv_users:
                 invited_users.append(uid)
             else:
                 invitation_log.append("excluding existing: {}".format(uid))

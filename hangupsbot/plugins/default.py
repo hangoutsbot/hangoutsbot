@@ -1,10 +1,10 @@
-import json, shlex, logging
+import re, json, shlex, logging
 
 import hangups
 
 import plugins
 
-from utils import text_to_segments, simple_parse_to_segments
+from utils import text_to_segments, simple_parse_to_segments, remove_accents
 
 from commands import command
 
@@ -39,7 +39,7 @@ def convfilter(bot, event, *args):
     else:
         lines = []
         for convid, convdata in bot.conversations.get(filter=posix_args[0]).items():
-            lines.append("`{}` <b>{}</b> ({})".format(convid, convdata["title"], len(convdata["users"])))
+            lines.append("`{}` <b>{}</b> ({})".format(convid, convdata["title"], len(convdata["participants"])))
         lines.append(_('<b>Total: {}</b>').format(len(lines)))
         bot.send_message_parsed(event.conv_id, '<br />'.join(lines))
 
@@ -116,21 +116,19 @@ def convusers(bot, event, *args):
         chunks = [] # one "chunk" = info for 1 hangout
         for convid, convdata in bot.conversations.get(filter=posix_args[0]).items():
             lines = []
-            lines.append('<b>{}</b>'.format(convdata["title"], len(convdata["users"])))
-            for user in convdata["users"]:
+            lines.append('<b>{}</b>'.format(convdata["title"], len(convdata["participants"])))
+            for chat_id in convdata["participants"]:
+                User = bot.get_hangups_user(chat_id)
                 # name and G+ link
                 _line = '<b><a href="https://plus.google.com/u/0/{}/about">{}</a></b>'.format(
-                    user[0][0], user[1])
+                    User.id_.chat_id, User.full_name)
                 # email from hangups UserList (if available)
-                user_id = hangups.user.UserID(chat_id=user[0][0], gaia_id=user[0][1])
-                if user_id in bot._user_list._user_dict:
-                    _u = bot._user_list._user_dict[user_id]
-                    if _u.emails:
-                        _line += '<br />... (<a href="mailto:{0}">{0}</a>)'.format(_u.emails[0])
+                if User.emails:
+                    _line += '<br />... (<a href="mailto:{0}">{0}</a>)'.format(User.emails[0])
                 # user id
-                _line += "<br />... {}".format(user[0][0]) # user id
+                _line += "<br />... {}".format(User.id_.chat_id) # user id
                 lines.append(_line)
-            lines.append(_('<b>Users: {}</b>').format(len(convdata["users"])))
+            lines.append(_('<b>Users: {}</b>').format(len(convdata["participants"])))
             chunks.append('<br />'.join(lines))
         text = '<br /><br />'.join(chunks) 
 
@@ -166,8 +164,32 @@ def convleave(bot, event, *args):
 
 
 def echo(bot, event, *args):
-    """echo back text into current conversation"""
-    yield from command.run(bot, event, *["convecho", "id:" + event.conv_id, " ".join(args)])
+    """echo back text into conversation"""
+    raw_arguments = event.text.split(maxsplit=3)
+    if len(raw_arguments) >= 3:
+        if raw_arguments[2] in bot.conversations.catalog:
+            # e.g. /bot echo <convid> <text>
+            # only admins can echo messages into other conversations
+            admins_list = bot.get_config_suboption(event.conv_id, 'admins')
+            if event.user_id.chat_id in admins_list:
+                convid = raw_arguments[2]
+            else:
+                convid = event.conv_id
+                raw_arguments = [ _("<b>only admins can echo other conversations</b>") ]
+        else:
+            # assumed /bot echo <text>
+            convid = event.conv_id
+            raw_arguments = event.text.split(maxsplit=2)
+
+        _text = raw_arguments[-1].strip()
+
+        if _text.startswith("raw:"):
+            _text = _text[4:].strip()
+        else:
+            # emulate pre-2.5 bot behaviour and limitations
+            _text = re.escape(_text)
+
+        yield from command.run(bot, event, *["convecho", "id:" + convid, _text])
 
 
 def broadcast(bot, event, *args):
@@ -205,7 +227,7 @@ def broadcast(bot, event, *args):
             if parameters[0] == "groups":
                 """add all groups (chats with users > 1, bot not counted)"""
                 for convid, convdata in bot.conversations.get().items():
-                    if(len(convdata["users"]) > 1):
+                    if(len(convdata["participants"]) > 1):
                         _internal["broadcast"]["conversations"].append(convid)
             elif parameters[0] == "ALL":
                 """add EVERYTHING - try not to use this, will message 1-to-1s as well"""
@@ -252,12 +274,22 @@ def users(bot, event, *args):
 
 def user(bot, event, username, *args):
     """find people by name"""
+
     username_lower = username.strip().lower()
+    username_upper = username.strip().upper()
+
     segments = [hangups.ChatMessageSegment(_('results for user named "{}":').format(username),
                                            is_bold=True),
                 hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
-    for u in sorted(bot._user_list._user_dict.values(), key=lambda x: x.full_name.split()[-1]):
-        if not username_lower in u.full_name.lower():
+
+    all_known_users = {}
+    for chat_id in bot.memory["user_data"]:
+        all_known_users[chat_id] = bot.get_hangups_user(chat_id)
+
+    for u in sorted(all_known_users.values(), key=lambda x: x.full_name.split()[-1]):
+        if (not username_lower in u.full_name.lower() and
+            not username_upper in remove_accents(u.full_name.upper())):
+
             continue
 
         link = 'https://plus.google.com/u/0/{}/about'.format(u.id_.chat_id)

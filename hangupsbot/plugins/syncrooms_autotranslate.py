@@ -1,7 +1,6 @@
 import hangups
 import goslate
 
-from hangups.ui.utils import get_conv_name
 
 import plugins
 
@@ -55,7 +54,7 @@ def roomlanguage(bot, event, *args):
             bot.send_message_parsed(
                 event.conv,
                 _('<i>syncroom "{}" language is {}</i>').format(
-                    get_conv_name(event.conv),
+                    bot.conversations.get_name(event.conv),
                     language_map[_get_room_language(bot, event.conv_id)]))
         except KeyError:
             pass
@@ -68,6 +67,6 @@ def roomlanguage(bot, event, *args):
             bot.send_message_parsed(
                 event.conv,
                 _('<i>syncroom "{}" language set to {}</i>').format(
-                    get_conv_name(event.conv),
+                    bot.conversations.get_name(event.conv),
                     text_language))
             break

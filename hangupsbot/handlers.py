@@ -5,10 +5,12 @@ import inspect
 import uuid
 
 import hangups
-from hangups.ui.utils import get_conv_name
 
 import plugins
 from commands import command
+
+
+logger = logging.getLogger(__name__)
 
 
 class EventHandler:
@@ -21,14 +23,21 @@ class EventHandler:
         self._prefix_reprocessor = "uuid://"
         self._reprocessors = {}
 
-        self.pluggables = { "allmessages": [], "message":[], "membership":[], "rename":[], "sending":[] }
+        self.pluggables = { "allmessages": [],
+                            "call": [],
+                            "membership": [],
+                            "message": [],
+                            "rename": [],
+                            "sending":[],
+                            "typing": [],
+                            "watermark": [] }
 
         bot.register_shared('reprocessor.attach_reprocessor', self.attach_reprocessor)
 
 
     def register_handler(self, function, type="message", priority=50):
         """registers extra event handlers"""
-        if type in ["allmessages", "message", "membership", "rename"]:
+        if type in ["allmessages", "call", "membership", "message", "rename", "typing", "watermark"]:
             if not asyncio.iscoroutine(function):
                 # transparently convert into coroutine
                 function = asyncio.coroutine(function)
@@ -81,7 +90,7 @@ class EventHandler:
     def handle_chat_message(self, event):
         """Handle conversation event"""
         if logging.root.level == logging.DEBUG:
-            event.print_debug()
+            event.print_debug(self.bot)
 
         if event.text:
             if event.user.is_self:
@@ -96,7 +105,7 @@ class EventHandler:
                         if segment.link_target.startswith(self._prefix_reprocessor):
                             _id = segment.link_target[len(self._prefix_reprocessor):]
                             if _id in self._reprocessors:
-                                logging.info("reprocessor: valid uuid found: {}".format(_id))
+                                logger.info("valid reprocessor uuid found: {}".format(_id))
                                 self._reprocessors[_id](self.bot, event, _id)
                                 del self._reprocessors[_id]
 
@@ -105,7 +114,7 @@ class EventHandler:
                 if self.bot.memory.exists(["user_data", event.user.id_.chat_id, "optout"]):
                     if self.bot.memory.get_by_path(["user_data", event.user.id_.chat_id, "optout"]):
                         yield from command.run(self.bot, event, *["optout"])
-                        logging.info("auto opt-in for {}".format(event.user.id_.chat_id))
+                        logger.info("auto opt-in for {}".format(event.user.id_.chat_id))
                         return
 
             yield from self.run_pluggable_omnibus("allmessages", self.bot, event, command)
@@ -142,19 +151,23 @@ class EventHandler:
             line_args = shlex.split(event.text, posix=False)
         except Exception as e:
             print("EXCEPTION in {}: {}".format("handle_command", e))
-            logging.exception(e)
+            self.bot.send_message_parsed(event.conv, _("{}: {}").format(
+                event.user.full_name, str(e)))
+            logger.exception(e)
             return
 
         # Test if command length is sufficient
         if len(line_args) < 2:
-            self.bot.send_message(event.conv, _('{}: missing parameter(s)').format(event.user.full_name))
+            self.bot.send_message_parsed(event.conv, _('{}: Missing parameter(s)').format(
+                event.user.full_name))
             return
 
         # only admins can run admin commands
         commands_admin_list = command.get_admin_commands(self.bot, event.conv_id)
         if commands_admin_list and line_args[1].lower() in commands_admin_list:
             if not initiator_is_admin:
-                self.bot.send_message(event.conv, _('{}: Can\'t do that.').format(event.user.full_name))
+                self.bot.send_message_parsed(event.conv, _('{}: Can\'t do that.').format(
+                    event.user.full_name))
                 return
 
         # Run command
@@ -170,6 +183,20 @@ class EventHandler:
         """handle conversation name change"""
         yield from self.run_pluggable_omnibus("rename", self.bot, event, command)
 
+    @asyncio.coroutine
+    def handle_call(self, event):
+        """handle conversation name change"""
+        yield from self.run_pluggable_omnibus("call", self.bot, event, command)
+
+    @asyncio.coroutine
+    def handle_typing_notification(self, event):
+        """handle conversation name change"""
+        yield from self.run_pluggable_omnibus("typing", self.bot, event, command)
+
+    @asyncio.coroutine
+    def handle_watermark_notification(self, event):
+        """handle conversation name change"""
+        yield from self.run_pluggable_omnibus("watermark", self.bot, event, command)
 
     @asyncio.coroutine
     def run_pluggable_omnibus(self, name, *args, **kwargs):
@@ -191,17 +218,17 @@ class EventHandler:
                         _expected = list(inspect.signature(function).parameters)
                         _passed = args[0:len(_expected)]
                         if asyncio.iscoroutinefunction(function):
-                            message.append(_("coroutine"))
-                            print(" : ".join(message))
+                            message.append("coroutine")
+                            logger.debug(" : ".join(message))
                             yield from function(*_passed)
                         else:
-                            message.append(_("function"))
-                            print(" : ".join(message))
+                            message.append("function")
+                            logger.debug(" : ".join(message))
                             function(*_passed)
                     except self.bot.Exceptions.SuppressHandler:
                         # skip this pluggable, continue with next
-                        message.append(_("SuppressHandler"))
-                        print(" : ".join(message))
+                        message.append("SuppressHandler")
+                        logger.debug(" : ".join(message))
                         pass
                     except (self.bot.Exceptions.SuppressEventHandling,
                             self.bot.Exceptions.SuppressAllHandlers):
@@ -209,14 +236,14 @@ class EventHandler:
                         raise
                     except:
                         message = " : ".join(message)
-                        print(_("EXCEPTION in {}").format(message))
-                        logging.exception(message)
+                        print("EXCEPTION in {}".format(message))
+                        logger.exception(message)
 
             except self.bot.Exceptions.SuppressAllHandlers:
                 # skip all other pluggables, but let the event continue
-                message.append(_("SuppressAllHandlers"))
-                print(" : ".join(message))
-                pass
+                message.append("SuppressAllHandlers")
+                logger.debug(" : ".join(message))
+
             except:
                 raise
 

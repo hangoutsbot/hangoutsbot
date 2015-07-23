@@ -1,12 +1,14 @@
 import sys, json, asyncio, logging, os
 
 import hangups
-from hangups.ui.utils import get_conv_name
 
 from version import __version__
 from utils import text_to_segments
 
 import plugins
+
+
+logger = logging.getLogger(__name__)
 
 
 class CommandDispatcher(object):
@@ -55,7 +57,7 @@ class CommandDispatcher(object):
         except Exception as e:
             message = "CommandDispatcher.run: {}".format(func.__name__)
             print("EXCEPTION in {}".format(message))
-            logging.exception(message)
+            logger.exception(message)
 
     def register(self, *args, admin=False):
         """Decorator for registering command"""
