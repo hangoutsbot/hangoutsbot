@@ -1,6 +1,10 @@
 """aliases for the bot"""
+import logging
 
 import plugins
+
+
+logger = logging.getLogger(__name__)
 
 
 def _initialise(bot):
@@ -30,7 +34,7 @@ def _initialise(bot):
         bot.append("/bot")
 
     bot._handlers.bot_command = bot_command_aliases
-    print(_("bot aliases: {}").format(bot_command_aliases))
+    logger.info("aliases: {}".format(bot_command_aliases))
 
     plugins.register_user_command(["botalias"])
 
