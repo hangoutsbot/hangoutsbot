@@ -89,13 +89,13 @@ def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webh
 
         sa = httpd.socket.getsockname()
 
-        logger.info("sink: {} : {}:{}...".format(friendlyName, sa[0], sa[1]))
+        logger.info("{} : {}:{}...".format(friendlyName, sa[0], sa[1]))
 
         httpd.serve_forever()
 
     except OSError as e:
-        message = "SINK: {} : {}:{} : {}".format(friendlyName, name, port, e)
-        print(message)
+        message = "{} : {}:{} : {}".format(friendlyName, name, port, e)
+        print("EXCEPTION during start: {}".format(message))
         logger.exception(message)
 
         try:

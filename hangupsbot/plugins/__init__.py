@@ -114,7 +114,6 @@ def load(bot, command_dispatcher):
             logger.exception(message)
             continue
 
-        logger.info("loaded: {}".format(module))
         public_functions = [o for o in getmembers(sys.modules[module_path], isfunction)]
 
         candidate_commands = []
@@ -191,7 +190,9 @@ def load(bot, command_dispatcher):
                 registered_commands.append(text_function_name)
 
         if registered_commands:
-            logger.info("added: {}".format(", ".join(registered_commands)))
+            logger.info("{} - {}".format(module, ", ".join(registered_commands)))
+        else:
+            logger.info("{} - no commands".format(module))
 
         tracking.end()
 

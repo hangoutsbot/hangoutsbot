@@ -105,7 +105,7 @@ def start_listening(bot=None, loop=None, name="", port=8014, certfile=None):
         httpd.serve_forever()
 
     except OSError as e:
-        message = "LISTENER: {}:{} : {}".format(name, port, e)
+        message = "EXCEPTION during start: {}:{} : {}".format(name, port, e)
         print(message)
         logger.exception(message)
 
