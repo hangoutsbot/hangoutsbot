@@ -1004,9 +1004,10 @@ class SlackRTMThread(threading.Thread):
         global slackrtms
 
         try:
+            if self._listener:
+                slackrtms.remove(self._listener)
             self._listener = SlackRTM(self._config, self._bot, self._loop, threaded=True)
-            if not self._listener in slackrtms:
-                slackrtms.append(self._listener)
+            slackrtms.append(self._listener)
             last_ping = int(time.time())
             while True:
                 if self.stopped():
@@ -1049,7 +1050,8 @@ class SlackRTMThread(threading.Thread):
 
     def stop(self):
         global slackrtms
-        slackrtms.remove(self._listener)
+        if self._listener:
+            slackrtms.remove(self._listener)
         self._stop.set()
 
     def stopped(self):
