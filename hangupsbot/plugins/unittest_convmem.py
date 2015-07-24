@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 def _initialise(bot):
-    plugins.register_admin_command(["dumpconv", "dumpusers", "resetunknownusers", "refreshusermemory"])
+    plugins.register_admin_command(["dumpconv", "dumpunknownusers", "resetunknownusers", "refreshusermemory"])
 
 
 def dumpconv(bot, event, *args):
@@ -23,9 +23,9 @@ def dumpconv(bot, event, *args):
     bot.send_message_parsed(event.conv, "<br />".join(lines))
 
 
-def dumpusers(bot, event, *args):
+def dumpunknownusers(bot, event, *args):
     """lists cached users records with full name, first name as unknown, and is_definitive"""
-    logger.info("dumpusers started")
+    logger.info("dumpunknownusers started")
 
     if bot.memory.exists(["user_data"]):
         for chat_id in bot.memory["user_data"]:
@@ -33,9 +33,9 @@ def dumpusers(bot, event, *args):
                 _hangups = bot.memory["user_data"][chat_id]["_hangups"]
                 if _hangups["is_definitive"]:
                     if _hangups["full_name"].upper() == "UNKNOWN" and _hangups["full_name"] == _hangups["first_name"]:
-                        logger.info("dumpusers {}".format(_hangups))
+                        logger.info("dumpunknownusers {}".format(_hangups))
 
-    logger.info("dumpusers finished")
+    logger.info("dumpunknownusers finished")
 
     bot.send_message_parsed(event.conv, "<b>please see log/console</b>")
 
