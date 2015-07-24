@@ -589,7 +589,6 @@ class HangupsBot(object):
                                                    self._user_list,
                                                    initial_data.sync_timestamp)
 
-        #self.conversations = conversation_memory(self)
         self.conversations = yield from permamem.initialise_permanent_memory(self)
 
         plugins.load(self, command)
