@@ -20,6 +20,12 @@ def get_all_conversations(filter=False):
     return bot.conversations.get(filter)
 
 
+@asyncio.coroutine
+def initialise_permanent_memory(bot):
+    permamem = conversation_memory(bot)
+    return permamem
+
+
 class conversation_memory:
     bot = None
     catalog = {}
