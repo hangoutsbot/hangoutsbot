@@ -34,7 +34,7 @@ class tags:
                         for tag in tags:
                             self.add_to_index("user", tag, conv_id + "|" + chat_id)
 
-        logging.info("tags: refreshed")
+        logger.info("tags: refreshed")
 
     def add_to_index(self, type, tag, id):
         tag_to_object = "tag-{}s".format(type)
@@ -135,9 +135,9 @@ class tags:
             else:
                 raise ValueError("tags: unhandled update type {}".format(type))
 
-            logging.info("tags: {}/{} action={} value={}".format(type, id, action, tag))
+            logger.info("tags: {}/{} action={} value={}".format(type, id, action, tag))
         else:
-            logging.info("tags: {}/{} action={} value={} [NO CHANGE]".format(type, id, action, tag))
+            logger.info("tags: {}/{} action={} value={} [NO CHANGE]".format(type, id, action, tag))
 
         return updated
 
