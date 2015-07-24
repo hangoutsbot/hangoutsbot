@@ -36,6 +36,9 @@ from permamem import conversation_memory
 LOG_FORMAT = '%(asctime)s %(levelname)s %(name)s: %(message)s'
 LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
+CONSOLE_FORMAT = '%(asctime)s %(levelname)s %(name)s: %(message)s'
+CONSOLE_DATE_FORMAT = '%H:%M:%S'
+
 
 class SuppressHandler(Exception):
     pass
@@ -172,11 +175,13 @@ class HangupsBot(object):
             self.memory = config.Config(memory_file, failsafe_backups=_failsafe_backups, save_delay=_save_delay)
             if not os.path.isfile(memory_file):
                 try:
-                    print(_("creating memory file: {}").format(memory_file))
+                    logging.info("creating memory file: {}".format(memory_file))
                     self.memory.force_taint()
                     self.memory.save()
+
                 except (OSError, IOError) as e:
-                    sys.exit(_('failed to create default memory file: {}').format(e))
+                    logging.exception('FAILED TO CREATE DEFAULT MEMORY FILE')
+                    sys.exit()
 
         # Handle signals on Unix
         # (add_signal_handler is not implemented on Windows)
@@ -191,10 +196,10 @@ class HangupsBot(object):
         if id in self.shared:
             message = _("{} already registered in shared").format(id)
             if forgiving:
-                print(message)
                 logging.info(message)
             else:
                 raise RuntimeError(message)
+
         self.shared[id] = objectref
         plugins.tracking.register_shared(id, objectref, forgiving=forgiving)
 
@@ -212,8 +217,9 @@ class HangupsBot(object):
         try:
             cookies = hangups.auth.get_auth_stdin(cookies_path)
             return cookies
+
         except hangups.GoogleAuthError as e:
-            print(_('Login failed ({})').format(e))
+            logging.exception("LOGIN FAILED")
             return False
 
     def run(self):
@@ -244,6 +250,7 @@ class HangupsBot(object):
                     print(_('Waiting {} seconds...').format(5 + retry * 5))
                     time.sleep(5 + retry * 5)
                     print(_('Trying to connect again (try {} of {})...').format(retry + 1, self._max_retries))
+
             print(_('Maximum number of retries reached! Exiting...'))
         sys.exit(1)
 
@@ -310,7 +317,7 @@ class HangupsBot(object):
         try:
             yield from self._handlers.run_pluggable_omnibus("sending", self, broadcast_list, context)
         except self.Exceptions.SuppressEventHandling:
-            print(_("_begin_message_sending(): SuppressEventHandling"))
+            logging.info("message sending: SuppressEventHandling")
             return
         except:
             raise
@@ -320,11 +327,11 @@ class HangupsBot(object):
             debug_sending = True
 
         if debug_sending:
-            print(_("_begin_message_sending(): global context: {}").format(context))
+            logging.debug("message sending: global context = {}".format(context))
 
         for response in broadcast_list:
             if debug_sending:
-                print(_("_begin_message_sending(): {}").format(response[0]))
+                logging.debug("message sending: {}".format(response[0]))
 
             # send messages using FakeConversation as a workaround
             _fc = FakeConversation(self._client, response[0])
@@ -569,7 +576,7 @@ class HangupsBot(object):
         try:
             future.result()
         except hangups.NetworkError:
-            print(_('_on_message_sent(): failed to send message'))
+            logging.exception("FAILED TO SEND MESSAGE")
 
     @asyncio.coroutine
     def _on_connect(self, initial_data):
@@ -623,13 +630,14 @@ class HangupsBot(object):
 
         if self.get_config_option('workaround.duplicate-events'):
             if conv_event.id_ in self._cache_event_id:
-                message = _("_on_event(): ignoring duplicate event {}").format(conv_event.id_)
-                print(message)
-                logging.warning(message)
+                logging.warning("duplicate event {} ignored".format(conv_event.id_))
                 return
+
             self._cache_event_id = {k: v for k, v in self._cache_event_id.items() if v > time.time()-3}
             self._cache_event_id[conv_event.id_] = time.time()
-            print("{} {}".format(conv_event.id_, conv_event.timestamp))
+
+            logging.info("duplicate events workaround: event id = {} timestamp = {}".format(
+                conv_event.id_, conv_event.timestamp))
 
         event = ConversationEvent(self, conv_event)
 
@@ -675,14 +683,14 @@ class HangupsBot(object):
 
     def _on_disconnect(self):
         """Handle disconnecting"""
-        print(_('Connection lost!'))
+        logging.info('Connection lost!')
 
     def external_send_message(self, conversation_id, text):
         """
         LEGACY
             use send_html_to_conversation()
         """
-        print(_('DEPRECATED: external_send_message(), use send_html_to_conversation()'))
+        logging.warning('[DEPRECATED]: use send_html_to_conversation() instead of external_send_message()')
         self.send_html_to_conversation(conversation_id, text)
 
     def external_send_message_parsed(self, conversation_id, html):
@@ -690,28 +698,29 @@ class HangupsBot(object):
         LEGACY
             use send_html_to_conversation()
         """
-        print(_('DEPRECATED: external_send_message_parsed(), use send_html_to_conversation()'))
+        logging.warning('[DEPRECATED]: use send_html_to_conversation() instead of external_send_message_parsed()')
         self.send_html_to_conversation(conversation_id, html)
 
     def send_html_to_conversation(self, conversation_id, html, context=None):
-        print(_('send_html_to_conversation(): sending to {}').format(conversation_id))
+        logging.info("sending message to conversation {}".format(conversation_id))
         self.send_message_parsed(conversation_id, html, context)
 
     def send_html_to_user(self, user_id, html, context=None):
         conversation = self.get_1on1_conversation(user_id)
         if not conversation:
-            print(_('send_html_to_user(): 1-to-1 conversation not found'))
+            logging.warning("1-to-1 not found for {}".format(user_id))
             return False
-        print(_('send_html_to_user(): sending to {}').format(user_id))
+
+        logging.info("sending message to user {}".format(user_id))
         self.send_message_parsed(conversation, html, context)
         return True
 
     def send_html_to_user_or_conversation(self, user_id_or_conversation_id, html, context=None):
         """Attempts send_html_to_user. If failed, attempts send_html_to_conversation"""
+        logging.warning('[DEPRECATED] use send_html_to_conversation() or send_html_to_user() instead of send_html_to_user_or_conversation()')
         # NOTE: Assumption that a conversation_id will never match a user_id
         if not self.send_html_to_user(user_id_or_conversation_id, html, context):
             self.send_html_to_conversation(user_id_or_conversation_id, html, context)
-        print(_('DEPRECATED: send_html_to_user_or_conversation(), use send_html_to_conversation() or send_html_to_user()'))
 
     def user_self(self):
         myself = {
@@ -781,7 +790,7 @@ def main():
 
     # output logs to console
     consoleHandler = logging.StreamHandler(stream=sys.stdout)
-    format = logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+    format = logging.Formatter(CONSOLE_FORMAT, datefmt=CONSOLE_DATE_FORMAT)
     consoleHandler.setFormatter(format)
     consoleHandler.setLevel(logging.INFO)
     rootLogger.addHandler(consoleHandler)
