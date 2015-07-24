@@ -144,6 +144,20 @@ def help(bot, event, cmd=None, *args):
                     .format(event.user.full_name))
 
 
+@command.register(admin=True)
+def locale(bot, event, *args):
+    """set bot localisation"""
+    if len(args) > 0:
+        if bot.set_locale(args[0], reuse = (False if "reload" in args else True)):
+            message = _("locale set to: {}".format(args[0]))
+        else:
+            message = _("locale unchanged")
+    else:
+        message = _("language code required")
+
+    bot.send_message(event.conv, message)
+
+
 @command.register
 def ping(bot, event, *args):
     """reply to a ping"""
