@@ -1,40 +1,43 @@
 #!/usr/bin/env python3
-import os, sys, argparse, logging, shutil, asyncio, time, signal
-
-import gettext
-gettext.install('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'))
+import gettext, os, sys, argparse, logging, shutil, asyncio, time, signal
 
 """set environment variable to determine localisation:
     export HANGOUTSBOT_LOCALE=<supported language>
 """
+gettext.install('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'))
 HANGOUTSBOT_LOCALE = os.environ.get("HANGOUTSBOT_LOCALE")
 if HANGOUTSBOT_LOCALE:
     locale = gettext.translation('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'), languages=[HANGOUTSBOT_LOCALE])
     locale.install()
 
 import appdirs
+
 import hangups
 
-from utils import simple_parse_to_segments, class_from_name, conversation_memory, tags
-
-try:
-    from hangups.schemas import OffTheRecordStatus
-except ImportError:
-    print("WARNING: hangups library out of date!")
+from hangups.schemas import OffTheRecordStatus
 
 import config
 import handlers
 import version
+
 from commands import command
 from handlers import handler # shim for handler decorator
 
+from utils import simple_parse_to_segments, class_from_name, tags
+
+import permamem
 import hooks
 import sinks
 import plugins
 
+from permamem import conversation_memory
+
 
 LOG_FORMAT = '%(asctime)s %(levelname)s %(name)s: %(message)s'
 LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+
+CONSOLE_FORMAT = '%(asctime)s %(levelname)s %(name)s: %(message)s'
+CONSOLE_DATE_FORMAT = '%H:%M:%S'
 
 
 class SuppressHandler(Exception):
@@ -172,11 +175,13 @@ class HangupsBot(object):
             self.memory = config.Config(memory_file, failsafe_backups=_failsafe_backups, save_delay=_save_delay)
             if not os.path.isfile(memory_file):
                 try:
-                    print(_("creating memory file: {}").format(memory_file))
+                    logging.info("creating memory file: {}".format(memory_file))
                     self.memory.force_taint()
                     self.memory.save()
+
                 except (OSError, IOError) as e:
-                    sys.exit(_('failed to create default memory file: {}').format(e))
+                    logging.exception('FAILED TO CREATE DEFAULT MEMORY FILE')
+                    sys.exit()
 
         # Handle signals on Unix
         # (add_signal_handler is not implemented on Windows)
@@ -191,10 +196,10 @@ class HangupsBot(object):
         if id in self.shared:
             message = _("{} already registered in shared").format(id)
             if forgiving:
-                print(message)
                 logging.info(message)
             else:
                 raise RuntimeError(message)
+
         self.shared[id] = objectref
         plugins.tracking.register_shared(id, objectref, forgiving=forgiving)
 
@@ -212,8 +217,9 @@ class HangupsBot(object):
         try:
             cookies = hangups.auth.get_auth_stdin(cookies_path)
             return cookies
+
         except hangups.GoogleAuthError as e:
-            print(_('Login failed ({})').format(e))
+            logging.exception("LOGIN FAILED")
             return False
 
     def run(self):
@@ -244,6 +250,7 @@ class HangupsBot(object):
                     print(_('Waiting {} seconds...').format(5 + retry * 5))
                     time.sleep(5 + retry * 5)
                     print(_('Trying to connect again (try {} of {})...').format(retry + 1, self._max_retries))
+
             print(_('Maximum number of retries reached! Exiting...'))
         sys.exit(1)
 
@@ -310,21 +317,15 @@ class HangupsBot(object):
         try:
             yield from self._handlers.run_pluggable_omnibus("sending", self, broadcast_list, context)
         except self.Exceptions.SuppressEventHandling:
-            print(_("_begin_message_sending(): SuppressEventHandling"))
+            logging.info("message sending: SuppressEventHandling")
             return
         except:
             raise
 
-        debug_sending = False
-        if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
-            debug_sending = True
-
-        if debug_sending:
-            print(_("_begin_message_sending(): global context: {}").format(context))
+        logging.debug("message sending: global context = {}".format(context))
 
         for response in broadcast_list:
-            if debug_sending:
-                print(_("_begin_message_sending(): {}").format(response[0]))
+            logging.debug("message sending: {}".format(response[0]))
 
             # send messages using FakeConversation as a workaround
             _fc = FakeConversation(self._client, response[0])
@@ -569,7 +570,7 @@ class HangupsBot(object):
         try:
             future.result()
         except hangups.NetworkError:
-            print(_('_on_message_sent(): failed to send message'))
+            logging.exception("FAILED TO SEND MESSAGE")
 
     @asyncio.coroutine
     def _on_connect(self, initial_data):
@@ -580,31 +581,21 @@ class HangupsBot(object):
         self._handlers = handlers.EventHandler(self)
         handlers.handler.set_bot(self) # shim for handler decorator
 
-        try:
-            # hangups-201504090500
-            self._user_list = yield from hangups.user.build_user_list(
-                self._client, initial_data
-            )
-        except AttributeError:
-            # backward-compatibility: pre hangups-201504090500
-            self._user_list = hangups.UserList(self._client,
-                                               initial_data.self_entity,
-                                               initial_data.entities,
-                                               initial_data.conversation_participants)
+        self._user_list = yield from hangups.user.build_user_list(self._client,
+                                                                  initial_data)
 
         self._conv_list = hangups.ConversationList(self._client,
                                                    initial_data.conversation_states,
                                                    self._user_list,
                                                    initial_data.sync_timestamp)
 
-        self._conv_list.on_event.add_observer(self._on_event)
-
-        self._client.on_state_update.add_observer(self._on_status_changes)
-
-        self.conversations = conversation_memory(self)
+        self.conversations = yield from permamem.initialise_permanent_memory(self)
         self.tags = tags(self)
 
         plugins.load(self, command)
+
+        self._conv_list.on_event.add_observer(self._on_event)
+        self._client.on_state_update.add_observer(self._on_status_changes)
 
         logging.info("bot initialised")
 
@@ -625,6 +616,7 @@ class HangupsBot(object):
             ).add_done_callback(lambda future: future.result())
 
 
+    @asyncio.coroutine
     def _on_event(self, conv_event):
         """Handle conversation events"""
 
@@ -632,29 +624,37 @@ class HangupsBot(object):
 
         if self.get_config_option('workaround.duplicate-events'):
             if conv_event.id_ in self._cache_event_id:
-                message = _("_on_event(): ignoring duplicate event {}").format(conv_event.id_)
-                print(message)
-                logging.warning(message)
+                logging.warning("duplicate event {} ignored".format(conv_event.id_))
                 return
+
             self._cache_event_id = {k: v for k, v in self._cache_event_id.items() if v > time.time()-3}
             self._cache_event_id[conv_event.id_] = time.time()
-            print("{} {}".format(conv_event.id_, conv_event.timestamp))
+
+            logging.info("duplicate events workaround: event id = {} timestamp = {}".format(
+                conv_event.id_, conv_event.timestamp))
 
         event = ConversationEvent(self, conv_event)
 
-        self.conversations.update(self._conv_list.get(conv_event.conversation_id), source="event")
+        yield from self.conversations.update(self._conv_list.get(conv_event.conversation_id), 
+                                             source="event")
 
         if isinstance(conv_event, hangups.ChatMessageEvent):
             self._execute_hook("on_chat_message", event)
-            asyncio.async(self._handlers.handle_chat_message(event))
+            asyncio.async(
+                self._handlers.handle_chat_message(event)
+            ).add_done_callback(lambda future: future.result())
 
         elif isinstance(conv_event, hangups.MembershipChangeEvent):
             self._execute_hook("on_membership_change", event)
-            asyncio.async(self._handlers.handle_chat_membership(event))
+            asyncio.async(
+                self._handlers.handle_chat_membership(event)
+            ).add_done_callback(lambda future: future.result())
 
         elif isinstance(conv_event, hangups.RenameEvent):
             self._execute_hook("on_rename", event)
-            asyncio.async(self._handlers.handle_chat_rename(event))
+            asyncio.async(
+                self._handlers.handle_chat_rename(event)
+            ).add_done_callback(lambda future: future.result())
 
         elif type(conv_event) is hangups.conversation_event.ConversationEvent:
             if conv_event._event.hangout_event:
@@ -677,14 +677,14 @@ class HangupsBot(object):
 
     def _on_disconnect(self):
         """Handle disconnecting"""
-        print(_('Connection lost!'))
+        logging.info('Connection lost!')
 
     def external_send_message(self, conversation_id, text):
         """
         LEGACY
             use send_html_to_conversation()
         """
-        print(_('DEPRECATED: external_send_message(), use send_html_to_conversation()'))
+        logging.warning('[DEPRECATED]: use send_html_to_conversation() instead of external_send_message()')
         self.send_html_to_conversation(conversation_id, text)
 
     def external_send_message_parsed(self, conversation_id, html):
@@ -692,28 +692,29 @@ class HangupsBot(object):
         LEGACY
             use send_html_to_conversation()
         """
-        print(_('DEPRECATED: external_send_message_parsed(), use send_html_to_conversation()'))
+        logging.warning('[DEPRECATED]: use send_html_to_conversation() instead of external_send_message_parsed()')
         self.send_html_to_conversation(conversation_id, html)
 
     def send_html_to_conversation(self, conversation_id, html, context=None):
-        print(_('send_html_to_conversation(): sending to {}').format(conversation_id))
+        logging.info("sending message to conversation {}".format(conversation_id))
         self.send_message_parsed(conversation_id, html, context)
 
     def send_html_to_user(self, user_id, html, context=None):
         conversation = self.get_1on1_conversation(user_id)
         if not conversation:
-            print(_('send_html_to_user(): 1-to-1 conversation not found'))
+            logging.warning("1-to-1 not found for {}".format(user_id))
             return False
-        print(_('send_html_to_user(): sending to {}').format(user_id))
+
+        logging.info("sending message to user {}".format(user_id))
         self.send_message_parsed(conversation, html, context)
         return True
 
     def send_html_to_user_or_conversation(self, user_id_or_conversation_id, html, context=None):
         """Attempts send_html_to_user. If failed, attempts send_html_to_conversation"""
+        logging.warning('[DEPRECATED] use send_html_to_conversation() or send_html_to_user() instead of send_html_to_user_or_conversation()')
         # NOTE: Assumption that a conversation_id will never match a user_id
         if not self.send_html_to_user(user_id_or_conversation_id, html, context):
             self.send_html_to_conversation(user_id_or_conversation_id, html, context)
-        print(_('DEPRECATED: send_html_to_user_or_conversation(), use send_html_to_conversation() or send_html_to_user()'))
 
     def user_self(self):
         myself = {
@@ -783,7 +784,7 @@ def main():
 
     # output logs to console
     consoleHandler = logging.StreamHandler(stream=sys.stdout)
-    format = logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+    format = logging.Formatter(CONSOLE_FORMAT, datefmt=CONSOLE_DATE_FORMAT)
     consoleHandler.setFormatter(format)
     consoleHandler.setLevel(logging.INFO)
     rootLogger.addHandler(consoleHandler)
