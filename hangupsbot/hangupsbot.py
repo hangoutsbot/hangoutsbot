@@ -1,36 +1,36 @@
 #!/usr/bin/env python3
-import os, sys, argparse, logging, shutil, asyncio, time, signal
-
-import gettext
-gettext.install('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'))
+import gettext, os, sys, argparse, logging, shutil, asyncio, time, signal
 
 """set environment variable to determine localisation:
     export HANGOUTSBOT_LOCALE=<supported language>
 """
+gettext.install('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'))
 HANGOUTSBOT_LOCALE = os.environ.get("HANGOUTSBOT_LOCALE")
 if HANGOUTSBOT_LOCALE:
     locale = gettext.translation('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'), languages=[HANGOUTSBOT_LOCALE])
     locale.install()
 
 import appdirs
+
 import hangups
 
-from utils import simple_parse_to_segments, class_from_name, conversation_memory
-
-try:
-    from hangups.schemas import OffTheRecordStatus
-except ImportError:
-    print("WARNING: hangups library out of date!")
+from hangups.schemas import OffTheRecordStatus
 
 import config
 import handlers
 import version
+
 from commands import command
 from handlers import handler # shim for handler decorator
 
+from utils import simple_parse_to_segments, class_from_name
+
+import permamem
 import hooks
 import sinks
 import plugins
+
+from permamem import conversation_memory
 
 
 LOG_FORMAT = '%(asctime)s %(levelname)s %(name)s: %(message)s'
@@ -580,28 +580,20 @@ class HangupsBot(object):
         self._handlers = handlers.EventHandler(self)
         handlers.handler.set_bot(self) # shim for handler decorator
 
-        try:
-            # hangups-201504090500
-            self._user_list = yield from hangups.user.build_user_list(
-                self._client, initial_data
-            )
-        except AttributeError:
-            # backward-compatibility: pre hangups-201504090500
-            self._user_list = hangups.UserList(self._client,
-                                               initial_data.self_entity,
-                                               initial_data.entities,
-                                               initial_data.conversation_participants)
+        self._user_list = yield from hangups.user.build_user_list(self._client,
+                                                                  initial_data)
 
         self._conv_list = hangups.ConversationList(self._client,
                                                    initial_data.conversation_states,
                                                    self._user_list,
                                                    initial_data.sync_timestamp)
 
+        #self.conversations = conversation_memory(self)
+        self.conversations = yield from permamem.initialise_permanent_memory(self)
+
         self._conv_list.on_event.add_observer(self._on_event)
 
         self._client.on_state_update.add_observer(self._on_status_changes)
-
-        self.conversations = conversation_memory(self)
 
         plugins.load(self, command)
 
@@ -624,6 +616,7 @@ class HangupsBot(object):
             ).add_done_callback(lambda future: future.result())
 
 
+    @asyncio.coroutine
     def _on_event(self, conv_event):
         """Handle conversation events"""
 
@@ -641,7 +634,7 @@ class HangupsBot(object):
 
         event = ConversationEvent(self, conv_event)
 
-        self.conversations.update(self._conv_list.get(conv_event.conversation_id), source="event")
+        yield from self.conversations.update(self._conv_list.get(conv_event.conversation_id), source="event")
 
         if isinstance(conv_event, hangups.ChatMessageEvent):
             self._execute_hook("on_chat_message", event)

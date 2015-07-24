@@ -23,6 +23,15 @@ def get_all_conversations(filter=False):
 @asyncio.coroutine
 def initialise_permanent_memory(bot):
     permamem = conversation_memory(bot)
+
+    yield from permamem.standardise_memory()
+    yield from permamem.load_from_memory()
+    yield from permamem.load_from_hangups()
+
+    permamem.stats()
+
+    permamem.bot.memory.save() # only if tainted
+
     return permamem
 
 
@@ -36,14 +45,7 @@ class conversation_memory:
         self.bot = bot
         self.catalog = {}
 
-        self.standardise_memory()
-
-        self.load_from_memory()
-
-        self.load_from_hangups()
-
-        self.bot.memory.save() # only if tainted
-
+    def stats(self):
         logger.info("total conversations: {}".format(len(self.catalog)))
 
         if self.bot.memory.exists(["user_data"]):
@@ -58,23 +60,12 @@ class conversation_memory:
                         count_user_cached_definitive = count_user_cached_definitive + 1
 
             logger.info("total users: {} cached: {} definitive (at start): {}".format(
-                len(self.bot.memory["user_data"]), count_user, count_user_cached, count_user_cached_definitive))
+                count_user, count_user_cached, count_user_cached_definitive))
 
         sys.modules[__name__].bot = bot # workaround for drop-ins
 
-    def load_from_hangups(self):
-        logger.info("loading {} users from hangups".format(
-            len(self.bot._user_list._user_dict)))
 
-        for User in self.bot._user_list.get_all():
-            self.store_user_memory(User, automatic_save=False, is_definitive=True)
-
-        logger.info("loading {} conversations from hangups".format(
-            len(self.bot._conv_list._conv_dict)))
-
-        for Conversation in self.bot._conv_list.get_all():
-            self.update(Conversation, source="init", automatic_save=False)
-
+    @asyncio.coroutine
     def standardise_memory(self):
         """construct the conversation memory keys and standardisethe stored structure
         devs: migrate new keys here, also add to attribute change checks in .update()
@@ -130,7 +121,7 @@ class conversation_memory:
 
         return memory_updated
 
-
+    @asyncio.coroutine
     def load_from_memory(self):
         """load "persisted" conversations from memory.json into self.catalog
         complete internal user list by using (legacy) "users" and "participants" keys
@@ -212,9 +203,22 @@ class conversation_memory:
             """attempt to rebuilt the user data with hangups.client.getentitybyid()"""
 
             if len(_users_to_fetch) > 0:
-                asyncio.async(
-                    self.get_users_from_query(_users_to_fetch)
-                ).add_done_callback(lambda future: future.result())
+                yield from self.get_users_from_query(_users_to_fetch)
+
+
+    @asyncio.coroutine
+    def load_from_hangups(self):
+        logger.info("loading {} users from hangups".format(
+            len(self.bot._user_list._user_dict)))
+
+        for User in self.bot._user_list.get_all():
+            self.store_user_memory(User, automatic_save=False, is_definitive=True)
+
+        logger.info("loading {} conversations from hangups".format(
+            len(self.bot._conv_list._conv_dict)))
+
+        for Conversation in self.bot._conv_list.get_all():
+            yield from self.update(Conversation, source="init", automatic_save=False)
 
 
     @asyncio.coroutine
@@ -222,7 +226,7 @@ class conversation_memory:
         chat_ids = list(set(chat_ids))
         logger.debug("getentitybyid(): {}".format(chat_ids))
 
-        response = yield from bot._client.getentitybyid(chat_ids)
+        response = yield from self.bot._client.getentitybyid(chat_ids)
 
         updated_users = 0
         for _user in response.entities:
@@ -241,6 +245,10 @@ class conversation_memory:
         if updated_users > 0:
             self.bot.memory.save()
             logger.info("getentitybyid(): {} users updated".format(updated_users))
+        else:
+            logger.info("getentitybyid(): no change")
+
+        return updated_users
 
 
     def store_user_memory(self, User, automatic_save=True, is_definitive=False):
@@ -307,6 +315,7 @@ class conversation_memory:
         return changed
 
 
+    @asyncio.coroutine
     def update(self, conv, source="unknown", automatic_save=True):
         """update conversation memory based on supplied hangups Conversation
         conservative writing: on changed Conversation and/or User attribute changes
@@ -339,7 +348,8 @@ class conversation_memory:
             if not User.is_self:
                 memory["participants"].append(User.id_.chat_id)
 
-            if User.full_name.upper() == "UNKNOWN":
+            if User.full_name.upper() == "UNKNOWN" or User.first_name == None:
+                # XXX: crappy way to detect hangups fallback and unknown users
                 _modified = self.store_user_memory(User, automatic_save=False, is_definitive=False)
                 _users_to_fetch.append(User.id_.chat_id)
             else:
@@ -350,9 +360,7 @@ class conversation_memory:
 
         if len(_users_to_fetch) > 0:
             logger.warning("unknown users returned from {} ({}): {}".format(conv_title, conv.id_, _users_to_fetch))
-            asyncio.async(
-                self.get_users_from_query(_users_to_fetch)
-            ).add_done_callback(lambda future: future.result())
+            yield from self.get_users_from_query(_users_to_fetch)
 
         """store the conversation type: GROUP, ONE_TO_ONE"""
         if conv._conversation.type_ == hangups.schemas.ConversationType.GROUP:
