@@ -85,7 +85,7 @@ class conversation_memory:
 
     @asyncio.coroutine
     def standardise_memory(self):
-        """construct the conversation memory keys and standardisethe stored structure
+        """construct the conversation memory keys and standardise the stored structure
         devs: migrate new keys here, also add to attribute change checks in .update()
         """
         memory_updated = False
