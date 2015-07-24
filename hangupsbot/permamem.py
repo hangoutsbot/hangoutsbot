@@ -201,8 +201,11 @@ class conversation_memory:
                             if self.bot.memory.exists(["user_data", _chat_id, "_hangups"]):
                                 cached = self.bot.memory.get_by_path(["user_data", _chat_id, "_hangups"])
                                 if cached["is_definitive"]:
-                                    # ignore definitive entries
-                                    continue
+                                    if User.full_name.upper() == "UNKNOWN" and User.first_name == User.full_name:
+                                        # XXX: crappy way to detect hangups fallback and unknown users
+                                        logger.debug("user {} needs refresh".format(_chat_id))
+                                    else:
+                                        continue
 
                             if cached:
                                 _users_incomplete[_chat_id] = cached["full_name"]
@@ -242,26 +245,31 @@ class conversation_memory:
 
 
     @asyncio.coroutine
-    def get_users_from_query(self, chat_ids):
+    def get_users_from_query(self, chat_ids, batch_max=20):
         """retrieve definitive user data by requesting it from the server"""
+
         chat_ids = list(set(chat_ids))
-        logger.debug("getentitybyid(): {}".format(chat_ids))
 
-        response = yield from self.bot._client.getentitybyid(chat_ids)
+        chunks = [chat_ids[i:i+batch_max] for i in range(0, len(chat_ids), batch_max)]
 
-        updated_users = 0
-        for _user in response.entities:
-            UserID = hangups.user.UserID(chat_id=_user.id_.chat_id, gaia_id=_user.id_.gaia_id)
-            User = hangups.user.User(
-                UserID,
-                _user.properties.display_name,
-                _user.properties.first_name,
-                _user.properties.photo_url,
-                _user.properties.emails,
-                False)
+        for chunk in chunks:
+            logger.debug("getentitybyid(): {}".format(chunk))
 
-            if self.store_user_memory(User, is_definitive=True, automatic_save=False):
-                updated_users = updated_users + 1
+            response = yield from self.bot._client.getentitybyid(chunk)
+
+            updated_users = 0
+            for _user in response.entities:
+                UserID = hangups.user.UserID(chat_id=_user.id_.chat_id, gaia_id=_user.id_.gaia_id)
+                User = hangups.user.User(
+                    UserID,
+                    _user.properties.display_name,
+                    _user.properties.first_name,
+                    _user.properties.photo_url,
+                    _user.properties.emails,
+                    False)
+
+                if self.store_user_memory(User, is_definitive=True, automatic_save=False):
+                    updated_users = updated_users + 1
 
         if updated_users > 0:
             self.bot.memory.save()
@@ -370,7 +378,7 @@ class conversation_memory:
             if not User.is_self:
                 memory["participants"].append(User.id_.chat_id)
 
-            if User.full_name.upper() == "UNKNOWN" or User.first_name == None:
+            if User.full_name.upper() == "UNKNOWN" and User.first_name == User.full_name:
                 # XXX: crappy way to detect hangups fallback and unknown users
                 _modified = self.store_user_memory(User, automatic_save=False, is_definitive=False)
                 _users_to_fetch.append(User.id_.chat_id)
