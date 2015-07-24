@@ -1,14 +1,7 @@
 #!/usr/bin/env python3
 import gettext, os, sys, argparse, logging, shutil, asyncio, time, signal
 
-"""set environment variable to determine localisation:
-    export HANGOUTSBOT_LOCALE=<supported language>
-"""
 gettext.install('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'))
-HANGOUTSBOT_LOCALE = os.environ.get("HANGOUTSBOT_LOCALE")
-if HANGOUTSBOT_LOCALE:
-    locale = gettext.translation('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'), languages=[HANGOUTSBOT_LOCALE])
-    locale.install()
 
 import appdirs
 
@@ -160,8 +153,15 @@ class HangupsBot(object):
 
         self._cache_event_id = {} # workaround for duplicate events
 
+        self._locales = {}
+
         # Load config file
         self.config = config.Config(config_path)
+
+        # set localisation if anything defined in config.language or ENV[HANGOUTSBOT_LOCALE]
+        _language = self.get_config_option('language') or os.environ.get("HANGOUTSBOT_LOCALE")
+        if _language:
+            self.set_locale(_language)
 
         # load in previous memory, or create new one
         self.memory = None
@@ -191,6 +191,24 @@ class HangupsBot(object):
                 loop.add_signal_handler(signum, lambda: self.stop())
         except NotImplementedError:
             pass
+
+    def set_locale(self, language_code, reuse=True):
+        if not reuse or language_code not in self._locales:
+            try:
+                self._locales[language_code] = gettext.translation('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'), languages=[language_code])
+                logging.debug("locale loaded: {}".format(language_code))
+            except OSError:
+                logging.exception("no translation for {}".format(language_code))
+
+        if language_code in self._locales:
+            self._locales[language_code].install()
+            logging.info("locale: {}".format(language_code))
+            return True
+
+        else:
+            logging.warning("LOCALE: {}".format(language_code))
+            return False
+
 
     def register_shared(self, id, objectref, forgiving=False):
         if id in self.shared:
