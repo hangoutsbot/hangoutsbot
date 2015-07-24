@@ -591,11 +591,10 @@ class HangupsBot(object):
         #self.conversations = conversation_memory(self)
         self.conversations = yield from permamem.initialise_permanent_memory(self)
 
-        self._conv_list.on_event.add_observer(self._on_event)
-
-        self._client.on_state_update.add_observer(self._on_status_changes)
-
         plugins.load(self, command)
+
+        self._conv_list.on_event.add_observer(self._on_event)
+        self._client.on_state_update.add_observer(self._on_status_changes)
 
         logging.info("bot initialised")
 
@@ -634,19 +633,26 @@ class HangupsBot(object):
 
         event = ConversationEvent(self, conv_event)
 
-        yield from self.conversations.update(self._conv_list.get(conv_event.conversation_id), source="event")
+        yield from self.conversations.update(self._conv_list.get(conv_event.conversation_id), 
+                                             source="event")
 
         if isinstance(conv_event, hangups.ChatMessageEvent):
             self._execute_hook("on_chat_message", event)
-            asyncio.async(self._handlers.handle_chat_message(event))
+            asyncio.async(
+                self._handlers.handle_chat_message(event)
+            ).add_done_callback(lambda future: future.result())
 
         elif isinstance(conv_event, hangups.MembershipChangeEvent):
             self._execute_hook("on_membership_change", event)
-            asyncio.async(self._handlers.handle_chat_membership(event))
+            asyncio.async(
+                self._handlers.handle_chat_membership(event)
+            ).add_done_callback(lambda future: future.result())
 
         elif isinstance(conv_event, hangups.RenameEvent):
             self._execute_hook("on_rename", event)
-            asyncio.async(self._handlers.handle_chat_rename(event))
+            asyncio.async(
+                self._handlers.handle_chat_rename(event)
+            ).add_done_callback(lambda future: future.result())
 
         elif type(conv_event) is hangups.conversation_event.ConversationEvent:
             if conv_event._event.hangout_event:

@@ -1,7 +1,5 @@
 import asyncio, sys, logging, datetime
 
-from hangups.ui.utils import get_conv_name as hangups_get_conv_name
-
 import hangups
 
 bot = None
@@ -18,6 +16,28 @@ def get_conv_name(conv, truncate=False):
 def get_all_conversations(filter=False):
     logger.warning("DEPRECATED: use bot.conversations.get()")
     return bot.conversations.get(filter)
+
+
+def name_from_hangups_conversation(conv):
+    """get the name for supplied hangups conversation
+    based on hangups.ui.utils.get_conv_name, except without the warnings
+    """
+    if conv.name is not None:
+        return conv.name
+    else:
+        participants = sorted(
+            (user for user in conv.users if not user.is_self),
+            key=lambda user: user.id_
+        )
+        names = [user.first_name for user in participants]
+        if len(participants) == 0:
+            return "Empty Conversation"
+        if len(participants) == 1:
+            return participants[0].full_name
+        elif truncate and len(participants) > 2:
+            return (', '.join(names[:2] + ['+{}'.format(len(names) - 2)]))
+        else:
+            return ', '.join(names)
 
 
 @asyncio.coroutine
@@ -223,6 +243,7 @@ class conversation_memory:
 
     @asyncio.coroutine
     def get_users_from_query(self, chat_ids):
+        """retrieve definitive user data by requesting it from the server"""
         chat_ids = list(set(chat_ids))
         logger.debug("getentitybyid(): {}".format(chat_ids))
 
@@ -246,7 +267,8 @@ class conversation_memory:
             self.bot.memory.save()
             logger.info("getentitybyid(): {} users updated".format(updated_users))
         else:
-            logger.info("getentitybyid(): no change")
+            if self.log_info_unchanged:
+                logger.info("getentitybyid(): no change")
 
         return updated_users
 
@@ -321,7 +343,7 @@ class conversation_memory:
         conservative writing: on changed Conversation and/or User attribute changes
         return True on Conversation/User change, False on no changes
         """
-        conv_title = hangups_get_conv_name(conv)
+        conv_title = name_from_hangups_conversation(conv)
 
         original = {}
         if self.bot.memory.exists(["convmem", conv.id_]):
@@ -502,7 +524,7 @@ class conversation_memory:
             title = convdata["title"]
         except (KeyError, AttributeError) as e:
             if not isinstance(conv, str):
-                title = hangups_get_conv_name(conv, truncate=False)
+                title = name_from_hangups_conversation(conv, truncate=False)
             else:
                 raise ValueError("could not determine conversation name")
 
