@@ -1,4 +1,4 @@
-import asyncio, sys, logging, datetime
+import asyncio, logging, datetime
 
 import hangups
 
@@ -6,16 +6,6 @@ bot = None
 
 
 logger = logging.getLogger(__name__)
-
-
-def get_conv_name(conv, truncate=False):
-    logger.warning("DEPRECATED: use bot.conversations.get_name()")
-    return bot.conversations.get_name(conv)
-
-
-def get_all_conversations(filter=False):
-    logger.warning("DEPRECATED: use bot.conversations.get()")
-    return bot.conversations.get(filter)
 
 
 def name_from_hangups_conversation(conv):
@@ -79,8 +69,6 @@ class conversation_memory:
 
             logger.info("total users: {} cached: {} definitive (at start): {}".format(
                 count_user, count_user_cached, count_user_cached_definitive))
-
-        sys.modules[__name__].bot = bot # workaround for drop-ins
 
 
     @asyncio.coroutine
