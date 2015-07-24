@@ -23,9 +23,11 @@ import version
 from commands import command
 from handlers import handler # shim for handler decorator
 
-from utils import simple_parse_to_segments, class_from_name, tags
+from utils import simple_parse_to_segments, class_from_name
 
 import permamem
+import tagging
+
 import hooks
 import sinks
 import plugins
@@ -559,7 +561,7 @@ class HangupsBot(object):
         return {
             "source": source,
             "importance": importance,
-            "tags": tags
+            "tags": tags # NOT RELATED with bot.tags or tagging module
         }
 
     def _messagecontext_legacy(self):
@@ -590,7 +592,7 @@ class HangupsBot(object):
                                                    initial_data.sync_timestamp)
 
         self.conversations = yield from permamem.initialise_permanent_memory(self)
-        self.tags = tags(self)
+        self.tags = tagging.tags(self)
 
         plugins.load(self, command)
 
