@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 def _initialise(bot):
-    plugins.register_admin_command(["dumpconv", "dumpusers", "resetunknownusers"])
+    plugins.register_admin_command(["dumpconv", "dumpusers", "resetunknownusers", "refreshusermemory"])
 
 
 def dumpconv(bot, event, *args):
@@ -55,5 +55,15 @@ def resetunknownusers(bot, event, *args):
     bot.memory.save()
 
     logger.info("resetunknownusers finished")
+
+    bot.send_message_parsed(event.conv, "<b>please see log/console</b>")
+
+
+def refreshusermemory(bot, event, *args):
+    """refresh specified user chat ids with contact/getentitybyid"""
+    logger.info("refreshusermemory started")
+    updated = yield from bot.conversations.get_users_from_query(args)
+    logger.info("refreshusermemory {} updated".format(updated))
+    logger.info("refreshusermemory ended")
 
     bot.send_message_parsed(event.conv, "<b>please see log/console</b>")

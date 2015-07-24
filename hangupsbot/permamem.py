@@ -250,24 +250,29 @@ class conversation_memory:
 
         chunks = [chat_ids[i:i+batch_max] for i in range(0, len(chat_ids), batch_max)]
 
+        updated_users = 0
+
         for chunk in chunks:
             logger.debug("getentitybyid(): {}".format(chunk))
 
-            response = yield from self.bot._client.getentitybyid(chunk)
+            try:
+                response = yield from self.bot._client.getentitybyid(chunk)
 
-            updated_users = 0
-            for _user in response.entities:
-                UserID = hangups.user.UserID(chat_id=_user.id_.chat_id, gaia_id=_user.id_.gaia_id)
-                User = hangups.user.User(
-                    UserID,
-                    _user.properties.display_name,
-                    _user.properties.first_name,
-                    _user.properties.photo_url,
-                    _user.properties.emails,
-                    False)
+                for _user in response.entities:
+                    UserID = hangups.user.UserID(chat_id=_user.id_.chat_id, gaia_id=_user.id_.gaia_id)
+                    User = hangups.user.User(
+                        UserID,
+                        _user.properties.display_name,
+                        _user.properties.first_name,
+                        _user.properties.photo_url,
+                        _user.properties.emails,
+                        False)
 
-                if self.store_user_memory(User, is_definitive=True, automatic_save=False):
-                    updated_users = updated_users + 1
+                    if self.store_user_memory(User, is_definitive=True, automatic_save=False):
+                        updated_users = updated_users + 1
+
+            except hangups.exceptions.NetworkError as e:
+                logger.exception("getentitybyid(): FAILED for chunk {}".format(chunk))
 
         if updated_users > 0:
             self.bot.memory.save()
