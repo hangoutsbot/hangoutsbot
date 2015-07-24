@@ -214,7 +214,8 @@ def invite(bot, event, *args):
                     _remove_invite(bot, invite["id"])
 
                 expiry_in_days = round((invite["expiry"] - time.time()) / 86400, 1)
-                lines.append("<i>`{}`</i> to <b>`{}`</b> ... {} ({} days left)".format(user_id, conversation_name, invite["id"], expiry_in_days))
+                lines.append("<i><pre>{}</pre></i> to <b><pre>{}</pre></b> ... {} ({} days left)".format(
+                    user_id, conversation_name, invite["id"], expiry_in_days))
 
         else:
             lines.append(_("<em>no invites found</em>"))
