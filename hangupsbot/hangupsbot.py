@@ -322,16 +322,10 @@ class HangupsBot(object):
         except:
             raise
 
-        debug_sending = False
-        if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
-            debug_sending = True
-
-        if debug_sending:
-            logging.debug("message sending: global context = {}".format(context))
+        logging.debug("message sending: global context = {}".format(context))
 
         for response in broadcast_list:
-            if debug_sending:
-                logging.debug("message sending: {}".format(response[0]))
+            logging.debug("message sending: {}".format(response[0]))
 
             # send messages using FakeConversation as a workaround
             _fc = FakeConversation(self._client, response[0])
