@@ -34,8 +34,6 @@ def name_from_hangups_conversation(conv):
             return "Empty Conversation"
         if len(participants) == 1:
             return participants[0].full_name
-        elif truncate and len(participants) > 2:
-            return (', '.join(names[:2] + ['+{}'.format(len(names) - 2)]))
         else:
             return ', '.join(names)
 
@@ -532,7 +530,7 @@ class conversation_memory:
             title = convdata["title"]
         except (KeyError, AttributeError) as e:
             if not isinstance(conv, str):
-                title = name_from_hangups_conversation(conv, truncate=False)
+                title = name_from_hangups_conversation(conv)
             else:
                 raise ValueError("could not determine conversation name")
 
