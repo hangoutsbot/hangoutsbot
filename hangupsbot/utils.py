@@ -113,23 +113,29 @@ class tags:
 
         if type == "conv":
             index_type = "conv"
-            if id not in bot.conversations.catalog:
+
+            if id not in self.bot.conversations.catalog:
                 raise ValueError("tags: conversation {} does not exist".format(id))
+
             tags = self.bot.conversation_memory_get(id, "tags")
 
         elif type == "user":
             index_type = "user"
-            if not bot.conversations.get("chat_id:" + id):
+
+            if not self.bot.memory.exists(["user_data", id]):
                 raise ValueError("tags: user {} does not exist".format(id))
+
             tags = self.bot.user_memory_get(id, "tags")
 
         elif type == "convuser":
             index_type = "user"
             [conv_id, chat_id] = id.split("|", maxsplit=1)
-            if not bot.conversations.get("chat_id:" + chat_id):
-                raise ValueError("tags: user {} does not exist".format(chat_id))
-            if conv_id not in bot.conversations.catalog:
+
+            if not self.bot.memory.exists(["user_data", chat_id]):
+                raise ValueError("tags: user {} does not exist".format(id))
+            if conv_id not in self.bot.conversations.catalog:
                 raise ValueError("tags: conversation {} does not exist".format(conv_id))
+
             tags_users = self.bot.conversation_memory_get(conv_id, "tags-users")
             if not tags_users:
                 tags_users = {}
@@ -191,8 +197,12 @@ class tags:
     def useractive(self, chat_id, conv_id="*"):
         """return active tags of user for current conv_id if supplied, globally if not"""
         if conv_id != "*":
-            if conv_id not in bot.conversations.catalog:
+
+            if not self.bot.memory.exists(["user_data", chat_id]):
+                raise ValueError("tags: user {} does not exist".format(chat_id))
+            if conv_id not in self.bot.conversations.catalog:
                 raise ValueError("tags: conversation {} does not exist".format(conv_id))
+
             per_conversation_user_override_key = (conv_id + "|" + chat_id)
             if per_conversation_user_override_key in self.indices["user-tags"]:
                 return self.indices["user-tags"][per_conversation_user_override_key]
