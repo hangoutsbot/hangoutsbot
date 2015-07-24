@@ -480,6 +480,6 @@ def whereami(bot, event, *args):
 
     bot.send_message_parsed(
       event.conv,
-      _("You are at <b>{}</b>, conv_id = <i>{}</i>").format(
+      _("You are at <b><pre>{}</pre></b>, conv_id = <i><pre>{}</pre></i>").format(
         bot.conversations.get_name(event.conv),
         event.conv.id_))
