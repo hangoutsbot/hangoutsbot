@@ -1,7 +1,13 @@
+import logging
+
 import plugins
 
+
+logger = logging.getLogger(__name__)
+
+
 def _initialise(bot):
-    plugins.register_admin_command(["dumpconv"])
+    plugins.register_admin_command(["dumpconv", "dumpusers", "resetunknownusers", "refreshusermemory"])
 
 
 def dumpconv(bot, event, *args):
@@ -15,3 +21,49 @@ def dumpconv(bot, event, *args):
                 convid, convdata["source"], len(convdata["participants"]), convdata["type"], convdata["history"], convdata["title"]))
     lines.append("<b><em>Totals: {}/{}</em></b>".format(len(lines), len(all_conversations)))
     bot.send_message_parsed(event.conv, "<br />".join(lines))
+
+
+def dumpusers(bot, event, *args):
+    """lists cached users records with full name, first name as unknown, and is_definitive"""
+    logger.info("dumpusers started")
+
+    if bot.memory.exists(["user_data"]):
+        for chat_id in bot.memory["user_data"]:
+            if "_hangups" in bot.memory["user_data"][chat_id]:
+                _hangups = bot.memory["user_data"][chat_id]["_hangups"]
+                if _hangups["is_definitive"]:
+                    if _hangups["full_name"].upper() == "UNKNOWN" and _hangups["full_name"] == _hangups["first_name"]:
+                        logger.info("dumpusers {}".format(_hangups))
+
+    logger.info("dumpusers finished")
+
+    bot.send_message_parsed(event.conv, "<b>please see log/console</b>")
+
+
+def resetunknownusers(bot, event, *args):
+    """resets cached users records with full name, first name as unknown, and is_definitive"""
+    logger.info("resetunknownusers started")
+
+    if bot.memory.exists(["user_data"]):
+        for chat_id in bot.memory["user_data"]:
+            if "_hangups" in bot.memory["user_data"][chat_id]:
+                _hangups = bot.memory["user_data"][chat_id]["_hangups"]
+                if _hangups["is_definitive"]:
+                    if _hangups["full_name"].upper() == "UNKNOWN" and _hangups["full_name"] == _hangups["first_name"]:
+                        logger.info("resetunknownusers {}".format(_hangups))
+                        bot.memory.set_by_path(["user_data", chat_id, "_hangups", "is_definitive"], False)
+    bot.memory.save()
+
+    logger.info("resetunknownusers finished")
+
+    bot.send_message_parsed(event.conv, "<b>please see log/console</b>")
+
+
+def refreshusermemory(bot, event, *args):
+    """refresh specified user chat ids with contact/getentitybyid"""
+    logger.info("refreshusermemory started")
+    updated = yield from bot.conversations.get_users_from_query(args)
+    logger.info("refreshusermemory {} updated".format(updated))
+    logger.info("refreshusermemory ended")
+
+    bot.send_message_parsed(event.conv, "<b>please see log/console</b>")
