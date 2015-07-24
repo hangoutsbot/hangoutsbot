@@ -210,7 +210,7 @@ def broadcast(bot, event, *args):
                                             "<b>message:</b><br />"
                                             "{}<br />"
                                             "<b>to:</b><br />"
-                                            "{}".format(_internal["broadcast"]["message"],
+                                            "<pre>{}</pre>".format(_internal["broadcast"]["message"],
                                                 "<br />".join(conv_info))))
         elif subcmd == "message":
             """set broadcast message"""
@@ -316,7 +316,7 @@ def hangouts(bot, event, *args):
 
     lines.append(_('<b>Total: {}</b>').format(len(lines)))
     if text_search:
-        lines.insert(0, _('<b>List of hangouts with keyword:</b> "{}"').format(text_search))
+        lines.insert(0, _('<b>List of hangouts with keyword:</b> "<pre>{}</pre>"').format(text_search))
 
     bot.send_message_parsed(event.conv, "<br />".join(lines))
 
@@ -472,7 +472,7 @@ def whoami(bot, event, *args):
     else:
         fullname = event.user.full_name
 
-    bot.send_message_parsed(event.conv, _("<b>{}</b>, chat_id = <i>{}</i>").format(fullname, event.user.id_.chat_id))
+    bot.send_message_parsed(event.conv, _("<b><pre>{}</pre></b>, chat_id = <i>{}</i>").format(fullname, event.user.id_.chat_id))
 
 
 def whereami(bot, event, *args):
