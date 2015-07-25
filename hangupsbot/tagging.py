@@ -173,11 +173,10 @@ class tags:
         if isinstance(tags, str):
             tags = [tags]
 
-        userlist = self.bot.conversations.catalog[conv_id]["users"]
+        userlist = self.bot.conversations.catalog[conv_id]["participants"]
 
         results = {}
-        for user in userlist:
-            chat_id = user[0][0]
+        for chat_id in userlist:
             user_tags = self.useractive(chat_id, conv_id)
             if tags and not set(tags).issubset(set(user_tags)):
                 continue
