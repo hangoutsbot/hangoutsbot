@@ -109,9 +109,7 @@ def load(bot, command_dispatcher):
         try:
             exec("import {}".format(module_path))
         except Exception as e:
-            message = "{} @ {}".format(e, module_path)
-            print("EXCEPTION during plugin import: {}".format(message))
-            logger.exception(message)
+            logger.exception("EXCEPTION during plugin import: {}".format(module_path))
             continue
 
         public_functions = [o for o in getmembers(sys.modules[module_path], isfunction)]
@@ -164,9 +162,7 @@ def load(bot, command_dispatcher):
                 # explicit init, legacy support: _initialise() returned user-available commands
                 register_user_command(available_commands)
         except Exception as e:
-            message = "{} @ {}".format(e, module_path)
-            print("EXCEPTION during plugin init: {}".format(message))
-            logger.exception(message)
+            logger.exception("EXCEPTION during plugin init: {}".format(module_path))
             continue # skip this, attempt next plugin
 
         """
