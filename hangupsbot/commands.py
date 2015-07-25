@@ -119,28 +119,7 @@ def help(bot, event, cmd=None, *args):
             return
 
     # help can get pretty long, so we send a short message publicly, and the actual help privately
-
-    if "get_1to1" in dir(bot):
-        conv_1on1_initiator = yield from bot.get_1to1(event.user.id_.chat_id)
-    else:
-        conv_1on1_initiator = bot.get_1on1_conversation(event.user.id_.chat_id)
-
-    if conv_1on1_initiator:
-        bot.send_message_parsed(conv_1on1_initiator, "<br />".join(help_lines))
-        if conv_1on1_initiator.id_ != event.conv_id:
-            bot.send_message_parsed(event.conv, _("<i>{}, I've sent you some help ;)</i>")
-                .format(event.user.full_name))
-    else:
-        if type(conv_1on1_initiator) is bool:
-            bot.send_message_parsed(event.conv, 
-                _("<i>{}, you are currently opted-out. Private message me or enter <b>{} optout</b> to get me to talk to you.</i>")
-                    .format(event.user.full_name, min(bot._handlers.bot_command, key=len)))
-        else:
-            # type(conv_1on1_initiator) is NoneType and conv_1on1_initiator is None
-            bot.send_message_parsed(event.conv, 
-                _("<i>{}, before I can help you, you need to private message me and say hi.</i>")
-                    .format(event.user.full_name))
-
+    bot.send_html_to_user_and_conversation(event.user, event.conv, "<br />".join(help_lines), "I've sent you some help")
 
 @command.register
 def ping(bot, event, *args):

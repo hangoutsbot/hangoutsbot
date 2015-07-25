@@ -601,6 +601,29 @@ class HangupsBot(object):
             self.send_html_to_conversation(user_id_or_conversation_id, html, context)
         print(_('DEPRECATED: send_html_to_user_or_conversation(), use send_html_to_conversation() or send_html_to_user()'))
 
+    def send_html_to_user_and_conversation(self, user, conversation, html_private, html_public=None, context=None):
+        """
+        If the command was issued on a public channel, respond to the user
+        privately and optionally send a short public response back as well.
+        """
+        # conv_1on1_initiator = yield from self.get_1to1(user.id_.chat_id)
+        conv_1on1_initiator = self.get_1on1_conversation(user.id_.chat_id)
+
+        if conv_1on1_initiator:
+            self.send_message_parsed(conv_1on1_initiator, html_private, context)
+            if html_public and conv_1on1_initiator.id_ != conversation.id_:
+                self.send_message_parsed(conversation, _("<i>{}, {}</i>").format(user.full_name, html_public), context)
+        else:
+            if type(conv_1on1_initiator) is bool:
+                send_message_parsed(conversation,
+                     _("<i>{}, you are currently opted-out. Private message me or enter <b>{} optout</b> to get me to talk to you.</i>")
+                        .format(user.full_name, min(self._handlers.bot_command, key=len)), context)
+            else:
+                # type(conv_1on1_initiator) is NoneType and conv_1on1_initiator is None
+                send_message_parsed(conversation, 
+                     _("<i>{}, before I can respond to you, you need to private message me and say hi.</i>")
+                        .format(user.full_name), context)
+
     def user_self(self):
         myself = {
             "chat_id": None,
