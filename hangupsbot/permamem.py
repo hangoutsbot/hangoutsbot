@@ -87,17 +87,26 @@ class conversation_memory:
             conv = convs[conv_id]
             attribute_modified = False
 
-            if "users" not in conv:
-                conv["users"] = []
+            # remove obsolete users list
+            if "users" in conv:
+                del conv["users"]
                 attribute_modified = True
 
             if "type" not in conv:
                 conv["type"] = "unknown"
                 attribute_modified = True
 
+            if "history" not in conv:
+                conv["history"] = True
+                attribute_modified = True
+
+            if "participants" not in conv:
+                conv["participants"] = []
+                attribute_modified = True
+
             if conv["type"] == "unknown":
                 """intelligently guess the type"""
-                if len(conv["users"]) > 1:
+                if len(conv["participants"]) > 1:
                     conv["type"] = "GROUP"
                     attribute_modified = True
                 else:
@@ -110,17 +119,6 @@ class conversation_memory:
                                     attribute_modified = True
                                     break
 
-            if "history" not in conv:
-                conv["history"] = True
-                attribute_modified = True
-
-            if "participants" not in conv:
-                if conv["users"]:
-                    conv["participants"] = [ u[0][0] for u in conv["users"] ]
-                else:
-                    conv["participants"] = []
-                attribute_modified = True
-
             if attribute_modified:
                 self.bot.memory.set_by_path(['convmem', conv_id], conv)
                 memory_updated = True
@@ -130,7 +128,7 @@ class conversation_memory:
     @asyncio.coroutine
     def load_from_memory(self):
         """load "persisted" conversations from memory.json into self.catalog
-        complete internal user list by using (legacy) "users" and "participants" keys
+        complete internal user list by using "participants" keys
         """
 
         if self.bot.memory.exists(['convmem']):
@@ -146,34 +144,7 @@ class conversation_memory:
             for convid in convs:
                 self.catalog[convid] = convs[convid]
 
-                """legacy "users" list can construct a User with chat_id, full_name"""
-
-                if "users" in self.catalog[convid] and len(self.catalog[convid]["users"]) > 0:
-
-                    for _u in self.catalog[convid]["users"]:
-                        UserID = hangups.user.UserID(chat_id=_u[0][0], gaia_id=_u[0][1])
-
-                        try:
-                            User = self.bot._user_list._user_dict[UserID]
-                            results = self.store_user_memory(User, is_definitive=True, automatic_save=False)
-
-                        except KeyError:
-                            User = hangups.user.User(
-                                UserID,
-                                _u[1],
-                                None,
-                                None,
-                                [],
-                                False)
-                            results = self.store_user_memory(User, is_definitive=False, automatic_save=False)
-
-                        if results:
-                            _users_added[ _u[0][0] ] = _u[1]
-
-                """simplified "participants" list has insufficient data to construct a passable User"""
-
                 if "participants" in self.catalog[convid] and len(self.catalog[convid]["participants"]) > 0:
-
                     for _chat_id in self.catalog[convid]["participants"]:
                         try:
                             UserID = hangups.user.UserID(chat_id=_chat_id, gaia_id=_chat_id)
@@ -256,6 +227,10 @@ class conversation_memory:
                         _user.properties.emails,
                         False)
 
+                    """this function usually called because hangups user list is incomplete, so help fill it in as well"""
+                    logger.debug("updating hangups user list {} ({})".format(User.id_.chat_id, User.full_name))
+                    self.bot._user_list._user_dict[User.id_] = User
+
                     if self.store_user_memory(User, is_definitive=True, automatic_save=False):
                         updated_users = updated_users + 1
 
@@ -277,8 +252,13 @@ class conversation_memory:
         conservative writing: on User attribute changes only
         returns True on User change, False on no changes
         """
-        self.bot.initialise_memory(User.id_.chat_id, "user_data")
 
+        """in the event hangups returned an "unknown" user, turn off the is_definitive flag"""
+        if User.full_name.upper() == "UNKNOWN" and User.first_name == User.full_name and is_definitive:
+            logger.debug("user {} ({}) not definitive".format(User.id_.chat_id, User.full_name))
+            is_definitive = False
+
+        """load existing cached user, reject update if cache is_definitive and supplied is not"""
         cached = False
         if self.bot.memory.exists(["user_data", User.id_.chat_id, "_hangups"]):
             cached = self.bot.memory.get_by_path(["user_data", User.id_.chat_id, "_hangups"])
@@ -286,6 +266,11 @@ class conversation_memory:
                 if self.log_info_unchanged:
                     logger.info("skipped user update: {} ({})".format(cached["full_name"], cached["chat_id"]))
                 return False
+
+        changed = False
+
+        if self.bot.initialise_memory(User.id_.chat_id, "user_data"):
+            changed = True
 
         user_dict ={
             "chat_id": User.id_.chat_id,
@@ -297,7 +282,6 @@ class conversation_memory:
             "is_self": User.is_self,
             "is_definitive": is_definitive }
 
-        changed = False
         if cached:
             for key in list(user_dict.keys()):
                 try:
@@ -354,11 +338,9 @@ class conversation_memory:
         memory = {
             "title": conv_title,
             "source": source,
-            "users" : [] }
+            "participants": [] }
 
         """user list + user records writing"""
-
-        memory["users"] = [[[user.id_.chat_id, user.id_.gaia_id], user.full_name ] for user in conv.users if not user.is_self]
 
         memory["participants"] = []
 
@@ -405,19 +387,11 @@ class conversation_memory:
 
         if original:
             """existing tracked conversation"""
-            for key in ["title", "type", "history", "users", "participants"]:
+            for key in ["title", "type", "history", "participants"]:
                 try:
                     if key == "participants":
                         if set(original["participants"]) != set(memory["participants"]):
                             logger.info("conv participants changed {} ({})".format(conv_title, conv.id_))
-                            conv_changed = True
-                            break
-
-                    elif key == "users":
-                        """special processing for users list"""
-                        if (set([ (u[0][0], u[0][1], u[1]) for u in original["users"] ])
-                                != set([ (u[0][0], u[0][1], u[1]) for u in memory["users"] ])):
-                            logger.info("conv users changed {} ({})".format(conv_title, conv.id_))
                             conv_changed = True
                             break
 
@@ -509,7 +483,7 @@ class conversation_memory:
 
         return filtered
 
-    def get_name(self, conv, truncate=False):
+    def get_name(self, conv, truncate=False, fallback_string=False):
         """drop-in replacement for hangups.ui.utils.get_conv_name
         truncate added for backward-compatibility, should be always False
         """
@@ -525,6 +499,9 @@ class conversation_memory:
             if not isinstance(conv, str):
                 title = name_from_hangups_conversation(conv)
             else:
-                raise ValueError("could not determine conversation name")
+                if fallback_string:
+                    return fallback_string
+                else:
+                    raise ValueError("could not determine conversation name")
 
         return title

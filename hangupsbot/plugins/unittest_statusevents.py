@@ -19,7 +19,8 @@ def on_typing_notification(bot, event, command):
 
     user_chat_id = event.user_id.chat_id
     user_full_name = event.user.full_name
-    conv_title = bot.conversations.get_name(event.conv_id)
+    conv_title = bot.conversations.get_name(event.conv_id,
+                                            fallback_string="? {}".format(event.conv_id))
 
     if typing_status == hangups.schemas.TypingStatus.TYPING:
         print("{} ({}) typing on {} ({})".format(
@@ -47,9 +48,10 @@ def on_watermark_update(bot, event, command):
     ).replace(microsecond=(event.timestamp % 1000000))
 
     print("{} ({}) read up to {} ({}) on {} ({})".format(
-        event.user.full_name, 
-        event.user_id.chat_id, 
+        event.user.full_name,
+        event.user_id.chat_id,
         utc_datetime,
-        event.timestamp, 
-        bot.conversations.get_name(event.conv_id), 
+        event.timestamp,
+        bot.conversations.get_name(event.conv_id,
+                                   fallback_string="? {}".format(event.conv_id)),
         event.conv_id))
