@@ -3,6 +3,7 @@ import json
 import base64
 import io
 import asyncio
+import imghdr
 
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -27,13 +28,17 @@ class webhookReceiver(BaseHTTPRequestHandler):
         if "image" in payload:
             image_data = False
             image_filename = False
+            image_type = 'unknown'
             if "base64encoded" in payload["image"]:
-                raw = base64.b64decode(payload["image"]["base64encoded"])
+                raw = base64.b64decode(payload["image"]["base64encoded"], None, True)
                 image_data = io.BytesIO(raw)
+                image_type = imghdr.what('ignore', raw)
+                if not image_type:
+                  image_type = 'error'
             if "filename" in payload["image"]:
                 image_filename = payload["image"]["filename"]
             else:
-                image_filename = str(int(time.time())) + ".jpg"
+                image_filename = str(int(time.time())) + "." + image_type
             print("{}: uploading image: {}".format(sinkname, image_filename))
             image_id = yield from webhookReceiver._bot._client.upload_image(image_data, filename=image_filename)
 

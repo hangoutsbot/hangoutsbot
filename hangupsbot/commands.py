@@ -1,12 +1,14 @@
 import sys, json, asyncio, logging, os
 
 import hangups
-from hangups.ui.utils import get_conv_name
 
 from version import __version__
 from utils import text_to_segments
 
 import plugins
+
+
+logger = logging.getLogger(__name__)
 
 
 class CommandDispatcher(object):
@@ -55,7 +57,7 @@ class CommandDispatcher(object):
         except Exception as e:
             message = "CommandDispatcher.run: {}".format(func.__name__)
             print("EXCEPTION in {}".format(message))
-            logging.exception(message)
+            logger.exception(message)
 
     def register(self, *args, admin=False):
         """Decorator for registering command"""
@@ -120,6 +122,20 @@ def help(bot, event, cmd=None, *args):
 
     # help can get pretty long, so we send a short message publicly, and the actual help privately
     bot.send_html_to_user_and_conversation(event.user, event.conv, "<br />".join(help_lines), "I've sent you some help")
+
+@command.register(admin=True)
+def locale(bot, event, *args):
+    """set bot localisation"""
+    if len(args) > 0:
+        if bot.set_locale(args[0], reuse = (False if "reload" in args else True)):
+            message = _("locale set to: {}".format(args[0]))
+        else:
+            message = _("locale unchanged")
+    else:
+        message = _("language code required")
+
+    bot.send_message(event.conv, message)
+
 
 @command.register
 def ping(bot, event, *args):

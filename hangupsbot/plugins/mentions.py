@@ -2,7 +2,8 @@ import asyncio, logging, re, string
 
 from pushbullet import PushBullet
 
-from hangups.ui.utils import get_conv_name
+from utils import remove_accents
+
 
 nicks = {}
 
@@ -130,9 +131,10 @@ def mention(bot, event, *args):
     begin mentioning users as long as they exist in the current conversation...
     """
 
-    conversation_name = get_conv_name(event.conv, truncate=True);
+    conversation_name = bot.conversations.get_name(event.conv)
     logging.info(_("@mention '{}' in '{}' ({})").format(username, conversation_name, event.conv.id_))
     username_lower = username.lower()
+    username_upper = username.upper()
 
     """is @all available globally/per-conversation/initiator?"""
     if username_lower == "all":
@@ -181,11 +183,18 @@ def mention(bot, event, *args):
             nickname = bot.memory.get_by_path(['user_data', u.id_.chat_id, "nickname"])
             nickname_lower = nickname.lower()
 
-        if username_lower == "all" or \
-                username_lower in u.full_name.replace(" ", "").lower() or \
-                username_lower in u.full_name.replace(" ", "_").lower() or \
-                username_lower == nickname_lower or \
-                username in u.full_name.split(" "):
+        _normalised_full_name_upper = remove_accents(u.full_name.upper())
+
+        if (username_lower == "all" or
+
+                username_lower in u.full_name.replace(" ", "").lower() or
+                    username_upper in _normalised_full_name_upper.replace(" ", "") or
+
+                username_lower in u.full_name.replace(" ", "_").lower() or
+                    username_upper in _normalised_full_name_upper.replace(" ", "_") or
+
+                username_lower == nickname_lower or
+                username in u.full_name.split(" ")):
 
             logging.info(_("user {} ({}) is present").format(u.full_name, u.id_.chat_id))
 
@@ -219,7 +228,9 @@ def mention(bot, event, *args):
                 if u not in exact_nickname_matches:
                     exact_nickname_matches.append(u)
 
-            if username in u.full_name.split(" "):
+            if (username in u.full_name.split(" ") or
+                    username_upper in _normalised_full_name_upper.split(" ")):
+
                 if u not in exact_fragment_matches:
                     exact_fragment_matches.append(u)
 

@@ -7,6 +7,10 @@ from inspect import getmembers, isfunction
 from commands import command
 import handlers
 
+
+logger = logging.getLogger(__name__)
+
+
 class tracker:
     def __init__(self):
         self.bot = None
@@ -87,7 +91,7 @@ def load(bot, command_dispatcher):
 
     plugin_list = bot.get_config_option('plugins')
     if plugin_list is None:
-        print(_("HangupsBot: config.plugins is not defined, using ALL"))
+        logger.info("config.plugins is not defined, using ALL")
         plugin_path = os.path.dirname(os.path.realpath(sys.argv[0])) + os.sep + "plugins"
         plugin_list = [ os.path.splitext(f)[0]  # take only base name (no extension)...
             for f in os.listdir(plugin_path)    # ...by iterating through each node in the plugin_path...
@@ -105,12 +109,9 @@ def load(bot, command_dispatcher):
         try:
             exec("import {}".format(module_path))
         except Exception as e:
-            message = "{} @ {}".format(e, module_path)
-            print(_("EXCEPTION during plugin import: {}").format(message))
-            logging.exception(message)
+            logger.exception("EXCEPTION during plugin import: {}".format(module_path))
             continue
 
-        print(_("plugin: {}").format(module))
         public_functions = [o for o in getmembers(sys.modules[module_path], isfunction)]
 
         candidate_commands = []
@@ -161,9 +162,7 @@ def load(bot, command_dispatcher):
                 # explicit init, legacy support: _initialise() returned user-available commands
                 register_user_command(available_commands)
         except Exception as e:
-            message = "{} @ {}".format(e, module_path)
-            print(_("EXCEPTION during plugin init: {}").format(message))
-            logging.exception(message)
+            logger.exception("EXCEPTION during plugin init: {}".format(module_path))
             continue # skip this, attempt next plugin
 
         """
@@ -187,7 +186,9 @@ def load(bot, command_dispatcher):
                 registered_commands.append(text_function_name)
 
         if registered_commands:
-            print(_("added: {}").format(", ".join(registered_commands)))
+            logger.info("{} - {}".format(module, ", ".join(registered_commands)))
+        else:
+            logger.info("{} - no commands".format(module))
 
         tracking.end()
 
@@ -198,7 +199,6 @@ def plugininfo(bot, event, *args):
     lines = []
     for plugin in tracking.list:
         if len(args) == 0 or args[0] in plugin["metadata"]["module"]:
-            print("{}".format(plugin))
             lines.append("<b>{}</b>".format(plugin["metadata"]["module.path"]))
             """admin commands"""
             if len(plugin["commands"]["admin"]) > 0:
