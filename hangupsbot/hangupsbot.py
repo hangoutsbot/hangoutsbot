@@ -565,13 +565,19 @@ class HangupsBot(object):
 
 
     def initialise_memory(self, chat_id, datatype):
+        modified = False
+
         if not self.memory.exists([datatype]):
             # create the datatype grouping if it does not exist
             self.memory.set_by_path([datatype], {})
+            modified = True
 
         if not self.memory.exists([datatype, chat_id]):
             # create the memory
             self.memory.set_by_path([datatype, chat_id], {})
+            modified = True
+
+        return modified
 
     def messagecontext(self, source, importance, tags):
         return {
