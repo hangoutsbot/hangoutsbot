@@ -158,7 +158,7 @@ class conversation_memory:
                             if self.bot.memory.exists(["user_data", _chat_id, "_hangups"]):
                                 cached = self.bot.memory.get_by_path(["user_data", _chat_id, "_hangups"])
                                 if cached["is_definitive"]:
-                                    if User.full_name.upper() == "UNKNOWN" and User.first_name == User.full_name:
+                                    if cached["full_name"].upper() == "UNKNOWN" and cached["full_name"] == cached["first_name"]:
                                         # XXX: crappy way to detect hangups fallback and unknown users
                                         logger.debug("user {} needs refresh".format(_chat_id))
                                     else:
