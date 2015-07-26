@@ -120,8 +120,13 @@ def help(bot, event, cmd=None, *args):
             yield from command.unknown_command(bot, event)
             return
 
-    # help can get pretty long, so we send a short message publicly, and the actual help privately
-    bot.send_html_to_user_and_conversation(event.user, event.conv, "<br />".join(help_lines), "I've sent you some help")
+    yield from bot.coro_send_to_user_and_conversation(
+        event.user.id_.chat_id,
+        event.conv_id,
+        "<br />".join(help_lines), # via private message
+        _("<i>{}, I've sent you some help ;)</i>") # public message
+            .format(event.user.full_name))
+
 
 @command.register(admin=True)
 def locale(bot, event, *args):
