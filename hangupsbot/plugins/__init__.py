@@ -85,21 +85,57 @@ def register_shared(id, objectref, forgiving=True):
 
 """plugin loader"""
 
+def retrieve_all_plugins(plugin_path=None, must_start_with=False):
+    """recursively loads all plugins from the standard plugins path
+    * a plugin file or folder must not begin with . or _
+    * a subfolder containing a plugin must have an __init__.py file
+    * sub-plugin files (additional plugins inside a subfolder) must be prefixed with the 
+      plugin/folder name for it to be automatically loaded
+    """
+
+    if not plugin_path:
+        plugin_path = os.path.dirname(os.path.realpath(sys.argv[0])) + os.sep + "plugins"
+
+    plugin_list = []
+
+    nodes = os.listdir(plugin_path)
+
+    for node_name in nodes:
+        full_path = os.path.join(plugin_path, node_name)
+        module_names = [ os.path.splitext(node_name)[0] ] # node_name without .py extension
+
+        if node_name.startswith(("_", ".")):
+            continue
+
+        if must_start_with and not node_name.startswith(must_start_with):
+            continue
+
+        if os.path.isfile(full_path):
+            if not node_name.endswith(".py"):
+                continue
+        else:
+            if not os.path.isfile(os.path.join(full_path, "__init__.py")):
+                continue
+
+            for sm in retrieve_all_plugins(full_path, must_start_with=node_name):
+                module_names.append(module_names[0] + "." + sm)
+
+        plugin_list.extend(module_names)
+
+    logger.debug("retrieved {}: {}.{}".format(len(plugin_list), must_start_with or "plugins", plugin_list))
+    return plugin_list
+
+
 def load(bot, command_dispatcher):
+    """load plugins and perform any initialisation required to set them up"""
+
     tracking.set_bot(bot)
     command_dispatcher.set_tracking(tracking)
 
     plugin_list = bot.get_config_option('plugins')
     if plugin_list is None:
         logger.info("config.plugins is not defined, using ALL")
-        plugin_path = os.path.dirname(os.path.realpath(sys.argv[0])) + os.sep + "plugins"
-        plugin_list = [ os.path.splitext(f)[0]  # take only base name (no extension)...
-            for f in os.listdir(plugin_path)    # ...by iterating through each node in the plugin_path...
-                if not f.startswith(("_", ".")) and ( # ...that does not start with _ .
-                    (os.path.isfile(os.path.join(plugin_path, f))
-                        and f.endswith(".py")) or # ...and must end with .py
-                    (os.path.isdir(os.path.join(plugin_path, f)))
-                )]
+        plugin_list = retrieve_all_plugins()
 
     for module in plugin_list:
         module_path = "plugins.{}".format(module)
