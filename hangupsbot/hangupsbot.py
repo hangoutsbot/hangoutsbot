@@ -742,6 +742,59 @@ class HangupsBot(object):
         if not self.send_html_to_user(user_id_or_conversation_id, html, context):
             self.send_html_to_conversation(user_id_or_conversation_id, html, context)
 
+    @asyncio.coroutine
+    def coro_send_to_user_and_conversation(self, chat_id, conv_id, html_private, html_public=False, context=None):
+        """
+        If the command was issued on a public channel, respond to the user
+        privately and optionally send a short public response back as well.
+        """
+        conv_1on1_initiator = yield from self.get_1to1(chat_id)
+
+        full_name = _("Unidentified User")
+        if self.memory.exists(["user_data", chat_id, "_hangups"]):
+            full_name = self.memory["user_data"][chat_id]["_hangups"]["full_name"]
+
+        responses = {
+            "standard":
+                False, # no public messages
+            "optout":
+                _("<i>{}, you are currently opted-out. Private message me or enter <b>{} optout</b> to get me to talk to you.</i>")
+                    .format(full_name, min(self._handlers.bot_command, key=len)),
+            "no1to1":
+                _("<i>{}, before I can help you, you need to private message me and say hi.</i>")
+                    .format(full_name, min(self._handlers.bot_command, key=len))
+        }
+
+        if isinstance(html_public, dict):
+            responses = dict
+        elif isinstance(html_public, list):
+            keys = ["standard", "optout", "no1to1"]
+            for supplied in html_public:
+                responses[keys.pop(0)] = supplied
+        else:
+            # isinstance(html_public, str)
+            responses["standard"] = html_public
+
+        public_message = False
+
+        if conv_1on1_initiator:
+            """always send actual html as a private message"""
+            self.send_message_parsed(conv_1on1_initiator, html_private)
+            if conv_1on1_initiator.id_ != conv_id and responses["standard"]:
+                """send a public message, if supplied"""
+                public_message = responses["standard"]
+
+        else:
+            if type(conv_1on1_initiator) is bool and responses["optout"]:
+                public_message = responses["optout"]
+
+            elif responses["no1to1"]:
+                # type(conv_1on1_initiator) is NoneType
+                public_message = responses["no1to1"]
+
+        if public_message:
+            self.send_message_parsed(conv_id, public_message, context=context)
+
     def user_self(self):
         myself = {
             "chat_id": None,
