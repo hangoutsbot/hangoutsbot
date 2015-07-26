@@ -739,31 +739,6 @@ class HangupsBot(object):
         if not self.send_html_to_user(user_id_or_conversation_id, html, context):
             self.send_html_to_conversation(user_id_or_conversation_id, html, context)
 
-    def send_html_to_user_and_conversation(self, user, conversation, html_private, html_public=None, context=None):
-        """
-        If the command was issued on a public channel, respond to the user
-        privately and optionally send a short public response back as well.
-        """
-        if isinstance(user, hangups.user.User):
-            chat_id = user.id_.chat_id
-        else:
-            # assume isinstance(user, str)
-            chat_id = user
-
-        if isinstance(conversation, (FakeConversation, hangups.conversation.Conversation)):
-            conv_id = conversation.id_
-        else:
-            # assume isinstance(conversation, str)
-            conv_id = conversation
-
-        asyncio.async(
-            self.coro_send_to_user_and_conversation(chat_id,
-                                                    conv_id,
-                                                    html_private,
-                                                    html_public,
-                                                    context=context)
-        ).add_done_callback(lambda future: future.result())
-
     @asyncio.coroutine
     def coro_send_to_user_and_conversation(self, chat_id, conv_id, html_private, html_public=False, context=None):
         """
