@@ -282,6 +282,15 @@ class conversation_memory:
             "is_self": User.is_self,
             "is_definitive": is_definitive }
 
+        # XXX: no way to detect hangups fallback users reliably,
+        # XXX:   prioritise existing cached attributes
+
+        if not user_dict["photo_url"] and cached["photo_url"]:
+            user_dict["photo_url"] = cached["photo_url"]
+
+        if not user_dict["emails"] and cached["emails"]:
+            user_dict["emails"] = cached["emails"]
+
         if cached:
             for key in list(user_dict.keys()):
                 try:
