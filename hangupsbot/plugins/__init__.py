@@ -125,6 +125,59 @@ def retrieve_all_plugins(plugin_path=None, must_start_with=False):
     logger.debug("retrieved {}: {}.{}".format(len(plugin_list), must_start_with or "plugins", plugin_list))
     return plugin_list
 
+def get_configured_plugins(bot):
+    all_plugins = retrieve_all_plugins()
+    config_plugins = bot.get_config_option('plugins')
+
+    if config_plugins is None: # must be unset in config or null
+        logger.info("plugins is not defined, using ALL")
+        plugin_list = all_plugins
+
+    else:
+        """perform fuzzy matching with actual retrieved plugins, e.g. "abc" matches "xyz.abc"
+        if more than one match found, don't load plugin
+        """
+        plugins_included = []
+        plugins_excluded = all_plugins
+
+        plugin_name_ambiguous = []
+        plugin_name_not_found = []
+
+        for configured in config_plugins:
+            dotconfigured = "." + configured
+
+            matches = []
+            for found in plugins_excluded:
+                fullfound = "plugins." + found
+                if fullfound.endswith(dotconfigured):
+                    matches.append(found)
+            num_matches = len(matches)
+
+            if num_matches <= 0:
+                logger.debug("{} no match".format(configured))
+                plugin_name_not_found.append(configured)
+            elif num_matches == 1:
+                logger.debug("{} matched to {}".format(configured, matches[0]))
+                plugins_included.append(matches[0])
+                plugins_excluded.remove(matches[0])
+            else:
+                logger.debug("{} ambiguous, matches {}".format(configured, matches))
+                plugin_name_ambiguous.append(configured)
+
+        if plugins_excluded:
+            logger.info("excluded {}: {}".format(len(plugins_excluded), plugins_excluded))
+
+        if plugin_name_ambiguous:
+            logger.warning("ambiguous plugin names: {}".format(plugin_name_ambiguous))
+
+        if plugin_name_not_found:
+            logger.warning("plugin not found: {}".format(plugin_name_not_found))
+
+        plugin_list = plugins_included
+
+    logger.info("included {}: {}".format(len(plugin_list), plugin_list))
+
+    return plugin_list
 
 def load(bot, command_dispatcher):
     """load plugins and perform any initialisation required to set them up"""
@@ -132,10 +185,7 @@ def load(bot, command_dispatcher):
     tracking.set_bot(bot)
     command_dispatcher.set_tracking(tracking)
 
-    plugin_list = bot.get_config_option('plugins')
-    if plugin_list is None:
-        logger.info("config.plugins is not defined, using ALL")
-        plugin_list = retrieve_all_plugins()
+    plugin_list = get_configured_plugins(bot)
 
     for module in plugin_list:
         module_path = "plugins.{}".format(module)
