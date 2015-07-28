@@ -1,14 +1,10 @@
-import time
-import json
-import base64
-import io
-import asyncio
-import logging
+import asyncio, base64, io, imghdr, json, logging, time
 
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 from utils import simple_parse_to_segments
+
 
 class BaseBotRequestHandler(BaseHTTPRequestHandler):
     _bot = None # set externally by the hangupsbot sink loader
@@ -59,7 +55,7 @@ class BaseBotRequestHandler(BaseHTTPRequestHandler):
             echo                html string
             image 
                 base64encoded   base64-encoded image data
-                filename        optional filename
+                filename        optional filename (else determined automatically via imghdr)
         """
         # parse incoming data
         payload = json.loads(content)
@@ -78,10 +74,15 @@ class BaseBotRequestHandler(BaseHTTPRequestHandler):
         image_filename = None
         if "image" in payload:
             if "base64encoded" in payload["image"]:
-                raw = base64.b64decode(payload["image"]["base64encoded"])
-                image_data = io.BytesIO(raw)
+                image_raw = base64.b64decode(payload["image"]["base64encoded"])
+                image_data = io.BytesIO(image_raw)
+
             if "filename" in payload["image"]:
                 image_filename = payload["image"]["filename"]
+            else:
+                image_type = imghdr.what('ignore', image_raw)
+                image_filename = str(int(time.time())) + "." + image_type
+                logging.info("automatic image filename: {}".format(image_filename))
 
         if not html and not image_data:
             print("{}: nothing to send".format(self.sinkname))
@@ -93,12 +94,15 @@ class BaseBotRequestHandler(BaseHTTPRequestHandler):
     @asyncio.coroutine
     def send_data(self, conversation_id, html, image_data=None, image_filename=None):
         """sends html and/or image to a conversation
-        image_filename is optional, defaults to <timestamp>.jpg if not defined
+        image_filename is recommended but optional, fallbacks to <timestamp>.jpg if undefined
+        process_request() should determine the image extension prior to this
         """
         image_id = None
         if image_data:
             if not image_filename:
                 image_filename = str(int(time.time())) + ".jpg"
+                logging.warning("fallback image filename: {}".format(image_filename))
+
             image_id = yield from self._bot._client.upload_image(image_data, filename=image_filename)
 
         if not html and not image_id:

@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 def _initialise(bot):
-    plugins.register_admin_command(["dumpconv", "dumpunknownusers", "resetunknownusers", "refreshusermemory", "removeconvrecord"])
+    plugins.register_admin_command(["dumpconv", "dumpunknownusers", "resetunknownusers", "refreshusermemory", "removeconvrecord", "makeallusersindefinite"])
 
 
 def dumpconv(bot, event, *args):
@@ -76,5 +76,22 @@ def removeconvrecord(bot, event, *args):
         for conv_id in args:
             bot.conversations.remove(conv_id)
     logger.info("resetunknownusers finished")
+
+    bot.send_message_parsed(event.conv, "<b>please see log/console</b>")
+
+
+def makeallusersindefinite(bot, event, *args):
+    """turn off the is_definite flag for all users"""
+    logger.info("makeallusersindefinite started")
+
+    if bot.memory.exists(["user_data"]):
+        for chat_id in bot.memory["user_data"]:
+            if "_hangups" in bot.memory["user_data"][chat_id]:
+                _hangups = bot.memory["user_data"][chat_id]["_hangups"]
+                if _hangups["is_definitive"]:
+                    bot.memory.set_by_path(["user_data", chat_id, "_hangups", "is_definitive"], False)
+    bot.memory.save()
+
+    logger.info("makeallusersindefinite finished")
 
     bot.send_message_parsed(event.conv, "<b>please see log/console</b>")

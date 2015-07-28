@@ -159,7 +159,7 @@ class conversation_memory:
                                 cached = self.bot.memory.get_by_path(["user_data", _chat_id, "_hangups"])
                                 if cached["is_definitive"]:
                                     if cached["full_name"].upper() == "UNKNOWN" and cached["full_name"] == cached["first_name"]:
-                                        # XXX: crappy way to detect hangups fallback and unknown users
+                                        # XXX: crappy way to detect hangups unknown users
                                         logger.debug("user {} needs refresh".format(_chat_id))
                                     else:
                                         continue
@@ -282,16 +282,18 @@ class conversation_memory:
             "is_self": User.is_self,
             "is_definitive": is_definitive }
 
-        # XXX: no way to detect hangups fallback users reliably,
-        # XXX:   prioritise existing cached attributes
-
-        if not user_dict["photo_url"] and cached["photo_url"]:
-            user_dict["photo_url"] = cached["photo_url"]
-
-        if not user_dict["emails"] and cached["emails"]:
-            user_dict["emails"] = cached["emails"]
-
         if cached:
+            # XXX: no way to detect hangups fallback users reliably,
+            # XXX:   prioritise existing cached attributes
+
+            if not user_dict["photo_url"] and "photo_url" in cached and cached["photo_url"]:
+                user_dict["photo_url"] = cached["photo_url"]
+
+            if not user_dict["emails"] and "emails" in cached and cached["emails"]:
+                user_dict["emails"] = cached["emails"]
+
+            """scan for differences between supplied and cached"""
+
             for key in list(user_dict.keys()):
                 try:
                     if key == "emails":
@@ -361,9 +363,15 @@ class conversation_memory:
                 memory["participants"].append(User.id_.chat_id)
 
             if User.full_name.upper() == "UNKNOWN" and User.first_name == User.full_name:
-                # XXX: crappy way to detect hangups fallback and unknown users
+                # XXX: crappy way to detect hangups users
                 _modified = self.store_user_memory(User, automatic_save=False, is_definitive=False)
                 _users_to_fetch.append(User.id_.chat_id)
+
+            elif not User.photo_url and not User.emails:
+                # XXX: crappy way to detect fallback users
+                # XXX:  users with no photo_url, emails will always get here, definitive or not
+                _modified = self.store_user_memory(User, automatic_save=False, is_definitive=False)
+
             else:
                 _modified = self.store_user_memory(User, automatic_save=False, is_definitive=True)
 

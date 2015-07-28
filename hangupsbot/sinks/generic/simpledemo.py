@@ -4,6 +4,8 @@ import base64
 import io
 import asyncio
 import imghdr
+import logging
+
 
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -16,6 +18,8 @@ class webhookReceiver(BaseHTTPRequestHandler):
 
     @asyncio.coroutine
     def process_payload(self, path, query_string, payload):
+        logging.warning("[DEPRECATED] simpledemo.webhookReceiver, use sinks.generic.SimpleMessagePoster")
+
         sinkname = self.sinkname
 
         path = path.split("/")
@@ -54,6 +58,8 @@ class webhookReceiver(BaseHTTPRequestHandler):
         webhookReceiver._bot.send_message_segments(conversation_id, segments, context=None, image_id=image_id)
 
     def do_POST(self):
+        logging.warning("[DEPRECATED] simpledemo.webhookReceiver, use sinks.generic.SimpleMessagePoster")
+
         sinkname = self.sinkname
 
         print('{}: receiving POST...'.format(sinkname))
