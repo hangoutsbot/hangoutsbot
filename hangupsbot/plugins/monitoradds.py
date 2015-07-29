@@ -5,10 +5,14 @@ Add a "watch_new_adds": true  parameter to individual HOs in the config.json fil
 
 Author: @Riptides
 """
+import logging
 
 import hangups
 
 import plugins
+
+
+logger = logging.getLogger(__name__)
 
 
 def _initialise(bot):
@@ -45,9 +49,12 @@ def _watch_new_adds(bot, event, command):
             # The mods are likely not configured. Continuing...
             pass
 
-        html = "<b>!!! WARNING !!!</b><br /><br />"
-        html += "<i><b>{}</b> invited user <b>{}</b> without authorization.<br /><br />".format(event.user.full_name, names)
-        html += "<i><b>{}</b>: Please leave this hangout and ask a moderator to add you. Thank you for your understanding.".format(names)
+        html = _("<b>!!! WARNING !!!</b><br />"
+                 "<br />"
+                 "<b>{0}</b> invited <b>{1}</b> without authorization.<br />"
+                 "<br />"
+                 "<b>{1}</b>: Please leave this hangout and ask a moderator to add you. "
+                 "Thank you for your understanding.").format(event.user.full_name, names)
 
         bot.send_html_to_conversation(event.conv, html)
 
