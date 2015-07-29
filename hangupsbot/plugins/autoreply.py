@@ -13,12 +13,12 @@ def _initialise(bot):
 
 def _handle_autoreply(bot, event, command):
     config_autoreplies = bot.get_config_suboption(event.conv.id_, 'autoreplies_enabled')
-    tagged_autoreplies = "enable-autoreplies" in bot.tags.useractive(event.user_id.chat_id, event.conv.id_)
+    tagged_autoreplies = "autoreplies-enable" in bot.tags.useractive(event.user_id.chat_id, event.conv.id_)
 
     if not (config_autoreplies or tagged_autoreplies):
         return
 
-    if "disable-autoreplies" in bot.tags.useractive(event.user_id.chat_id, event.conv.id_):
+    if "autoreplies-disable" in bot.tags.useractive(event.user_id.chat_id, event.conv.id_):
         logger.debug("explicitly disabled by tag for {} {}".format(event.user_id.chat_id, event.conv.id_))
         return
 
