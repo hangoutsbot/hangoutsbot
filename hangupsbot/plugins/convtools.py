@@ -77,7 +77,7 @@ def refresh(bot, event, *args):
 
     if _externals["authorisation"] not in parameters:
         _externals["authorisation"] = False
-        initiator_1on1 = bot.get_1on1_conversation(event.user.id_.chat_id)
+        initiator_1on1 = yield from bot.get_1to1(event.user.id_.chat_id)
         if initiator_1on1:
             _externals["authorisation"] = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(8))
             bot.send_html_to_conversation(initiator_1on1, "<i>are you sure? execute the command again and append this key: {}</i>".format(_externals["authorisation"]))
