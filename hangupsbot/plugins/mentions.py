@@ -95,7 +95,7 @@ def mention(bot, event, *args):
     """
     quidproquo: users can only @mention if they themselves are @mentionable (i.e. have a 1-on-1 with the bot)
     """
-    conv_1on1_initiator = bot.get_1on1_conversation(event.user.id_.chat_id)
+    conv_1on1_initiator = yield from bot.get_1to1(event.user.id_.chat_id)
     if bot.get_config_option("mentionquidproquo"):
         if conv_1on1_initiator:
             if initiator_has_dnd:
@@ -305,10 +305,7 @@ def mention(bot, event, *args):
 
             if alert_via_1on1:
                 """send alert with 1on1 conversation"""
-                if "get_1to1" in dir(bot):
-                    conv_1on1 = yield from bot.get_1to1(u.id_.chat_id)
-                else:
-                    conv_1on1 = bot.get_1on1_conversation(u.id_.chat_id)
+                conv_1on1 = yield from bot.get_1to1(u.id_.chat_id)
                 if conv_1on1:
                     bot.send_message_parsed(
                         conv_1on1,
