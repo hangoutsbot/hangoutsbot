@@ -38,7 +38,7 @@ def _handle_keyword(bot, event, command):
                 for phrase in _internal.keywords[user.id_.chat_id]:
                     regexphrase = "\\b" + phrase + "\\b"
                     if re.search(regexphrase, event.text, re.IGNORECASE):
-                        _send_notification(bot, event, phrase, user)
+                        yield from _send_notification(bot, event, phrase, user)
         except KeyError:
             # User probably hasn't subscribed to anything
             continue
@@ -57,6 +57,7 @@ def _populate_keywords(bot, event):
             else:
                 _internal.keywords[userchatid] = []
 
+@asyncio.coroutine
 def _send_notification(bot, event, phrase, user):
     """Alert a user that a keyword that they subscribed to has been used"""
 
@@ -70,7 +71,7 @@ def _send_notification(bot, event, phrase, user):
         source_name = event._external_source
 
     """send alert with 1on1 conversation"""
-    conv_1on1 = bot.get_1on1_conversation(user.id_.chat_id)
+    conv_1on1 = yield from bot.get_1to1(user.id_.chat_id)
     if conv_1on1:
         try:
             user_has_dnd = bot.call_shared("dnd.user_check", user.id_.chat_id)
@@ -96,7 +97,7 @@ def subscribe(bot, event, *args):
 
     keyword = ' '.join(args).strip().lower()
 
-    conv_1on1 = bot.get_1on1_conversation(event.user.id_.chat_id)
+    conv_1on1 = yield from bot.get_1to1(event.user.id_.chat_id)
     if not conv_1on1:
         bot.send_message_parsed(
             event.conv,
