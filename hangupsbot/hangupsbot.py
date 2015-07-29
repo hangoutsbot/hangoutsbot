@@ -486,6 +486,8 @@ class HangupsBot(object):
         """find a 1-to-1 conversation with specified user
         maintained for functionality with older plugins that do not use get_1to1()
         """
+        logging.warning('[DEPRECATED]: yield from bot.get_1to1(chat_id), instead of bot.get_1on1_conversation(chat_id)')
+
         self.initialise_memory(chat_id, "user_data")
 
         if self.memory.exists(["user_data", chat_id, "optout"]):
@@ -735,7 +737,7 @@ class HangupsBot(object):
         self.send_message_parsed(conversation_id, html, context)
 
     def send_html_to_user(self, user_id, html, context=None):
-        conversation = self.get_1on1_conversation(user_id)
+        conversation = yield from self.get_1to1(user_id)
         if not conversation:
             logging.warning("1-to-1 not found for {}".format(user_id))
             return False
