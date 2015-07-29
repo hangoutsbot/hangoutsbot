@@ -5,7 +5,7 @@ import hangups
 import plugins
 
 def _initialise(bot):
-    plugins.register_admin_command(["tagset", "tagdel", "tagindexdump", "tagsuser", "tagsuserlist"])
+    plugins.register_admin_command(["tagset", "tagdel", "tagindexdump", "tagspurge", "tagsuser", "tagsuserlist"])
 
 
 def tagset(bot, event, *args):
@@ -29,6 +29,16 @@ def tagdel(bot, event, *args):
             message = _("<b>`{}` unchanged</b>".format(id))
     else:
         message = _("<b>supply type, id, tag</b>")
+    bot.send_message_parsed(event.conv_id, message)
+
+
+def tagspurge(bot, event, *args):
+    if len(args) == 2:
+        [type, id] = args
+        entries_removed = bot.tags.purge(type, id)
+        message = _("<b>entries removed: {}</b>".format(entries_removed))
+    else:
+        message = _("<b>supply type, id</b>")
     bot.send_message_parsed(event.conv_id, message)
 
 

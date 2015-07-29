@@ -34,7 +34,7 @@ class tags:
                         for tag in tags:
                             self.add_to_index("user", tag, conv_id + "|" + chat_id)
 
-        logger.info("tags: refreshed")
+        logger.info("refreshed")
 
     def add_to_index(self, type, tag, id):
         tag_to_object = "tag-{}s".format(type)
@@ -76,7 +76,7 @@ class tags:
             index_type = "conv"
 
             if id not in self.bot.conversations.catalog:
-                raise ValueError("tags: conversation {} does not exist".format(id))
+                raise ValueError("conversation {} does not exist".format(id))
 
             tags = self.bot.conversation_memory_get(id, "tags")
 
@@ -84,7 +84,7 @@ class tags:
             index_type = "user"
 
             if not self.bot.memory.exists(["user_data", id]):
-                raise ValueError("tags: user {} does not exist".format(id))
+                raise ValueError("user {} does not exist".format(id))
 
             tags = self.bot.user_memory_get(id, "tags")
 
@@ -93,9 +93,9 @@ class tags:
             [conv_id, chat_id] = id.split("|", maxsplit=1)
 
             if not self.bot.memory.exists(["user_data", chat_id]):
-                raise ValueError("tags: user {} does not exist".format(id))
+                raise ValueError("user {} does not exist".format(id))
             if conv_id not in self.bot.conversations.catalog:
-                raise ValueError("tags: conversation {} does not exist".format(conv_id))
+                raise ValueError("conversation {} does not exist".format(conv_id))
 
             tags_users = self.bot.conversation_memory_get(conv_id, "tags-users")
             if not tags_users:
@@ -104,7 +104,7 @@ class tags:
                 tags = tags_users[chat_id]
 
         else:
-            raise ValueError("tags: unhandled read type {}".format(type))
+            raise TypeError("unhandled read type {}".format(type))
 
         if not tags:
             tags = []
@@ -125,7 +125,7 @@ class tags:
                 pass
 
         else:
-            raise ValueError("tags: unrecognised action {}".format(action))
+            raise ValueError("unrecognised action {}".format(action))
 
         if updated:
             if type == "conv":
@@ -139,30 +139,83 @@ class tags:
                 self.bot.conversation_memory_set(conv_id, "tags-users", tags_users)
 
             else:
-                raise ValueError("tags: unhandled update type {}".format(type))
+                raise TypeError("unhandled update type {}".format(type))
 
-            logger.info("tags: {}/{} action={} value={}".format(type, id, action, tag))
+            logger.info("{}/{} action={} value={}".format(type, id, action, tag))
         else:
-            logger.info("tags: {}/{} action={} value={} [NO CHANGE]".format(type, id, action, tag))
+            logger.info("{}/{} action={} value={} [NO CHANGE]".format(type, id, action, tag))
 
         return updated
 
+
     def add(self, type, id, tag):
-        """add tag to (type=conv/user) id"""
+        """add tag to (type=conv|user|convuser) id"""
         return self.update(type, id, "set", tag)
 
+
     def remove(self, type, id, tag):
-        """remove tag from (type=conv/user) id"""
+        """remove tag from (type=conv|user|convuser) id"""
         return self.update(type, id, "remove", tag)
+
+
+    def purge(self, type, id):
+        """completely remove the specified type (type="user|convuser|conv|tag|usertag|convtag") and label"""
+        remove = []
+
+        if type == "user" or type == "convuser":
+            for key in self.indices["user-tags"]:
+
+                match_user = (type == "user" and (key == id or id=="ALL"))
+                    # runs if type=="user"
+                match_convuser = (key.endswith("|" + id) or (id=="ALL" and "|" in key))
+                    # runs if type=="user" or type=="convuser"
+
+                if match_user or match_convuser:
+                    for tag in self.indices["user-tags"][key]:
+                        remove.append(("user" if match_user else "convuser", key, tag))
+
+        elif type == "conv":
+            for key in self.indices["conv-tags"]:
+                if key == id or id == "ALL":
+                    for tag in self.indices["conv-tags"][key]:
+                        remove.append(("conv", key, tag))
+
+        elif type == "tag" or type == "usertag" or type == "convtag":
+            if type == "usertag":
+                _types = ["user"]
+            elif type == "convtag":
+                _types = ["conv"]
+            else:
+                # type=="tag"
+                _types = ["conv", "user"]
+
+            for _type in _types:
+                _index_name = "tag-{}s".format(_type)
+                for tag in self.indices[_index_name]:
+                    if tag == id or id == "ALL":
+                        for key in self.indices[_index_name][tag]:
+                            remove.append((_type, key, id))
+
+        else:
+            raise TypeError("{}".format(type))
+
+        records_removed = 0
+        if remove:
+            for args in remove:
+                if self.remove(*args):
+                    records_removed = records_removed + 1
+
+        return records_removed
+
 
     def useractive(self, chat_id, conv_id="*"):
         """return active tags of user for current conv_id if supplied, globally if not"""
         if conv_id != "*":
 
             if not self.bot.memory.exists(["user_data", chat_id]):
-                raise ValueError("tags: user {} does not exist".format(chat_id))
+                raise ValueError("user {} does not exist".format(chat_id))
             if conv_id not in self.bot.conversations.catalog:
-                raise ValueError("tags: conversation {} does not exist".format(conv_id))
+                raise ValueError("conversation {} does not exist".format(conv_id))
 
             per_conversation_user_override_key = (conv_id + "|" + chat_id)
             if per_conversation_user_override_key in self.indices["user-tags"]:
@@ -172,6 +225,7 @@ class tags:
             return self.indices["user-tags"][chat_id]
 
         return []
+
 
     def userlist(self, conv_id, tags=False):
         """return dict of participating chat_ids to tags, optionally filtered by tag/list of tags"""
