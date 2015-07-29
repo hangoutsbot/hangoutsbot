@@ -1,4 +1,7 @@
-import asyncio,re,logging
+import asyncio, logging, re
+
+
+logger = logging.getLogger(__name__)
 
 
 class __internal_vars():
@@ -45,7 +48,10 @@ def _populate_keywords(bot, event):
     if not _internal.keywords:
         bot.initialise_memory(event.user.id_.chat_id, "user_data")
         for userchatid in bot.memory.get_option("user_data"):
-            userkeywords = bot.memory.get_suboption("user_data", userchatid, "keywords")
+            userkeywords = []
+            if bot.memory.exists(["user_data", userchatid, "keywords"]):
+                userkeywords = bot.memory.get_by_path(["user_data", userchatid, "keywords"])
+
             if userkeywords:
                 _internal.keywords[userchatid] = userkeywords
             else:
@@ -55,7 +61,7 @@ def _send_notification(bot, event, phrase, user):
     """Alert a user that a keyword that they subscribed to has been used"""
 
     conversation_name = bot.conversations.get_name(event.conv)
-    logging.info(_("subscribe: keyword '{}' in '{}' ({})").format(phrase, conversation_name, event.conv.id_))
+    logger.info("keyword '{}' in '{}' ({})".format(phrase, conversation_name, event.conv.id_))
 
     """support for reprocessor
     override the source name by defining event._external_source"""
@@ -78,11 +84,11 @@ def _send_notification(bot, event, phrase, user):
                     phrase,
                     conversation_name,
                     event.text))
-            logging.info(_("subscribe: {} ({}) alerted via 1on1 ({})").format(user.full_name, user.id_.chat_id, conv_1on1.id_))
+            logger.info("{} ({}) alerted via 1on1 ({})".format(user.full_name, user.id_.chat_id, conv_1on1.id_))
         else:
-            logging.info(_("subscribe: {} ({}) has dnd").format(user.full_name, user.id_.chat_id))
+            logger.info("{} ({}) has dnd".format(user.full_name, user.id_.chat_id))
     else:
-        logging.warning(_("subscribe: user {} ({}) could not be alerted via 1on1").format(user.full_name, user.id_.chat_id))
+        logger.warning("user {} ({}) could not be alerted via 1on1".format(user.full_name, user.id_.chat_id))
 
 def subscribe(bot, event, *args):
     """allow users to subscribe to phrases, only one input at a time"""
