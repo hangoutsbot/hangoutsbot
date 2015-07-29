@@ -68,7 +68,8 @@ class watermark_updater:
     queue = []
     busy = False
 
-    critical_errors = 0 # just in case for repeated errors from the asyncio.async call
+    _current_convid = False
+    _critical_errors = 0 # track repeated errors during asyncio.async call, resets when batch finished
 
     def __init__(self, bot):
         self.bot = bot
@@ -90,13 +91,16 @@ class watermark_updater:
             conv_id = self.queue.pop(0)
         else:
             self.busy = False
+            self._current_convid = False
+            self._critical_errors = 0
             return
 
         logger.info("watermarking {}".format(conv_id))
 
+        self._current_convid = conv_id
         asyncio.async(
             self.bot._client.updatewatermark(
-                conv_id, 
+                self._current_convid,
                 datetime.datetime.fromtimestamp(time.time()))
         ).add_done_callback(self.after_update)
 
@@ -105,18 +109,17 @@ class watermark_updater:
         """Handle showing an error if a message fails to send"""
         try:
             future.result()
+            if self._critical_errors > 0:
+                self._critical_errors = self._critical_errors - 1
+
         except Exception as e:
-            self.critical_errors = self.critical_errors + 1
+            self._critical_errors = self._critical_errors + 1
 
-            message = "critical error {}, clearing queue".format(self.critical_errors)
-            print(message)
-            logger.exception(message)
-
-            if self.critical_errors > 3:
+            if self._critical_errors > max(10, len(self.queue) * 2):
                 logger.error("critical error threshold reached, exiting thread")
                 exit()
 
-            self.queue.clear()
-
+            self.add(self._current_convid)
+            time.sleep(1)
 
         self.update_next_conversation()
