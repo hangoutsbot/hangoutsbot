@@ -1,8 +1,11 @@
-import asyncio
+import asyncio, logging, time
+
 import hangups
-import time
 
 import plugins
+
+
+logger = logging.getLogger(__name__)
 
 
 class __internal_vars():
@@ -52,13 +55,11 @@ def _check_if_admin_added_me(bot, event, command):
             initiator_user_id = event.user_id.chat_id
 
             if initiator_user_id in _botkeeper_list(bot, event.conv_id):
-                print(_("restrictedadd: botkeeper added me to {}").format(
-                    event.conv_id))
+                logger.info("botkeeper added me to {}".format(event.conv_id))
 
             else:
-                print(_("RESTRICTEDADD: user {} tried to add me to {}").format(
-                    event.user.full_name,
-                    event.conv_id))
+                logger.warning("{} ({}) tried to add me to {}".format(
+                    initiator_user_id, event.user.full_name, event.conv_id))
 
                 bot.send_message_parsed(
                     event.conv,
@@ -76,7 +77,7 @@ def _verify_botkeeper_presence(bot, event, command):
         if bot.conversations.catalog[event.conv_id]["type"] != "GROUP":
             return
     except KeyError:
-        logging.warning("RESTRICTEADD: {} not found in conversation memory, skipping temporarily")
+        logger.warning("{} not found in permanent memory, skipping temporarily")
         return
 
     try:
@@ -93,15 +94,14 @@ def _verify_botkeeper_presence(bot, event, command):
 
     for user in event.conv.users:
         if user.id_.chat_id in botkeeper_list:
-            print(_("restrictedadd: found botkeeper {}").format(user.id_.chat_id))
+            logger.debug("botkeeper found for {}: {}".format(event.conv_id, user.id_.chat_id))
             botkeeper = True
             break
 
     _internal.last_verified[event.conv_id] = time.time()
 
     if not botkeeper:
-        print(_("RESTRICTEDADD: no botkeeper in {}").format(
-            event.conv_id))
+        logger.warning("no botkeeper in {}".format(event.conv_id))
 
         bot.send_message_parsed(
             event.conv,
