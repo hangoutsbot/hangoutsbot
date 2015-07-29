@@ -263,15 +263,24 @@ class HangupsBot(object):
                     self._client.on_disconnect.add_observer(self._on_disconnect)
 
                     loop.run_until_complete(self._client.connect())
+
+                    self.memory.flush()
+                    self.config.flush()
+
+                    logging.info("bot is exiting")
+
                     sys.exit(0)
                 except Exception as e:
                     logging.exception("CLIENT: unrecoverable low-level error")
-                    print(_('Client unexpectedly disconnected:\n{}').format(e))
-                    print(_('Waiting {} seconds...').format(5 + retry * 5))
+                    print('Client unexpectedly disconnected:\n{}'.format(e))
+                    print('Waiting {} seconds...'.format(5 + retry * 5))
                     time.sleep(5 + retry * 5)
-                    print(_('Trying to connect again (try {} of {})...').format(retry + 1, self._max_retries))
+                    print('Trying to connect again (try {} of {})...'.format(retry + 1, self._max_retries))
 
-            print(_('Maximum number of retries reached! Exiting...'))
+            print('Maximum number of retries reached! Exiting...')
+
+        logging.info("valid login required, exiting")
+
         sys.exit(1)
 
     def stop(self):
