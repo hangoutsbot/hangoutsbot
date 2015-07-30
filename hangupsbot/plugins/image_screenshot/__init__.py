@@ -2,6 +2,7 @@ import os
 import io
 import time
 import re
+import asyncio
 
 import selenium
 from selenium import webdriver
@@ -9,6 +10,7 @@ from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 import plugins
 
+_externals = { "running": False }
 
 dcap = dict(DesiredCapabilities.PHANTOMJS)
 dcap["phantomjs.page.settings.userAgent"] = (
@@ -20,8 +22,30 @@ def _initialise(bot):
     plugins.register_user_command(["screenshot"])
     plugins.register_admin_command(["seturl", "clearurl"])
 
+@asyncio.coroutine
+def _open_file(name):
+    print("sreenshot_open_file: {}".format(name))
+    return open(name, 'rb')
+
+@asyncio.coroutine
+def _screencap(browser, url, filename):
+    print("screenshot_screencap: getting {} and saving as {}".format(url, filename))
+    browser.set_window_size(1280, 800)
+    browser.get(url)
+    yield from asyncio.sleep(5)
+    loop = asyncio.get_event_loop()
+    yield from loop.run_in_executor(None, browser.save_screenshot, filename)
+
+    # read the resulting file into a byte array
+    file_resource = yield from _open_file(filename)
+    file_data = yield from loop.run_in_executor(None, file_resource.read)
+    image_data = yield from loop.run_in_executor(None, io.BytesIO, file_data)
+    yield from loop.run_in_executor(None, os.remove, filename)
+    return image_data
+
+
 def seturl(bot, event, *args):
-    """set url for current converation for the screenshot command.
+    """set url for current converation for the screenshot command. 
     use /bot clearurl to clear the previous url before setting a new one.
     """
     url = bot.conversation_memory_get(event.conv_id, 'url')
@@ -35,7 +59,7 @@ def seturl(bot, event, *args):
         bot.send_html_to_conversation(event.conv, html)
 
 def clearurl(bot, event, *args):
-    """clear url for current converation for the screenshot command.
+    """clear url for current converation for the screenshot command. 
     """
     url = bot.conversation_memory_get(event.conv_id, 'url')
     if url is None:
@@ -47,8 +71,13 @@ def clearurl(bot, event, *args):
         bot.send_html_to_conversation(event.conv, html)
 
 def screenshot(bot, event, *args):
-    """get a screenshot of a user provided URL or the default URL of the hangout.
+    """get a screenshot of a user provided URL or the default URL of the hangout. 
     """
+    if _externals["running"]:
+        bot.send_html_to_conversation(event.conv_id, "<i>processing another request, try again shortly</i>")
+        return
+
+
     if args:
         url = args[0]
     else:
@@ -57,9 +86,10 @@ def screenshot(bot, event, *args):
         html = "<i><b>{}</b> No URL has been set for screenshots and none was provided manually.".format(event.user.full_name)
         bot.send_html_to_conversation(event.conv, html)
     else:
+        _externals["running"] = True
+        
         if not re.match(r'^[a-zA-Z]+://', url):
             url = 'http://' + url
-
         filename = event.conv_id + "." + str(time.time()) +".png"
         filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)), filename)
         print("screenshot(): temporary screenshot in {}".format(filepath))
@@ -69,16 +99,20 @@ def screenshot(bot, event, *args):
         except selenium.common.exceptions.WebDriverException as e:
             bot.send_html_to_conversation(event.conv, "<i>phantomjs could not be started - is it installed?</i>".format(e))
             return
-
-        browser.set_window_size(1280, 800)
-        browser.get(url)
-        time.sleep(5)
-        browser.save_screenshot(filename)
-
-        # read the resulting file into a byte array
-        file_resource = open(filename, 'rb')
-        image_data = io.BytesIO(file_resource.read())
-        os.remove(filename)
-
-        image_id = yield from bot._client.upload_image(image_data, filename=filename)
-        yield from bot._client.sendchatmessage(event.conv.id_, None, image_id=image_id)
+        
+        try:
+            loop = asyncio.get_event_loop()
+            image_data = yield from _screencap(browser, url, filename)
+        except Exception as e:
+            bot.send_html_to_conversation(event.conv_id, "<i>error getting screenshot</i>")
+            print("{}".format(e))
+            return
+            
+        try:
+            image_id = yield from bot._client.upload_image(image_data, filename=filename)
+            yield from bot._client.sendchatmessage(event.conv.id_, None, image_id=image_id)
+        except Exception as e:
+            bot.send_html_to_conversation(event.conv_id, "<i>error uploading screenshot</i>")
+            print("{}".format(e))
+        finally:
+            _externals["running"] = False

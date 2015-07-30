@@ -7,6 +7,9 @@ from sinks import start_listening
 from sinks.base_bot_request_handler import BaseBotRequestHandler as IncomingRequestHandler
 
 
+logger = logging.getLogger(__name__)
+
+
 class WebFramework:
     def __init__(self, bot, configkey, RequestHandler=IncomingRequestHandler):
         self._bot = bot
@@ -16,7 +19,7 @@ class WebFramework:
         self.RequestHandler = RequestHandler
 
         if not self.configuration:
-            print("webbridge: no configuration for {}, aborting...".format(self.configkey))
+            logger.info("no configuration for {}, not running".format(self.configkey))
             return
 
         self._start_sinks(bot)
@@ -37,12 +40,12 @@ class WebFramework:
                 try:
                     certfile = listener["certfile"]
                     if not certfile:
-                        print(_("config.{}[{}].certfile must be configured").format(self.configkey, itemNo))
+                        logger.warning("config.{}[{}].certfile must be configured".format(self.configkey, itemNo))
                         continue
                     name = listener["name"]
                     port = listener["port"]
                 except KeyError as e:
-                    print(_("config.{}[{}] missing keyword").format(self.configkey, itemNo), e)
+                    logger.warning("config.{}[{}] missing keyword".format(self.configkey, itemNo))
                     continue
 
                 threadmanager.start_thread(start_listening, args=(
@@ -54,8 +57,7 @@ class WebFramework:
                     self.RequestHandler,
                     self.configkey))
 
-        message = _("webbridge.sinks: {} thread(s) started for {}").format(itemNo, self.configkey)
-        logging.info(message)
+        logger.info("webbridge.sinks: {} thread(s) started for {}".format(itemNo, self.configkey))
 
 
     def _handle_websync(self, bot, event, command):
@@ -70,7 +72,7 @@ class WebFramework:
                     if event.conv_id in convlist:
                         self._send_to_external_chat(bot, event, config)
                 except Exception as e:
-                    print("Could not handle external chat syncing. is config.json properly configured?", e)
+                    logger.exception("EXCEPTION in _handle_websync")
 
     def _send_to_external_chat(self, bot, event, config):
         print("webbridge._send_to_external_chat(): {} {}".format(self.configkey, config))

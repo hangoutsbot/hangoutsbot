@@ -3,19 +3,26 @@ import asyncio, re, logging, json, random
 import plugins
 
 
+logger = logging.getLogger(__name__)
+
+
 def _initialise(bot):
     plugins.register_handler(_handle_autoreply, type="message")
     plugins.register_admin_command(["autoreply"])
 
 
 def _handle_autoreply(bot, event, command):
-    autoreplies_enabled = bot.get_config_suboption(event.conv.id_, 'autoreplies_enabled')
-    if not autoreplies_enabled:
+    config_autoreplies = bot.get_config_suboption(event.conv.id_, 'autoreplies_enabled')
+    tagged_autoreplies = "autoreplies-enable" in bot.tags.useractive(event.user_id.chat_id, event.conv.id_)
+
+    if not (config_autoreplies or tagged_autoreplies):
+        return
+
+    if "autoreplies-disable" in bot.tags.useractive(event.user_id.chat_id, event.conv.id_):
+        logger.debug("explicitly disabled by tag for {} {}".format(event.user_id.chat_id, event.conv.id_))
         return
 
     """Handle autoreplies to keywords in messages"""
-
-    logging.info("autoreply: {}".format(event.conv.id_))
 
     autoreplies_list = bot.get_config_suboption(event.conv_id, 'autoreplies')
     if autoreplies_list:
@@ -26,6 +33,8 @@ def _handle_autoreply(bot, event, command):
                         message = random.choice(sentences)
                     else:
                         message = sentences
+
+                    logger.info("matched: {}".format(kw))
                     bot.send_message_parsed(event.conv, message)
                     break
 

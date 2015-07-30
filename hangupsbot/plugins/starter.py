@@ -23,7 +23,7 @@ def iamspartacus(bot, event, *args):
 
 def files(bot, event, *args):
     """list bot file paths"""
-    one2one = bot.get_1on1_conversation(event.user.id_.chat_id)
+    one2one = yield from bot.get_1to1(event.user.id_.chat_id)
     if one2one:
         bot.send_message_parsed(one2one,
             _('<i>config: {}<br />memory: {}</i>').format(
@@ -43,7 +43,7 @@ def verifyme(bot, event, *args):
     else:
         chat_id = " ".join(args)
 
-    one2one = bot.get_1on1_conversation(chat_id)
+    one2one = yield from bot.get_1to1(chat_id)
     if one2one:
         if event.user_id.chat_id == chat_id:
             """send a private message only if the actual user requested it"""

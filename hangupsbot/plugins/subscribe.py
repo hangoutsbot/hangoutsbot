@@ -1,6 +1,8 @@
-import asyncio,re,logging
+import asyncio, logging, re
 
-from hangups.ui.utils import get_conv_name
+
+logger = logging.getLogger(__name__)
+
 
 class __internal_vars():
     def __init__(self):
@@ -36,7 +38,7 @@ def _handle_keyword(bot, event, command):
                 for phrase in _internal.keywords[user.id_.chat_id]:
                     regexphrase = "\\b" + phrase + "\\b"
                     if re.search(regexphrase, event.text, re.IGNORECASE):
-                        _send_notification(bot, event, phrase, user)
+                        yield from _send_notification(bot, event, phrase, user)
         except KeyError:
             # User probably hasn't subscribed to anything
             continue
@@ -46,17 +48,21 @@ def _populate_keywords(bot, event):
     if not _internal.keywords:
         bot.initialise_memory(event.user.id_.chat_id, "user_data")
         for userchatid in bot.memory.get_option("user_data"):
-            userkeywords = bot.memory.get_suboption("user_data", userchatid, "keywords")
+            userkeywords = []
+            if bot.memory.exists(["user_data", userchatid, "keywords"]):
+                userkeywords = bot.memory.get_by_path(["user_data", userchatid, "keywords"])
+
             if userkeywords:
                 _internal.keywords[userchatid] = userkeywords
             else:
                 _internal.keywords[userchatid] = []
 
+@asyncio.coroutine
 def _send_notification(bot, event, phrase, user):
     """Alert a user that a keyword that they subscribed to has been used"""
 
-    conversation_name = get_conv_name(event.conv, truncate=True);
-    logging.info(_("subscribe: keyword '{}' in '{}' ({})").format(phrase, conversation_name, event.conv.id_))
+    conversation_name = bot.conversations.get_name(event.conv)
+    logger.info("keyword '{}' in '{}' ({})".format(phrase, conversation_name, event.conv.id_))
 
     """support for reprocessor
     override the source name by defining event._external_source"""
@@ -65,7 +71,7 @@ def _send_notification(bot, event, phrase, user):
         source_name = event._external_source
 
     """send alert with 1on1 conversation"""
-    conv_1on1 = bot.get_1on1_conversation(user.id_.chat_id)
+    conv_1on1 = yield from bot.get_1to1(user.id_.chat_id)
     if conv_1on1:
         try:
             user_has_dnd = bot.call_shared("dnd.user_check", user.id_.chat_id)
@@ -79,11 +85,11 @@ def _send_notification(bot, event, phrase, user):
                     phrase,
                     conversation_name,
                     event.text))
-            logging.info(_("subscribe: {} ({}) alerted via 1on1 ({})").format(user.full_name, user.id_.chat_id, conv_1on1.id_))
+            logger.info("{} ({}) alerted via 1on1 ({})".format(user.full_name, user.id_.chat_id, conv_1on1.id_))
         else:
-            logging.info(_("subscribe: {} ({}) has dnd").format(user.full_name, user.id_.chat_id))
+            logger.info("{} ({}) has dnd".format(user.full_name, user.id_.chat_id))
     else:
-        logging.warning(_("subscribe: user {} ({}) could not be alerted via 1on1").format(user.full_name, user.id_.chat_id))
+        logger.warning("user {} ({}) could not be alerted via 1on1".format(user.full_name, user.id_.chat_id))
 
 def subscribe(bot, event, *args):
     """allow users to subscribe to phrases, only one input at a time"""
@@ -91,7 +97,7 @@ def subscribe(bot, event, *args):
 
     keyword = ' '.join(args).strip().lower()
 
-    conv_1on1 = bot.get_1on1_conversation(event.user.id_.chat_id)
+    conv_1on1 = yield from bot.get_1to1(event.user.id_.chat_id)
     if not conv_1on1:
         bot.send_message_parsed(
             event.conv,

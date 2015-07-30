@@ -7,6 +7,10 @@ from inspect import getmembers, isfunction
 from commands import command
 import handlers
 
+
+logger = logging.getLogger(__name__)
+
+
 class tracker:
     def __init__(self):
         self.bot = None
@@ -81,21 +85,107 @@ def register_shared(id, objectref, forgiving=True):
 
 """plugin loader"""
 
+def retrieve_all_plugins(plugin_path=None, must_start_with=False):
+    """recursively loads all plugins from the standard plugins path
+    * a plugin file or folder must not begin with . or _
+    * a subfolder containing a plugin must have an __init__.py file
+    * sub-plugin files (additional plugins inside a subfolder) must be prefixed with the 
+      plugin/folder name for it to be automatically loaded
+    """
+
+    if not plugin_path:
+        plugin_path = os.path.dirname(os.path.realpath(sys.argv[0])) + os.sep + "plugins"
+
+    plugin_list = []
+
+    nodes = os.listdir(plugin_path)
+
+    for node_name in nodes:
+        full_path = os.path.join(plugin_path, node_name)
+        module_names = [ os.path.splitext(node_name)[0] ] # node_name without .py extension
+
+        if node_name.startswith(("_", ".")):
+            continue
+
+        if must_start_with and not node_name.startswith(must_start_with):
+            continue
+
+        if os.path.isfile(full_path):
+            if not node_name.endswith(".py"):
+                continue
+        else:
+            if not os.path.isfile(os.path.join(full_path, "__init__.py")):
+                continue
+
+            for sm in retrieve_all_plugins(full_path, must_start_with=node_name):
+                module_names.append(module_names[0] + "." + sm)
+
+        plugin_list.extend(module_names)
+
+    logger.debug("retrieved {}: {}.{}".format(len(plugin_list), must_start_with or "plugins", plugin_list))
+    return plugin_list
+
+def get_configured_plugins(bot):
+    all_plugins = retrieve_all_plugins()
+    config_plugins = bot.get_config_option('plugins')
+
+    if config_plugins is None: # must be unset in config or null
+        logger.info("plugins is not defined, using ALL")
+        plugin_list = all_plugins
+
+    else:
+        """perform fuzzy matching with actual retrieved plugins, e.g. "abc" matches "xyz.abc"
+        if more than one match found, don't load plugin
+        """
+        plugins_included = []
+        plugins_excluded = all_plugins
+
+        plugin_name_ambiguous = []
+        plugin_name_not_found = []
+
+        for configured in config_plugins:
+            dotconfigured = "." + configured
+
+            matches = []
+            for found in plugins_excluded:
+                fullfound = "plugins." + found
+                if fullfound.endswith(dotconfigured):
+                    matches.append(found)
+            num_matches = len(matches)
+
+            if num_matches <= 0:
+                logger.debug("{} no match".format(configured))
+                plugin_name_not_found.append(configured)
+            elif num_matches == 1:
+                logger.debug("{} matched to {}".format(configured, matches[0]))
+                plugins_included.append(matches[0])
+                plugins_excluded.remove(matches[0])
+            else:
+                logger.debug("{} ambiguous, matches {}".format(configured, matches))
+                plugin_name_ambiguous.append(configured)
+
+        if plugins_excluded:
+            logger.info("excluded {}: {}".format(len(plugins_excluded), plugins_excluded))
+
+        if plugin_name_ambiguous:
+            logger.warning("ambiguous plugin names: {}".format(plugin_name_ambiguous))
+
+        if plugin_name_not_found:
+            logger.warning("plugin not found: {}".format(plugin_name_not_found))
+
+        plugin_list = plugins_included
+
+    logger.info("included {}: {}".format(len(plugin_list), plugin_list))
+
+    return plugin_list
+
 def load(bot, command_dispatcher):
+    """load plugins and perform any initialisation required to set them up"""
+
     tracking.set_bot(bot)
     command_dispatcher.set_tracking(tracking)
 
-    plugin_list = bot.get_config_option('plugins')
-    if plugin_list is None:
-        print(_("HangupsBot: config.plugins is not defined, using ALL"))
-        plugin_path = os.path.dirname(os.path.realpath(sys.argv[0])) + os.sep + "plugins"
-        plugin_list = [ os.path.splitext(f)[0]  # take only base name (no extension)...
-            for f in os.listdir(plugin_path)    # ...by iterating through each node in the plugin_path...
-                if not f.startswith(("_", ".")) and ( # ...that does not start with _ .
-                    (os.path.isfile(os.path.join(plugin_path, f))
-                        and f.endswith(".py")) or # ...and must end with .py
-                    (os.path.isdir(os.path.join(plugin_path, f)))
-                )]
+    plugin_list = get_configured_plugins(bot)
 
     for module in plugin_list:
         module_path = "plugins.{}".format(module)
@@ -105,12 +195,9 @@ def load(bot, command_dispatcher):
         try:
             exec("import {}".format(module_path))
         except Exception as e:
-            message = "{} @ {}".format(e, module_path)
-            print(_("EXCEPTION during plugin import: {}").format(message))
-            logging.exception(message)
+            logger.exception("EXCEPTION during plugin import: {}".format(module_path))
             continue
 
-        print(_("plugin: {}").format(module))
         public_functions = [o for o in getmembers(sys.modules[module_path], isfunction)]
 
         candidate_commands = []
@@ -161,9 +248,7 @@ def load(bot, command_dispatcher):
                 # explicit init, legacy support: _initialise() returned user-available commands
                 register_user_command(available_commands)
         except Exception as e:
-            message = "{} @ {}".format(e, module_path)
-            print(_("EXCEPTION during plugin init: {}").format(message))
-            logging.exception(message)
+            logger.exception("EXCEPTION during plugin init: {}".format(module_path))
             continue # skip this, attempt next plugin
 
         """
@@ -187,7 +272,9 @@ def load(bot, command_dispatcher):
                 registered_commands.append(text_function_name)
 
         if registered_commands:
-            print(_("added: {}").format(", ".join(registered_commands)))
+            logger.info("{} - {}".format(module, ", ".join(registered_commands)))
+        else:
+            logger.info("{} - no commands".format(module))
 
         tracking.end()
 
@@ -198,7 +285,6 @@ def plugininfo(bot, event, *args):
     lines = []
     for plugin in tracking.list:
         if len(args) == 0 or args[0] in plugin["metadata"]["module"]:
-            print("{}".format(plugin))
             lines.append("<b>{}</b>".format(plugin["metadata"]["module.path"]))
             """admin commands"""
             if len(plugin["commands"]["admin"]) > 0:
