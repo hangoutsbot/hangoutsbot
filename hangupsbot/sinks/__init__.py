@@ -21,6 +21,7 @@ def start(bot):
 
     jsonrpc_sinks = bot.get_config_option('jsonrpc')
     itemNo = -1
+    threadcount = 0
 
     if isinstance(jsonrpc_sinks, list):
         for sinkConfig in jsonrpc_sinks:
@@ -29,31 +30,31 @@ def start(bot):
             try:
                 module = sinkConfig["module"].split(".")
                 if len(module) < 3:
-                    print("config.jsonrpc[{}].module should have at least 3 packages {}".format(itemNo, module))
+                    logger.error("config.jsonrpc[{}].module should have at least 3 packages {}".format(itemNo, module))
                     continue
 
                 module_name = ".".join(module[0:-1])
                 class_name = ".".join(module[-1:])
                 if not module_name or not class_name:
-                    print("config.jsonrpc[{}].module must be a valid package name".format(itemNo))
+                    logger.error("config.jsonrpc[{}].module must be a valid package name".format(itemNo))
                     continue
 
                 certfile = sinkConfig["certfile"]
                 if not certfile:
-                    print("config.jsonrpc[{}].certfile must be configured".format(itemNo))
+                    logger.error("config.jsonrpc[{}].certfile must be configured".format(itemNo))
                     continue
 
                 name = sinkConfig["name"]
                 port = sinkConfig["port"]
             except KeyError as e:
-                print("config.jsonrpc[{}] missing keyword".format(itemNo), e)
+                logger.error("config.jsonrpc[{}] missing keyword".format(itemNo), e)
                 continue
 
             try:
                 handler_class = class_from_name(module_name, class_name)
 
-            except AttributeError as e:
-                print("could not identify sink: {} {}".format(module_name, class_name))
+            except (AttributeError, ImportError) as e:
+                logger.error("not found: {} {}".format(module_name, class_name))
                 continue
 
             # start up rpc listener in a separate thread
@@ -69,7 +70,10 @@ def start(bot):
                 handler_class,
                 module_name))
 
-    logger.info("{} sink(s) from config.jsonrpc".format(len(threadmanager.threads)))
+            threadcount = threadcount + 1
+
+    if threadcount:
+        logger.info("{} sink(s) from config.jsonrpc".format(threadcount))
 
 
 def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webhookReceiver=BaseHTTPRequestHandler, friendlyName="UNKNOWN"):
@@ -94,9 +98,7 @@ def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webh
         httpd.serve_forever()
 
     except OSError as e:
-        message = "{} : {}:{} : {}".format(friendlyName, name, port, e)
-        print("EXCEPTION during start: {}".format(message))
-        logger.exception(message)
+        logger.exception("{} : {}:{}".format(friendlyName, name, port))
 
         try:
             httpd.socket.close()
