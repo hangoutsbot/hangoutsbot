@@ -17,20 +17,26 @@ def load(bot):
                 module = hook_config["module"].split(".")
 
                 if len(module) < 4:
-                    print("config.hooks[{}].module should have at least 4 packages {}".format(itemNo, module))
+                    logger.error("[DEPRECATED] config.hooks[{}].module should have at least 4 packages {}".format(itemNo, module))
                     continue
 
                 module_name = ".".join(module[0:-1])
                 class_name = ".".join(module[-1:])
                 if not module_name or not class_name:
-                    print("config.hooks[{}].module must be a valid package name".format(itemNo))
+                    logger.error("[DEPRECATED] config.hooks[{}].module must be a valid package name".format(itemNo))
                     continue
 
             except KeyError as e:
-                print("config.hooks[{}] missing keyword".format(itemNo), e)
+                logger.error("[DEPRECATED] config.hooks[{}] missing keyword".format(itemNo), e)
                 continue
 
-            theClass = class_from_name(module_name, class_name)
+            try:
+                theClass = class_from_name(module_name, class_name)
+
+            except (AttributeError, ImportError) as e:
+                logger.error("[DEPRECATED] not found: {} {}".format(module_name, class_name))
+                continue
+
             theClass._bot = bot
 
             if "config" in hook_config:
@@ -41,4 +47,5 @@ def load(bot):
                 logger.warning("[DEPRECATED] adding hooks: {}".format(module))
                 bot._hooks.append(theClass)
 
-    logger.warning("[DEPRECATED] {} hook(s) from hooks".format(len(bot._hooks)))
+    if bot._hooks:
+        logger.warning("[DEPRECATED] {} hook(s) from hooks".format(len(bot._hooks)))
