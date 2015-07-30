@@ -709,6 +709,7 @@ class HangupsBot(object):
             if method:
                 try:
                     method(parameters)
+                    logging.warning('[DEPRECATED] upgrade hooks to plugins.register_handler()')
                 except Exception as e:
                     logging.exception("HOOKS: {}".format(hook))
 
