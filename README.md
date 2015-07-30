@@ -25,16 +25,16 @@ Please see:
 * **Cross-chat Syncouts** :
   Half of your team is on Slack? No problem! You can connect them into the same room to communicate.
   Support for other chat clients coming soon.
-* [**Hubot Integration**](https://github.com/nylonee/hangupsbot/wiki/Hubot-Integration) :
+* [**Hubot Integration**](https://github.com/hangoutsbot/hangoutsbot/wiki/Hubot-Integration):
   Hangupsbot allows you to connect to [Hubot](https://hubot.github.com/), instantly providing you access
   to hundreds of developed chat tools and plugins.
 * **Plugins and sinks** :
   The bot has [instructions for developing your own plugins and sinks]
-  (https://github.com/nylonee/hangupsbot/wiki/Authoring-Bot-Extensions), allowing the bot to interact
+  (https://github.com/hangoutsbot/hangoutsbot/wiki/Authoring-Bot-Extensions), allowing the bot to interact
   with external services such as your company website, Google scripts and much more.
 * **Plugin mania** :
-  games, nickname support, subscribed keywords, customizable API - **[the list goes on]
-    (https://github.com/nylonee/hangupsbot/wiki/Plugin-List)**!
+  games, nickname support, subscribed keywords, customizable API - [**the list goes on**]
+    (https://github.com/hangoutsbot/hangoutsbot/wiki/Plugin-List)!
 
 # Running The Bot
 
@@ -96,19 +96,19 @@ Some plugins may require extra configuration.
 
 Some interesting plugins:
 * [mentions plugin]
-  (https://github.com/nylonee/hangupsbot/wiki/Mentions-Plugin)
+  (https://github.com/hangoutsbot/hangoutsbot/wiki/Mentions-Plugin)
   * alert users when their names are mentioned in a chat
 * [subscribe plugin]
-  (https://github.com/nylonee/hangupsbot/wiki/Subscribe-Plugin)
+  (https://github.com/hangoutsbot/hangoutsbot/wiki/Subscribe-Plugin)
   * alert users when keywords they are subscribed to are said in a chat
 * [syncout / syncrooms plugins]
-  (https://github.com/nylonee/hangupsbot/wiki/Syncouts-Plugin)
+  (https://github.com/hangoutsbot/hangoutsbot/wiki/Syncouts-Plugin)
   * relay chat messages between different hangout group conversations (syncrooms)
   * configure via bot commands (syncrooms_config)
   * automated translation via Google Translate of relayed messages (syncrooms_autotranslate)
 
 The wiki has a more comprehensive **[list of plugins]
-  (https://github.com/nylonee/hangupsbot/wiki/Plugin-List)**...
+  (https://github.com/hangoutsbot/hangoutsbot/wiki/Plugin-List)**...
 
 # Interacting with the Bot
 
@@ -117,24 +117,35 @@ There are two general types of interactions with the bot:
   * some bot commands are admin-only
 * custom interactions (usage and accessibility varies by plugin)
 
-**Without any plugins**, the bot only recognises the following three `/bot` commands:
+**Without any plugins**, the bot only recognises the following `/bot` commands:
 
 `/bot help`
 * Bot lists all supported commands in a private message with the user
 * If the user does not have a 1-on-1 channel open, it will publicly tell
-  the user to PM the bot and say hi.
+  the user to PM the bot and say hi
 
-`/bot ping`
-* Bot replies with a `pong`.
+`/bot locale <language code>`
+* Temporarily switches the bot language to a supported language from the [translation project]
+  (https://github.com/hangoutsbot/hangoutsbot-locales)
+* Resets to English (untranslated) on bot restart
 
 `/bot optout`
 * Toggles opt-in/opt-out of advanced bot features.
 * Works by making existing 1-on-1 chat with the specific user invisible to the bot
   * Bot will continue responding to the user in a group chat, but any feature/plugin
-    which requires a 1-on-1 chat is effectively disabled when toggled ON.
+    which requires a 1-on-1 chat is effectively disabled when toggled ON
+* Sending a private message to the bot when you are opted-out will automatically toggle
+  opt-out OFF
+
+`/bot ping`
+* Bot replies with a `pong`.
+
+`/bot version`
+* Bot replies with the version number of the framework
+
 
 Please see the wiki for the **[list of plugins]
-  (https://github.com/nylonee/hangupsbot/wiki/Plugin-List)** to find out more
+  (https://github.com/hangoutsbot/hangoutsbot/wiki/Plugin-List)** to find out more
   about each plugin and their usage.
 
 # Updating
@@ -167,11 +178,13 @@ Please see the wiki for the **[list of plugins]
 
 # Extending
 
-Please see https://github.com/nylonee/hangupsbot/wiki/Authoring-Bot-Extensions
+Please see https://github.com/hangoutsbot/hangoutsbot/wiki/Authoring-Bot-Extensions
 
 # Credits / History
 
-This version of Hangupsbot is derived from the [mogunsamang](https://gitlab.sabah.io/eol/mogunsamang) bot, 
-  which itself is a fork of xmikos's [hangupsbot](https://github.com/xmikos/hangupsbot).
+Hangoutsbot is derived from the [mogunsamang](https://gitlab.sabah.io/eol/mogunsamang) bot,
+  which itself is a fork of xmikos's [hangupsbot](https://github.com/xmikos/hangupsbot)
 
-On 2015-06-20, this fork was detached and made standalone on GitHub.
+On 2015-06-20, this fork was detached and made standalone on GitHub
+
+On 2015-07-03, the fork was made into a Github Organisation
