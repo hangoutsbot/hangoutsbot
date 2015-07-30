@@ -1,5 +1,7 @@
 import os, logging
 
+import hangups
+
 import plugins
 
 
