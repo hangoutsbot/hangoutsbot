@@ -46,8 +46,10 @@ class CommandDispatcher(object):
 
         commands_tagged = bot.get_config_suboption(conv_id, 'commands_tagged') or {}
 
+        # XXX: DEBUG
         commands_tagged = { "whereami" : [ "run-whereami" ],
-                            "version" : [ "run-version" ] }
+                            "version" : [ "run-version", [ "run-version-part-1", "run-version-part-2" ] ],
+                            "screenshot" : [ "run-screenshot" ] }
 
         admin_commands = []
         user_commands = []
@@ -82,13 +84,18 @@ class CommandDispatcher(object):
             admin_commands = []
 
         if commands_tagged:
+            _set_user_tags = set(bot.tags.useractive(chat_id, conv_id))
+
             for command, tags in commands_tagged.items():
                 if command in user_commands:
                     # make command admin-level
                     user_commands.remove(command)
-                if set(tags) <= set(bot.tags.useractive(chat_id, conv_id)):
-                    # make command available to the user
-                    admin_commands.append(command)
+
+                # make command available if user has matching tags
+                for _match in tags:
+                    if set([_match] if isinstance(_match, str) else _match) <= _set_user_tags:
+                        admin_commands.append(command)
+                        break
 
         admin_commands = list(set(admin_commands))
         user_commands = list(set(user_commands))
