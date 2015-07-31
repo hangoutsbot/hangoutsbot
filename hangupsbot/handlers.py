@@ -162,13 +162,17 @@ class EventHandler:
                 event.user.full_name))
             return
 
-        # only admins can run admin commands
-        commands_admin_list = command.get_admin_commands(self.bot, event.conv_id)
-        if commands_admin_list and line_args[1].lower() in commands_admin_list:
-            if not initiator_is_admin:
-                self.bot.send_message_parsed(event.conv, _('{}: Can\'t do that.').format(
-                    event.user.full_name))
-                return
+        commands = command.get_available_commands(self.bot, event.user.id_.chat_id, event.conv_id)
+
+        supplied_command = line_args[1].lower()
+        if supplied_command in commands["user"]:
+            pass
+        elif supplied_command in commands["admin"]:
+            pass
+        else:
+            self.bot.send_message_parsed(event.conv, _('{}: Can\'t do that.').format(
+                event.user.full_name))
+            return
 
         # Run command
         yield from command.run(self.bot, event, *line_args[1:])

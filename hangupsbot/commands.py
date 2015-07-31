@@ -68,7 +68,7 @@ class CommandDispatcher(object):
                     user_commands.remove(command)
                     if set(tags) <= set(bot.tags.useractive(chat_id, conv_id)):
                         # elevate the privileges of the user command
-                        # makes the command available via privilege escalation in handle_command
+                        # makes the command available
                         admin_commands.append(command)
 
         admin_commands = list(set(admin_commands))
