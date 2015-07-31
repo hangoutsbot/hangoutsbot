@@ -39,6 +39,43 @@ class CommandDispatcher(object):
             admin_command_list = commands_admin + self.admin_commands
         return list(set(admin_command_list))
 
+    def get_available_commands(self, bot, chat_id, conv_id):
+        whitelisted_commands = bot.get_config_suboption(conv_id, 'commands_user') or []
+
+        tagged_commands = bot.get_config_suboption(conv_id, 'tagged_commands') or { 
+            "whereami" : [ "run-whereami" ],
+            "version" : [ "run-version" ] }
+
+        admin_commands = []
+        user_commands = []
+
+        if whitelisted_commands:
+            admin_commands = self.commands.keys() - whitelisted_commands
+            user_commands = whitelisted_commands
+
+        else:
+            commands_admin = bot.get_config_suboption(conv_id, 'commands_admin') or []
+            admin_commands = commands_admin + self.admin_commands
+            user_commands = self.commands.keys() - admin_commands
+
+        admins_list = bot.get_config_suboption(conv_id, 'admins')
+        if chat_id not in admins_list:
+            admin_commands = []
+
+        if tagged_commands:
+            for command, tags in tagged_commands.items():
+                if command in user_commands:
+                    user_commands.remove(command)
+                    if set(tags) <= set(bot.tags.useractive(chat_id, conv_id)):
+                        # elevate the privileges of the user command
+                        # makes the command available via privilege escalation in handle_command
+                        admin_commands.append(command)
+
+        admin_commands = list(set(admin_commands))
+        user_commands = list(set(user_commands))
+
+        return { "admin": admin_commands, "user": user_commands }
+
     @asyncio.coroutine
     def run(self, bot, event, *args, **kwds):
         """Run command"""
@@ -97,9 +134,9 @@ def help(bot, event, cmd=None, *args):
     if not cmd:
         admins_list = bot.get_config_suboption(event.conv_id, 'admins')
 
-        commands_all = command.commands.keys()
-        commands_admin = command.get_admin_commands(bot, event.conv_id)
-        commands_nonadmin = list(set(commands_all) - set(commands_admin))
+        commands = command.get_available_commands(bot, event.user.id_.chat_id, event.conv_id)
+        commands_admin = commands["admin"]
+        commands_nonadmin = commands["user"]
 
         help_lines.append(_('<b>User commands:</b>'))
         help_lines.append(', '.join(sorted(commands_nonadmin)))
@@ -108,7 +145,7 @@ def help(bot, event, cmd=None, *args):
             help_lines.append('')
             help_lines.append(_('<i>For more information, please see: {}</i>').format(link_to_guide))
 
-        if event.user_id.chat_id in admins_list:
+        if len(commands_admin) > 0:
             help_lines.append('')
             help_lines.append(_('<b>Admin commands:</b>'))
             help_lines.append(', '.join(sorted(commands_admin)))
