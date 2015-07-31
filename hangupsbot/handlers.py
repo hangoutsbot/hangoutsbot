@@ -126,22 +126,18 @@ class EventHandler:
     def handle_command(self, event):
         """Handle command messages"""
 
-        # verify user is an admin
-        admins_list = self.bot.get_config_suboption(event.conv_id, 'admins')
-        initiator_is_admin = False
-        if event.user_id.chat_id in admins_list:
-            initiator_is_admin = True
-
-        # Test if command handling is enabled
-        # note: admins always bypass this check
-        if not initiator_is_admin:
-            if not self.bot.get_config_suboption(event.conv_id, 'commands_enabled'):
+        # is commands_enabled?
+        if not self.bot.get_config_suboption(event.conv_id, 'commands_enabled'):
+            admins_list = self.bot.get_config_suboption(event.conv_id, 'admins') or []
+            # admins always have commands enabled
+            if event.user_id.chat_id not in admins_list:
                 return
 
+        # ensure bot alias is always a list
         if not isinstance(self.bot_command, list):
-            # always a list
             self.bot_command = [self.bot_command]
 
+        # check that a bot alias is used e.g. /bot
         if not event.text.split()[0].lower() in self.bot_command:
             return
 
