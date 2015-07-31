@@ -23,6 +23,7 @@ class CommandDispatcher(object):
         self.tracking = tracking
 
     def get_admin_commands(self, bot, conv_id):
+        logger.warning("[DEPRECATED] command.get_admin_commands(), use command.get_available_commands() instead")
         """Get list of admin-only commands (set by plugins or in config.json)
         list of commands is determined via one of two methods:
             default mode allows individual plugins to make the determination for admin and user
@@ -40,21 +41,38 @@ class CommandDispatcher(object):
         return list(set(admin_command_list))
 
     def get_available_commands(self, bot, chat_id, conv_id):
-        whitelisted_commands = bot.get_config_suboption(conv_id, 'commands_user') or []
+        commands_admin = bot.get_config_suboption(conv_id, 'commands_admin') or []
+        commands_user = bot.get_config_suboption(conv_id, 'commands_user') or []
 
-        tagged_commands = bot.get_config_suboption(conv_id, 'tagged_commands') or { 
-            "whereami" : [ "run-whereami" ],
-            "version" : [ "run-version" ] }
+        commands_tagged = bot.get_config_suboption(conv_id, 'commands_tagged') or {}
+
+        commands_tagged = { "whereami" : [ "run-whereami" ],
+                            "version" : [ "run-version" ] }
 
         admin_commands = []
         user_commands = []
 
-        if whitelisted_commands:
-            admin_commands = self.commands.keys() - whitelisted_commands
-            user_commands = whitelisted_commands
+        if commands_admin is True:
+            """commands_admin: true
+            all commands admin-only"""
+            admin_commands = self.commands.keys()
+            user_commands = []
+
+        elif commands_user is True:
+            """commands_user: true
+            all commands user-only"""
+            admin_commands = []
+            user_commands = self.commands.keys()
+
+        elif commands_user:
+            """commands_user: [ "command", ... ]
+            explicit user commands, everything else admin-only"""
+            admin_commands = self.commands.keys() - commands_user
+            user_commands = commands_user
 
         else:
-            commands_admin = bot.get_config_suboption(conv_id, 'commands_admin') or []
+            """default
+            follow config["commands_admin"] + plugin settings"""
             admin_commands = commands_admin + self.admin_commands
             user_commands = self.commands.keys() - admin_commands
 
@@ -63,8 +81,8 @@ class CommandDispatcher(object):
         if chat_id not in admins_list:
             admin_commands = []
 
-        if tagged_commands:
-            for command, tags in tagged_commands.items():
+        if commands_tagged:
+            for command, tags in commands_tagged.items():
                 if command in user_commands:
                     # make command admin-level
                     user_commands.remove(command)
