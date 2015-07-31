@@ -58,6 +58,7 @@ class CommandDispatcher(object):
             admin_commands = commands_admin + self.admin_commands
             user_commands = self.commands.keys() - admin_commands
 
+        # make admin commands unavailable to non-admin user
         admins_list = bot.get_config_suboption(conv_id, 'admins')
         if chat_id not in admins_list:
             admin_commands = []
@@ -65,10 +66,10 @@ class CommandDispatcher(object):
         if tagged_commands:
             for command, tags in tagged_commands.items():
                 if command in user_commands:
+                    # make command admin-level
                     user_commands.remove(command)
                 if set(tags) <= set(bot.tags.useractive(chat_id, conv_id)):
-                    # elevate the privileges of the user command
-                    # makes the command available
+                    # make command available to the user
                     admin_commands.append(command)
 
         admin_commands = list(set(admin_commands))
