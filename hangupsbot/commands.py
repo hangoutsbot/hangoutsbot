@@ -1,4 +1,4 @@
-import sys, json, asyncio, logging, os
+import sys, json, asyncio, logging, os, time
 
 import hangups
 
@@ -41,64 +41,84 @@ class CommandDispatcher(object):
         return list(set(admin_command_list))
 
     def get_available_commands(self, bot, chat_id, conv_id):
+        start_time = time.time()
+
+        config_tags_deny_prefix = bot.get_config_option('commands.tags.deny-prefix') or "!"
+
+        config_admins = bot.get_config_suboption(conv_id, 'admins')
+        is_admin = False
+        if chat_id in config_admins:
+            is_admin = True
+
         commands_admin = bot.get_config_suboption(conv_id, 'commands_admin') or []
         commands_user = bot.get_config_suboption(conv_id, 'commands_user') or []
-
         commands_tagged = bot.get_config_suboption(conv_id, 'commands_tagged') or {}
 
-        # XXX: DEBUG
-        commands_tagged = { "whereami" : [ "run-whereami" ],
-                            "version" : [ "run-version", [ "run-version-part-1", "run-version-part-2" ] ],
-                            "screenshot" : [ "run-screenshot" ] }
+        all_commands = set(self.commands)
 
-        admin_commands = []
-        user_commands = []
+        admin_commands = set()
+        user_commands = set()
 
         if commands_admin is True:
-            """commands_admin: true
-            all commands admin-only"""
-            admin_commands = self.commands.keys()
-            user_commands = []
+            """commands_admin: true # all commands are admin-only"""
+            admin_commands = all_commands
 
         elif commands_user is True:
-            """commands_user: true
-            all commands user-only"""
-            admin_commands = []
-            user_commands = self.commands.keys()
+            """commands_user: true # all commands are user-only"""
+            user_commands = all_commands
 
         elif commands_user:
-            """commands_user: [ "command", ... ]
-            explicit user commands, everything else admin-only"""
-            admin_commands = self.commands.keys() - commands_user
-            user_commands = commands_user
+            """commands_user: [ "command", ... ] # listed are user commands, others admin-only"""
+            user_commands = set(commands_user)
+            admin_commands = all_commands - user_commands
 
         else:
-            """default
-            follow config["commands_admin"] + plugin settings"""
-            admin_commands = commands_admin + self.admin_commands
-            user_commands = self.commands.keys() - admin_commands
+            """default: follow config["commands_admin"] + plugin settings"""
+            admin_commands = set(commands_admin) | set(self.admin_commands)
+            user_commands = all_commands - admin_commands
 
         # make admin commands unavailable to non-admin user
-        admins_list = bot.get_config_suboption(conv_id, 'admins')
-        if chat_id not in admins_list:
-            admin_commands = []
+        if not is_admin:
+            admin_commands = set()
 
         if commands_tagged:
             _set_user_tags = set(bot.tags.useractive(chat_id, conv_id))
 
             for command, tags in commands_tagged.items():
+                if command not in all_commands:
+                    # don't check for commands that weren't loaded
+                    continue
+
                 if command in user_commands:
                     # make command admin-level
                     user_commands.remove(command)
 
                 # make command available if user has matching tags
                 for _match in tags:
-                    if set([_match] if isinstance(_match, str) else _match) <= _set_user_tags:
-                        admin_commands.append(command)
+                    _set_allow = set([_match] if isinstance(_match, str) else _match)
+                    if _set_allow <= _set_user_tags:
+                        admin_commands.update([command])
                         break
 
-        admin_commands = list(set(admin_commands))
-        user_commands = list(set(user_commands))
+            if not is_admin:
+                # tagged commands can be explicitly denied
+                _denied = set()
+                for command in admin_commands:
+                    if command in commands_tagged:
+                        tags = commands_tagged[command]
+                        for _match in tags:
+                            _set_allow = set([_match] if isinstance(_match, str) else _match)
+                            _set_deny = { config_tags_deny_prefix + x for x in _set_allow }
+                            if _set_deny <= _set_user_tags:
+                                _denied.update([command])
+                                break
+                admin_commands = admin_commands - _denied
+
+        admin_commands = list(admin_commands)
+        user_commands = list(user_commands)
+
+        interval = time.time() - start_time
+        logger.debug("get_available_commands() - {}".format(interval))
 
         return { "admin": admin_commands, "user": user_commands }
 
