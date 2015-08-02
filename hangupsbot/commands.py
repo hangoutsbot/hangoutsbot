@@ -44,6 +44,7 @@ class CommandDispatcher(object):
         start_time = time.time()
 
         config_tags_deny_prefix = bot.get_config_option('commands.tags.deny-prefix') or "!"
+        config_tags_escalate = bot.get_config_option('commands.tags.escalate') or False
 
         config_admins = bot.get_config_suboption(conv_id, 'admins')
         is_admin = False
@@ -86,24 +87,27 @@ class CommandDispatcher(object):
 
             for command, tags in commands_tagged.items():
                 if command not in all_commands:
-                    # don't check for commands that weren't loaded
+                    # optimisation: don't check commands that aren't loaded into framework
                     continue
 
-                if command in user_commands:
-                    # make command admin-level
+                # raise tagged command access level if escalation required
+                if config_tags_escalate and command in user_commands:
                     user_commands.remove(command)
 
-                # make command available if user has matching tags
-                for _match in tags:
-                    _set_allow = set([_match] if isinstance(_match, str) else _match)
-                    if _set_allow <= _set_user_tags:
-                        admin_commands.update([command])
-                        break
+                # is tagged command generally available (in user_commands)?
+                # admins always get access, other users need appropriate tag(s)
+                # XXX: optimisation: check admin_commands to avoid unnecessary scanning
+                if command not in user_commands|admin_commands:
+                    for _match in tags:
+                        _set_allow = set([_match] if isinstance(_match, str) else _match)
+                        if is_admin or _set_allow <= _set_user_tags:
+                            admin_commands.update([command])
+                            break
 
             if not is_admin:
                 # tagged commands can be explicitly denied
                 _denied = set()
-                for command in admin_commands:
+                for command in user_commands|admin_commands:
                     if command in commands_tagged:
                         tags = commands_tagged[command]
                         for _match in tags:
@@ -113,6 +117,7 @@ class CommandDispatcher(object):
                                 _denied.update([command])
                                 break
                 admin_commands = admin_commands - _denied
+                user_commands = user_commands - _denied
 
         admin_commands = list(admin_commands)
         user_commands = list(user_commands)
