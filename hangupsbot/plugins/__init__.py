@@ -182,9 +182,6 @@ def get_configured_plugins(bot):
 def load(bot, command_dispatcher):
     """load plugins and perform any initialisation required to set them up"""
 
-    tracking.set_bot(bot)
-    command_dispatcher.set_tracking(tracking)
-
     plugin_list = get_configured_plugins(bot)
 
     for module in plugin_list:
