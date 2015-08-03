@@ -526,6 +526,7 @@ class HangupsBot(object):
 
         if self.memory.exists(["user_data", chat_id, "optout"]):
             if self.memory.get_by_path(["user_data", chat_id, "optout"]):
+                logging.info("get_1on1: user {} has optout".format(chat_id))
                 return False
 
         conversation = None
@@ -717,19 +718,15 @@ class HangupsBot(object):
         logging.info('Connection lost!')
 
     def external_send_message(self, conversation_id, text):
-        """
-        LEGACY
-            use send_html_to_conversation()
-        """
-        logging.warning('[DEPRECATED]: use send_html_to_conversation() instead of external_send_message()')
+        logging.warning('[DEPRECATED]: send_html_to_conversation(conv_id, text)'
+                        ' instead of external_send_message(conv_id, text)')
+
         self.send_html_to_conversation(conversation_id, text)
 
     def external_send_message_parsed(self, conversation_id, html):
-        """
-        LEGACY
-            use send_html_to_conversation()
-        """
-        logging.warning('[DEPRECATED]: use send_html_to_conversation() instead of external_send_message_parsed()')
+        logging.warning('[DEPRECATED]: send_html_to_conversation(conv_id, html)'
+                        ' instead of external_send_message_parsed(conv_id, html)')
+
         self.send_html_to_conversation(conversation_id, html)
 
     def send_html_to_conversation(self, conversation_id, html, context=None):
@@ -737,6 +734,9 @@ class HangupsBot(object):
         self.send_message_parsed(conversation_id, html, context)
 
     def send_html_to_user(self, user_id, html, context=None):
+        logging.warning('[DEPRECATED]: yield from bot.coro_send_to_user(chat_id, html)'
+                        ' instead of bot.send_html_to_user(chat_id, html)')
+
         conversation = self.get_1on1_conversation(user_id)
         if not conversation:
             logging.warning("1-to-1 not found for {}".format(user_id))
@@ -748,10 +748,38 @@ class HangupsBot(object):
 
     def send_html_to_user_or_conversation(self, user_id_or_conversation_id, html, context=None):
         """Attempts send_html_to_user. If failed, attempts send_html_to_conversation"""
-        logging.warning('[DEPRECATED] use send_html_to_conversation() or send_html_to_user() instead of send_html_to_user_or_conversation()')
+
+        logging.warning('[DEPRECATED] use send_html_to_conversation() or send_html_to_user()'
+                        ' instead of send_html_to_user_or_conversation()')
+
         # NOTE: Assumption that a conversation_id will never match a user_id
         if not self.send_html_to_user(user_id_or_conversation_id, html, context):
             self.send_html_to_conversation(user_id_or_conversation_id, html, context)
+
+    @asyncio.coroutine
+    def coro_send_to_user(self, chat_id, html, context=None):
+        """
+        send a message to a specific user's 1-to-1
+        the user must have already been seen elsewhere by the bot (have a permanent memory entry)
+        """
+        if not self.memory.exists(["user_data", chat_id, "_hangups"]):
+            logging.debug("{} is not a valid user".format(chat_id))
+            return False
+
+        conversation = yield from self.get_1to1(chat_id)
+
+        if conversation is False:
+            logging.info("user {} is optout, no message sent".format(chat_id))
+            return True
+
+        elif conversation is None:
+            logging.info("1-to-1 for user {} is unavailable".format(chat_id))
+            return False
+
+        logging.info("sending message to user {} via {}".format(chat_id, conversation.id_))
+        self.send_message_parsed(conversation, html, context)
+
+        return True
 
     @asyncio.coroutine
     def coro_send_to_user_and_conversation(self, chat_id, conv_id, html_private, html_public=False, context=None):
