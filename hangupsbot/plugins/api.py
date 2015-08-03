@@ -128,9 +128,19 @@ class APIRequestHandler(BaseBotRequestHandler):
 
 
     @asyncio.coroutine
-    def send_actionable_message(self, conv_or_user_id, content):
+    def send_actionable_message(self, id, content):
         """reprocessor: allow message to be intepreted as a command"""
         content = content + self._bot.call_shared("reprocessor.attach_reprocessor", _reprocess_the_event)
 
-        if not self._bot.send_html_to_user(conv_or_user_id, content):
-            self._bot.send_html_to_conversation(conv_or_user_id, content)
+        conversation_id = id
+
+        if self._bot.memory.exists(["user_data", id, "1on1"]):
+            conversation_id = self.memory.get_by_path(["user_data", id, "1on1"])
+            logger.debug("{} remapped to 1-to-1 {}".format(id, conversation_id))
+
+            if self.memory.exists(["user_data", id, "optout"]):
+                if self.memory.get_by_path(["user_data", chat_id, "optout"]):
+                    logger.warning("{} is opted-out, aborting send")
+                    return
+
+        self._bot.send_html_to_conversation(conversation_id, content)

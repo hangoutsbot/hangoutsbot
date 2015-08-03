@@ -738,7 +738,7 @@ class HangupsBot(object):
         self.send_message_parsed(conversation_id, html, context)
 
     def send_html_to_user(self, user_id, html, context=None):
-        conversation = yield from self.get_1to1(user_id)
+        conversation = self.get_1on1_conversation(user_id)
         if not conversation:
             logging.warning("1-to-1 not found for {}".format(user_id))
             return False
