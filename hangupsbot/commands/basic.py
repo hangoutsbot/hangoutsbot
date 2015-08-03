@@ -1,7 +1,8 @@
 import logging
 
-from version import __version__
+import plugins
 
+from version import __version__
 from commands import command
 
 
@@ -90,6 +91,57 @@ def optout(bot, event, *args):
 def version(bot, event, *args):
     """get the version of the bot"""
     bot.send_message_parsed(event.conv, _("Bot Version: <b>{}</b>").format(__version__))
+
+
+@command.register(admin=True)
+def plugininfo(bot, event, *args):
+    """dumps plugin information"""
+    text_plugins = []
+
+    for plugin in plugins.tracking.list:
+        lines = []
+        if len(args) == 0 or args[0] in plugin["metadata"]["module"] or args[0] in plugin["metadata"]["module.path"]:
+            lines.append("<b>[ {} ]</b>".format(plugin["metadata"]["module.path"]))
+
+            """admin commands"""
+            if len(plugin["commands"]["admin"]) > 0:
+                lines.append("<b>admin commands:</b> <pre>{}</pre>".format(", ".join(plugin["commands"]["admin"])))
+
+            """user-only commands"""
+            user_only_commands = list(set(plugin["commands"]["user"]) - set(plugin["commands"]["admin"]))
+            if len(user_only_commands) > 0:
+                lines.append("<b>user commands:</b> <pre>{}</pre>".format(", ".join(user_only_commands)))
+
+            """handlers"""
+            if len(plugin["handlers"]) > 0:
+                lines.append("<b>handlers:</b>")
+                lines.append("<br />".join([ "... <b><pre>{}</pre></b> (<pre>{}</pre>, p={})".format(f[0].__name__, f[1], str(f[2])) for f in plugin["handlers"]]))
+
+            """shared"""
+            if len(plugin["shared"]) > 0:
+                lines.append("<b>shared:</b> " + ", ".join([ "<pre>{}</pre>".format(f[1].__name__) for f in plugin["shared"]]))
+
+            """tagged"""
+            if len(plugin["commands"]["tagged"]) > 0:
+                lines.append("<b>tagged commands:</b>")
+                for command, tagsets in plugin["commands"]["tagged"].items():
+                    matches = []
+                    for tagset in tagsets:
+                        if isinstance(tagset, frozenset):
+                            matches.append("[ {} ]".format(', '.join(tagset)))
+                        else:
+                            matches.append(tagset)
+                    lines.append("... <b><pre>{}</pre></b>: <pre>{}</pre>".format(command, ', '.join(matches)))
+
+        if len(lines) > 0:
+            text_plugins.append("<br />".join(lines))
+
+    if len(text_plugins) > 0:
+        message = "<br />".join(text_plugins)
+    else:
+        message = "nothing to display"
+
+    bot.send_html_to_conversation(event.conv_id, message)
 
 
 @command.register_unknown

@@ -42,15 +42,14 @@ class CommandDispatcher(object):
         return list(set(admin_command_list))
 
 
-    def register_tags(self, command, tags):
+    def register_tags(self, command, tagsets):
         if command not in self.command_tagsets:
             self.command_tagsets[command] = set()
 
-        if isinstance(tags, str):
-            tags = [tags]
+        if isinstance(tagsets, str):
+            tagsets = set([tagsets])
 
-        self.command_tagsets[command] = set([ frozenset(item if isinstance(item, list) else [item])
-                                              for item in tags ])
+        self.command_tagsets[command] = self.command_tagsets[command] | tagsets
 
 
     def get_available_commands(self, bot, chat_id, conv_id):
@@ -78,6 +77,7 @@ class CommandDispatcher(object):
                     commands_tagged[command] = set()
                 commands_tagged[command] = commands_tagged[command] | tagsets
 
+        # debug
         import pprint
         pp = pprint.PrettyPrinter(indent=2)
         pp.pprint(commands_tagged)
@@ -173,7 +173,7 @@ class CommandDispatcher(object):
             print("EXCEPTION in {}".format(message))
             logger.exception(message)
 
-    def register(self, *args, admin=False):
+    def register(self, *args, admin=False, tags=None):
         """Decorator for registering command"""
         def wrapper(func):
             # Automatically wrap command function in coroutine
@@ -181,11 +181,11 @@ class CommandDispatcher(object):
             func_name = func.__name__
             self.commands[func_name] = func
 
-            plugins.tracking.register_command("user", [func_name])
+            plugins.tracking.register_command("user", [func_name], tags=tags)
 
             if admin:
                 self.admin_commands.append(func_name)
-                plugins.tracking.register_command("admin", [func_name])
+                plugins.tracking.register_command("admin", [func_name], tags=tags)
 
             return func
 

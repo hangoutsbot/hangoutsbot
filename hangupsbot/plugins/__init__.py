@@ -25,7 +25,8 @@ class tracker:
             "commands": {
                 "admin": [],
                 "user": [],
-                "all": None
+                "all": None,
+                "tagged": {}
             },
             "handlers": [],
             "shared": [],
@@ -45,10 +46,41 @@ class tracker:
     def end(self):
         self.list.append(self.current())
 
-    def register_command(self, type, command_names):
+    def register_command(self, type, command_names, tags=None):
         """call during plugin init to register commands"""
         self._current["commands"][type].extend(command_names)
         self._current["commands"][type] = list(set(self._current["commands"][type]))
+
+        self.register_tags(command_names, tags)
+
+    def register_tags(self, command_names, tags=None):
+        config_plugins_tags_autoregister = self.bot.get_config_option('plugins.tags.auto-register')
+        if config_plugins_tags_autoregister is None:
+            config_plugins_tags_autoregister = True
+
+        if tags:
+            if isinstance(tags, str):
+                tags = [tags]
+        else:
+            if not config_plugins_tags_autoregister:
+                return
+            # even if no tags are explicitly specified, we need to add system tags
+
+        for command in command_names:
+            if command not in self._current["commands"]["tagged"]:
+                self._current["commands"]["tagged"][command] = set()
+
+            base = tags
+            if config_plugins_tags_autoregister:
+                if not base:
+                    base = []
+                base += ["execute-" + command]
+
+            tagsets = set([ frozenset(item if isinstance(item, list) else [item]) for item in base ])
+
+            if tagsets > self._current["commands"]["tagged"][command]:
+                self._current["commands"]["tagged"][command] = self._current["commands"]["tagged"][command] | tagsets
+                logger.debug("{} - tags: {}".format(command, tagsets))
 
     def register_handler(self, function, type, priority):
         self._current["handlers"].append((function, type, priority))
@@ -61,17 +93,17 @@ tracking = tracker()
 
 """helpers"""
 
-def register_user_command(command_names):
+def register_user_command(command_names, tags=None):
     """user command registration"""
     if not isinstance(command_names, list):
         command_names = [command_names]
-    tracking.register_command("user", command_names)
+    tracking.register_command("user", command_names, tags=tags)
 
-def register_admin_command(command_names):
+def register_admin_command(command_names, tags=None):
     """admin command registration, overrides user command registration"""
     if not isinstance(command_names, list):
         command_names = [command_names]
-    tracking.register_command("admin", command_names)
+    tracking.register_command("admin", command_names, tags=tags)
 
 def register_handler(function, type="message", priority=50):
     """register external handler"""
@@ -255,6 +287,7 @@ def load(bot, command_dispatcher):
         decorators execute immediately upon import
         """
         plugin_tracking = tracking.current()
+
         explicit_admin_commands = plugin_tracking["commands"]["admin"]
         all_commands = plugin_tracking["commands"]["all"]
         registered_commands = []
@@ -273,28 +306,12 @@ def load(bot, command_dispatcher):
         else:
             logger.info("{} - no commands".format(module))
 
+        """
+        tag commands
+        """
+
+        if plugin_tracking["commands"]["tagged"]:
+            for command, tagsets in plugin_tracking["commands"]["tagged"].items():
+                command_dispatcher.register_tags(command, tagsets)
+
         tracking.end()
-
-
-@command.register(admin=True)
-def plugininfo(bot, event, *args):
-    """dumps plugin information"""
-    lines = []
-    for plugin in tracking.list:
-        if len(args) == 0 or args[0] in plugin["metadata"]["module"]:
-            lines.append("<b>{}</b>".format(plugin["metadata"]["module.path"]))
-            """admin commands"""
-            if len(plugin["commands"]["admin"]) > 0:
-                lines.append("<i>admin commands:</i> {}".format(", ".join(plugin["commands"]["admin"])))
-            """user-only commands"""
-            user_only_commands = list(set(plugin["commands"]["user"]) - set(plugin["commands"]["admin"]))
-            if len(user_only_commands) > 0:
-                lines.append("<i>user commands:</i> {}".format(", ".join(user_only_commands)))
-            """handlers"""
-            if len(plugin["handlers"]) > 0:
-                lines.append("<i>handlers:</i>" + ", ".join([ "{} ({}, p={})".format(f[0].__name__, f[1], str(f[2])) for f in plugin["handlers"]]))
-            """shared"""
-            if len(plugin["shared"]) > 0:
-                lines.append("<i>shared:</i>" + ", ".join([f[1].__name__ for f in plugin["shared"]]))
-            lines.append("")
-    bot.send_html_to_conversation(event.conv_id, "<br />".join(lines))
