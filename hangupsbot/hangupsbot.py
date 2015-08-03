@@ -621,11 +621,13 @@ class HangupsBot(object):
 
         plugins.tracking.start({ "module": "BASIC", "module.path": "commands.basic" })
         import commands.basic
+        plugins.tracking.sync_tags(command)
         plugins.tracking.end()
 
         plugins.tracking.start({ "module": "TAGS", "module.path": "commands.tagging" })
         self.tags = tagging.tags(self)
         import commands.tagging
+        plugins.tracking.sync_tags(command)
         plugins.tracking.end()
 
         plugins.tracking.start({ "module": "HANDLERS", "module.path": "handlers" })

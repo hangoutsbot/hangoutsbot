@@ -43,6 +43,11 @@ class tracker:
                 self._current["commands"]["user"]))
         return self._current
 
+    def sync_tags(self, _command_dispatcher):
+        if self._current["commands"]["tagged"]:
+            for command, tagsets in self._current["commands"]["tagged"].items():
+                _command_dispatcher.register_tags(command, tagsets)
+
     def end(self):
         self.list.append(self.current())
 
@@ -310,8 +315,6 @@ def load(bot, command_dispatcher):
         tag commands
         """
 
-        if plugin_tracking["commands"]["tagged"]:
-            for command, tagsets in plugin_tracking["commands"]["tagged"].items():
-                command_dispatcher.register_tags(command, tagsets)
+        tracking.sync_tags(command_dispatcher)
 
         tracking.end()
