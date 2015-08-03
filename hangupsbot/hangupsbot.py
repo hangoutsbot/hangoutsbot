@@ -488,8 +488,6 @@ class HangupsBot(object):
         """
         logging.warning('[DEPRECATED]: yield from bot.get_1to1(chat_id), instead of bot.get_1on1_conversation(chat_id)')
 
-        self.initialise_memory(chat_id, "user_data")
-
         if self.memory.exists(["user_data", chat_id, "optout"]):
             if self.memory.get_by_path(["user_data", chat_id, "optout"]):
                 return False
@@ -510,6 +508,7 @@ class HangupsBot(object):
 
             if conversation is not None:
                 # remember the conversation so we don't have to do this again
+                self.initialise_memory(chat_id, "user_data")
                 self.memory.set_by_path(["user_data", chat_id, "1on1"], conversation.id_)
                 self.memory.save()
 
@@ -524,7 +523,6 @@ class HangupsBot(object):
         config.bot_introduction = "some text or html" to show to users when a new conversation
             is created - "{0}" will be substituted with first bot alias
         """
-        self.initialise_memory(chat_id, "user_data")
 
         if self.memory.exists(["user_data", chat_id, "optout"]):
             if self.memory.get_by_path(["user_data", chat_id, "optout"]):
@@ -571,6 +569,7 @@ class HangupsBot(object):
             if conversation is not None:
                 # remember the conversation so we don't have to do this again
                 logging.info("get_1on1: determined {} for {}".format(conversation.id_, chat_id))
+                self.initialise_memory(chat_id, "user_data")
                 self.memory.set_by_path(["user_data", chat_id, "1on1"], conversation.id_)
                 self.memory.save()
 
