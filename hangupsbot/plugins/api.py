@@ -128,9 +128,12 @@ class APIRequestHandler(BaseBotRequestHandler):
 
 
     @asyncio.coroutine
-    def send_actionable_message(self, conv_or_user_id, content):
+    def send_actionable_message(self, id, content):
         """reprocessor: allow message to be intepreted as a command"""
         content = content + self._bot.call_shared("reprocessor.attach_reprocessor", _reprocess_the_event)
 
-        if not self._bot.send_html_to_user(conv_or_user_id, content):
-            self._bot.send_html_to_conversation(conv_or_user_id, content)
+        if id in self._bot.conversations.catalog:
+            self._bot.send_html_to_conversation(id, content)
+        else:
+            # attempt to send to a user id
+            yield from self._bot.coro_send_to_user(id, content)

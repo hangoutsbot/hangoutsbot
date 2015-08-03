@@ -1,1 +1,1 @@
-__version__ = "2.6-alpha.tagged-commands"
+__version__ = "2.6.1-alpha.tagged-commands"
