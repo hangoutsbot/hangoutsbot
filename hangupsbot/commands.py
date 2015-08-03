@@ -119,13 +119,12 @@ class CommandDispatcher(object):
                 admin_commands = admin_commands - _denied
                 user_commands = user_commands - _denied
 
-        admin_commands = list(admin_commands)
-        user_commands = list(user_commands - admin_commands) # ensure no overlap
+        user_commands = user_commands - admin_commands # ensure no overlap
 
         interval = time.time() - start_time
         logger.debug("get_available_commands() - {}".format(interval))
 
-        return { "admin": admin_commands, "user": user_commands }
+        return { "admin": list(admin_commands), "user": list(user_commands) }
 
     @asyncio.coroutine
     def run(self, bot, event, *args, **kwds):
