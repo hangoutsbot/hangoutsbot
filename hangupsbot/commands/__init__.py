@@ -181,13 +181,11 @@ class CommandDispatcher(object):
             func_name = func.__name__
             self.commands[func_name] = func
 
-            if self.tracking:
-                plugins.tracking.register_command("user", [func_name])
+            plugins.tracking.register_command("user", [func_name])
 
             if admin:
                 self.admin_commands.append(func_name)
-                if self.tracking:
-                    plugins.tracking.register_command("admin", [func_name])
+                plugins.tracking.register_command("admin", [func_name])
 
             return func
 
