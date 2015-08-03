@@ -19,6 +19,9 @@ class CommandDispatcher(object):
         self.unknown_command = None
         self.tracking = None
 
+        self.command_tagsets = {}
+
+
     def set_tracking(self, tracking):
         self.tracking = tracking
 
@@ -40,6 +43,18 @@ class CommandDispatcher(object):
             admin_command_list = commands_admin + self.admin_commands
         return list(set(admin_command_list))
 
+
+    def register_tags(self, command, tags):
+        if command not in self.command_tagsets:
+            self.command_tagsets[command] = set()
+
+        if isinstance(tags, str):
+            tags = [tags]
+
+        self.command_tagsets[command] = set([ frozenset(item if isinstance(item, list) else [item])
+                                              for item in tags ])
+
+
     def get_available_commands(self, bot, chat_id, conv_id):
         start_time = time.time()
 
@@ -54,6 +69,16 @@ class CommandDispatcher(object):
         commands_admin = bot.get_config_suboption(conv_id, 'commands_admin') or []
         commands_user = bot.get_config_suboption(conv_id, 'commands_user') or []
         commands_tagged = bot.get_config_suboption(conv_id, 'commands_tagged') or {}
+
+        # convert commands_tagged tag list into a set of (frozen)sets
+        commands_tagged = { key: set([ frozenset(value if isinstance(value, list) else [value])
+            for value in values ]) for key, values in commands_tagged.items() }
+        # combine any plugin-determined tags with the config.json defined ones
+        if self.command_tagsets:
+            for command, tagsets in self.command_tagsets.items():
+                if command not in commands_tagged:
+                    commands_tagged[command] = set()
+                commands_tagged[command] = commands_tagged[command] | tagsets
 
         all_commands = set(self.commands)
 
