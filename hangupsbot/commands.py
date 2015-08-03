@@ -120,7 +120,7 @@ class CommandDispatcher(object):
                 user_commands = user_commands - _denied
 
         admin_commands = list(admin_commands)
-        user_commands = list(user_commands)
+        user_commands = list(user_commands - admin_commands) # ensure no overlap
 
         interval = time.time() - start_time
         logger.debug("get_available_commands() - {}".format(interval))
