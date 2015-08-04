@@ -14,9 +14,9 @@ def tagset(bot, event, *args):
     if len(args) == 3:
         [type, id, tag] = args
         if bot.tags.add(type, id, tag):
-            message = _("<b>tagged `{}` with `{}`</b>".format(id, tag))
+            message = _("tagged <b><pre>{}</pre></b> with <b><pre>{}</pre></b>".format(id, tag))
         else:
-            message = _("<b>`{}` unchanged</b>".format(id))
+            message = _("<b><pre>{}</pre></b> unchanged".format(id))
     else:
         message = _("<b>supply type, id, tag</b>")
     bot.send_message_parsed(event.conv_id, message)
@@ -27,9 +27,9 @@ def tagdel(bot, event, *args):
     if len(args) == 3:
         [type, id, tag] = args
         if bot.tags.remove(type, id, tag):
-            message = _("<b>removed `{}` from `{}`</b>".format(tag, id))
+            message = _("removed <b><pre>{}</pre></b> from <b><pre>{}</pre></b>".format(tag, id))
         else:
-            message = _("<b>`{}` unchanged</b>".format(id))
+            message = _("<b><pre>{}</pre></b> unchanged".format(id))
     else:
         message = _("<b>supply type, id, tag</b>")
     bot.send_message_parsed(event.conv_id, message)
@@ -40,7 +40,7 @@ def tagspurge(bot, event, *args):
     if len(args) == 2:
         [type, id] = args
         entries_removed = bot.tags.purge(type, id)
-        message = _("<b>entries removed: {}</b>".format(entries_removed))
+        message = _("entries removed: <b><pre>{}</pre></b>".format(entries_removed))
     else:
         message = _("<b>supply type, id</b>")
     bot.send_message_parsed(event.conv_id, message)
@@ -53,11 +53,11 @@ def tagindexdump(bot, event, *args):
 
     chunks = []
     for relationship in bot.tags.indices:
-        lines = [_("<b>index: {}</b>").format(relationship)]
+        lines = [_("index: <b><pre>{}</pre></b>").format(relationship)]
         for key, list in bot.tags.indices[relationship].items():
-            lines.append(_("key: {}").format(key))
+            lines.append(_("key: <pre>{}</pre>").format(key))
             for item in list:
-                lines.append("... {}".format(item))
+                lines.append("... <pre>{}</pre>".format(item))
         if len(lines) == 0:
             continue
         chunks.append("<br />".join(lines))
@@ -84,7 +84,7 @@ def tagsuser(bot, event, *args):
     if not active_user_tags:
         active_user_tags = [_("<em>no tags returned</em>")]
 
-    bot.send_message_parsed(event.conv_id, "<b><pre>{}@{}</pre></b>: {}".format(
+    bot.send_message_parsed(event.conv_id, "<b><pre>{}</pre></b>@<b><pre>{}</pre></b>: {}".format(
         chat_id, conv_id, ", ".join(active_user_tags)))
 
 
@@ -106,7 +106,7 @@ def tagsuserlist(bot, event, *args):
     for chat_id, active_user_tags in users_to_tags.items():
         if not active_user_tags:
             active_user_tags = [_("<em>no tags returned</em>")]
-        lines.append("<b><pre>{}</pre></b>: {}".format(chat_id, ", ".join(active_user_tags)))
+        lines.append("<b><pre>{}</pre></b>: <pre>{}</pre>".format(chat_id, ", ".join(active_user_tags)))
 
     if len(lines) == 0:
         lines = [_("<b>no users found</b>")]
