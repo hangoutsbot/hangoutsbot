@@ -1,4 +1,4 @@
-import logging
+import logging, sys, resource
 
 import plugins
 
@@ -145,6 +145,21 @@ def plugininfo(bot, event, *args):
         message = "nothing to display"
 
     bot.send_html_to_conversation(event.conv_id, message)
+
+
+@command.register(admin=True)
+def resourcememory(bot, event, *args):
+    """print basic information about memory usage with resource library"""
+    # http://fa.bianp.net/blog/2013/different-ways-to-get-memory-consumption-or-lessons-learned-from-memory_profiler/
+    rusage_denom = 1024.
+    if sys.platform == 'darwin':
+        # ... it seems that in OSX the output is different units ...
+        rusage_denom = rusage_denom * rusage_denom
+    mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / rusage_denom
+
+    message = "memory (resource): {} MB".format(mem)
+    logger.info(message)
+    bot.send_message_parsed(event.conv,  "<b>" + message + "</b>")
 
 
 @command.register_unknown
