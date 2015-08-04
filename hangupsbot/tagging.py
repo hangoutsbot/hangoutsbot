@@ -5,7 +5,9 @@ logger = logging.getLogger(__name__)
 
 
 class tags:
-    symbol_wildcard = "*"
+    wildcard = { "user": "*", 
+                 "group": "GROUP", 
+                 "one2one": "ONE_TO_ONE" }
 
     bot = None
     indices = {}
@@ -93,15 +95,20 @@ class tags:
             index_type = "user"
             [conv_id, chat_id] = id.split("|", maxsplit=1)
 
-            if not self.bot.memory.exists(["user_data", chat_id]) and not chat_id==self.symbol_wildcard:
-                raise ValueError("user {} does not exist".format(id))
+            if (conv_id not in self.bot.conversations.catalog and
+                    conv_id not in ( self.wildcard["group"],
+                                     self.wildcard["one2one"] )):
+                raise ValueError("conversation {} is invalid".format(conv_id))
 
-            if conv_id not in self.bot.conversations.catalog:
-                raise ValueError("conversation {} does not exist".format(conv_id))
+            if (not self.bot.memory.exists(["user_data", chat_id]) and
+                    not chat_id==self.wildcard["user"]):
+                raise ValueError("user {} is invalid".format(id))
 
             tags_users = self.bot.conversation_memory_get(conv_id, "tags-users")
+
             if not tags_users:
                 tags_users = {}
+
             if chat_id in tags_users:
                 tags = tags_users[chat_id]
 
@@ -220,10 +227,19 @@ class tags:
             if conv_id not in self.bot.conversations.catalog:
                 raise ValueError("conversation {} does not exist".format(conv_id))
 
-            per_conversation_user_override_keys = [ conv_id + "|" + chat_id,
-                                                    conv_id + "|" + self.symbol_wildcard ]
+            # per_conversation_user_override_keys
+            check_keys = [ conv_id + "|" + chat_id,
+                           conv_id + "|" + self.wildcard["user"] ]
 
-            for _key in per_conversation_user_override_keys:
+            # additional overrides based on type of conversation
+            if self.bot.conversations.catalog[conv_id]["type"] == "GROUP":
+                check_keys.extend([ self.wildcard["group"] + "|" + chat_id,
+                                    self.wildcard["group"] + "|" + self.wildcard["user"] ])
+            else:
+                check_keys.extend([ self.wildcard["one2one"] + "|" + chat_id,
+                                    self.wildcard["one2one"] + "|" + self.wildcard["user"] ])
+
+            for _key in check_keys:
                 if _key in self.indices["user-tags"]:
                     return self.indices["user-tags"][_key]
 
