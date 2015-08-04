@@ -9,6 +9,9 @@ from commands import command
 logger = logging.getLogger(__name__)
 
 
+def _initialise(bot): pass # prevents commands from being automatically added
+
+
 @command.register
 def help(bot, event, cmd=None, *args):
     """list supported commands, /bot help <command> will show additional details"""

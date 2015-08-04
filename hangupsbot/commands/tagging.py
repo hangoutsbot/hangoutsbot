@@ -6,6 +6,9 @@ from commands import command
 logger = logging.getLogger(__name__)
 
 
+def _initialise(bot): pass # prevents commands from being automatically added
+
+
 @command.register(admin=True)
 def tagset(bot, event, *args):
     if len(args) == 3:
