@@ -81,9 +81,14 @@ class tracker:
 
             base = tags
             if config_plugins_tags_autoregister:
+                if config_plugins_tags_autoregister is True:
+                    _tag = "execute-{}"
+                else:
+                    _tag = config_plugins_tags_autoregister
+
                 if not base:
                     base = []
-                base += ["execute-" + command]
+                base += [ _tag.format(command) ]
 
             tagsets = set([ frozenset(item if isinstance(item, list) else [item]) for item in base ])
 
