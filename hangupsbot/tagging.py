@@ -5,8 +5,9 @@ logger = logging.getLogger(__name__)
 
 
 class tags:
-    bot = None
+    symbol_wildcard = "*"
 
+    bot = None
     indices = {}
 
     def __init__(self, bot):
@@ -92,8 +93,9 @@ class tags:
             index_type = "user"
             [conv_id, chat_id] = id.split("|", maxsplit=1)
 
-            if not self.bot.memory.exists(["user_data", chat_id]):
+            if not self.bot.memory.exists(["user_data", chat_id]) and not chat_id==self.symbol_wildcard:
                 raise ValueError("user {} does not exist".format(id))
+
             if conv_id not in self.bot.conversations.catalog:
                 raise ValueError("conversation {} does not exist".format(conv_id))
 
@@ -214,12 +216,16 @@ class tags:
 
             if not self.bot.memory.exists(["user_data", chat_id]):
                 raise ValueError("user {} does not exist".format(chat_id))
+
             if conv_id not in self.bot.conversations.catalog:
                 raise ValueError("conversation {} does not exist".format(conv_id))
 
-            per_conversation_user_override_key = (conv_id + "|" + chat_id)
-            if per_conversation_user_override_key in self.indices["user-tags"]:
-                return self.indices["user-tags"][per_conversation_user_override_key]
+            per_conversation_user_override_keys = [ conv_id + "|" + chat_id,
+                                                    conv_id + "|" + self.symbol_wildcard ]
+
+            for _key in per_conversation_user_override_keys:
+                if _key in self.indices["user-tags"]:
+                    return self.indices["user-tags"][_key]
 
         if chat_id in self.indices["user-tags"]:
             return self.indices["user-tags"][chat_id]
