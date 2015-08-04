@@ -635,7 +635,7 @@ class HangupsBot(object):
 
         plugins.load(self, "commands.basic")
         plugins.load(self, "commands.tagging")
-        plugins.load(self, "commands.permamem_diagnostics")
+        plugins.load(self, "commands.permamem")
         plugins.load_user_plugins(self)
 
         self._conv_list.on_event.add_observer(self._on_event)
