@@ -77,11 +77,6 @@ class CommandDispatcher(object):
                     commands_tagged[command] = set()
                 commands_tagged[command] = commands_tagged[command] | tagsets
 
-        # debug
-        import pprint
-        pp = pprint.PrettyPrinter(indent=2)
-        pp.pprint(commands_tagged)
-
         all_commands = set(self.commands)
 
         admin_commands = set()
