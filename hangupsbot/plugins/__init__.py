@@ -12,6 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 class tracker:
+    """used by the plugin loader to keep track of loaded commands
+    designed to accommodate the dual command registration model (via function or decorator)
+    registration might be called repeatedly depending on the "path" a command registration takes
+    """
     def __init__(self):
         self.bot = None
         self.list = []
@@ -43,13 +47,13 @@ class tracker:
                 self._current["commands"]["user"]))
         return self._current
 
-    def sync_tags(self, _command_dispatcher):
-        if self._current["commands"]["tagged"]:
-            for command, tagsets in self._current["commands"]["tagged"].items():
-                _command_dispatcher.register_tags(command, tagsets)
-
     def end(self):
         self.list.append(self.current())
+
+        # sync tagged commands to the command dispatcher
+        if self._current["commands"]["tagged"]:
+            for command_name, command_tagsets in self._current["commands"]["tagged"].items():
+                command.register_tags(command_name, command_tagsets)
 
     def register_command(self, type, command_names, tags=None):
         """call during plugin init to register commands"""
@@ -69,7 +73,7 @@ class tracker:
         else:
             if not config_plugins_tags_autoregister:
                 return
-            # even if no tags are explicitly specified, we need to add system tags
+            # even if no tags are explicitly specified, we need to auto-register system tags
 
         for command in command_names:
             if command not in self._current["commands"]["tagged"]:
@@ -83,6 +87,7 @@ class tracker:
 
             tagsets = set([ frozenset(item if isinstance(item, list) else [item]) for item in base ])
 
+            # registration might be called repeatedly, so only add the tagsets if it doesnt exist
             if tagsets > self._current["commands"]["tagged"][command]:
                 self._current["commands"]["tagged"][command] = self._current["commands"]["tagged"][command] | tagsets
                 logger.debug("{} - tags: {}".format(command, tagsets))
@@ -96,7 +101,9 @@ class tracker:
 
 tracking = tracker()
 
-"""helpers"""
+
+"""helpers, used by loaded plugins to register commands"""
+
 
 def register_user_command(command_names, tags=None):
     """user command registration"""
@@ -120,7 +127,9 @@ def register_shared(id, objectref, forgiving=True):
     bot = tracking.bot
     bot.register_shared(id, objectref, forgiving=forgiving)
 
+
 """plugin loader"""
+
 
 def retrieve_all_plugins(plugin_path=None, must_start_with=False):
     """recursively loads all plugins from the standard plugins path
@@ -161,6 +170,7 @@ def retrieve_all_plugins(plugin_path=None, must_start_with=False):
 
     logger.debug("retrieved {}: {}.{}".format(len(plugin_list), must_start_with or "plugins", plugin_list))
     return plugin_list
+
 
 def get_configured_plugins(bot):
     all_plugins = retrieve_all_plugins()
@@ -216,105 +226,109 @@ def get_configured_plugins(bot):
 
     return plugin_list
 
-def load(bot, command_dispatcher):
-    """load plugins and perform any initialisation required to set them up"""
+
+def load_user_plugins(bot):
+    """loads all user plugins"""
 
     plugin_list = get_configured_plugins(bot)
 
     for module in plugin_list:
         module_path = "plugins.{}".format(module)
+        load(bot, module_path)
 
-        tracking.start({ "module": module, "module.path": module_path })
 
-        try:
-            exec("import {}".format(module_path))
-        except Exception as e:
-            logger.exception("EXCEPTION during plugin import: {}".format(module_path))
-            continue
+def load(bot, module_path, module_name=None):
+    """loads a single plugin-like object as identified by module_path, and initialise it"""
 
-        public_functions = [o for o in getmembers(sys.modules[module_path], isfunction)]
+    if module_name is None:
+        module_name = module_path.split(".")[-1]
 
-        candidate_commands = []
+    tracking.start({ "module": module_name, "module.path": module_path })
 
-        """pass 1: run optional callable: _initialise, _initialize
-        * performs house-keeping tasks (e.g. migration, tear-up, pre-init, etc)
-        * registers user and/or admin commands
-        """
-        available_commands = False # default: ALL
-        try:
-            for function_name, the_function in public_functions:
-                if function_name ==  "_initialise" or function_name ==  "_initialize":
-                    """accepted function signatures:
-                    CURRENT
-                    version >= 2.4 | function()
-                    version >= 2.4 | function(bot) - parameter must be named "bot"
-                    LEGACY
-                    version <= 2.4 | function(handlers, bot)
-                    ancient        | function(handlers)
-                    """
-                    _expected = list(inspect.signature(the_function).parameters)
-                    if len(_expected) == 0:
-                        the_function()
-                        _return = []
-                    elif len(_expected) == 1 and _expected[0] == "bot":
-                        the_function(bot)
-                        _return = []
-                    else:
-                        try:
-                            # legacy support, pre-2.4
-                            _return = the_function(bot._handlers, bot)
-                        except TypeError as e:
-                            # legacy support, ancient plugins
-                            _return = the_function(bot._handlers)
-                    if type(_return) is list:
-                        available_commands = _return
-                elif function_name.startswith("_"):
-                    pass
+    try:
+        exec("import {}".format(module_path))
+    except Exception as e:
+        logger.exception("EXCEPTION during plugin import: {}".format(module_path))
+        return
+
+    public_functions = [o for o in getmembers(sys.modules[module_path], isfunction)]
+
+    candidate_commands = []
+
+    """pass 1: run optional callable: _initialise, _initialize
+    * performs house-keeping tasks (e.g. migration, tear-up, pre-init, etc)
+    * registers user and/or admin commands
+    """
+    available_commands = False # default: ALL
+    try:
+        for function_name, the_function in public_functions:
+            if function_name ==  "_initialise" or function_name ==  "_initialize":
+                """accepted function signatures:
+                CURRENT
+                version >= 2.4 | function()
+                version >= 2.4 | function(bot) - parameter must be named "bot"
+                LEGACY
+                version <= 2.4 | function(handlers, bot)
+                ancient        | function(handlers)
+                """
+                _expected = list(inspect.signature(the_function).parameters)
+                if len(_expected) == 0:
+                    the_function()
+                    _return = []
+                elif len(_expected) == 1 and _expected[0] == "bot":
+                    the_function(bot)
+                    _return = []
                 else:
-                    candidate_commands.append((function_name, the_function))
-            if available_commands is False:
-                # implicit init, legacy support: assume all candidate_commands are user-available
-                register_user_command([function_name for function_name, function in candidate_commands])
-            elif available_commands is []:
-                # explicit init, no user-available commands
+                    try:
+                        # legacy support, pre-2.4
+                        _return = the_function(bot._handlers, bot)
+                    except TypeError as e:
+                        # legacy support, ancient plugins
+                        _return = the_function(bot._handlers)
+                if type(_return) is list:
+                    available_commands = _return
+            elif function_name.startswith("_"):
                 pass
             else:
-                # explicit init, legacy support: _initialise() returned user-available commands
-                register_user_command(available_commands)
-        except Exception as e:
-            logger.exception("EXCEPTION during plugin init: {}".format(module_path))
-            continue # skip this, attempt next plugin
-
-        """
-        pass 2: register filtered functions
-        tracking.current() and the CommandDispatcher registers might be out of sync if a 
-        combination of decorators and register_user_command/register_admin_command is used since
-        decorators execute immediately upon import
-        """
-        plugin_tracking = tracking.current()
-
-        explicit_admin_commands = plugin_tracking["commands"]["admin"]
-        all_commands = plugin_tracking["commands"]["all"]
-        registered_commands = []
-        for function_name, the_function in candidate_commands:
-            if function_name in all_commands:
-                is_admin = False
-                text_function_name = function_name
-                if function_name in explicit_admin_commands:
-                    is_admin = True
-                    text_function_name = "*" + text_function_name
-                command_dispatcher.register(the_function, admin=is_admin)
-                registered_commands.append(text_function_name)
-
-        if registered_commands:
-            logger.info("{} - {}".format(module, ", ".join(registered_commands)))
+                candidate_commands.append((function_name, the_function))
+        if available_commands is False:
+            # implicit init, legacy support: assume all candidate_commands are user-available
+            register_user_command([function_name for function_name, function in candidate_commands])
+        elif available_commands is []:
+            # explicit init, no user-available commands
+            pass
         else:
-            logger.info("{} - no commands".format(module))
+            # explicit init, legacy support: _initialise() returned user-available commands
+            register_user_command(available_commands)
+    except Exception as e:
+        logger.exception("EXCEPTION during plugin init: {}".format(module_path))
+        return # skip this, attempt next plugin
 
-        """
-        tag commands
-        """
+    """
+    pass 2: register filtered functions
+    tracking.current() and the CommandDispatcher registers might be out of sync if a 
+    combination of decorators and register_user_command/register_admin_command is used since
+    decorators execute immediately upon import
+    """
+    plugin_tracking = tracking.current()
 
-        tracking.sync_tags(command_dispatcher)
+    explicit_admin_commands = plugin_tracking["commands"]["admin"]
+    all_commands = plugin_tracking["commands"]["all"]
+    registered_commands = []
+    for function_name, the_function in candidate_commands:
+        if function_name in all_commands:
+            is_admin = False
+            text_function_name = function_name
+            if function_name in explicit_admin_commands:
+                is_admin = True
+                text_function_name = "*" + text_function_name
+            command.register(the_function, admin=is_admin)
+            registered_commands.append(text_function_name)
 
-        tracking.end()
+    if registered_commands:
+        logger.info("{} - {}".format(module_name, ", ".join(registered_commands)))
+    else:
+        logger.info("{} - no commands".format(module_name))
+
+    tracking.end()
+

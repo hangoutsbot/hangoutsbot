@@ -619,21 +619,9 @@ class HangupsBot(object):
         command.set_tracking(plugins.tracking)
         command.set_bot(self)
 
-        plugins.tracking.start({ "module": "BASIC", "module.path": "commands.basic" })
-        import commands.basic
-        plugins.tracking.sync_tags(command)
-        plugins.tracking.end()
-
-        plugins.tracking.start({ "module": "TAGS", "module.path": "commands.tagging" })
         self.tags = tagging.tags(self)
-        import commands.tagging
-        plugins.tracking.sync_tags(command)
-        plugins.tracking.end()
-
-        plugins.tracking.start({ "module": "HANDLERS", "module.path": "handlers" })
         self._handlers = handlers.EventHandler(self)
         handlers.handler.set_bot(self) # shim for handler decorator
-        plugins.tracking.end()
 
         self._user_list = yield from hangups.user.build_user_list(self._client,
                                                                   initial_data)
@@ -643,11 +631,11 @@ class HangupsBot(object):
                                                    self._user_list,
                                                    initial_data.sync_timestamp)
 
-        plugins.tracking.start({ "module": "PERMAMEM", "module.path": "permamem" })
         self.conversations = yield from permamem.initialise_permanent_memory(self)
-        plugins.tracking.end()
 
-        plugins.load(self, command)
+        plugins.load(self, "commands.basic")
+        plugins.load(self, "commands.tagging")
+        plugins.load_user_plugins(self)
 
         self._conv_list.on_event.add_observer(self._on_event)
         self._client.on_state_update.add_observer(self._on_status_changes)
