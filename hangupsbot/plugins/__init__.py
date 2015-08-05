@@ -100,9 +100,9 @@ class tracker:
                                   type=type,
                                   plugin=self._current["metadata"]["module"] )
 
-            self.register_tag(type, command_name, command_tags)
+            self.register_tags(type, command_name, command_tags)
 
-    def register_tag(self, type, command_name, tags):
+    def register_tags(self, type, command_name, tags):
         if command_name not in self._current["commands"]["tagged"]:
             self._current["commands"]["tagged"][command_name] = {}
 
