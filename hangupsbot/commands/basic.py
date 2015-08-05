@@ -126,15 +126,21 @@ def plugininfo(bot, event, *args):
 
             """tagged"""
             if len(plugin["commands"]["tagged"]) > 0:
-                lines.append("<b>tagged commands:</b>")
-                for command, tagsets in plugin["commands"]["tagged"].items():
+                lines.append("<b>tagged via plugin module:</b>")
+                for command_name, type_tags in plugin["commands"]["tagged"].items():
+                    if 'admin' in type_tags:
+                        plugin_tagsets = type_tags['admin']
+                    else:
+                        plugin_tagsets = type_tags['user']
+
                     matches = []
-                    for tagset in tagsets:
+                    for tagset in plugin_tagsets:
                         if isinstance(tagset, frozenset):
                             matches.append("[ {} ]".format(', '.join(tagset)))
                         else:
                             matches.append(tagset)
-                    lines.append("... <b><pre>{}</pre></b>: <pre>{}</pre>".format(command, ', '.join(matches)))
+
+                    lines.append("... <b><pre>{}</pre></b>: <pre>{}</pre>".format(command_name, ', '.join(matches)))
 
         if len(lines) > 0:
             text_plugins.append("<br />".join(lines))
