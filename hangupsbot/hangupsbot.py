@@ -307,32 +307,39 @@ class HangupsBot(object):
         if type(segments) is list and len(segments) == 0:
             return
 
-        # add default context if none exists
-        if not context:
-            context = {}
-        if "base" not in context:
-            context["base"] = self._messagecontext_legacy()
-
         # reduce conversation to the only things we need: conversation_id
         if isinstance(conversation, (FakeConversation, hangups.conversation.Conversation)):
             conversation_id = conversation.id_
         elif isinstance(conversation, str):
             conversation_id = conversation
         else:
-            raise ValueError(_('could not identify conversation id'))
+            raise ValueError('could not identify conversation id')
+
+        """context allows new parameters to be passed down the chain"""
+
+        if not context:
+            context = {}
+
+        if "base" not in context:
+            # default legacy context
+            context["base"] = self._messagecontext_legacy()
+
+        if "history" not in context:
+            context["history"] = True
+            try:
+                context["history"] = self.conversations.catalog[conversation_id]["history"]
+
+            except KeyError:
+                # rare scenario where a conversation was not refreshed
+                # once the initial message goes through, convmem will be updated
+                logging.warning("SEND_MESSAGE_SEGMENTS(): could not determine otr for {}".format(
+                    conversation_id))
 
         # determine OTR status based on conversation memory
-        otr_status = OffTheRecordStatus.ON_THE_RECORD
-        try:
-            if self.conversations.catalog[conversation_id]["history"]:
-                otr_status = OffTheRecordStatus.ON_THE_RECORD
-            else:
-                otr_status = OffTheRecordStatus.OFF_THE_RECORD
-        except KeyError:
-            # rare scenario where a conversation was not refreshed
-            # once the initial message goes through, convmem will be updated
-            logging.warning("SEND_MESSAGE_SEGMENTS(): could not determine otr for {}".format(
-                conversation_id))
+        if context["history"]:
+            otr_status = OffTheRecordStatus.ON_THE_RECORD
+        else:
+            otr_status = OffTheRecordStatus.OFF_THE_RECORD
 
         # by default, a response always goes into a single conversation only
         broadcast_list = [(conversation_id, segments)]
