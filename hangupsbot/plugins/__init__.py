@@ -11,6 +11,13 @@ import handlers
 logger = logging.getLogger(__name__)
 
 
+def recursive_tag_format(array, **kwargs):
+    for index, tags in enumerate(array):
+        if isinstance(tags, list):
+            recursive_tag_format(tags, **kwargs)
+        else:
+            array[index] = array[index].format(**kwargs)
+
 class tracker:
     """used by the plugin loader to keep track of loaded commands
     designed to accommodate the dual command registration model (via function or decorator)
@@ -52,50 +59,63 @@ class tracker:
 
         # sync tagged commands to the command dispatcher
         if self._current["commands"]["tagged"]:
-            for command_name, command_tagsets in self._current["commands"]["tagged"].items():
-                command.register_tags(command_name, command_tagsets)
+            for command_name, type_tags in self._current["commands"]["tagged"].items():
+                for type in ["admin", "user"]: # prioritse admin-linked tags if both exist
+                    if type in type_tags:
+                        command.register_tags(command_name, type_tags[type])
+                        break
 
     def register_command(self, type, command_names, tags=None):
         """call during plugin init to register commands"""
         self._current["commands"][type].extend(command_names)
         self._current["commands"][type] = list(set(self._current["commands"][type]))
 
-        self.register_tags(command_names, tags)
-
-    def register_tags(self, command_names, tags=None):
         config_plugins_tags_autoregister = self.bot.get_config_option('plugins.tags.auto-register')
         if config_plugins_tags_autoregister is None:
             config_plugins_tags_autoregister = True
 
-        if tags:
-            if isinstance(tags, str):
-                tags = [tags]
+        if not tags and not config_plugins_tags_autoregister:
+            return
+
+        if not tags:
+            # assumes config["plugins.tags.auto-register"] == True
+            tags = []
+        elif isinstance(tags, str):
+            tags = [tags]
+
+        if config_plugins_tags_autoregister is True:
+            presets = [ "{plugin}-{command}", "{plugin}-{type}" ]
+        elif config_plugins_tags_autoregister:
+            presets = config_plugins_tags_autoregister
+            if isinstance(presets, str):
+                presets = [ presets ]
         else:
-            if not config_plugins_tags_autoregister:
-                return
-            # even if no tags are explicitly specified, we need to auto-register system tags
+            presets = []
 
-        for command in command_names:
-            if command not in self._current["commands"]["tagged"]:
-                self._current["commands"]["tagged"][command] = set()
+        for command_name in command_names:
+            command_tags = list(tags) + list(presets) # use copies
 
-            base = tags
-            if config_plugins_tags_autoregister:
-                if config_plugins_tags_autoregister is True:
-                    _tag = "execute-{}"
-                else:
-                    _tag = config_plugins_tags_autoregister
+            recursive_tag_format( command_tags,
+                                  command=command_name,
+                                  type=type,
+                                  plugin=self._current["metadata"]["module"] )
 
-                if not base:
-                    base = []
-                base += [ _tag.format(command) ]
+            self.register_tag(type, command_name, command_tags)
 
-            tagsets = set([ frozenset(item if isinstance(item, list) else [item]) for item in base ])
+    def register_tag(self, type, command_name, tags):
+        if command_name not in self._current["commands"]["tagged"]:
+            self._current["commands"]["tagged"][command_name] = {}
 
-            # registration might be called repeatedly, so only add the tagsets if it doesnt exist
-            if tagsets > self._current["commands"]["tagged"][command]:
-                self._current["commands"]["tagged"][command] = self._current["commands"]["tagged"][command] | tagsets
-                logger.debug("{} - tags: {}".format(command, tagsets))
+        if type not in self._current["commands"]["tagged"][command_name]:
+            self._current["commands"]["tagged"][command_name][type] = set()
+
+        tagsets = set([ frozenset(item if isinstance(item, list) else [item]) for item in tags ])
+
+        # registration might be called repeatedly, so only add the tagsets if it doesnt exist
+        if tagsets > self._current["commands"]["tagged"][command_name][type]:
+            self._current["commands"]["tagged"][command_name][type] |= tagsets
+
+        logger.debug("{} - [{}] tags: {}".format(command_name, type, tags))
 
     def register_handler(self, function, type, priority):
         self._current["handlers"].append((function, type, priority))
