@@ -327,7 +327,9 @@ def load(bot, module_path, module_name=None):
             if function_name in explicit_admin_commands:
                 is_admin = True
                 text_function_name = "*" + text_function_name
-            command.register(the_function, admin=is_admin)
+
+            command.register(the_function, admin=is_admin, final=True)
+
             registered_commands.append(text_function_name)
 
     if registered_commands:

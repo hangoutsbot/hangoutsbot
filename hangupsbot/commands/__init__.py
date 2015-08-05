@@ -168,19 +168,24 @@ class CommandDispatcher(object):
             print("EXCEPTION in {}".format(message))
             logger.exception(message)
 
-    def register(self, *args, admin=False, tags=None):
+    def register(self, *args, admin=False, tags=None, final=False):
         """Decorator for registering command"""
+
         def wrapper(func):
-            # Automatically wrap command function in coroutine
-            func = asyncio.coroutine(func)
             func_name = func.__name__
-            self.commands[func_name] = func
 
-            plugins.tracking.register_command("user", [func_name], tags=tags)
+            if final:
+                # wrap command function in coroutine
+                func = asyncio.coroutine(func)
+                self.commands[func_name] = func
+                if admin:
+                    self.admin_commands.append(func_name)
 
-            if admin:
-                self.admin_commands.append(func_name)
-                plugins.tracking.register_command("admin", [func_name], tags=tags)
+            else:
+                # just register and return the same function
+                plugins.tracking.register_command( "admin" if admin else "user",
+                                                   [func_name],
+                                                   tags=tags )
 
             return func
 
