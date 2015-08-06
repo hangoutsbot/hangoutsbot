@@ -41,7 +41,7 @@ def _botkeeper_list(bot, conv_id):
 
     botkeepers = tagged_botkeeper + admins_list + allowbotadd
 
-    botkeepers = list(set(botkeepers))
+    botkeepers = list(set(botkeepers) - set([ bot.user_self()["chat_id"] ]))
 
     return botkeepers
 
