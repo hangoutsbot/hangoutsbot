@@ -117,7 +117,8 @@ There are two general types of interactions with the bot:
   * some bot commands are admin-only
 * custom interactions (usage and accessibility varies by plugin)
 
-**Without any plugins**, the bot still supports some basic command:
+The base bot supports some basic command even without any plugins loaded.
+  Here is a partial list:
 
 `/bot help`
 * Bot lists all supported commands in a private message with the user
@@ -128,12 +129,13 @@ There are two general types of interactions with the bot:
 `/bot version`
 * Bot replies with the version number of the framework
 
-The [Core Commands](https://github.com/hangoutsbot/hangoutsbot/wiki/Core-Commands)
-  page on the wiki lists all supported commands by the base framework.
+A full list of commands supported by the base framework is available at the 
+  [**Core Commands**](https://github.com/hangoutsbot/hangoutsbot/wiki/Core-Commands)
+  wiki page.
 
-The wiki also has a [list of plugins]
-  (https://github.com/hangoutsbot/hangoutsbot/wiki/Plugin-List) detailing available
-  plugins with commands lists and usage.
+The wiki also has a 
+  [**list of plugins**](https://github.com/hangoutsbot/hangoutsbot/wiki/Plugin-List)
+  detailing available plugins with commands lists and usage.
 
 # Updating
 
