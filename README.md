@@ -117,25 +117,10 @@ There are two general types of interactions with the bot:
   * some bot commands are admin-only
 * custom interactions (usage and accessibility varies by plugin)
 
-**Without any plugins**, the bot only recognises the following `/bot` commands:
+**Without any plugins**, the bot still supports some basic command:
 
 `/bot help`
 * Bot lists all supported commands in a private message with the user
-* If the user does not have a 1-on-1 channel open, it will publicly tell
-  the user to PM the bot and say hi
-
-`/bot locale <language code>`
-* Temporarily switches the bot language to a supported language from the [translation project]
-  (https://github.com/hangoutsbot/hangoutsbot-locales)
-* Resets to English (untranslated) on bot restart
-
-`/bot optout`
-* Toggles opt-in/opt-out of advanced bot features.
-* Works by making existing 1-on-1 chat with the specific user invisible to the bot
-  * Bot will continue responding to the user in a group chat, but any feature/plugin
-    which requires a 1-on-1 chat is effectively disabled when toggled ON
-* Sending a private message to the bot when you are opted-out will automatically toggle
-  opt-out OFF
 
 `/bot ping`
 * Bot replies with a `pong`.
@@ -143,10 +128,12 @@ There are two general types of interactions with the bot:
 `/bot version`
 * Bot replies with the version number of the framework
 
+The [Core Commands](https://github.com/hangoutsbot/hangoutsbot/wiki/Core-Commands)
+  page on the wiki lists all supported commands by the base framework.
 
-Please see the wiki for the **[list of plugins]
-  (https://github.com/hangoutsbot/hangoutsbot/wiki/Plugin-List)** to find out more
-  about each plugin and their usage.
+The wiki also has a [list of plugins]
+  (https://github.com/hangoutsbot/hangoutsbot/wiki/Plugin-List) detailing available
+  plugins with commands lists and usage.
 
 # Updating
 
