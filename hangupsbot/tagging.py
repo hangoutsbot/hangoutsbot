@@ -1,10 +1,14 @@
-import logging
+import logging, re
+
+from commands import command
 
 
 logger = logging.getLogger(__name__)
 
 
 class tags:
+    regex_allowed = "a-z0-9._\-" # +command.deny_prefix
+
     wildcard = { "user": "*", 
                  "group": "GROUP", 
                  "one2one": "ONE_TO_ONE" }
@@ -119,6 +123,11 @@ class tags:
             tags = []
 
         if action == "set":
+            # XXX: placed here so users can still remove previous invalid tags
+            allowed = "^[{}{}]*$".format(self.regex_allowed, re.escape(command.deny_prefix))
+            if not re.match(allowed, tag, re.IGNORECASE):
+                raise ValueError("tag contains invalid characters")
+
             if tag not in tags:
                 tags.append(tag)
                 self.add_to_index(index_type, tag, id)

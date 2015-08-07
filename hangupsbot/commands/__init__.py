@@ -52,10 +52,16 @@ class CommandDispatcher(object):
         self.command_tagsets[command] = self.command_tagsets[command] | tagsets
 
 
+    @property
+    def deny_prefix(self):
+        config_tags_deny_prefix = self.bot.get_config_option('commands.tags.deny-prefix') or "!"
+        return config_tags_deny_prefix
+
+
     def get_available_commands(self, bot, chat_id, conv_id):
         start_time = time.time()
 
-        config_tags_deny_prefix = bot.get_config_option('commands.tags.deny-prefix') or "!"
+        config_tags_deny_prefix = self.deny_prefix
         config_tags_escalate = bot.get_config_option('commands.tags.escalate') or False
 
         config_admins = bot.get_config_suboption(conv_id, 'admins')
@@ -163,10 +169,13 @@ class CommandDispatcher(object):
 
         try:
             yield from func(bot, event, *args, **kwds)
+
         except Exception as e:
-            message = "CommandDispatcher.run: {}".format(func.__name__)
-            print("EXCEPTION in {}".format(message))
-            logger.exception(message)
+            logger.exception("RUN: {}".format(func.__name__))
+            self.bot.send_message_parsed(
+                event.conv,
+                "<b><pre>{0}</pre></b> <pre>{1}</pre>: <em><pre>{2}</pre></em>".format(
+                    func.__name__, type(e).__name__, str(e)) )
 
     def register(self, *args, admin=False, tags=None, final=False):
         """Decorator for registering command"""
