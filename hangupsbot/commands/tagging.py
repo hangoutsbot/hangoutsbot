@@ -11,6 +11,7 @@ def _initialise(bot): pass # prevents commands from being automatically added
 
 @command.register(admin=True)
 def tagset(bot, event, *args):
+    """set a single tag. usage: tagset <"conv"|"user"|"convuser"> <id> <tag>"""
     if len(args) == 3:
         [type, id, tag] = args
         if bot.tags.add(type, id, tag):
@@ -24,6 +25,7 @@ def tagset(bot, event, *args):
 
 @command.register(admin=True)
 def tagdel(bot, event, *args):
+    """remove single tag. usage: tagdel <"conv"|"user"|"convuser"> <id> <tag>"""
     if len(args) == 3:
         [type, id, tag] = args
         if bot.tags.remove(type, id, tag):
@@ -37,6 +39,7 @@ def tagdel(bot, event, *args):
 
 @command.register(admin=True)
 def tagspurge(bot, event, *args):
+    """batch remove tags. usage: tagspurge <"user"|"conv"|"convuser"|"tag"|"usertag"|"convtag"> <id|"ALL">"""
     if len(args) == 2:
         [type, id] = args
         entries_removed = bot.tags.purge(type, id)
@@ -47,7 +50,76 @@ def tagspurge(bot, event, *args):
 
 
 @command.register(admin=True)
+def tagscommand(bot, event, *args):
+    """display of command tagging information, more complete than plugininfo"""
+    if len(args) == 1:
+        [command_name] = args
+
+        if command_name not in command.commands:
+            message = _("<b><pre>COMMAND: {}</pre></b> does not exist".format(command_name))
+
+        else:
+            lines = []
+
+            ALL_TAGS = set()
+
+            plugin_defined = set()
+            if command_name in command.command_tagsets:
+                plugin_defined = command.command_tagsets[command_name]
+                ALL_TAGS = ALL_TAGS | plugin_defined
+
+            config_root = set()
+            config_commands_tagged = bot.get_config_option('commands_tagged') or {}
+            if command_name in config_commands_tagged and config_commands_tagged[command_name]:
+                config_root = set([ frozenset(value if isinstance(value, list) else [value])
+                    for value in config_commands_tagged[command_name] ])
+                ALL_TAGS = ALL_TAGS | config_root
+
+            config_conv = {}
+            if bot.config.exists(["conversations"]):
+                for convid in bot.config["conversations"]:
+                    if bot.config.exists(["conversations", convid, "commands_tagged"]):
+                        conv_tagged = bot.config.get_by_path(["conversations", convid, "commands_tagged"])
+                        if command_name in conv_tagged and conv_tagged[command_name]:
+                            config_conv[convid] = set([ frozenset(value if isinstance(value, list) else [value])
+                                for value in conv_tagged[command_name] ])
+                            ALL_TAGS = ALL_TAGS | config_conv[convid]
+
+            dict_tags = {}
+            for match in ALL_TAGS:
+                text_match = ", ".join(sorted(match))
+
+                if text_match not in dict_tags:
+                    dict_tags[text_match] = []
+
+                if match in plugin_defined:
+                    dict_tags[text_match].append("plugin")
+                if match in config_root:
+                    dict_tags[text_match].append("config: root")
+                for convid, tagsets in config_conv.items():
+                    if match in tagsets:
+                        dict_tags[text_match].append("config: {}".format(convid))
+
+            for text_tags in sorted(dict_tags.keys()):
+                lines.append("[ {} ]".format(text_tags))
+                for source in dict_tags[text_tags]:
+                    lines.append("... {}".format(source))
+
+            if len(lines)==0:
+                message = _("<b><pre>COMMAND: {}</pre></b> has no tags".format(command_name))
+            else:
+                lines.insert(0, _("<b><pre>COMMAND: {}</pre></b>, match <b>ANY</b>:".format(command_name)))
+                message = "<br />".join(lines)
+
+    else:
+        message = _("<b>supply command name</b>")
+
+    bot.send_message_parsed(event.conv_id, message)
+
+
+@command.register(admin=True)
 def tagindexdump(bot, event, *args):
+    """dump raw contents of tags indices"""
     pp = pprint.PrettyPrinter(indent=2)
     pp.pprint(bot.tags.indices)
 
@@ -70,6 +142,7 @@ def tagindexdump(bot, event, *args):
 
 @command.register(admin=True)
 def tagsuser(bot, event, *args):
+    """get tag assignments for a user in an (optional) conversation. usage: tagsuser <user id> [<conv id>]"""
     if len(args) == 1:
         conv_id = "*"
         chat_id = args[0]
@@ -90,6 +163,7 @@ def tagsuser(bot, event, *args):
 
 @command.register(admin=True)
 def tagsuserlist(bot, event, *args):
+    """get tag assignments for all users in a conversation, filtered by (optional) taglist. usage: tagsuserlist <conv id> [<tag name> [<tag name>] [...]]"""
     if len(args) == 1:
         conv_id = args[0]
         filter_tags = False
