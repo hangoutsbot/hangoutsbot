@@ -17,15 +17,33 @@ def help(bot, event, cmd=None, *args):
     """list supported commands, /bot help <command> will show additional details"""
     help_lines = []
     link_to_guide = bot.get_config_suboption(event.conv_id, 'link_to_guide')
-    if not cmd:
-        admins_list = bot.get_config_suboption(event.conv_id, 'admins')
+    admins_list = bot.get_config_suboption(event.conv_id, 'admins')
 
-        commands = command.get_available_commands(bot, event.user.id_.chat_id, event.conv_id)
+    if not cmd or (cmd=="impersonate" and event.user.id_.chat_id in admins_list):
+
+        help_chat_id = event.user.id_.chat_id
+        help_conv_id = event.conv_id
+
+        if cmd == "impersonate":
+            if len(args) == 1:
+                [help_chat_id] = args
+            elif len(args) == 2:
+                [help_chat_id, help_conv_id] = args
+            else:
+                raise ValueError("impersonation: supply chat id and optional conversation id")
+
+            help_lines.append(_('<b>Impersonation:</b><br />'
+                                '<b><pre>{}</pre></b><br />'
+                                '<b><pre>{}</pre></b><br />').format( help_chat_id,
+                                                                      help_conv_id ))
+
+        commands = command.get_available_commands(bot, help_chat_id, help_conv_id)
         commands_admin = commands["admin"]
         commands_nonadmin = commands["user"]
 
-        help_lines.append(_('<b>User commands:</b>'))
-        help_lines.append(', '.join(sorted(commands_nonadmin)))
+        if len(commands_nonadmin) > 0:
+            help_lines.append(_('<b>User commands:</b>'))
+            help_lines.append(', '.join(sorted(commands_nonadmin)))
 
         if link_to_guide:
             help_lines.append('')

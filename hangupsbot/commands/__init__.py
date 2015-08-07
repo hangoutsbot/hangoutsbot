@@ -57,12 +57,16 @@ class CommandDispatcher(object):
         config_tags_deny_prefix = self.bot.get_config_option('commands.tags.deny-prefix') or "!"
         return config_tags_deny_prefix
 
+    @property
+    def escalate_tagged(self):
+        config_tags_escalate = self.bot.get_config_option('commands.tags.escalate') or False
+        return config_tags_escalate
 
     def get_available_commands(self, bot, chat_id, conv_id):
         start_time = time.time()
 
         config_tags_deny_prefix = self.deny_prefix
-        config_tags_escalate = bot.get_config_option('commands.tags.escalate') or False
+        config_tags_escalate = self.escalate_tagged
 
         config_admins = bot.get_config_suboption(conv_id, 'admins')
         is_admin = False
