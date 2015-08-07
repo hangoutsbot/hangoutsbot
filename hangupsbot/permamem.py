@@ -1,4 +1,4 @@
-import asyncio, datetime, logging, re
+import asyncio, datetime, logging, random, re
 
 import hangups
 
@@ -547,6 +547,34 @@ class conversation_memory:
                     for conv_id in self.bot.tags.indices["tag-convs"][filter_tag]:
                         if conv_id in sourcelist:
                             matched[conv_id] = sourcelist[conv_id]
+
+            elif term.startswith("type:"):
+                # return all conversations with matching type (case-insensitive)
+                filter_type = term[5:]
+                for convid, convdata in sourcelist.items():
+                    if convdata["type"].lower() == filter_type.lower():
+                        matched[convid] = convdata
+
+            elif term.startswith("minusers:"):
+                # return all conversations with number of users or higher
+                filter_numusers = term[9:]
+                for convid, convdata in sourcelist.items():
+                    if len(convdata["participants"]) >= int(filter_numusers):
+                        matched[convid] = convdata
+
+            elif term.startswith("maxusers:"):
+                # return all conversations with number of users or lower
+                filter_numusers = term[9:]
+                for convid, convdata in sourcelist.items():
+                    if len(convdata["participants"]) <= int(filter_numusers):
+                        matched[convid] = convdata
+
+            elif term.startswith("random:"):
+                # return random conversations based on selection threshold
+                filter_random = term[7:]
+                for convid, convdata in sourcelist.items():
+                    if random.random() <= float(filter_random):
+                        matched[convid] = convdata
 
         return matched
 
