@@ -126,22 +126,18 @@ class EventHandler:
     def handle_command(self, event):
         """Handle command messages"""
 
-        # verify user is an admin
-        admins_list = self.bot.get_config_suboption(event.conv_id, 'admins')
-        initiator_is_admin = False
-        if event.user_id.chat_id in admins_list:
-            initiator_is_admin = True
-
-        # Test if command handling is enabled
-        # note: admins always bypass this check
-        if not initiator_is_admin:
-            if not self.bot.get_config_suboption(event.conv_id, 'commands_enabled'):
+        # is commands_enabled?
+        if not self.bot.get_config_suboption(event.conv_id, 'commands_enabled'):
+            admins_list = self.bot.get_config_suboption(event.conv_id, 'admins') or []
+            # admins always have commands enabled
+            if event.user_id.chat_id not in admins_list:
                 return
 
+        # ensure bot alias is always a list
         if not isinstance(self.bot_command, list):
-            # always a list
             self.bot_command = [self.bot_command]
 
+        # check that a bot alias is used e.g. /bot
         if not event.text.split()[0].lower() in self.bot_command:
             return
 
@@ -162,13 +158,17 @@ class EventHandler:
                 event.user.full_name))
             return
 
-        # only admins can run admin commands
-        commands_admin_list = command.get_admin_commands(self.bot, event.conv_id)
-        if commands_admin_list and line_args[1].lower() in commands_admin_list:
-            if not initiator_is_admin:
-                self.bot.send_message_parsed(event.conv, _('{}: Can\'t do that.').format(
-                    event.user.full_name))
-                return
+        commands = command.get_available_commands(self.bot, event.user.id_.chat_id, event.conv_id)
+
+        supplied_command = line_args[1].lower()
+        if supplied_command in commands["user"]:
+            pass
+        elif supplied_command in commands["admin"]:
+            pass
+        else:
+            self.bot.send_message_parsed(event.conv, _('{}: Can\'t do that.').format(
+                event.user.full_name))
+            return
 
         # Run command
         yield from command.run(self.bot, event, *line_args[1:])

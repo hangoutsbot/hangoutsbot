@@ -1,12 +1,19 @@
-import logging
+import logging, re
+
+from commands import command
 
 
 logger = logging.getLogger(__name__)
 
 
 class tags:
-    bot = None
+    regex_allowed = "a-z0-9._\-" # +command.deny_prefix
 
+    wildcard = { "user": "*", 
+                 "group": "GROUP", 
+                 "one2one": "ONE_TO_ONE" }
+
+    bot = None
     indices = {}
 
     def __init__(self, bot):
@@ -92,14 +99,20 @@ class tags:
             index_type = "user"
             [conv_id, chat_id] = id.split("|", maxsplit=1)
 
-            if not self.bot.memory.exists(["user_data", chat_id]):
-                raise ValueError("user {} does not exist".format(id))
-            if conv_id not in self.bot.conversations.catalog:
-                raise ValueError("conversation {} does not exist".format(conv_id))
+            if (conv_id not in self.bot.conversations.catalog and
+                    conv_id not in ( self.wildcard["group"],
+                                     self.wildcard["one2one"] )):
+                raise ValueError("conversation {} is invalid".format(conv_id))
+
+            if (not self.bot.memory.exists(["user_data", chat_id]) and
+                    not chat_id==self.wildcard["user"]):
+                raise ValueError("user {} is invalid".format(id))
 
             tags_users = self.bot.conversation_memory_get(conv_id, "tags-users")
+
             if not tags_users:
                 tags_users = {}
+
             if chat_id in tags_users:
                 tags = tags_users[chat_id]
 
@@ -110,6 +123,11 @@ class tags:
             tags = []
 
         if action == "set":
+            # XXX: placed here so users can still remove previous invalid tags
+            allowed = "^[{}{}]*$".format(self.regex_allowed, re.escape(command.deny_prefix))
+            if not re.match(allowed, tag, re.IGNORECASE):
+                raise ValueError("tag contains invalid characters")
+
             if tag not in tags:
                 tags.append(tag)
                 self.add_to_index(index_type, tag, id)
@@ -214,12 +232,25 @@ class tags:
 
             if not self.bot.memory.exists(["user_data", chat_id]):
                 raise ValueError("user {} does not exist".format(chat_id))
+
             if conv_id not in self.bot.conversations.catalog:
                 raise ValueError("conversation {} does not exist".format(conv_id))
 
-            per_conversation_user_override_key = (conv_id + "|" + chat_id)
-            if per_conversation_user_override_key in self.indices["user-tags"]:
-                return self.indices["user-tags"][per_conversation_user_override_key]
+            # per_conversation_user_override_keys
+            check_keys = [ conv_id + "|" + chat_id,
+                           conv_id + "|" + self.wildcard["user"] ]
+
+            # additional overrides based on type of conversation
+            if self.bot.conversations.catalog[conv_id]["type"] == "GROUP":
+                check_keys.extend([ self.wildcard["group"] + "|" + chat_id,
+                                    self.wildcard["group"] + "|" + self.wildcard["user"] ])
+            else:
+                check_keys.extend([ self.wildcard["one2one"] + "|" + chat_id,
+                                    self.wildcard["one2one"] + "|" + self.wildcard["user"] ])
+
+            for _key in check_keys:
+                if _key in self.indices["user-tags"]:
+                    return self.indices["user-tags"][_key]
 
         if chat_id in self.indices["user-tags"]:
             return self.indices["user-tags"][chat_id]
