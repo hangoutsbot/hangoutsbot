@@ -2,16 +2,16 @@ import asyncio, logging, re, string
 
 from pushbullet import PushBullet
 
+import plugins
 from utils import remove_accents
-
 
 nicks = {}
 
-def _initialise(Handlers, bot=None):
-    if bot:
-        _migrate_mention_config_to_memory(bot)
-    Handlers.register_handler(_handle_mention, "message")
-    return ["mention", "pushbulletapi", "setnickname", "bemorespecific"]
+
+def _initialise(bot):
+    _migrate_mention_config_to_memory(bot)
+    plugins.register_handler(_handle_mention, "message")
+    plugins.register_user_command(["mention", "pushbulletapi", "setnickname", "bemorespecific"])
 
 
 def _migrate_mention_config_to_memory(bot):
@@ -29,7 +29,6 @@ def _migrate_mention_config_to_memory(bot):
         print(_("migration(): pushbullet config migrated"))
 
 
-@asyncio.coroutine
 def _handle_mention(bot, event, command):
     """handle @mention"""
     occurrences = [word for word in event.text.split() if word.startswith('@')]
