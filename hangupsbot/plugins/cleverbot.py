@@ -3,7 +3,7 @@ import asyncio, hashlib, urllib
 import urllib.request as urllib2
 from http.cookiejar import CookieJar
 
-from random import randrange
+from random import randrange, randint
 
 import hangups
 
@@ -84,6 +84,7 @@ class Cleverbot:
             # here and in other places as well
             return str()
 
+
     def ask(self, question):
         """Asks Cleverbot a question.
 
@@ -118,6 +119,7 @@ class Cleverbot:
 
         return parsed['answer']
 
+
     def _send(self):
         """POST the user's question and all required information to the
         Cleverbot API
@@ -142,8 +144,8 @@ class Cleverbot:
         self.data['icognocheck'] = token
 
         # Add the token to the data
-        enc_data = urllib.parse.urlencode(self.data)
-        req = urllib2.Request(self.API_URL, enc_data.encode('utf-8'), self.headers)
+        enc_data = urllib.parse.urlencode(self.data).encode('utf-8')
+        req = urllib2.Request(self.API_URL, enc_data, self.headers)
 
         # POST the data to Cleverbot's API
         conn = urllib2.urlopen(req)
@@ -192,9 +194,12 @@ def chat(bot, event, *args):
     if event.conv.id_ not in __cleverbots:
         __cleverbots[event.conv.id_] = Cleverbot()
 
-    text = __cleverbots[event.conv.id_].ask(' '.join(args))
+    loop = asyncio.get_event_loop()
+    text = yield from loop.run_in_executor(None, __cleverbots[event.conv.id_].ask, ' '.join(args))
 
-    if "Cleverscript.com." in text or "Clevermessage" in text or "Clevertweet" in text or "CleverEnglish" in text:
-        return
+    ad_text = ["Cleverscript.com.", "Clevermessage", "Clevertweet", "CleverEnglish"]
+    for ad in ad_text:
+        if ad.lower() in text.lower():
+            return
 
     bot.send_html_to_conversation(event.conv.id_, text)
