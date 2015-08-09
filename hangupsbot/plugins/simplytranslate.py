@@ -1,13 +1,15 @@
-import goslate
-import asyncio
-import urllib
+import asyncio, goslate, urllib
+
+import plugins
+
 
 gs = goslate.Goslate()
 
-def _initialise(command):
-    command.register_handler(_handle_message)
 
-@asyncio.coroutine
+def _initialise():
+    plugins.register_handler(_handle_message)
+
+
 def _handle_message(bot, event, command):
     language_map = gs.get_languages()
     raw_text = event.text.lower()
@@ -24,6 +26,7 @@ def _handle_message(bot, event, command):
 
     if translate_target is not None:
         yield from _translate(bot, event, raw_text, translate_target[0], translate_target[1])
+
 
 @asyncio.coroutine
 def _translate(bot, event, text, iso_language, text_language):
