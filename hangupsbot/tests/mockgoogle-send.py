@@ -1,6 +1,6 @@
 """simple test for sinks.google.scripts.webhookReceiver
 
-usage: google-mocksend.py [-h] url
+usage: mockgoogle-send.py [-h] url
 
 positional arguments:
   url         url to send the data
