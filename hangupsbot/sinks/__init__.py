@@ -1,10 +1,6 @@
-import logging
+import asyncio, logging, os, ssl
 
 from threading import Thread
-
-import ssl
-import asyncio
-
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from utils import class_from_name
 
@@ -42,6 +38,10 @@ def start(bot):
                 certfile = sinkConfig["certfile"]
                 if not certfile:
                     logger.error("config.jsonrpc[{}].certfile must be configured".format(itemNo))
+                    continue
+
+                if not os.path.isfile(certfile):
+                    logger.error("config.jsonrpc[{}].certfile not available at {}".format(itemNo, certfile))
                     continue
 
                 name = sinkConfig["name"]
