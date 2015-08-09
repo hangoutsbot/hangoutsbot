@@ -306,9 +306,15 @@ def load(bot, module_path, module_name=None):
                 else:
                     try:
                         # legacy support, pre-2.4
+                        logger.info("[LEGACY] upgrade {1}.{0}(handlers, bot) to {0}(bot) and use bot._handlers internally"
+                            .format(the_function.__name__, module_path))
+
                         _return = the_function(bot._handlers, bot)
                     except TypeError as e:
-                        # legacy support, ancient plugins
+                        # DEPRECATED: ancient plugins
+                        logger.warning("[DEPRECATED] upgrade {1}.{0}(handlers) to {0}(bot) and use bot._handlers internally"
+                            .format(the_function.__name__, module_path))
+
                         _return = the_function(bot._handlers)
                 if type(_return) is list:
                     available_commands = _return
