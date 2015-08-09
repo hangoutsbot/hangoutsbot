@@ -97,6 +97,9 @@ def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webh
 
         httpd.serve_forever()
 
+    except ssl.SSLError as e:
+        logger.exception("{} : {}:{}, pem file is invalid/corrupt".format(friendlyName, name, port))
+
     except OSError as e:
         if e.errno == 2:
             message = ".pem file is missing/unavailable"
