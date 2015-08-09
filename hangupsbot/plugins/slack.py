@@ -33,18 +33,18 @@ import json
 
 import hangups
 
+import plugins
 import threadmanager
+
+from sinks import start_listening
+
 
 logger = logging.getLogger(__name__)
 
 
-def _initialise(Handlers, bot=None):
-    if bot:
-        _start_slack_sinks(bot)
-    else:
-        print("Slack sinks could not be initialized.")
-    Handlers.register_handler(_handle_slackout)
-    return []
+def _initialise(bot):
+    _start_slack_sinks(bot)
+    plugins.register_handler(_handle_slackout)
 
 
 def _start_slack_sinks(bot):
@@ -76,46 +76,12 @@ def _start_slack_sinks(bot):
                 loop,
                 name,
                 port,
-                certfile))
+                certfile,
+                webhookReceiver,
+                "slackSink"))
 
     logger.info("_start_slack_sinks(): {} sink thread(s) started".format(itemNo + 1))
 
-
-def start_listening(bot=None, loop=None, name="", port=8014, certfile=None):
-    webhook = webhookReceiver
-
-    if loop:
-        asyncio.set_event_loop(loop)
-
-    if bot:
-        webhook._bot = bot
-
-    try:
-        httpd = HTTPServer((name, port), webhook)
-
-        httpd.socket = ssl.wrap_socket(
-          httpd.socket,
-          certfile=certfile,
-          server_side=True)
-
-        sa = httpd.socket.getsockname()
-
-        logger.info("listener: {}:{}...".format(sa[0], sa[1]))
-
-        httpd.serve_forever()
-
-    except OSError as e:
-        message = "EXCEPTION during start: {}:{} : {}".format(name, port, e)
-        print(message)
-        logger.exception(message)
-
-        try:
-            httpd.socket.close()
-        except Exception as e:
-            pass
-
-    except KeyboardInterrupt:
-        httpd.socket.close()
 
 def _slack_repeater_cleaner(bot, event, id):
     event_tokens = event.text.split(":", maxsplit=1)
