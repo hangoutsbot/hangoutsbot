@@ -1,5 +1,7 @@
 import asyncio, logging, re
 
+import plugins
+
 
 logger = logging.getLogger(__name__)
 
@@ -11,11 +13,12 @@ class __internal_vars():
 
 _internal = __internal_vars()
 
-def _initialise(command):
-    command.register_handler(_handle_keyword)
-    return ["subscribe", "unsubscribe"]
 
-@asyncio.coroutine
+def _initialise():
+    plugins.register_handler(_handle_keyword)
+    plugins.register_user_command(["subscribe", "unsubscribe"])
+
+
 def _handle_keyword(bot, event, command):
     """handle keyword"""
 
@@ -43,6 +46,7 @@ def _handle_keyword(bot, event, command):
             # User probably hasn't subscribed to anything
             continue
 
+
 def _populate_keywords(bot, event):
     # Pull the keywords from file if not already
     if not _internal.keywords:
@@ -56,6 +60,7 @@ def _populate_keywords(bot, event):
                 _internal.keywords[userchatid] = userkeywords
             else:
                 _internal.keywords[userchatid] = []
+
 
 @asyncio.coroutine
 def _send_notification(bot, event, phrase, user):
@@ -90,6 +95,7 @@ def _send_notification(bot, event, phrase, user):
             logger.info("{} ({}) has dnd".format(user.full_name, user.id_.chat_id))
     else:
         logger.warning("user {} ({}) could not be alerted via 1on1".format(user.full_name, user.id_.chat_id))
+
 
 def subscribe(bot, event, *args):
     """allow users to subscribe to phrases, only one input at a time"""
@@ -143,6 +149,7 @@ def subscribe(bot, event, *args):
     bot.send_message_parsed(
         event.conv,
         _("Subscribed to: {}").format(', '.join(_internal.keywords[event.user.id_.chat_id])))
+
 
 def unsubscribe(bot, event, *args):
     """Allow users to unsubscribe from phrases"""
