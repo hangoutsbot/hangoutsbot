@@ -2,16 +2,13 @@
 Identify images, upload them to google plus, post in hangouts
 """
 
-import asyncio
-import aiohttp
-import asyncio
-import os
-import io
-import re
+import aiohttp, asyncio, io, os, re
 
-def _initialise(Handlers, bot=None):
-    Handlers.register_handler(_watch_image_link, type="message")
-    return []
+import plugins
+
+
+def _initialise():
+    plugins.register_handler(_watch_image_link, type="message")
 
 
 @asyncio.coroutine
