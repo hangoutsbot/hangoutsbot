@@ -1,12 +1,13 @@
-import os, io
+import aiohttp, asyncio, os, io
 
-import aiohttp
-import asyncio
 import hangups
 
-def _initialise(Handlers, bot=None):
-    Handlers.register_handler(_handle_forwarding, type="message")
-    return []
+import plugins
+
+
+def _initialise():
+    plugins.register_handler(_handle_forwarding, type="message")
+
 
 @asyncio.coroutine
 def _handle_forwarding(bot, event, command):
