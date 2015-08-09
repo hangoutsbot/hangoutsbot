@@ -98,7 +98,14 @@ def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webh
         httpd.serve_forever()
 
     except OSError as e:
-        logger.exception("{} : {}:{}".format(friendlyName, name, port))
+        if e.errno == 2:
+            message = ".pem file is missing/unavailable"
+        elif e.errno == 98:
+            message = "address/port in use"
+        else:
+            message = "general failure, see stack trace"
+
+        logger.exception("{} : {}:{}, {}".format(friendlyName, name, port, message))
 
         try:
             httpd.socket.close()
