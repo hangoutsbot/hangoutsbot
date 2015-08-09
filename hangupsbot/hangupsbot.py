@@ -525,8 +525,7 @@ class HangupsBot(object):
     @asyncio.coroutine
     def get_1to1(self, chat_id):
         """find/create a 1-to-1 conversation with specified user
-        config.autocreate-1to1 = true to enable conversation creation, otherwise will revert to
-            legacy behaviour of finding an existing 1-to-1
+        config.autocreate-1to1 = false to revert to legacy behaviour of finding existing 1-to-1
         config.bot_introduction = "some text or html" to show to users when a new conversation
             is created - "{0}" will be substituted with first bot alias
         """
@@ -543,7 +542,8 @@ class HangupsBot(object):
             conversation = FakeConversation(self._client, conversation_id)
             logging.info("get_1on1: remembered {} for {}".format(conversation_id, chat_id))
         else:
-            if self.get_config_option('autocreate-1to1'):
+            autocreate_1to1 = True if self.get_config_option('autocreate-1to1') is not False else False
+            if autocreate_1to1:
                 """create a new 1-to-1 conversation with the designated chat id
                 send an introduction message as well to the user as part of the chat creation
                 """
