@@ -290,17 +290,25 @@ class HangupsBot(object):
         ).add_done_callback(lambda future: future.result())
 
     def send_message(self, conversation, text, context=None):
-        """"Send simple chat message"""
+        logging.debug(  '[DEPRECATED]: yield from bot.coro_send_message()'
+                        ' instead of send_message()')
+
         self.send_message_segments(
             conversation,
             [hangups.ChatMessageSegment(text)],
             context)
 
     def send_message_parsed(self, conversation, html, context=None):
+        logging.debug(  '[DEPRECATED]: yield from bot.coro_send_message()'
+                        ' instead of send_message_parsed()')
+
         segments = simple_parse_to_segments(html)
         self.send_message_segments(conversation, segments, context)
 
     def send_message_segments(self, conversation, segments, context=None, image_id=None):
+        logging.debug(  '[DEPRECATED]: yield from bot.coro_send_message()'
+                        ' instead of send_message_segments()')
+
         asyncio.async(
             self.coro_send_message( conversation,
                                     message=segments,
@@ -669,24 +677,28 @@ class HangupsBot(object):
         logging.info('Connection lost!')
 
     def external_send_message(self, conversation_id, text):
-        logging.warning('[DEPRECATED]: send_html_to_conversation(conv_id, text)'
-                        ' instead of external_send_message(conv_id, text)')
+        logging.warning('[DEPRECATED]: yield from bot.coro_send_message()'
+                        ' instead of external_send_message()')
 
         self.send_html_to_conversation(conversation_id, text)
 
     def external_send_message_parsed(self, conversation_id, html):
-        logging.warning('[DEPRECATED]: send_html_to_conversation(conv_id, html)'
-                        ' instead of external_send_message_parsed(conv_id, html)')
+        logging.warning('[DEPRECATED]: yield from bot.coro_send_message()'
+                        ' instead of external_send_message_parsed()')
 
         self.send_html_to_conversation(conversation_id, html)
 
     def send_html_to_conversation(self, conversation_id, html, context=None):
+        logging.debug(  '[DEPRECATED]: yield from bot.coro_send_message()'
+                        ' instead of send_html_to_conversation()')
+
         logging.info("sending message to conversation {}".format(conversation_id))
+
         self.send_message_parsed(conversation_id, html, context)
 
     def send_html_to_user(self, user_id, html, context=None):
-        logging.warning('[DEPRECATED]: yield from bot.coro_send_to_user(chat_id, html)'
-                        ' instead of bot.send_html_to_user(chat_id, html)')
+        logging.warning('[DEPRECATED]: yield from bot.coro_send_to_user()'
+                        ' instead of bot.send_html_to_user()')
 
         conversation = self.get_1on1_conversation(user_id)
         if not conversation:
@@ -698,9 +710,8 @@ class HangupsBot(object):
         return True
 
     def send_html_to_user_or_conversation(self, user_id_or_conversation_id, html, context=None):
-        """Attempts send_html_to_user. If failed, attempts send_html_to_conversation"""
-
-        logging.warning('[DEPRECATED] use send_html_to_conversation() or send_html_to_user()'
+        logging.warning('[DEPRECATED] yield from bot.coro_send_message() '
+                        ' or yield from bot.coro_send_to_user()'
                         ' instead of send_html_to_user_or_conversation()')
 
         # NOTE: Assumption that a conversation_id will never match a user_id
