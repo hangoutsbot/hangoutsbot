@@ -498,7 +498,7 @@ class HangupsBot(object):
                                         "To keep me quiet, reply with <b>{0} optout</b>.</i>").format(self._handlers.bot_command[0])
                     response = yield from self._client.createconversation([chat_id])
                     new_conversation_id = response['conversation']['id']['id']
-                    self.send_html_to_conversation(new_conversation_id, introduction)
+                    yield from self.coro_send_message(new_conversation_id, introduction)
                     conversation = FakeConversation(self._client, new_conversation_id)
                 except Exception as e:
                     logging.exception("GET_1TO1: failed to create 1-to-1 for user {}".format(chat_id))
