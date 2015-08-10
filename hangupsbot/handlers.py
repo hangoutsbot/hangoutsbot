@@ -105,8 +105,12 @@ class EventHandler:
                         if segment.link_target.startswith(self._prefix_reprocessor):
                             _id = segment.link_target[len(self._prefix_reprocessor):]
                             if _id in self._reprocessors:
-                                logger.info("valid reprocessor uuid found: {}".format(_id))
-                                self._reprocessors[_id](self.bot, event, _id)
+                                is_coroutine = asyncio.iscoroutinefunction(self._reprocessors[_id])
+                                logger.info("reprocessor uuid found: {} coroutine={}".format(_id, is_coroutine))
+                                if is_coroutine:
+                                    yield from self._reprocessors[_id](self.bot, event, _id)
+                                else:
+                                    self._reprocessors[_id](self.bot, event, _id)
                                 del self._reprocessors[_id]
 
             """auto opt-in - opted-out users who chat with the bot will be opted-in again"""
@@ -147,14 +151,14 @@ class EventHandler:
             line_args = shlex.split(event.text, posix=False)
         except Exception as e:
             print("EXCEPTION in {}: {}".format("handle_command", e))
-            self.bot.send_message_parsed(event.conv, _("{}: {}").format(
+            yield from self.bot.coro_send_message(event.conv, _("{}: {}").format(
                 event.user.full_name, str(e)))
             logger.exception(e)
             return
 
         # Test if command length is sufficient
         if len(line_args) < 2:
-            self.bot.send_message_parsed(event.conv, _('{}: Missing parameter(s)').format(
+            yield from self.bot.coro_send_message(event.conv, _('{}: Missing parameter(s)').format(
                 event.user.full_name))
             return
 
@@ -166,7 +170,7 @@ class EventHandler:
         elif supplied_command in commands["admin"]:
             pass
         else:
-            self.bot.send_message_parsed(event.conv, _('{}: Can\'t do that.').format(
+            yield from self.bot.coro_send_message(event.conv, _('{}: Can\'t do that.').format(
                 event.user.full_name))
             return
 
