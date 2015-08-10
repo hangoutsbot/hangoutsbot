@@ -35,7 +35,7 @@ class webhookReceiver(BaseBotRequestHandler):
     @asyncio.coroutine
     def send_actionable_message(self, id, content):
         if id in self._bot.conversations.catalog:
-            self._bot.send_html_to_conversation(id, content)
+            yield from self._bot.coro_send_message(id, content)
         else:
             # attempt to send to a user id
             yield from self._bot.coro_send_to_user(id, content)

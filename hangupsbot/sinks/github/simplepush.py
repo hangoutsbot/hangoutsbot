@@ -1,7 +1,7 @@
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
-import json
+import asyncio, json
 
 class webhookReceiver(BaseHTTPRequestHandler):
     _bot = None
@@ -35,7 +35,9 @@ class webhookReceiver(BaseHTTPRequestHandler):
               commit["timestamp"],
               commit["id"])
 
-        webhookReceiver._bot.send_html_to_conversation(conversation_id, html)
+        asyncio.async(
+            webhookReceiver._bot.coro_send_message(conversation_id, html)
+        ).add_done_callback(lambda future: future.result())
 
 
     def do_POST(self):

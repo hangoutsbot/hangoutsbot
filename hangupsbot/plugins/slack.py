@@ -173,10 +173,12 @@ class webhookReceiver(BaseHTTPRequestHandler):
         return prefix + label
 
     def _scripts_push(self, conversation_id, message):
-        webhookReceiver._bot.send_html_to_conversation(
-            conversation_id, 
-            message + self._bot.call_shared("reprocessor.attach_reprocessor", _slack_repeater_cleaner), 
-            context = {'base': {'tags': ['slack', 'relay'], 'source': 'slack', 'importance': 50}})
+        asyncio.async(
+            webhookReceiver._bot.coro_send_message(
+                conversation_id,
+                message + self._bot.call_shared("reprocessor.attach_reprocessor", _slack_repeater_cleaner),
+                context= {'base': {'tags': ['slack', 'relay'], 'source': 'slack', 'importance': 50}} )
+        ).add_done_callback(lambda future: future.result())
 
     def do_POST(self):
         """

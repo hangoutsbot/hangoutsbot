@@ -133,7 +133,7 @@ class APIRequestHandler(BaseBotRequestHandler):
         content = content + self._bot.call_shared("reprocessor.attach_reprocessor", _reprocess_the_event)
 
         if id in self._bot.conversations.catalog:
-            self._bot.send_html_to_conversation(id, content)
+            yield from self._bot.coro_send_message(id, content)
         else:
             # attempt to send to a user id
             yield from self._bot.coro_send_to_user(id, content)
