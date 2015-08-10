@@ -301,71 +301,12 @@ class HangupsBot(object):
         self.send_message_segments(conversation, segments, context)
 
     def send_message_segments(self, conversation, segments, context=None, image_id=None):
-        """Send chat message segments"""
-
-        # Ignore if the user hasn't typed a message.
-        if type(segments) is list and len(segments) == 0:
-            return
-
-        # reduce conversation to the only things we need: conversation_id
-        if isinstance(conversation, (FakeConversation, hangups.conversation.Conversation)):
-            conversation_id = conversation.id_
-        elif isinstance(conversation, str):
-            conversation_id = conversation
-        else:
-            raise ValueError('could not identify conversation id')
-
-        """context allows new parameters to be passed down the chain"""
-
-        if not context:
-            context = {}
-
-        if "base" not in context:
-            # default legacy context
-            context["base"] = self._messagecontext_legacy()
-
-        if "history" not in context:
-            context["history"] = True
-            try:
-                context["history"] = self.conversations.catalog[conversation_id]["history"]
-
-            except KeyError:
-                # rare scenario where a conversation was not refreshed
-                # once the initial message goes through, convmem will be updated
-                logging.warning("SEND_MESSAGE_SEGMENTS(): could not determine otr for {}".format(
-                    conversation_id))
-
-        # determine OTR status based on conversation memory
-        if context["history"]:
-            otr_status = OffTheRecordStatus.ON_THE_RECORD
-        else:
-            otr_status = OffTheRecordStatus.OFF_THE_RECORD
-
-        # by default, a response always goes into a single conversation only
-        broadcast_list = [(conversation_id, segments)]
-
         asyncio.async(
-            self._begin_message_sending(broadcast_list, context, image_id=image_id, otr_status=otr_status)
+            self.coro_send_message( conversation,
+                                    message=segments,
+                                    context=context,
+                                    image_id=image_id )
         ).add_done_callback(self._on_message_sent)
-
-    @asyncio.coroutine
-    def _begin_message_sending(self, broadcast_list, context, image_id=None, otr_status=None):
-        try:
-            yield from self._handlers.run_pluggable_omnibus("sending", self, broadcast_list, context)
-        except self.Exceptions.SuppressEventHandling:
-            logging.info("message sending: SuppressEventHandling")
-            return
-        except:
-            raise
-
-        logging.debug("message sending: global context = {}".format(context))
-
-        for response in broadcast_list:
-            logging.debug("message sending: {}".format(response[0]))
-
-            # send messages using FakeConversation as a workaround
-            _fc = FakeConversation(self._client, response[0])
-            yield from _fc.send_message(response[1], image_id=image_id, otr_status=otr_status)
 
     def list_conversations(self):
         """List all active conversations"""
@@ -773,6 +714,88 @@ class HangupsBot(object):
         if not self.send_html_to_user(user_id_or_conversation_id, html, context):
             self.send_html_to_conversation(user_id_or_conversation_id, html, context)
 
+
+    @asyncio.coroutine
+    def coro_send_message(self, conversation, message, context=None, image_id=None):
+        if not message:
+            return
+
+        # get the conversation id
+
+        if isinstance(conversation, (FakeConversation, hangups.conversation.Conversation)):
+            conversation_id = conversation.id_
+        elif isinstance(conversation, str):
+            conversation_id = conversation
+        else:
+            raise ValueError('could not identify conversation id')
+
+        # parse message strings to segments
+
+        if isinstance(message, str):
+            segments = simple_parse_to_segments(message)
+        elif isinstance(message, list):
+            segments = message
+        else:
+            raise TypeError("unknown message type supplied")
+
+        # get the context
+
+        if not context:
+            context = {}
+
+        if "base" not in context:
+            # default legacy context
+            context["base"] = self._messagecontext_legacy()
+
+        # determine OTR status
+
+        if "history" not in context:
+            context["history"] = True
+            try:
+                context["history"] = self.conversations.catalog[conversation_id]["history"]
+
+            except KeyError:
+                # rare scenario where a conversation was not refreshed
+                # once the initial message goes through, convmem will be updated
+                logging.warning("CORO_SEND_MESSAGE(): could not determine otr for {}".format(
+                    conversation_id))
+
+        if context["history"]:
+            otr_status = OffTheRecordStatus.ON_THE_RECORD
+        else:
+            otr_status = OffTheRecordStatus.OFF_THE_RECORD
+
+        broadcast_list = [(conversation_id, segments)]
+
+        # run any sending handlers
+
+        try:
+            yield from self._handlers.run_pluggable_omnibus("sending", self, broadcast_list, context)
+        except self.Exceptions.SuppressEventHandling:
+            logging.info("message sending: SuppressEventHandling")
+            return
+        except:
+            raise
+
+        logging.debug("message sending: global context = {}".format(context))
+
+        # begin message sending.. for REAL!
+
+        for response in broadcast_list:
+            logging.debug("message sending: {}".format(response[0]))
+
+            # send messages using FakeConversation as a workaround
+
+            _fc = FakeConversation(self._client, response[0])
+
+            try:
+                yield from _fc.send_message( response[1],
+                                             image_id=image_id,
+                                             otr_status=otr_status )
+            except hangups.NetworkError:
+                logging.exception("FAILED TO SEND TO {}".format(response[0]))
+
+
     @asyncio.coroutine
     def coro_send_to_user(self, chat_id, html, context=None):
         """
@@ -794,9 +817,11 @@ class HangupsBot(object):
             return False
 
         logging.info("sending message to user {} via {}".format(chat_id, conversation.id_))
-        self.send_message_parsed(conversation, html, context)
+
+        yield from self.coro_send_message(conversation, html, context=context)
 
         return True
+
 
     @asyncio.coroutine
     def coro_send_to_user_and_conversation(self, chat_id, conv_id, html_private, html_public=False, context=None):
@@ -849,7 +874,8 @@ class HangupsBot(object):
                 public_message = responses["no1to1"]
 
         if public_message:
-            self.send_message_parsed(conv_id, public_message, context=context)
+            yield from self.coro_send_message(conv_id, public_message, context=context)
+
 
     def user_self(self):
         myself = {
