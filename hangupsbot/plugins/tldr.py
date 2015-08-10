@@ -29,7 +29,7 @@ def tldr(bot, event, *args):
     chat_tldr = bot.memory.get_by_path(['tldr', event.conv_id])
 
     if tldr: # Add message to list
-        chat_tldr[time.time()] = tldr
+        chat_tldr[str(time.time())] = tldr
         bot.memory.set_by_path(['tldr', event.conv_id], chat_tldr)
         yield from bot.coro_send_message(event.conv_id, "Added '{}' to TL;DR. Now at {} entries".format(tldr, len(chat_tldr)))
     else: # Display all messages
