@@ -61,7 +61,7 @@ def _check_if_admin_added_me(bot, event, command):
                 logger.warning("{} ({}) tried to add me to {}".format(
                     initiator_user_id, event.user.full_name, event.conv_id))
 
-                bot.send_message_parsed(
+                yield from bot.coro_send_message(
                     event.conv,
                     _("<i>{}, you need to be authorised to add me to another conversation. I'm leaving now...</i>").format(event.user.full_name))
 
@@ -103,7 +103,7 @@ def _verify_botkeeper_presence(bot, event, command):
     if not botkeeper:
         logger.warning("no botkeeper in {}".format(event.conv_id))
 
-        bot.send_message_parsed(
+        yield from bot.coro_send_message(
             event.conv,
             _("<i>There is no botkeeper in here. I have to go...</i>"))
 
@@ -127,7 +127,7 @@ def allowbotadd(bot, event, user_id, *args):
 
     allowbotadd = bot.memory.get("allowbotadd")
     allowbotadd.append(user_id)
-    bot.send_message_parsed(
+    yield from bot.coro_send_message(
         event.conv,
         _("user id {} added as botkeeper").format(user_id))
     bot.memory["allowbotadd"] = allowbotadd
@@ -149,7 +149,7 @@ def removebotadd(bot, event, user_id, *args):
     allowbotadd = bot.memory.get("allowbotadd")
     if user_id in allowbotadd:
         allowbotadd.remove(user_id)
-        bot.send_message_parsed(
+        yield from bot.coro_send_message(
             event.conv,
             _("user id {} removed as botkeeper").format(user_id))
 
@@ -158,6 +158,6 @@ def removebotadd(bot, event, user_id, *args):
 
         _internal.last_verified = {} # force checks everywhere
     else:
-        bot.send_message_parsed(
+        yield from bot.coro_send_message(
             event.conv,
             _("user id {} is not authorised").format(user_id))
