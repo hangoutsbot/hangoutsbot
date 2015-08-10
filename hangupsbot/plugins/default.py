@@ -58,12 +58,12 @@ def broadcast(bot, event, *args):
             """display broadcast data such as message and target rooms"""
             conv_info = ["<b>{}</b> ... {}".format(bot.conversations.get_name(convid), convid) for convid in _internal["broadcast"]["conversations"]]
             if not _internal["broadcast"]["message"]:
-                bot.send_message_parsed(event.conv, _("broadcast: no message set"))
+                yield from bot.coro_send_message(event.conv, _("broadcast: no message set"))
                 return
             if not conv_info:
-                bot.send_message_parsed(event.conv, _("broadcast: no conversations available"))
+                yield from bot.coro_send_message(event.conv, _("broadcast: no conversations available"))
                 return
-            bot.send_message_parsed(event.conv, _(
+            yield from bot.coro_send_message(event.conv, _(
                                             "<b>message:</b><br />"
                                             "{}<br />"
                                             "<b>to:</b><br />"
@@ -74,11 +74,11 @@ def broadcast(bot, event, *args):
             message = ' '.join(parameters)
             if message:
                 if message.lower().strip().startswith(tuple([_.lower() for _ in bot._handlers.bot_command])):
-                    bot.send_message_parsed(event.conv, _("broadcast: message not allowed"))
+                    yield from bot.coro_send_message(event.conv, _("broadcast: message not allowed"))
                     return
                 _internal["broadcast"]["message"] = message
             else:
-                bot.send_message_parsed(event.conv, _("broadcast: message must be supplied after subcommand"))
+                yield from bot.coro_send_message(event.conv, _("broadcast: message must be supplied after subcommand"))
         elif subcmd == "add":
             """add conversations to a broadcast"""
             if parameters[0] == "groups":
@@ -97,7 +97,7 @@ def broadcast(bot, event, *args):
                     if search.lower() in convdata["title"].lower() or search in convid:
                         _internal["broadcast"]["conversations"].append(convid)
             _internal["broadcast"]["conversations"] = list(set(_internal["broadcast"]["conversations"]))
-            bot.send_message_parsed(event.conv, _("broadcast: {} conversation(s)".format(len(_internal["broadcast"]["conversations"]))))
+            yield from bot.coro_send_message(event.conv, _("broadcast: {} conversation(s)".format(len(_internal["broadcast"]["conversations"]))))
         elif subcmd == "remove":
             if parameters[0].lower() == "all":
                 """remove all conversations from broadcast"""
@@ -111,17 +111,17 @@ def broadcast(bot, event, *args):
                         _internal["broadcast"]["conversations"].remove(convid)
                         removed.append("<b>{}</b> ({})".format(bot.conversations.get_name(conv), convid))
                 if removed:
-                    bot.send_message_parsed(event.conv, _("broadcast: removed {}".format(", ".join(removed))))
+                    yield from bot.coro_send_message(event.conv, _("broadcast: removed {}".format(", ".join(removed))))
         elif subcmd == "NOW":
             """send the broadcast - no turning back!"""
             context = { "explicit_relay": True } # prevent echos across syncrooms
             for convid in _internal["broadcast"]["conversations"]:
-                bot.send_message_parsed(convid, _internal["broadcast"]["message"], context=context)
-            bot.send_message_parsed(event.conv, _("broadcast: message sent to {} chats".format(len(_internal["broadcast"]["conversations"]))))
+                yield from bot.coro_send_message(convid, _internal["broadcast"]["message"], context=context)
+            yield from bot.coro_send_message(event.conv, _("broadcast: message sent to {} chats".format(len(_internal["broadcast"]["conversations"]))))
         else:
-            bot.send_message_parsed(event.conv, _("broadcast: /bot broadcast [info|message|add|remove|NOW] ..."))
+            yield from bot.coro_send_message(event.conv, _("broadcast: /bot broadcast [info|message|add|remove|NOW] ..."))
     else:
-        bot.send_message_parsed(event.conv, _("broadcast: /bot broadcast [info|message|add|remove|NOW]"))
+        yield from bot.coro_send_message(event.conv, _("broadcast: /bot broadcast [info|message|add|remove|NOW]"))
 
 
 def users(bot, event, *args):
@@ -159,7 +159,7 @@ def user(bot, event, username, *args):
             segments.append(hangups.ChatMessageSegment(')'))
         segments.append(hangups.ChatMessageSegment(' ... {}'.format(u.id_.chat_id)))
         segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
-    bot.send_message_segments(event.conv, segments)
+    yield from bot.coro_send_message(event.conv, segments)
 
 
 def hangouts(bot, event, *args):
@@ -175,7 +175,7 @@ def hangouts(bot, event, *args):
     if text_search:
         lines.insert(0, _('<b>List of hangouts with keyword:</b> "<pre>{}</pre>"').format(text_search))
 
-    bot.send_message_parsed(event.conv, "<br />".join(lines))
+    yield from bot.coro_send_message(event.conv, "<br />".join(lines))
 
 
 def rename(bot, event, *args):
@@ -206,8 +206,10 @@ def reload(bot, event, *args):
 
 def quit(bot, event, *args):
     """stop running"""
-    print(_('HangupsBot killed by user {} from conversation {}').format(event.user.full_name,
-                                                                     bot.conversations.get_name(event.conv)))
+    logger.info('HangupsBot killed by user {} from conversation {}'.format(
+        event.user.full_name,
+        bot.conversations.get_name(event.conv)))
+
     yield from bot._client.disconnect()
 
 
@@ -235,7 +237,6 @@ def config(bot, event, cmd=None, *args):
             raise ValueError("unknown state")
     if value:
         parameters.append(" ".join(value))
-    print("config {}".format(parameters))
 
     if cmd == 'get' or cmd is None:
         config_args = list(parameters)
@@ -261,7 +262,7 @@ def config(bot, event, cmd=None, *args):
             yield from command.unknown_command(bot, event)
             return
 
-        bot.send_message_parsed(event.conv, "<br />".join(text_parameters))
+        yield from bot.coro_send_message(event.conv, "<br />".join(text_parameters))
         return
 
     elif cmd == 'set':
@@ -314,7 +315,7 @@ def config(bot, event, cmd=None, *args):
                                            is_bold=True),
                 hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
     segments.extend(text_to_segments(json.dumps(value, indent=2, sort_keys=True)))
-    bot.send_message_segments(event.conv, segments)
+    yield from bot.coro_send_message(event.conv, segments)
 
 
 def whoami(bot, event, *args):
@@ -329,13 +330,13 @@ def whoami(bot, event, *args):
     else:
         fullname = event.user.full_name
 
-    bot.send_message_parsed(event.conv, _("<b><pre>{}</pre></b>, chat_id = <i>{}</i>").format(fullname, event.user.id_.chat_id))
+    yield from bot.coro_send_message(event.conv, _("<b><pre>{}</pre></b>, chat_id = <i>{}</i>").format(fullname, event.user.id_.chat_id))
 
 
 def whereami(bot, event, *args):
     """get current conversation id"""
 
-    bot.send_message_parsed(
+    yield from bot.coro_send_message(
       event.conv,
       _("You are at <b><pre>{}</pre></b>, conv_id = <i><pre>{}</pre></i>").format(
         bot.conversations.get_name(event.conv),
