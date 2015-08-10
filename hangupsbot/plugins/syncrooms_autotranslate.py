@@ -51,7 +51,7 @@ def roomlanguage(bot, event, *args):
 
     if not language:
         try:
-            bot.send_message_parsed(
+            yield from bot.coro_send_message(
                 event.conv,
                 _('<i>syncroom "{}" language is {}</i>').format(
                     bot.conversations.get_name(event.conv),
@@ -64,7 +64,7 @@ def roomlanguage(bot, event, *args):
         text_language = language_map[iso_language]
         if language.lower() in text_language.lower() or language == iso_language.upper():
             bot.conversation_memory_set(event.conv_id, 'syncroom_language', iso_language)
-            bot.send_message_parsed(
+            yield from bot.coro_send_message(
                 event.conv,
                 _('<i>syncroom "{}" language set to {}</i>').format(
                     bot.conversations.get_name(event.conv),
