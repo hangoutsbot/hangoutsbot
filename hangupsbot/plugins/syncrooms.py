@@ -1,4 +1,4 @@
-import aiohttp, asyncio, io, logging, os, re, time
+import aiohttp, asyncio, io, logging, os, time
 
 import hangups
 
@@ -149,7 +149,6 @@ def _handle_incoming_message(bot, event, command):
             html_identity = '<b><a href="{}">{}</a></b><b>:</b> '.format(link, fullname)
 
             source_message = ""
-            URL_RE = re.compile(r'https?://\S+')
             for segment in event.conv_event.segments:
                 source_message += segment.text
 
@@ -191,7 +190,6 @@ def _handle_incoming_message(bot, event, command):
                             yield from bot.coro_send_message( _conv_id,
                                                               html_identity + html_message + " " + link,
                                                               context=_context)
-
 
             _registers.last_user_id = event.user_id.chat_id
             _registers.last_time_id = time.time()
