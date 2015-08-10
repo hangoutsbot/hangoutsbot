@@ -33,7 +33,7 @@ def meme(bot, event, *args):
     """Searches for a meme related to <something>;
     grabs a random meme when none provided"""
     if _externals["running"]:
-        bot.send_html_to_conversation(event.conv_id, "<i>busy, give me a moment...</i>")
+        yield from bot.coro_send_message(event.conv_id, "<i>busy, give me a moment...</i>")
         return
 
     _externals["running"] = True
@@ -63,9 +63,9 @@ def meme(bot, event, *args):
             bot.send_message_segments(event.conv.id_, legacy_segments, image_id=photo_id)
 
         else:
-            bot.send_html_to_conversation(event.conv_id, "<i>couldn't find a nice picture :( try again</i>")
+            yield from bot.coro_send_message(event.conv_id, "<i>couldn't find a nice picture :( try again</i>")
     except Exception as e:
-        bot.send_html_to_conversation(event.conv_id, "<i>couldn't find a suitable meme! try again</i>")
+        yield from bot.coro_send_message(event.conv_id, "<i>couldn't find a suitable meme! try again</i>")
         print("{}".format(e))
     finally:
         _externals["running"] = False

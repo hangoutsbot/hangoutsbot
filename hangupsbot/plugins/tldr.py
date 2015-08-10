@@ -22,7 +22,7 @@ def tldr(bot, event, *args):
     if not bot.memory.exists(['tldr', event.conv_id]) or "clear" in tldr:
         bot.memory.set_by_path(['tldr', event.conv_id], {})
         if "clear" in tldr:
-            bot.send_html_to_conversation(event.conv_id, "TL;DR cleared")
+            yield from bot.coro_send_message(event.conv_id, "TL;DR cleared")
             bot.memory.save()
             return
 
@@ -31,16 +31,16 @@ def tldr(bot, event, *args):
     if tldr: # Add message to list
         chat_tldr[time.time()] = tldr
         bot.memory.set_by_path(['tldr', event.conv_id], chat_tldr)
-        bot.send_html_to_conversation(event.conv_id, "Added '{}' to TL;DR. Now at {} entries".format(tldr, len(chat_tldr)))
+        yield from bot.coro_send_message(event.conv_id, "Added '{}' to TL;DR. Now at {} entries".format(tldr, len(chat_tldr)))
     else: # Display all messages
         if len(chat_tldr) > 0:
             html = "<b>TL;DR ({} entries):</b><br />".format(len(chat_tldr))
             for timestamp in sorted(chat_tldr):
                 html += "* {} <b>{} ago</b><br />".format(chat_tldr[timestamp], _time_ago(float(timestamp)))
-            bot.send_html_to_conversation(event.conv_id, html)
+            yield from bot.coro_send_message(event.conv_id, html)
 
         else:
-            bot.send_html_to_conversation(event.conv_id, "Nothing in TL;DR")
+            yield from bot.coro_send_message(event.conv_id, "Nothing in TL;DR")
 
     bot.memory.save()
 

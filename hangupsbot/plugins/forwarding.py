@@ -26,7 +26,7 @@ def _handle_forwarding(bot, event, command):
 
             # Append attachments (G+ photos) to forwarded message
             if not event.conv_event.attachments:
-                bot.send_html_to_conversation(_conv_id, html)
+                yield from bot.coro_send_message(_conv_id, html)
 
             for link in event.conv_event.attachments:
                 # Attempt to upload the photo first
@@ -42,6 +42,6 @@ def _handle_forwarding(bot, event, command):
                 except AttributeError:
                     html += link + "<br />"
 
-                bot.send_html_to_conversation(_conv_id, html)
+                yield from bot.coro_send_message(_conv_id, html)
                 if image_id:
                     bot.send_message_segments(_conv_id, None, image_id=image_id)
