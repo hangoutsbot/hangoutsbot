@@ -153,6 +153,11 @@ def convleave(bot, event, *args):
             if not "quietly" in posix_args:
                 bot.send_message_parsed(convid, _('I\'ll be back!'))
             yield from bot._conv_list.leave_conversation(convid)
-            bot.conversations.remove(convid)
+
+            if convid not in bot._conv_list._conv_dict:
+                bot.conversations.remove(convid)
+            else:
+                logging.warning("CONVLEAVE: failed to leave {} {}".format(convid, convdata["title"]))
+
         else:
             logging.warning("CONVLEAVE: cannot leave {} {} {}".format(convdata["type"], convid, convdata["title"]))
