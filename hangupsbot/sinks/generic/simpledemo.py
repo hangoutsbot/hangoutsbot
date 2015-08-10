@@ -55,7 +55,8 @@ class webhookReceiver(BaseHTTPRequestHandler):
         segments = simple_parse_to_segments(html)
         print("{} sending segments: {}".format(sinkname, len(segments)))
 
-        webhookReceiver._bot.send_message_segments(conversation_id, segments, context=None, image_id=image_id)
+        yield from self._bot.coro_send_message(conversation_id, segments, context=None, image_id=image_id)
+
 
     def do_POST(self):
         logging.warning("[DEPRECATED] simpledemo.webhookReceiver, use sinks.generic.SimpleMessagePoster")

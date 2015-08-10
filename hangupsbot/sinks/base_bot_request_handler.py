@@ -112,7 +112,7 @@ class BaseBotRequestHandler(BaseHTTPRequestHandler):
         segments = simple_parse_to_segments(html)
         print("{}: sending segments: {}".format(self.sinkname, len(segments)))
 
-        self._bot.send_message_segments(conversation_id, segments, context=None, image_id=image_id)
+        yield from self._bot.coro_send_message(conversation_id, segments, context=None, image_id=image_id)
 
 
     def log_error(self, format_string, *args):
