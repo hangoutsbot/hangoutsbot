@@ -8,4 +8,4 @@ def geticon(bot, event, *args):
     except Exception as e:
         print("geticon() {} {} {}".format(event.user_id.chat_id, e, response))
 
-    bot.send_html_to_conversation(event.conv_id, photo_url)
+    yield from bot.coro_send_message(event.conv_id, photo_url)

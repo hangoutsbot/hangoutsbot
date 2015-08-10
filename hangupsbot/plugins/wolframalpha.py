@@ -50,4 +50,4 @@ def ask(bot, event, *args):
     if not has_content:
         html = _("<i>Wolfram Alpha did not return any useful data</i>")
 
-    bot.send_html_to_conversation(event.conv, html)
+    yield from bot.coro_send_message(event.conv, html)

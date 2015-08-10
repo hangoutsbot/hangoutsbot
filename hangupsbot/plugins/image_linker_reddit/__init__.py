@@ -30,7 +30,7 @@ def redditmemeword(bot, event, *args):
     Full list at http://goo.gl/ORmisN"""
     if len(args) == 1:
         image_link = _get_a_link(args[0])
-    bot.send_html_to_conversation(event.conv_id, "this one? {}".format(image_link))
+    yield from bot.coro_send_message(event.conv_id, "this one? {}".format(image_link))
 
 
 def _scan_for_triggers(bot, event, command):

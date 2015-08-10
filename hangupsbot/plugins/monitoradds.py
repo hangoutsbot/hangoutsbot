@@ -56,7 +56,7 @@ def _watch_new_adds(bot, event, command):
                  "<b>{1}</b>: Please leave this hangout and ask a moderator to add you. "
                  "Thank you for your understanding.").format(event.user.full_name, names)
 
-        bot.send_html_to_conversation(event.conv, html)
+        yield from bot.coro_send_message(event.conv, html)
 
 def addmod(bot, event, *args):
     """add user id(s) to the whitelist of who can add to a hangout"""
@@ -67,12 +67,12 @@ def addmod(bot, event, *args):
         bot.config.set_by_path(["mods"], mod_ids)
         bot.config.save()
         html_message = _("<i>Moderators updated: {} added</i>")
-        bot.send_message_parsed(event.conv, html_message.format(args[0]))
+        yield from bot.coro_send_message(event.conv, html_message.format(args[0]))
     else:
         bot.config.set_by_path(["mods"], mod_ids)
         bot.config.save()
         html_message = _("<i>Moderators updated: {} added</i>")
-        bot.send_message_parsed(event.conv, html_message.format(args[0]))
+        yield from bot.coro_send_message(event.conv, html_message.format(args[0]))
 
 def delmod(bot, event, *args):
     """remove user id(s) from the whitelist of who can add to a hangout"""
@@ -88,4 +88,4 @@ def delmod(bot, event, *args):
     bot.config.set_by_path(["mods"], mods_new)
     bot.config.save()
     html_message = _("<i>Moderators updated: {} removed</i>")
-    bot.send_message_parsed(event.conv, html_message.format(args[0]))
+    yield from bot.coro_send_message(event.conv, html_message.format(args[0]))

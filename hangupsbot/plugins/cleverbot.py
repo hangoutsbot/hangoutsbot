@@ -202,4 +202,4 @@ def chat(bot, event, *args):
         if ad.lower() in text.lower():
             return
 
-    bot.send_html_to_conversation(event.conv.id_, text)
+    yield from bot.coro_send_message(event.conv.id_, text)

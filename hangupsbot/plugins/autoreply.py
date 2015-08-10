@@ -35,7 +35,7 @@ def _handle_autoreply(bot, event, command):
                         message = sentences
 
                     logger.info("matched: {}".format(kw))
-                    bot.send_message_parsed(event.conv, message)
+                    yield from bot.coro_send_message(event.conv, message)
                     break
 
 
@@ -87,4 +87,4 @@ def autoreply(bot, event, cmd=None, *args):
         value = bot.config.get_by_path(path)
         html = "<b>Autoreply config:</b> <br /> {}".format(value)
 
-    bot.send_html_to_conversation(event.conv_id, html)
+    yield from bot.coro_send_message(event.conv_id, html)
