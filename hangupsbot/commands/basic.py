@@ -80,13 +80,13 @@ def locale(bot, event, *args):
     else:
         message = _("language code required")
 
-    bot.send_message(event.conv, message)
+    yield from bot.coro_send_message(event.conv, message)
 
 
 @command.register
 def ping(bot, event, *args):
     """reply to a ping"""
-    bot.send_message(event.conv, 'pong')
+    yield from bot.coro_send_message(event.conv, 'pong')
 
 
 @command.register
@@ -103,15 +103,17 @@ def optout(bot, event, *args):
     bot.memory.save()
 
     if optout:
-        bot.send_message_parsed(event.conv, _('<i>{}, you <b>opted-out</b> from bot private messages</i>').format(event.user.full_name))
+        message = _('<i>{}, you <b>opted-out</b> from bot private messages</i>').format(event.user.full_name)
     else:
-        bot.send_message_parsed(event.conv, _('<i>{}, you <b>opted-in</b> for bot private messages</i>').format(event.user.full_name))
+        message = _('<i>{}, you <b>opted-in</b> for bot private messages</i>').format(event.user.full_name)
+
+    yield from bot.coro_send_message(event.conv, message)
 
 
 @command.register
 def version(bot, event, *args):
     """get the version of the bot"""
-    bot.send_message_parsed(event.conv, _("Bot Version: <b>{}</b>").format(__version__))
+    yield from bot.coro_send_message(event.conv, _("Bot Version: <b>{}</b>").format(__version__))
 
 
 @command.register(admin=True)
@@ -168,7 +170,7 @@ def plugininfo(bot, event, *args):
     else:
         message = "nothing to display"
 
-    bot.send_html_to_conversation(event.conv_id, message)
+    yield from bot.coro_send_message(event.conv_id, message)
 
 
 @command.register(admin=True)
@@ -183,11 +185,11 @@ def resourcememory(bot, event, *args):
 
     message = "memory (resource): {} MB".format(mem)
     logger.info(message)
-    bot.send_message_parsed(event.conv,  "<b>" + message + "</b>")
+    yield from bot.coro_send_message(event.conv,  "<b>" + message + "</b>")
 
 
 @command.register_unknown
 def unknown_command(bot, event, *args):
     """handle unknown commands"""
-    bot.send_message(event.conv,
-                     _('{}: unknown command').format(event.user.full_name))
+    yield from bot.coro_send_message( event.conv,
+                                      _('{}: unknown command').format(event.user.full_name) )
