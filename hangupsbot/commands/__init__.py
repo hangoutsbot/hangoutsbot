@@ -176,7 +176,7 @@ class CommandDispatcher(object):
 
         except Exception as e:
             logger.exception("RUN: {}".format(func.__name__))
-            self.bot.send_message_parsed(
+            yield from self.bot.coro_send_message(
                 event.conv,
                 "<b><pre>{0}</pre></b> <pre>{1}</pre>: <em><pre>{2}</pre></em>".format(
                     func.__name__, type(e).__name__, str(e)) )

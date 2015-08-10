@@ -26,17 +26,17 @@ def convfilter(bot, event, *args):
     posix_args = get_posix_args(args)
 
     if len(posix_args) > 1:
-        bot.send_message_parsed(event.conv_id,
+        yield from bot.coro_send_message(event.conv_id,
             _("<em>1 parameter required, {} supplied - enclose parameter in double-quotes</em>").format(len(posix_args)))
     elif len(posix_args) <= 0:
-        bot.send_message_parsed(event.conv_id,
+        yield from bot.coro_send_message(event.conv_id,
             _("<em>supply 1 parameter</em>"))
     else:
         lines = []
         for convid, convdata in bot.conversations.get(filter=posix_args[0]).items():
             lines.append("`{}` <b>{}</b> ({})".format(convid, convdata["title"], len(convdata["participants"])))
         lines.append(_('<b>Total: {}</b>').format(len(lines)))
-        bot.send_message_parsed(event.conv_id, '<br />'.join(lines))
+        yield from bot.coro_send_message(event.conv_id, '<br />'.join(lines))
 
 
 def convecho(bot, event, *args):
@@ -71,7 +71,7 @@ def convecho(bot, event, *args):
         convlist = bot.conversations.get(filter=event.conv_id)
 
     for convid, convdata in convlist.items():
-        bot.send_message_parsed(convid, text)
+        yield from bot.coro_send_message(convid, text)
 
 
 def convrename(bot, event, *args):
@@ -127,7 +127,7 @@ def convusers(bot, event, *args):
             chunks.append('<br />'.join(lines))
         text = '<br /><br />'.join(chunks)
 
-    bot.send_message_parsed(event.conv_id, text)
+    yield from bot.coro_send_message(event.conv_id, text)
 
 
 def convleave(bot, event, *args):
@@ -137,21 +137,21 @@ def convleave(bot, event, *args):
     if(len(posix_args) >= 1):
         if not posix_args[0]:
             """block leaving ALL conversations"""
-            bot.send_message_parsed(event.conv_id,
+            yield from bot.coro_send_message(event.conv_id,
                 _("<em>cannot leave ALL conversations</em>"))
             return
         else:
             convlist = bot.conversations.get(filter=posix_args[0])
     else:
         """general error"""
-        bot.send_message_parsed(event.conv_id,
+        yield from bot.coro_send_message(event.conv_id,
             _("<em>required parameters: convfilter</em>"))
         return
 
     for convid, convdata in convlist.items():
         if convdata["type"] == "GROUP":
             if not "quietly" in posix_args:
-                bot.send_message_parsed(convid, _('I\'ll be back!'))
+                yield from bot.coro_send_message(convid, _('I\'ll be back!'))
             yield from bot._conv_list.leave_conversation(convid)
 
             if convid not in bot._conv_list._conv_dict:

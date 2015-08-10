@@ -20,7 +20,7 @@ def tagset(bot, event, *args):
             message = _("<b><pre>{}</pre></b> unchanged".format(id))
     else:
         message = _("<b>supply type, id, tag</b>")
-    bot.send_message_parsed(event.conv_id, message)
+    yield from bot.coro_send_message(event.conv_id, message)
 
 
 @command.register(admin=True)
@@ -34,7 +34,7 @@ def tagdel(bot, event, *args):
             message = _("<b><pre>{}</pre></b> unchanged".format(id))
     else:
         message = _("<b>supply type, id, tag</b>")
-    bot.send_message_parsed(event.conv_id, message)
+    yield from bot.coro_send_message(event.conv_id, message)
 
 
 @command.register(admin=True)
@@ -46,7 +46,7 @@ def tagspurge(bot, event, *args):
         message = _("entries removed: <b><pre>{}</pre></b>".format(entries_removed))
     else:
         message = _("<b>supply type, id</b>")
-    bot.send_message_parsed(event.conv_id, message)
+    yield from bot.coro_send_message(event.conv_id, message)
 
 
 @command.register(admin=True)
@@ -114,7 +114,7 @@ def tagscommand(bot, event, *args):
     else:
         message = _("<b>supply command name</b>")
 
-    bot.send_message_parsed(event.conv_id, message)
+    yield from bot.coro_send_message(event.conv_id, message)
 
 
 @command.register(admin=True)
@@ -137,7 +137,7 @@ def tagindexdump(bot, event, *args):
     if len(chunks) == 0:
         chunks = [_("<b>no entries to list</b>")]
 
-    bot.send_message_parsed(event.conv_id, "<br /><br />".join(chunks))
+    yield from bot.coro_send_message(event.conv_id, "<br /><br />".join(chunks))
 
 
 @command.register(admin=True)
@@ -150,14 +150,14 @@ def tagsuser(bot, event, *args):
         conv_id = args[1]
         chat_id = args[0]
     else:
-        bot.send_message_parsed(event.conv_id, _("<b>supply chat_id, optional conv_id</b>"))
+        yield from bot.coro_send_message(event.conv_id, _("<b>supply chat_id, optional conv_id</b>"))
         return
 
     active_user_tags = bot.tags.useractive(chat_id, conv_id)
     if not active_user_tags:
         active_user_tags = [_("<em>no tags returned</em>")]
 
-    bot.send_message_parsed(event.conv_id, "<b><pre>{}</pre></b>@<b><pre>{}</pre></b>: {}".format(
+    yield from bot.coro_send_message(event.conv_id, "<b><pre>{}</pre></b>@<b><pre>{}</pre></b>: {}".format(
         chat_id, conv_id, ", ".join(active_user_tags)))
 
 
@@ -171,7 +171,7 @@ def tagsuserlist(bot, event, *args):
         conv_id = args[0]
         filter_tags = args[1:]
     else:
-        bot.send_message_parsed(event.conv_id, _("<b>supply conv_id, optional tag list</b>"))
+        yield from bot.coro_send_message(event.conv_id, _("<b>supply conv_id, optional tag list</b>"))
         return
 
     users_to_tags = bot.tags.userlist(conv_id, filter_tags)
@@ -185,4 +185,4 @@ def tagsuserlist(bot, event, *args):
     if len(lines) == 0:
         lines = [_("<b>no users found</b>")]
 
-    bot.send_message_parsed(event.conv_id, "<br />".join(lines))
+    yield from bot.coro_send_message(event.conv_id, "<br />".join(lines))
