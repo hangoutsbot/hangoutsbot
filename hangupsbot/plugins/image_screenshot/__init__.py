@@ -52,11 +52,11 @@ def seturl(bot, event, *args):
     if url is None:
         bot.conversation_memory_set(event.conv_id, 'url', ''.join(args))
         html = "<i><b>{}</b> updated screenshot URL".format(event.user.full_name)
-        bot.send_html_to_conversation(event.conv, html)
+        yield from bot.coro_send_message(event.conv, html)
     else:
         html = "<i><b>{}</b> URL already exists for this conversation!<br /><br />".format(event.user.full_name)
         html += "<i>Clear it first with /bot clearurl before setting a new one."
-        bot.send_html_to_conversation(event.conv, html)
+        yield from bot.coro_send_message(event.conv, html)
 
 def clearurl(bot, event, *args):
     """clear url for current converation for the screenshot command. 
@@ -64,17 +64,17 @@ def clearurl(bot, event, *args):
     url = bot.conversation_memory_get(event.conv_id, 'url')
     if url is None:
         html = "<i><b>{}</b> nothing to clear for this conversation".format(event.user.full_name)
-        bot.send_html_to_conversation(event.conv, html)
+        yield from bot.coro_send_message(event.conv, html)
     else:
         bot.conversation_memory_set(event.conv_id, 'url', None)
         html = "<i><b>{}</b> URL cleared for this conversation!<br />".format(event.user.full_name)
-        bot.send_html_to_conversation(event.conv, html)
+        yield from bot.coro_send_message(event.conv, html)
 
 def screenshot(bot, event, *args):
     """get a screenshot of a user provided URL or the default URL of the hangout. 
     """
     if _externals["running"]:
-        bot.send_html_to_conversation(event.conv_id, "<i>processing another request, try again shortly</i>")
+        yield from bot.coro_send_message(event.conv_id, "<i>processing another request, try again shortly</i>")
         return
 
 
@@ -84,7 +84,7 @@ def screenshot(bot, event, *args):
         url = bot.conversation_memory_get(event.conv_id, 'url')
     if url is None:
         html = "<i><b>{}</b> No URL has been set for screenshots and none was provided manually.".format(event.user.full_name)
-        bot.send_html_to_conversation(event.conv, html)
+        yield from bot.coro_send_message(event.conv, html)
     else:
         _externals["running"] = True
         
@@ -97,14 +97,14 @@ def screenshot(bot, event, *args):
         try:
             browser = webdriver.PhantomJS(desired_capabilities=dcap,service_log_path=os.path.devnull)
         except selenium.common.exceptions.WebDriverException as e:
-            bot.send_html_to_conversation(event.conv, "<i>phantomjs could not be started - is it installed?</i>".format(e))
+            yield from bot.coro_send_message(event.conv, "<i>phantomjs could not be started - is it installed?</i>".format(e))
             return
         
         try:
             loop = asyncio.get_event_loop()
             image_data = yield from _screencap(browser, url, filename)
         except Exception as e:
-            bot.send_html_to_conversation(event.conv_id, "<i>error getting screenshot</i>")
+            yield from bot.coro_send_message(event.conv_id, "<i>error getting screenshot</i>")
             print("{}".format(e))
             return
             
@@ -112,7 +112,7 @@ def screenshot(bot, event, *args):
             image_id = yield from bot._client.upload_image(image_data, filename=filename)
             yield from bot._client.sendchatmessage(event.conv.id_, None, image_id=image_id)
         except Exception as e:
-            bot.send_html_to_conversation(event.conv_id, "<i>error uploading screenshot</i>")
+            yield from bot.coro_send_message(event.conv_id, "<i>error uploading screenshot</i>")
             print("{}".format(e))
         finally:
             _externals["running"] = False

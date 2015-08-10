@@ -64,7 +64,7 @@ def createconversation(bot, event, *args):
 
     response = yield from bot._client.createconversation(user_ids, force_group)
     new_conversation_id = response['conversation']['id']['id']
-    bot.send_html_to_conversation(new_conversation_id, "<i>conversation created</i>")
+    yield from bot.coro_send_message(new_conversation_id, "<i>conversation created</i>")
 
 
 def refresh(bot, event, *args):
@@ -80,9 +80,9 @@ def refresh(bot, event, *args):
         initiator_1on1 = yield from bot.get_1to1(event.user.id_.chat_id)
         if initiator_1on1:
             _externals["authorisation"] = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(8))
-            bot.send_html_to_conversation(initiator_1on1, "<i>are you sure? execute the command again and append this key: {}</i>".format(_externals["authorisation"]))
+            yield from bot.coro_send_message(initiator_1on1, "<i>are you sure? execute the command again and append this key: {}</i>".format(_externals["authorisation"]))
         else:
-            bot.send_html_to_conversation(event.conv_id, "<i>you must have a 1on1 with the bot first</i>")
+            yield from bot.coro_send_message(event.conv_id, "<i>you must have a 1on1 with the bot first</i>")
     else:
         parameters.remove(_externals["authorisation"])
         _externals["authorisation"] = False
@@ -144,7 +144,7 @@ def refresh(bot, event, *args):
             response = yield from bot._client.createconversation(list_add)
 
             new_conversation_id = response['conversation']['id']['id']
-            bot.send_html_to_conversation(new_conversation_id, _("<i>group refreshed</i><br />"))
-            bot.send_html_to_conversation(event.conv_id, _("<b>group obsoleted</b>"))
+            yield from bot.coro_send_message(new_conversation_id, _("<i>group refreshed</i><br />"))
+            yield from bot.coro_send_message(event.conv_id, _("<b>group obsoleted</b>"))
             if not quietly:
-                bot.send_html_to_conversation(target_conv, _("<b>group obsoleted</b>"))
+                yield from bot.coro_send_message(target_conv, _("<b>group obsoleted</b>"))
