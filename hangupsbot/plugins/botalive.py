@@ -6,7 +6,6 @@ import plugins
 
 import threadmanager
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -116,10 +115,11 @@ class watermark_updater:
             self._critical_errors = self._critical_errors + 1
 
             if self._critical_errors > max(10, len(self.queue) * 2):
-                logger.error("critical error threshold reached, exiting thread")
-                exit()
-
-            self.add(self._current_convid)
-            time.sleep(1)
+                logger.error("critical error threshold reached, clearing queue")
+                self.queue = []
+            else:
+                logger.exception("WATERMARK FAILED FOR {}".format(self._current_convid))
+                self.add(self._current_convid)
+                time.sleep(1)
 
         self.update_next_conversation()
