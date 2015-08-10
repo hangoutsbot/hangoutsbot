@@ -710,7 +710,8 @@ class HangupsBot(object):
 
     @asyncio.coroutine
     def coro_send_message(self, conversation, message, context=None, image_id=None):
-        if not message:
+        if not message and not image_id:
+            # at least a message OR an image_id must be supplied
             return
 
         # get the conversation id
@@ -724,7 +725,9 @@ class HangupsBot(object):
 
         # parse message strings to segments
 
-        if isinstance(message, str):
+        if message is None:
+            segments = []
+        elif isinstance(message, str):
             segments = simple_parse_to_segments(message)
         elif isinstance(message, list):
             segments = message
