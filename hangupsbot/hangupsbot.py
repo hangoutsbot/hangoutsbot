@@ -306,7 +306,7 @@ class HangupsBot(object):
                                     message=segments,
                                     context=context,
                                     image_id=image_id )
-        ).add_done_callback(self._on_message_sent)
+        ).add_done_callback(lambda future: future.result())
 
     def list_conversations(self):
         """List all active conversations"""
@@ -549,13 +549,6 @@ class HangupsBot(object):
 
     def _messagecontext_legacy(self):
         return self.messagecontext("unknown", 50, ["legacy"])
-
-    def _on_message_sent(self, future):
-        """Handle showing an error if a message fails to send"""
-        try:
-            future.result()
-        except hangups.NetworkError:
-            logging.exception("FAILED TO SEND MESSAGE")
 
     @asyncio.coroutine
     def _on_connect(self, initial_data):
