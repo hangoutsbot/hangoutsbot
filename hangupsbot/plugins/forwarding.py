@@ -1,8 +1,11 @@
-import aiohttp, asyncio, os, io
+import aiohttp, asyncio, logging, os, io
 
 import hangups
 
 import plugins
+
+
+logger = logging.getLogger(__name__)
 
 
 def _initialise():
@@ -18,18 +21,21 @@ def _handle_forwarding(bot, event, command):
 
     forward_to_list = bot.get_config_suboption(event.conv_id, 'forward_to')
     if forward_to_list:
-        print(_("FORWARDING: {}").format(forward_to_list))
-        for _conv_id in forward_to_list:
-            html = "<b><a href='https://plus.google.com/u/0/{}/about'>{}</a></b>: ".format(event.user_id.chat_id, event.user.full_name)
-            for segment in event.conv_event.segments:
-                html += segment.text
+        logger.debug("{}".format(forward_to_list))
 
-            # Append attachments (G+ photos) to forwarded message
+        for _conv_id in forward_to_list:
+            html_identity = "<b><a href='https://plus.google.com/u/0/{}/about'>{}</a></b><b>:</b> ".format(event.user_id.chat_id, event.user.full_name)
+
+            html_message = ""
+            for segment in event.conv_event.segments:
+                html_message += segment.text
+
             if not event.conv_event.attachments:
-                yield from bot.coro_send_message(_conv_id, html)
+                yield from bot.coro_send_message( _conv_id, 
+                                                  html_identity + html_message )
 
             for link in event.conv_event.attachments:
-                # Attempt to upload the photo first
+
                 filename = os.path.basename(link)
                 r = yield from aiohttp.request('get', link)
                 raw = yield from r.read()
@@ -38,10 +44,12 @@ def _handle_forwarding(bot, event, command):
 
                 try:
                     image_id = yield from bot._client.upload_image(image_data, filename=filename)
-                    html += "<br /><i>Incoming image...</i><br />"
-                except AttributeError:
-                    html += link + "<br />"
+                    if not html_message:
+                        html_message = "(sent an image)"
+                    yield from bot.coro_send_message( _conv_id,
+                                                      html_identity + html_message,
+                                                      image_id=image_id )
 
-                yield from bot.coro_send_message(_conv_id, html)
-                if image_id:
-                    bot.send_message_segments(_conv_id, None, image_id=image_id)
+                except AttributeError:
+                    yield from bot.coro_send_message( _conv_id,
+                                                      html_identity + html_message + " " + link )
