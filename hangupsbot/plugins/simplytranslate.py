@@ -33,6 +33,6 @@ def _translate(bot, event, text, iso_language, text_language):
     print(_('TRANSLATE: "{}" to {}').format(text, iso_language))
     try:
         translated = gs.translate(text, iso_language)
-        bot.send_message_parsed(event.conv, "<i>" + text_language + "</i> : " + translated)
+        yield from bot.coro_send_message(event.conv, "<i>" + text_language + "</i> : " + translated)
     except urllib.error.HTTPError as e:
-        bot.send_message_parsed(event.conv, "Translation server error: <i>{}</i>".format(str(e)))
+        yield from bot.coro_send_message(event.conv, "Translation server error: <i>{}</i>".format(str(e)))

@@ -26,7 +26,7 @@ def wiki(bot, event, *args):
         exception_text = str(e).strip().replace("\n", "<br />")
         html_text = "<i>{}</i>".format(exception_text)
 
-    bot.send_message_parsed(event.conv, html_text)
+    yield from bot.coro_send_message(event.conv, html_text)
 
 
 def _initialise(bot):

@@ -115,12 +115,12 @@ def prepare(bot, event, *args):
 
     if len(draw_lists[global_draw_name]["box"]) > max_items:
         del draw_lists[global_draw_name]
-        bot.send_message_parsed(
+        yield from bot.coro_send_message(
             event.conv,
             _("Wow! Too many items to draw in <b>{}</b> lottery. Try {} items or less...").format(listname, max_items))
     elif len(draw_lists[global_draw_name]["box"]) > 0:
         shuffle(draw_lists[global_draw_name]["box"])
-        bot.send_message_parsed(
+        yield from bot.coro_send_message(
             event.conv,
             _("The <b>{}</b> lottery is ready: {} items loaded and shuffled into the box.").format(listname, len(draw_lists[global_draw_name]["box"])))
     else:
@@ -171,7 +171,7 @@ def perform_drawing(bot, event, *args):
             if len(draw_lists[global_draw_name]["box"]) > 0:
                 if event.user.id_.chat_id in draw_lists[global_draw_name]["users"]:
                     # user already drawn something from the box
-                    bot.send_message_parsed(event.conv,
+                    yield from bot.coro_send_message(event.conv,
                         _("<b>{}</b>, you have already drawn <b>{}</b> from the <b>{}</b> box").format(
                             event.user.full_name,
                             draw_lists[global_draw_name]["users"][event.user.id_.chat_id],
@@ -185,7 +185,7 @@ def perform_drawing(bot, event, *args):
                     if len(draw_lists[global_draw_name]["box"]) == 0:
                         text_drawn = text_drawn + _("...AAAAAND its all gone! The <b>{}</b> lottery is over folks.").format(word)
 
-                    bot.send_message_parsed(event.conv, text_drawn)
+                    yield from bot.coro_send_message(event.conv, text_drawn)
 
                     draw_lists[global_draw_name]["users"][event.user.id_.chat_id] = _thing
             else:
@@ -194,6 +194,6 @@ def perform_drawing(bot, event, *args):
                 if event.user.id_.chat_id in draw_lists[global_draw_name]["users"]:
                     text_finished = _("You drew a {} previously.").format(draw_lists[global_draw_name]["users"][event.user.id_.chat_id]);
 
-                bot.send_message_parsed(event.conv, text_finished)
+                yield from bot.coro_send_message(event.conv, text_finished)
 
     _save_lottery_state(bot, draw_lists) # persist lottery drawings
