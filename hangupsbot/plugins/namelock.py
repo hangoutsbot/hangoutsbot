@@ -68,13 +68,14 @@ def topic(bot, event, *args):
     bot.memory.save()
 
     if(topic == ''):
+        message = _("Removing topic")
         logger.info("topic cleared from {}".format(event.conv_id))
-        bot.send_message(event.conv, _("Removing topic"))
+
     else:
+        message = _("Setting topic to '{}'").format(topic)
         logger.info("topic for {} set to: {}".format(event.conv_id, topic))
-        bot.send_message(
-            event.conv,
-            _("Setting topic to '{}'").format(topic))
+
+    yield from bot.coro_send_message(event.conv, message)
 
     """Rename Hangout"""
     yield from bot._client.setchatname(event.conv_id, topic)
