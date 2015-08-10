@@ -54,4 +54,4 @@ def _watch_image_link(bot, event, command):
 
         image_id = yield from bot._client.upload_image(image_data, filename=filename)
 
-        bot.send_message_segments(event.conv.id_, None, image_id=image_id)
+        yield from bot.coro_send_message(event.conv.id_, None, image_id=image_id)
