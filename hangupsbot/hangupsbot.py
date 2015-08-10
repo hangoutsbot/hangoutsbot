@@ -856,7 +856,7 @@ class HangupsBot(object):
 
         if conv_1on1_initiator:
             """always send actual html as a private message"""
-            self.send_message_parsed(conv_1on1_initiator, html_private)
+            yield from self.coro_send_message(conv_1on1_initiator, html_private)
             if conv_1on1_initiator.id_ != conv_id and responses["standard"]:
                 """send a public message, if supplied"""
                 public_message = responses["standard"]
