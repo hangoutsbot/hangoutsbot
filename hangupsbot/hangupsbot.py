@@ -289,21 +289,36 @@ class HangupsBot(object):
             self._client.disconnect()
         ).add_done_callback(lambda future: future.result())
 
-    def send_message(self, conversation, text, context=None):
-        logging.debug(  '[DEPRECATED]: yield from bot.coro_send_message()'
-                        ' instead of send_message()')
 
-        self.send_message_segments(
-            conversation,
-            [hangups.ChatMessageSegment(text)],
-            context)
+    def send_message(self, conversation, text, context=None, image_id=None):
+        # historical signature: conversation, text, context=None
+        if context is None:
+            context = {}
+        if "parser" not in context and image_id is None and isinstance(text, str):
+            # replicate old behaviour (no html/markdown parsing) if no new features are used
+            context["parser"] = False
 
-    def send_message_parsed(self, conversation, html, context=None):
+        asyncio.async(
+            self.coro_send_message( conversation,
+                                    text,
+                                    context=context,
+                                    image_id=image_id )
+        ).add_done_callback(lambda future: future.result())
+
+
+    def send_message_parsed(self, conversation, html, context=None, image_id=None):
         logging.debug(  '[DEPRECATED]: yield from bot.coro_send_message()'
                         ' instead of send_message_parsed()')
 
         segments = simple_parse_to_segments(html)
-        self.send_message_segments(conversation, segments, context)
+
+        asyncio.async(
+            self.coro_send_message( conversation,
+                                    segments,
+                                    context=context,
+                                    image_id=image_id )
+        ).add_done_callback(lambda future: future.result())
+
 
     def send_message_segments(self, conversation, segments, context=None, image_id=None):
         logging.debug(  '[DEPRECATED]: yield from bot.coro_send_message()'
@@ -311,10 +326,11 @@ class HangupsBot(object):
 
         asyncio.async(
             self.coro_send_message( conversation,
-                                    message=segments,
+                                    segments,
                                     context=context,
                                     image_id=image_id )
         ).add_done_callback(lambda future: future.result())
+
 
     def list_conversations(self):
         """List all active conversations"""
@@ -725,6 +741,15 @@ class HangupsBot(object):
             # at least a message OR an image_id must be supplied
             return
 
+        # get the context
+
+        if not context:
+            context = {}
+
+        if "base" not in context:
+            # default legacy context
+            context["base"] = self._messagecontext_legacy()
+
         # get the conversation id
 
         if isinstance(conversation, (FakeConversation, hangups.conversation.Conversation)):
@@ -738,21 +763,14 @@ class HangupsBot(object):
 
         if message is None:
             segments = []
+        elif "parser" in context and context["parser"] is False:
+            message = [hangups.ChatMessageSegment(text)]
         elif isinstance(message, str):
             segments = simple_parse_to_segments(message)
         elif isinstance(message, list):
             segments = message
         else:
             raise TypeError("unknown message type supplied")
-
-        # get the context
-
-        if not context:
-            context = {}
-
-        if "base" not in context:
-            # default legacy context
-            context["base"] = self._messagecontext_legacy()
 
         # determine OTR status
 
