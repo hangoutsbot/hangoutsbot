@@ -25,7 +25,7 @@ class tracker:
     """
     def __init__(self):
         self.bot = None
-        self.list = []
+        self.list = {}
         self.reset()
 
     def set_bot(self, bot):
@@ -41,7 +41,8 @@ class tracker:
             },
             "handlers": [],
             "shared": [],
-            "metadata": None
+            "metadata": None,
+            "threads": []
         }
 
     def start(self, metadata):
@@ -55,7 +56,8 @@ class tracker:
         return self._current
 
     def end(self):
-        self.list.append(self.current())
+        current_module = self.current()
+        self.list[current_module["metadata"]["module.path"]] = current_module
 
         # sync tagged commands to the command dispatcher
         if self._current["commands"]["tagged"]:
@@ -122,6 +124,9 @@ class tracker:
 
     def register_shared(self, id, objectref, forgiving):
         self._current["shared"].append((id, objectref, forgiving))
+
+    def register_thread(self, thread):
+        self._current["threads"].append(thread)
 
 
 tracking = tracker()
@@ -268,6 +273,9 @@ def load(bot, module_path, module_name=None):
     if module_name is None:
         module_name = module_path.split(".")[-1]
 
+    if module_path in tracking.list:
+        raise RuntimeError("{} already loaded".format(module_path))
+
     tracking.start({ "module": module_name, "module.path": module_path })
 
     try:
@@ -365,3 +373,46 @@ def load(bot, module_path, module_name=None):
 
     tracking.end()
 
+
+def unload(bot, module_path):
+    if module_path in tracking.list:
+        plugin = tracking.list[module_path]
+
+        if len(plugin["threads"]) == 0:
+            all_commands = plugin["commands"]["all"]
+            for command_name in all_commands:
+                if command_name in command.commands:
+                    logger.debug("removing function {}".format(command_name))
+                    del command.commands[command_name]
+                if command_name in command.admin_commands:
+                    logger.debug("deregistering admin command {}".format(command_name))
+                    command.admin_commands.remove(command_name)
+
+            for type in plugin["commands"]["tagged"]:
+                for command_name in plugin["commands"]["tagged"][type]:
+                    if command_name in command.command_tagsets:
+                        logger.debug("deregistering tagged command {}".format(command_name))
+                        del command.command_tagsets[command_name]
+
+            for type in bot._handlers.pluggables:
+                for handler in bot._handlers.pluggables[type]:
+                    if handler[2]["module.path"] == module_path:
+                        logger.debug("removing handler {} {}".format(type, command_name))
+                        bot._handlers.pluggables[type].remove(handler)
+
+            shared = plugin["shared"]
+            for shared_def in shared:
+                id = shared_def[0]
+                if id in bot.shared:
+                    logger.debug("removing shared {}".format(id))
+                    del bot.shared[id]
+
+            del tracking.list[module_path]
+
+            return True
+
+        else:
+            raise RuntimeError("plugin has {} thread(s)".format(len(plugin["threads"])))
+
+    else:
+        raise KeyError("{} not found".format(module_path))

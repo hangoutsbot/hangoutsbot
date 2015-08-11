@@ -600,6 +600,7 @@ class HangupsBot(object):
 
         self.conversations = yield from permamem.initialise_permanent_memory(self)
 
+        plugins.load(self, "commands.plugincontrol")
         plugins.load(self, "commands.basic")
         plugins.load(self, "commands.tagging")
         plugins.load(self, "commands.permamem")

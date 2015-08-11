@@ -117,63 +117,6 @@ def version(bot, event, *args):
 
 
 @command.register(admin=True)
-def plugininfo(bot, event, *args):
-    """dumps plugin information"""
-    text_plugins = []
-
-    for plugin in plugins.tracking.list:
-        lines = []
-        if len(args) == 0 or args[0] in plugin["metadata"]["module"] or args[0] in plugin["metadata"]["module.path"]:
-            lines.append("<b>[ {} ]</b>".format(plugin["metadata"]["module.path"]))
-
-            """admin commands"""
-            if len(plugin["commands"]["admin"]) > 0:
-                lines.append("<b>admin commands:</b> <pre>{}</pre>".format(", ".join(plugin["commands"]["admin"])))
-
-            """user-only commands"""
-            user_only_commands = list(set(plugin["commands"]["user"]) - set(plugin["commands"]["admin"]))
-            if len(user_only_commands) > 0:
-                lines.append("<b>user commands:</b> <pre>{}</pre>".format(", ".join(user_only_commands)))
-
-            """handlers"""
-            if len(plugin["handlers"]) > 0:
-                lines.append("<b>handlers:</b>")
-                lines.append("<br />".join([ "... <b><pre>{}</pre></b> (<pre>{}</pre>, p={})".format(f[0].__name__, f[1], str(f[2])) for f in plugin["handlers"]]))
-
-            """shared"""
-            if len(plugin["shared"]) > 0:
-                lines.append("<b>shared:</b> " + ", ".join([ "<pre>{}</pre>".format(f[1].__name__) for f in plugin["shared"]]))
-
-            """tagged"""
-            if len(plugin["commands"]["tagged"]) > 0:
-                lines.append("<b>tagged via plugin module:</b>")
-                for command_name, type_tags in plugin["commands"]["tagged"].items():
-                    if 'admin' in type_tags:
-                        plugin_tagsets = type_tags['admin']
-                    else:
-                        plugin_tagsets = type_tags['user']
-
-                    matches = []
-                    for tagset in plugin_tagsets:
-                        if isinstance(tagset, frozenset):
-                            matches.append("[ {} ]".format(', '.join(tagset)))
-                        else:
-                            matches.append(tagset)
-
-                    lines.append("... <b><pre>{}</pre></b>: <pre>{}</pre>".format(command_name, ', '.join(matches)))
-
-        if len(lines) > 0:
-            text_plugins.append("<br />".join(lines))
-
-    if len(text_plugins) > 0:
-        message = "<br />".join(text_plugins)
-    else:
-        message = "nothing to display"
-
-    yield from bot.coro_send_message(event.conv_id, message)
-
-
-@command.register(admin=True)
 def resourcememory(bot, event, *args):
     """print basic information about memory usage with resource library"""
     # http://fa.bianp.net/blog/2013/different-ways-to-get-memory-consumption-or-lessons-learned-from-memory_profiler/
