@@ -35,7 +35,7 @@ def tldr(bot, event, *args):
     else: # Display all messages
         if len(chat_tldr) > 0:
             html = "<b>TL;DR ({} entries):</b><br />".format(len(chat_tldr))
-            for timestamp in sorted(chat_tldr):
+            for timestamp in sorted(chat_tldr, key=float):
                 html += "* {} <b>{} ago</b><br />".format(chat_tldr[timestamp], _time_ago(float(timestamp)))
             bot.send_html_to_conversation(event.conv_id, html)
 
