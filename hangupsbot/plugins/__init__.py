@@ -128,8 +128,11 @@ class tracker:
     def register_thread(self, thread):
         self._current["threads"].append(thread)
 
-    def register_aiohttp(self, socket):
-        self._current["aiohttp"].append(socket)
+    def register_aiohttp(self, group):
+        # don't register actual references to the web listeners as they are asyncronously started
+        #   instead, just track their group(name) so we can find them later
+        if group not in self._current["aiohttp"]:
+            self._current["aiohttp"].append(group)
 
 
 tracking = tracker()
@@ -413,7 +416,8 @@ def unload(bot, module_path):
 
             if len(plugin["aiohttp"]) > 0:
                 from sinks import aiohttp_terminate # XXX: needs to be late-imported
-                yield from aiohttp_terminate(module_path)
+                for group in plugin["aiohttp"]:
+                    yield from aiohttp_terminate(group)
 
             del tracking.list[module_path]
 

@@ -47,7 +47,13 @@ def plugininfo(bot, event, *args):
             """aiohttp.web"""
             if len(plugin["aiohttp"]) > 0:
                 lines.append("<b>aiohttp.web:</b>")
-                lines.append('<br />'.join([ '... {}:<b>{}</b>'.format(*name_port) for name_port in plugin["aiohttp"] ]))
+                from sinks import aiohttp_list
+                filtered = aiohttp_list(plugin["aiohttp"])
+                if len(filtered) > 0:
+                    lines.append('<br />'.join([ '... {}'.format(constructors[0].sockets[0].getsockname())
+                                                 for constructors in filtered ]))
+                else:
+                    lines.append('<em>no running aiohttp.web listeners</em>')
 
             """tagged"""
             if len(plugin["commands"]["tagged"]) > 0:

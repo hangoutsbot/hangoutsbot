@@ -162,7 +162,7 @@ def aiohttp_start(bot, name, port, certfile, RequestHandlerClass, group, callbac
                                                                group=group,
                                                                callback=callback ))
 
-    tracking.register_aiohttp((name, port))
+    tracking.register_aiohttp(group)
 
 def aiohttp_started(future, handler, app, group, callback=None):
     server = future.result()
@@ -175,20 +175,30 @@ def aiohttp_started(future, handler, app, group, callback=None):
     if callback:
         callback(constructors)
 
-@asyncio.coroutine
-def aiohttp_terminate(group, item=None):
-    removed = []
+def aiohttp_list(groups):
+    if isinstance(groups, str):
+        groups = [groups]
+
+    filtered = []
     for constructors in aiohttp_servers:
-        if group == constructors[3]:
-            [server, handler, app, group] = constructors
+        if constructors[3] in groups:
+            filtered.append(constructors)
 
-            yield from handler.finish_connections(1.0)
-            server.close()
-            yield from server.wait_closed()
-            yield from app.finish()
+    return filtered
 
-            logger.info("aiohttp: terminating {} {}".format(constructors[3], constructors))
-            removed.append(constructors)
+@asyncio.coroutine
+def aiohttp_terminate(groups):
+    removed = []
+    for constructors in aiohttp_list(groups):
+        [server, handler, app, group] = constructors
+
+        yield from handler.finish_connections(1.0)
+        server.close()
+        yield from server.wait_closed()
+        yield from app.finish()
+
+        logger.info("aiohttp: terminating {} {}".format(constructors[3], constructors))
+        removed.append(constructors)
 
     for constructors in removed:
         aiohttp_servers.remove(constructors)
