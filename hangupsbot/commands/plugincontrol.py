@@ -44,6 +44,11 @@ def plugininfo(bot, event, *args):
             if len(plugin["threads"]) > 0:
                 lines.append("<b>threads:</b> {}".format(len(plugin["threads"])))
 
+            """aiohttp.web"""
+            if len(plugin["aiohttp"]) > 0:
+                lines.append("<b>aiohttp.web:</b>")
+                lines.append('<br />'.join([ '... {}:<b>{}</b>'.format(*name_port) for name_port in plugin["aiohttp"] ]))
+
             """tagged"""
             if len(plugin["commands"]["tagged"]) > 0:
                 lines.append("<b>tagged via plugin module:</b>")
@@ -78,7 +83,7 @@ def pluginunload(bot, event, *args):
     module_path = args[0]
 
     try:
-        plugins.unload(bot, module_path)
+        yield from plugins.unload(bot, module_path)
         message = "<b>{}: unloaded</b>".format(module_path)
 
     except (RuntimeError, KeyError) as e:
@@ -106,7 +111,7 @@ def pluginreload(bot, event, *args):
     module_path = args[0]
 
     try:
-        plugins.unload(bot, module_path)
+        yield from plugins.unload(bot, module_path)
         plugins.load(bot, module_path)
         message = "<b>{}: reloaded</b>".format(module_path)
 

@@ -1,15 +1,20 @@
-import asyncio, logging, os, ssl
+import asyncio, functools, logging, os, ssl
 
+from aiohttp import web
 from threading import Thread
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from utils import class_from_name
 
-from sinks.base_bot_request_handler import BaseBotRequestHandler
+from sinks.base_bot_request_handler import BaseBotRequestHandler, AsyncRequestHandler
 
 import threadmanager
 
+from plugins import tracking
+
 
 logger = logging.getLogger(__name__)
+
+aiohttp_servers = []
 
 
 def start(bot):
@@ -17,7 +22,9 @@ def start(bot):
 
     jsonrpc_sinks = bot.get_config_option('jsonrpc')
     itemNo = -1
+
     threadcount = 0
+    aiohttpcount = 0
 
     if isinstance(jsonrpc_sinks, list):
         for sinkConfig in jsonrpc_sinks:
@@ -61,19 +68,34 @@ def start(bot):
 
             logger.debug("starting sink: {}".format(module))
 
-            threadmanager.start_thread(start_listening, args=(
-                bot,
-                shared_loop,
-                name,
-                port,
-                certfile,
-                handler_class,
-                module_name))
+            if issubclass(handler_class, AsyncRequestHandler):
+                aiohttp_start(
+                    bot,
+                    name,
+                    port,
+                    certfile,
+                    handler_class,
+                    "json-rpc")
 
-            threadcount = threadcount + 1
+                aiohttpcount = aiohttpcount + 1
+
+            else:
+                threadmanager.start_thread(start_listening, args=(
+                    bot,
+                    shared_loop,
+                    name,
+                    port,
+                    certfile,
+                    handler_class,
+                    module_name))
+
+                threadcount = threadcount + 1
 
     if threadcount:
-        logger.info("{} sink(s) from config.jsonrpc".format(threadcount))
+        logger.info("{} threaded listener(s)".format(threadcount))
+
+    if aiohttpcount:
+        logger.info("{} aiohttp web listener(s)".format(aiohttpcount))
 
 
 def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webhookReceiver=BaseHTTPRequestHandler, friendlyName="UNKNOWN"):
@@ -117,3 +139,56 @@ def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webh
 
     except KeyboardInterrupt:
         httpd.socket.close()
+
+
+
+def aiohttp_start(bot, name, port, certfile, RequestHandlerClass, group, callback=None):
+    RequestHandler = RequestHandlerClass(bot)
+
+    app = web.Application()
+
+    handler = app.make_handler()
+    RequestHandler.addroutes(app.router)
+
+    sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+    sslcontext.load_cert_chain(certfile)
+
+    loop = asyncio.get_event_loop()
+    server = loop.create_server(handler, name, port, ssl=sslcontext)
+
+    asyncio.async(server).add_done_callback(functools.partial( aiohttp_started,
+                                                               handler=handler,
+                                                               app=app,
+                                                               group=group,
+                                                               callback=callback ))
+
+    tracking.register_aiohttp((name, port))
+
+def aiohttp_started(future, handler, app, group, callback=None):
+    server = future.result()
+    constructors = (server, handler, app, group)
+
+    aiohttp_servers.append(constructors)
+
+    logger.info("aiohttp: {} on {}".format(group, server.sockets[0].getsockname()))
+
+    if callback:
+        callback(constructors)
+
+@asyncio.coroutine
+def aiohttp_terminate(group, item=None):
+    removed = []
+    for constructors in aiohttp_servers:
+        if group == constructors[3]:
+            [server, handler, app, group] = constructors
+
+            yield from handler.finish_connections(1.0)
+            server.close()
+            yield from server.wait_closed()
+            yield from app.finish()
+
+            logger.info("aiohttp: terminating {} {}".format(constructors[3], constructors))
+            removed.append(constructors)
+
+    for constructors in removed:
+        aiohttp_servers.remove(constructors)

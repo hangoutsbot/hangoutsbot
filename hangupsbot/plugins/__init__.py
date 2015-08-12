@@ -1,11 +1,10 @@
-import os
-import sys
-import logging
-import inspect
+import asyncio, inspect, logging, os, sys
 
 from inspect import getmembers, isfunction
-from commands import command
+
 import handlers
+
+from commands import command
 
 
 logger = logging.getLogger(__name__)
@@ -42,7 +41,8 @@ class tracker:
             "handlers": [],
             "shared": [],
             "metadata": None,
-            "threads": []
+            "threads": [],
+            "aiohttp": []
         }
 
     def start(self, metadata):
@@ -127,6 +127,9 @@ class tracker:
 
     def register_thread(self, thread):
         self._current["threads"].append(thread)
+
+    def register_aiohttp(self, socket):
+        self._current["aiohttp"].append(socket)
 
 
 tracking = tracker()
@@ -374,6 +377,7 @@ def load(bot, module_path, module_name=None):
     tracking.end()
 
 
+@asyncio.coroutine
 def unload(bot, module_path):
     if module_path in tracking.list:
         plugin = tracking.list[module_path]
@@ -397,7 +401,7 @@ def unload(bot, module_path):
             for type in bot._handlers.pluggables:
                 for handler in bot._handlers.pluggables[type]:
                     if handler[2]["module.path"] == module_path:
-                        logger.debug("removing handler {} {}".format(type, command_name))
+                        logger.debug("removing handler {} {}".format(type, handler))
                         bot._handlers.pluggables[type].remove(handler)
 
             shared = plugin["shared"]
@@ -406,6 +410,10 @@ def unload(bot, module_path):
                 if id in bot.shared:
                     logger.debug("removing shared {}".format(id))
                     del bot.shared[id]
+
+            if len(plugin["aiohttp"]) > 0:
+                from sinks import aiohttp_terminate # XXX: needs to be late-imported
+                yield from aiohttp_terminate(module_path)
 
             del tracking.list[module_path]
 

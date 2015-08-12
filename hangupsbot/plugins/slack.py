@@ -11,7 +11,6 @@ config.json will have to be configured as follows:
 
 You can (theoretically) set up as many slack sinks per bot as you like, by extending the list"""
 
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
 
 from html import unescape
@@ -31,12 +30,16 @@ import re
 from urllib.request import urlopen
 import json
 
+from aiohttp import web
+
 import hangups
 
 import plugins
 import threadmanager
 
-from sinks import start_listening
+from sinks import aiohttp_start
+from sinks.base_bot_request_handler import AsyncRequestHandler
+
 
 
 logger = logging.getLogger(__name__)
@@ -69,16 +72,7 @@ def _start_slack_sinks(bot):
                 print("config.slack[{}] missing keyword".format(itemNo), e)
                 continue
 
-            logger.info("started on https://{}:{}/".format(name, port))
-
-            threadmanager.start_thread(start_listening, args=(
-                bot,
-                loop,
-                name,
-                port,
-                certfile,
-                webhookReceiver,
-                "slackSink"))
+            aiohttp_start(bot, name, port, certfile, SlackAsyncListener, group=__name__)
 
     logger.info("_start_slack_sinks(): {} sink thread(s) started".format(itemNo + 1))
 
@@ -94,15 +88,14 @@ def _slack_repeater_cleaner(bot, event, id):
     event._external_source = event_tokens[0].strip() + "@slack"
 
 
-class webhookReceiver(BaseHTTPRequestHandler):
-    _bot = None
+class SlackAsyncListener(AsyncRequestHandler):
+    def process_request(self, path, query_string, content):
+        payload  = parse_qs(content)
 
-    def _handle_incoming(self, path, query_string, payload):
         path = path.split("/")
         conversation_id = path[1]
-        if conversation_id is None:
-            print(_("conversation id must be provided as part of path"))
-            return
+        if not conversation_id:
+            raise ValueError("conversation id must be provided in path")
 
         if "text" in payload:
             try:
@@ -114,7 +107,14 @@ class webhookReceiver(BaseHTTPRequestHandler):
                 if "slackbot" not in str(payload["user_name"][0]):
                     text = self._remap_internal_slack_ids(text)
                     response = "<b>" + str(payload["user_name"][0]) + ":</b> " + unescape(text)
-                    self._scripts_push(conversation_id, response)
+                    response += self._bot.call_shared("reprocessor.attach_reprocessor", _slack_repeater_cleaner)
+
+                    yield from self.send_data( conversation_id, 
+                                               response, 
+                                               context = { 'base': {
+                                                                'tags': ['slack', 'relay'], 
+                                                                'source': 'slack', 
+                                                                'importance': 50 }} )
 
     def _remap_internal_slack_ids(self, text):
         text = self._slack_label_users(text)
@@ -171,42 +171,6 @@ class webhookReceiver(BaseHTTPRequestHandler):
                 print("EXCEPTION in _slack_get_label(): {}".format(e))
 
         return prefix + label
-
-    def _scripts_push(self, conversation_id, message):
-        asyncio.async(
-            webhookReceiver._bot.coro_send_message(
-                conversation_id,
-                message + self._bot.call_shared("reprocessor.attach_reprocessor", _slack_repeater_cleaner),
-                context= {'base': {'tags': ['slack', 'relay'], 'source': 'slack', 'importance': 50}} )
-        ).add_done_callback(lambda future: future.result())
-
-    def do_POST(self):
-        """
-           receives post, handles it
-       """
-        print(_('receiving POST...'))
-        data_string = self.rfile.read(int(self.headers['Content-Length'])).decode('UTF-8')
-        self.send_response(200)
-        message = bytes('OK', 'UTF-8')
-        self.send_header("Content-type", "text")
-        self.send_header("Content-length", str(len(message)))
-        self.end_headers()
-        self.wfile.write(message)
-        print(_('connection closed'))
-
-        # parse requested path + query string
-        _parsed = urlparse(self.path)
-        path = _parsed.path
-        query_string = parse_qs(_parsed.query)
-
-        print(_("incoming path: {}").format(path))
-
-        # parse incoming data
-        payload = parse_qs(data_string)
-
-        print(_("payload {}").format(payload))
-
-        self._handle_incoming(path, query_string, payload)
 
 
 @asyncio.coroutine
