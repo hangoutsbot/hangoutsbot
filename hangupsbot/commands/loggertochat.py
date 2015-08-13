@@ -10,7 +10,7 @@ def _initialise(bot):
 
     rootLogger = logging.getLogger()
     for handler in rootLogger.handlers:
-        if isinstance(handler, ChatMessageLogger):
+        if handler.__class__.__name__ == "ChatMessageLogger":
             logger.info("ChatMessageLogger already attached") 
             return
 
