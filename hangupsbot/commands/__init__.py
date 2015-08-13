@@ -161,13 +161,15 @@ class CommandDispatcher(object):
     @asyncio.coroutine
     def run(self, bot, event, *args, **kwds):
         """Run command"""
-        try:
-            func = self.commands[args[0]]
-        except KeyError:
-            if self.unknown_command:
-                func = self.unknown_command
-            else:
-                raise
+        command_name = args[0]
+        if command_name in self.commands:
+            func = self.commands[command_name]
+        elif command_name.lower() in self.commands:
+            func = self.commands[command_name.lower()]
+        elif self.unknown_command:
+            func = self.unknown_command
+        else:
+            raise KeyError("command {} not found".format(command_name))
 
         args = list(args[1:])
 
