@@ -817,8 +817,8 @@ class HangupsBot(object):
                 yield from _fc.send_message( response[1],
                                              image_id=image_id,
                                              otr_status=otr_status )
-            except hangups.NetworkError:
-                logging.exception("FAILED TO SEND TO {}".format(response[0]))
+            except hangups.NetworkError as e:
+                logging.exception("CORO_SEND_MESSAGE: error sending {}".format(response[0]))
 
 
     @asyncio.coroutine
