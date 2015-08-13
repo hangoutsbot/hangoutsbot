@@ -13,18 +13,22 @@ to be able to run admin commands externally
 
 More info: https://github.com/hangoutsbot/hangoutsbot/wiki/API-Plugin
 """
-import asyncio, json, logging
-
-import hangups
-
-import threadmanager
+import asyncio, json, logging, time, functools
 
 from urllib.parse import urlparse, parse_qs, unquote
 
 from aiohttp import web
 
+import hangups
+
+import plugins
+
+import threadmanager
+
 from sinks import aiohttp_start
 from sinks.base_bot_request_handler import AsyncRequestHandler
+
+from parsers.kludgy_html_parser import segment_to_html
 
 
 logger = logging.getLogger(__name__)
@@ -33,10 +37,27 @@ logger = logging.getLogger(__name__)
 def _initialise(bot):
     _start_api(bot)
 
+reprocessor_queue = {}
 
-def _reprocess_the_event(bot, event, id):
+
+def response_received(bot, event, id, results, original_id):
+    if results:
+        if isinstance(results, dict) and "api.response" in results:
+            output = results["api.response"]
+        else:
+            output = results
+        reprocessor_queue[original_id] = output
+
+
+def handle_as_command(bot, event, id):
     event.from_bot = False
     event._syncroom_no_repeat = True
+
+    if "acknowledge" not in dir(event):
+        event.acknowledge = []
+
+    handle_response = functools.partial(response_received, original_id=id)
+    event.acknowledge.append(bot._handlers.register_reprocessor(handle_response))
 
 
 def _start_api(bot):
@@ -76,10 +97,14 @@ class APIRequestHandler(AsyncRequestHandler):
         results = yield from self.process_request( '', # IGNORED
                                                    '', # IGNORED
                                                    payload )
-        if not results:
-            results = "OK"
+        if results:
+            content_type="text/html"
+            results = results.encode("ascii", "xmlcharrefreplace")
+        else:
+            content_type="text/plain"
+            results = "OK".encode('utf-8')
 
-        return web.Response(body=results.encode('utf-8'))
+        return web.Response(body=results, content_type=content_type)
 
     @asyncio.coroutine
     def process_request(self, path, query_string, content):
@@ -102,12 +127,23 @@ class APIRequestHandler(AsyncRequestHandler):
     @asyncio.coroutine
     def send_actionable_message(self, id, content):
         """reprocessor: allow message to be intepreted as a command"""
-        content = content + self._bot.call_shared("reprocessor.attach_reprocessor", _reprocess_the_event)
+        reprocessor_context = self._bot._handlers.attach_reprocessor( handle_as_command,
+                                                                      return_as_dict=True )
+        content = content + reprocessor_context["fragment"]
+        reprocessor_id = reprocessor_context["id"]
 
         if id in self._bot.conversations.catalog:
             results = yield from self._bot.coro_send_message(id, content)
         else:
             # attempt to send to a user id
             results = yield from self._bot.coro_send_to_user(id, content)
+
+        start_time = time.time()
+        while time.time() - start_time < 3:
+            if reprocessor_id in reprocessor_queue:
+                response = reprocessor_queue[reprocessor_id]
+                del reprocessor_queue[reprocessor_id]
+                return "[" + str(time.time() - start_time) + "] " + response
+            yield from asyncio.sleep(0.1)
 
         return results

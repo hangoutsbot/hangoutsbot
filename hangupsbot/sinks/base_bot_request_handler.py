@@ -146,10 +146,14 @@ class AsyncRequestHandler:
                                                    parse_qs(request.query_string),
                                                    raw_content.decode("utf-8") )
 
-        if not results:
-            results = "OK"
+        if results:
+            content_type="text/html"
+            results = results.encode("ascii", "xmlcharrefreplace")
+        else:
+            content_type="text/plain"
+            results = "OK".encode('utf-8')
 
-        return web.Response(body=results.encode('utf-8'))
+        return web.Response(body=results, content_type=content_type)
 
     @asyncio.coroutine
     def process_request(self, path, query_string, content):
