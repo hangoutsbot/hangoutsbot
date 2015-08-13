@@ -1,4 +1,4 @@
-import asyncio, inspect, logging, os, sys
+import asyncio, importlib, inspect, logging, os, sys
 
 from inspect import getmembers, isfunction
 
@@ -285,7 +285,14 @@ def load(bot, module_path, module_name=None):
     tracking.start({ "module": module_name, "module.path": module_path })
 
     try:
-        exec("import {}".format(module_path))
+        if module_path in sys.modules:
+            importlib.reload(sys.modules[module_path])
+            logger.debug("reloading {}".format(module_path))
+
+        else:
+            importlib.import_module(module_path)
+            logger.debug("importing {}".format(module_path))
+
     except Exception as e:
         logger.exception("EXCEPTION during plugin import: {}".format(module_path))
         return
