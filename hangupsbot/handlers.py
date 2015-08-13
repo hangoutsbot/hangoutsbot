@@ -53,15 +53,24 @@ class EventHandler:
 
         plugins.tracking.register_handler(function, type, priority)
 
-    def attach_reprocessor(self, callable):
+    def register_reprocessor(self, callable):
+        _id = str(uuid.uuid4())
+        self._reprocessors[_id] = callable
+        return _id
+
+    def attach_reprocessor(self, callable, return_as_dict=False):
         """reprocessor: map callable to a special hidden context link that can be added anywhere 
         in a message. when the message is sent and subsequently received by the bot, it will be 
         passed to the callable, which can modify the event object by reference
         """
-        _id = str(uuid.uuid4())
-        self._reprocessors[_id] = callable
+        _id = self.register_reprocessor(callable)
         context_fragment = '<a href="' + self._prefix_reprocessor + _id + '"> </a>'
-        return context_fragment
+        if return_as_dict:
+            return { "id": _id,
+                     "callable": callable,
+                     "fragment": context_fragment }
+        else:
+            return context_fragment
 
     """legacy helpers, pre-2.4"""
 
@@ -87,6 +96,17 @@ class EventHandler:
     """handler core"""
 
     @asyncio.coroutine
+    def run_reprocessor(self, id, event, *args, **kwargs):
+        if id in self._reprocessors:
+            is_coroutine = asyncio.iscoroutinefunction(self._reprocessors[id])
+            logger.info("reprocessor uuid found: {} coroutine={}".format(id, is_coroutine))
+            if is_coroutine:
+                yield from self._reprocessors[id](self.bot, event, id, *args, **kwargs)
+            else:
+                self._reprocessors[id](self.bot, event, id, *args, **kwargs)
+            del self._reprocessors[id]
+
+    @asyncio.coroutine
     def handle_chat_message(self, event):
         """Handle conversation event"""
         if logging.root.level == logging.DEBUG:
@@ -104,14 +124,7 @@ class EventHandler:
                     if segment.link_target:
                         if segment.link_target.startswith(self._prefix_reprocessor):
                             _id = segment.link_target[len(self._prefix_reprocessor):]
-                            if _id in self._reprocessors:
-                                is_coroutine = asyncio.iscoroutinefunction(self._reprocessors[_id])
-                                logger.info("reprocessor uuid found: {} coroutine={}".format(_id, is_coroutine))
-                                if is_coroutine:
-                                    yield from self._reprocessors[_id](self.bot, event, _id)
-                                else:
-                                    self._reprocessors[_id](self.bot, event, _id)
-                                del self._reprocessors[_id]
+                            yield from self.run_reprocessor(_id, event)
 
             """auto opt-in - opted-out users who chat with the bot will be opted-in again"""
             if self.bot.conversations.catalog[event.conv_id]["type"] == "ONE_TO_ONE":
@@ -175,7 +188,11 @@ class EventHandler:
             return
 
         # Run command
-        yield from command.run(self.bot, event, *line_args[1:])
+        results = yield from command.run(self.bot, event, *line_args[1:])
+
+        if "acknowledge" in dir(event):
+            for id in event.acknowledge:
+                yield from self.run_reprocessor(id, event, results)
 
     @asyncio.coroutine
     def handle_chat_membership(self, event):
