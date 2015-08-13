@@ -56,19 +56,25 @@ def broadcast(bot, event, *args):
         parameters = args[1:]
         if subcmd == "info":
             """display broadcast data such as message and target rooms"""
-            conv_info = ["<b>{}</b> ... {}".format(bot.conversations.get_name(convid), convid) for convid in _internal["broadcast"]["conversations"]]
+
+            conv_info = [ "<b><pre>{}</pre></b> ... <pre>{}</pre>".format(bot.conversations.get_name(convid), convid) 
+                          for convid in _internal["broadcast"]["conversations"] ]
+
             if not _internal["broadcast"]["message"]:
                 yield from bot.coro_send_message(event.conv, _("broadcast: no message set"))
                 return
+
             if not conv_info:
                 yield from bot.coro_send_message(event.conv, _("broadcast: no conversations available"))
                 return
+
             yield from bot.coro_send_message(event.conv, _(
                                             "<b>message:</b><br />"
                                             "{}<br />"
                                             "<b>to:</b><br />"
-                                            "<pre>{}</pre>".format(_internal["broadcast"]["message"],
+                                            "{}".format(_internal["broadcast"]["message"],
                                                 "<br />".join(conv_info))))
+
         elif subcmd == "message":
             """set broadcast message"""
             message = ' '.join(parameters)
@@ -77,8 +83,10 @@ def broadcast(bot, event, *args):
                     yield from bot.coro_send_message(event.conv, _("broadcast: message not allowed"))
                     return
                 _internal["broadcast"]["message"] = message
+
             else:
                 yield from bot.coro_send_message(event.conv, _("broadcast: message must be supplied after subcommand"))
+
         elif subcmd == "add":
             """add conversations to a broadcast"""
             if parameters[0] == "groups":
@@ -86,22 +94,27 @@ def broadcast(bot, event, *args):
                 for convid, convdata in bot.conversations.get().items():
                     if(len(convdata["participants"]) > 1):
                         _internal["broadcast"]["conversations"].append(convid)
+
             elif parameters[0] == "ALL":
                 """add EVERYTHING - try not to use this, will message 1-to-1s as well"""
                 for convid, convdata in bot.conversations.get().items():
                     _internal["broadcast"]["conversations"].append(convid)
+
             else:
                 """add by wild card search of title or id"""
                 search = " ".join(parameters)
                 for convid, convdata in bot.conversations.get().items():
                     if search.lower() in convdata["title"].lower() or search in convid:
                         _internal["broadcast"]["conversations"].append(convid)
+
             _internal["broadcast"]["conversations"] = list(set(_internal["broadcast"]["conversations"]))
             yield from bot.coro_send_message(event.conv, _("broadcast: {} conversation(s)".format(len(_internal["broadcast"]["conversations"]))))
+
         elif subcmd == "remove":
             if parameters[0].lower() == "all":
                 """remove all conversations from broadcast"""
                 _internal["broadcast"]["conversations"] = []
+
             else:
                 """remove by wild card search of title or id"""
                 search = " ".join(parameters)
@@ -109,17 +122,21 @@ def broadcast(bot, event, *args):
                 for convid in _internal["broadcast"]["conversations"]:
                     if search.lower() in bot.conversations.get_name(convid).lower() or search in convid:
                         _internal["broadcast"]["conversations"].remove(convid)
-                        removed.append("<b>{}</b> ({})".format(bot.conversations.get_name(conv), convid))
+                        removed.append("<b><pre>{}</pre></b> (<pre>{}</pre>)".format(bot.conversations.get_name(convid), convid))
+
                 if removed:
                     yield from bot.coro_send_message(event.conv, _("broadcast: removed {}".format(", ".join(removed))))
+
         elif subcmd == "NOW":
             """send the broadcast - no turning back!"""
             context = { "explicit_relay": True } # prevent echos across syncrooms
             for convid in _internal["broadcast"]["conversations"]:
                 yield from bot.coro_send_message(convid, _internal["broadcast"]["message"], context=context)
             yield from bot.coro_send_message(event.conv, _("broadcast: message sent to {} chats".format(len(_internal["broadcast"]["conversations"]))))
+
         else:
             yield from bot.coro_send_message(event.conv, _("broadcast: /bot broadcast [info|message|add|remove|NOW] ..."))
+
     else:
         yield from bot.coro_send_message(event.conv, _("broadcast: /bot broadcast [info|message|add|remove|NOW]"))
 

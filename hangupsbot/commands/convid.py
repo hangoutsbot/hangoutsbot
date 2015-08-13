@@ -1,5 +1,7 @@
 import logging, shlex
 
+import hangups
+
 import plugins
 
 from utils import simple_parse_to_segments
@@ -152,12 +154,16 @@ def convleave(bot, event, *args):
         if convdata["type"] == "GROUP":
             if not "quietly" in posix_args:
                 yield from bot.coro_send_message(convid, _('I\'ll be back!'))
-            yield from bot._conv_list.leave_conversation(convid)
 
-            if convid not in bot._conv_list._conv_dict:
+            try:
+                yield from bot._client.removeuser(convid)
+                if convid in bot._conv_list._conv_dict:
+                    # replicate hangups behaviour - remove conversation from internal dict
+                    del bot._conv_list._conv_dict[convid]
                 bot.conversations.remove(convid)
-            else:
-                logging.warning("CONVLEAVE: failed to leave {} {}".format(convid, convdata["title"]))
+
+            except hangups.NetworkError as e:
+                logging.exception("CONVLEAVE: error leaving {} {}".format(convid, convdata["title"]))
 
         else:
             logging.warning("CONVLEAVE: cannot leave {} {} {}".format(convdata["type"], convid, convdata["title"]))
