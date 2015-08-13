@@ -128,7 +128,7 @@ def start_listening(bot=None, loop=None, name="", port=8000, certfile=None, webh
         elif e.errno == 98:
             message = "address/port in use"
         else:
-            message = "general failure, see stack trace"
+            message = e.strerror
 
         logger.exception("{} : {}:{}, {}".format(friendlyName, name, port, message))
 
