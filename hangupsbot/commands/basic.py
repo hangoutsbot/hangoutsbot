@@ -88,6 +88,8 @@ def ping(bot, event, *args):
     """reply to a ping"""
     yield from bot.coro_send_message(event.conv, 'pong')
 
+    return { "api.response": "pong" }
+
 
 @command.register
 def optout(bot, event, *args):
