@@ -103,8 +103,10 @@ def pluginload(bot, event, *args):
     module_path = args[0]
 
     try:
-        plugins.load(bot, module_path)
-        message = "<b>{}: loaded</b>".format(module_path)
+        if plugins.load(bot, module_path):
+            message = "<b>{}: loaded</b>".format(module_path)
+        else:
+            message = "<b>{}: failed</b>".format(module_path)
 
     except RuntimeError as e:
         message = "<b>{}: {}</b>".format(module_path, str(e))

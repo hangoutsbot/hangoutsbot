@@ -386,6 +386,8 @@ def load(bot, module_path, module_name=None):
 
     tracking.end()
 
+    return True
+
 
 @asyncio.coroutine
 def unload(bot, module_path):
