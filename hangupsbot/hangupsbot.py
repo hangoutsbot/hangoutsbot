@@ -264,15 +264,20 @@ class HangupsBot(object):
 
                     loop.run_until_complete(self._client.connect())
 
+                    logging.info("bot is exiting")
+
+                    loop.run_until_complete(plugins.unload_all(self))
+
                     self.memory.flush()
                     self.config.flush()
-
-                    logging.info("bot is exiting")
 
                     sys.exit(0)
                 except Exception as e:
                     logging.exception("CLIENT: unrecoverable low-level error")
                     print('Client unexpectedly disconnected:\n{}'.format(e))
+
+                    loop.run_until_complete(plugins.unload_all(self))
+
                     print('Waiting {} seconds...'.format(5 + retry * 5))
                     time.sleep(5 + retry * 5)
                     print('Trying to connect again (try {} of {})...'.format(retry + 1, self._max_retries))

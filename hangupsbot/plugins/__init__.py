@@ -273,6 +273,17 @@ def load_user_plugins(bot):
         load(bot, module_path)
 
 
+@asyncio.coroutine
+def unload_all(bot):
+    module_paths = list(tracking.list.keys())
+    for module_path in module_paths:
+        try:
+            yield from unload(bot, module_path)
+
+        except RuntimeError as e:
+            logger.exception("{} could not be unloaded".format(module_path))
+
+
 def load(bot, module_path, module_name=None):
     """loads a single plugin-like object as identified by module_path, and initialise it"""
 
@@ -428,12 +439,14 @@ def unload(bot, module_path):
                 for group in plugin["aiohttp"]:
                     yield from aiohttp_terminate(group)
 
+            logger.info("{} unloaded".format(module_path))
+
             del tracking.list[module_path]
 
             return True
 
         else:
-            raise RuntimeError("plugin has {} thread(s)".format(len(plugin["threads"])))
+            raise RuntimeError("{} has {} thread(s)".format(module_path, len(plugin["threads"])))
 
     else:
         raise KeyError("{} not found".format(module_path))
