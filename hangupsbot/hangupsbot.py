@@ -123,18 +123,18 @@ class ConversationEvent(object):
 
     def print_debug(self, bot=None):
         """Print informations about conversation event"""
-        logger.debug('eid/dtime: {}/{}'.format(self.event_id, self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
+        print('eid/dtime: {}/{}'.format(self.event_id, self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
         if not bot:
             # don't crash on old usage, instruct dev to supply bot
-            logger.debug('cid/cname: {}/undetermined, supply parameter: bot'.format(self.conv_id))
+            print('cid/cname: {}/undetermined, supply parameter: bot'.format(self.conv_id))
         else:
-            logger.debug('cid/cname: {}/{}'.format(self.conv_id, bot.conversations.get_name(self.conv)))
+            print('cid/cname: {}/{}'.format(self.conv_id, bot.conversations.get_name(self.conv)))
         if self.user_id.chat_id == self.user_id.gaia_id:
-            logger.debug('uid/uname: {}/{}'.format(self.user_id.chat_id, self.user.full_name))
+            print('uid/uname: {}/{}'.format(self.user_id.chat_id, self.user.full_name))
         else:
-            logger.debug('uid/uname: {}!{}/{}'.format(self.user_id.chat_id, self.user_id.gaia_id, self.user.full_name))
-        logger.debug('txtlen/tx: {}/{}'.format(len(self.text), self.text))
-        logger.debug('eventdump: completed --8<--')
+            print('uid/uname: {}!{}/{}'.format(self.user_id.chat_id, self.user_id.gaia_id, self.user.full_name))
+        print('txtlen/tx: {}/{}'.format(len(self.text), self.text))
+        print('eventdump: completed --8<--')
 
 
 class HangupsBot(object):
