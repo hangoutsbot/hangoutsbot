@@ -24,7 +24,6 @@ from urllib.parse import urlparse, parse_qs, unquote
 from sinks import start_listening
 from sinks.base_bot_request_handler import BaseBotRequestHandler
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -51,12 +50,12 @@ def _start_api(bot):
             try:
                 certfile = sinkConfig["certfile"]
                 if not certfile:
-                    print("config.api[{}].certfile must be configured".format(itemNo))
+                    logger.error("config.api[{}].certfile must be configured".format(itemNo))
                     continue
                 name = sinkConfig["name"]
                 port = sinkConfig["port"]
             except KeyError as e:
-                print("config.api[{}] missing keyword".format(itemNo), e)
+                logger.error("config.api[{}] missing keyword".format(itemNo), e)
                 continue
 
             logger.info("started on https://{}:{}/".format(name, port))
@@ -78,14 +77,14 @@ class APIRequestHandler(BaseBotRequestHandler):
         """handle incoming GET request
         everything is contained in the URL
         """
-        print('{}: receiving GET...'.format(self.sinkname))
+        logger.debug('{}: receiving GET...'.format(self.sinkname))
 
         message = bytes('OK', 'UTF-8')
         self.send_response(200)
         self.send_header("Content-type", "text/plain")
         self.end_headers()
         self.wfile.write(message)
-        print('{}: connection closed'.format(self.sinkname))
+        logger.debug('{}: connection closed'.format(self.sinkname))
 
         _parsed = urlparse(self.path)
         path = _parsed.path
@@ -96,7 +95,7 @@ class APIRequestHandler(BaseBotRequestHandler):
             return
 
         try:
-            print("SECURITY WARNING: sending API commands via GET is INSECURE, please use POST")
+            logger.warning("SECURITY WARNING: sending API commands via GET is INSECURE, please use POST")
 
             payload = {
                 "key": str(tokens[1]), 

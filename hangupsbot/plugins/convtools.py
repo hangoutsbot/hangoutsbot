@@ -1,8 +1,10 @@
 import asyncio
 import random
 import string
-
 import plugins
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 _externals = { "authorisation": False }
@@ -35,7 +37,7 @@ def addusers(bot, event, *args):
                 raise ValueError("UNKNOWN STATE: {}".format(state[-1]))
 
     list_add = list(set(list_add))
-    print("addusers: {} into conversation {}".format(list_add, target_conv))
+    logger.info("addusers: {} into conversation {}".format(list_add, target_conv))
     if len(list_add) > 0:
         yield from bot._client.adduser(target_conv, list_add)
 
@@ -60,7 +62,7 @@ def createconversation(bot, event, *args):
         force_group = True
 
     user_ids = list(set(parameters))
-    print("createconversation: {}".format(user_ids))
+    logger.info("createconversation: {}".format(user_ids))
 
     response = yield from bot._client.createconversation(user_ids, force_group)
     new_conversation_id = response['conversation']['id']['id']
@@ -94,7 +96,7 @@ def refresh(bot, event, *args):
 
         state = ["adduser"]
 
-        print("refresh: {}".format(parameters))
+        logger.info("refresh: {}".format(parameters))
 
         for parameter in parameters:
             if parameter == "without":
@@ -126,11 +128,11 @@ def refresh(bot, event, *args):
         list_remove = list(set(list_remove))
 
         if not target_conv:
-            print("REFRESH: conversation must be supplied")
+            logger.error("REFRESH: conversation must be supplied")
             return
 
         list_all_users = bot.get_users_in_conversation(target_conv)
-        print("refresh: conversation {} has {} users".format(target_conv, len(list_all_users)))
+        logger.info("refresh: conversation {} has {} users".format(target_conv, len(list_all_users)))
 
         for u in list_all_users:
             if not u.id_.chat_id in list_remove:
@@ -138,7 +140,7 @@ def refresh(bot, event, *args):
 
         list_add = list(set(list_add))
 
-        print("refresh: from conversation {} removed {} added {} {}".format(target_conv, list_remove, len(list_add), list_add))
+        logger.info("refresh: from conversation {} removed {} added {} {}".format(target_conv, list_remove, len(list_add), list_add))
 
         if len(list_add) > 1:
             response = yield from bot._client.createconversation(list_add)

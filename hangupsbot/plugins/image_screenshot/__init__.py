@@ -3,12 +3,15 @@ import io
 import time
 import re
 import asyncio
+import logging
 
 import selenium
 from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 import plugins
+
+logger = logging.getLogger(__name__)
 
 _externals = { "running": False }
 
@@ -24,12 +27,12 @@ def _initialise(bot):
 
 @asyncio.coroutine
 def _open_file(name):
-    print("sreenshot_open_file: {}".format(name))
+    logger.debug("sreenshot_open_file: {}".format(name))
     return open(name, 'rb')
 
 @asyncio.coroutine
 def _screencap(browser, url, filename):
-    print("screenshot_screencap: getting {} and saving as {}".format(url, filename))
+    logger.info("screenshot_screencap: getting {} and saving as {}".format(url, filename))
     browser.set_window_size(1280, 800)
     browser.get(url)
     yield from asyncio.sleep(5)
@@ -92,7 +95,7 @@ def screenshot(bot, event, *args):
             url = 'http://' + url
         filename = event.conv_id + "." + str(time.time()) +".png"
         filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)), filename)
-        print("screenshot(): temporary screenshot in {}".format(filepath))
+        logger.debug("screenshot(): temporary screenshot in {}".format(filepath))
 
         try:
             browser = webdriver.PhantomJS(desired_capabilities=dcap,service_log_path=os.path.devnull)
@@ -105,7 +108,7 @@ def screenshot(bot, event, *args):
             image_data = yield from _screencap(browser, url, filename)
         except Exception as e:
             yield from bot.coro_send_message(event.conv_id, "<i>error getting screenshot</i>")
-            print("{}".format(e))
+            logger.error("{}".format(e))
             return
             
         try:
@@ -113,6 +116,6 @@ def screenshot(bot, event, *args):
             yield from bot._client.sendchatmessage(event.conv.id_, None, image_id=image_id)
         except Exception as e:
             yield from bot.coro_send_message(event.conv_id, "<i>error uploading screenshot</i>")
-            print("{}".format(e))
+            logger.error("{}".format(e))
         finally:
             _externals["running"] = False

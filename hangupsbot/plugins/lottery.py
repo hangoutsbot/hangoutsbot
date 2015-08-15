@@ -1,9 +1,11 @@
 import asyncio
 import re
+import logging
+import plugins
 
 from random import shuffle
 
-import plugins
+logger = logging.getLogger(__name__)
 
 
 def _initialise(bot):
@@ -30,7 +32,7 @@ def _get_global_lottery_name(bot, conversation_id, listname):
                     _linked_rooms = sync_room_list
                     _linked_rooms.sort() # keeps the order consistent
                     conversation_id = ":".join(_linked_rooms)
-                    print(_("LOTTERY: joint room keys {}").format(conversation_id))
+                    logger.debug("LOTTERY: joint room keys {}".format(conversation_id))
 
     return conversation_id + ":" + listname
 
@@ -39,7 +41,7 @@ def _load_lottery_state(bot):
     draw_lists = {}
 
     if bot.memory.exists(["lottery"]):
-        print(_("LOTTERY: loading from memory"))
+        logger.debug("LOTTERY: loading from memory")
         draw_lists = bot.memory["lottery"]
 
     return draw_lists
@@ -164,7 +166,7 @@ def perform_drawing(bot, event, *args):
             _test_name = _get_global_lottery_name(bot, event.conv.id_, word)
             if _test_name in draw_lists:
                 global_draw_name = _test_name
-                print(_("LOTTERY: {} is valid").format(global_draw_name))
+                logger.debug("LOTTERY: {} is valid".format(global_draw_name))
                 break
 
         if global_draw_name is not None:

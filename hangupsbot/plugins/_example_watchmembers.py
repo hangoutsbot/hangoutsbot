@@ -3,7 +3,10 @@ example plugin which watches join and leave events
 """
 
 import asyncio
+import logging
 import hangups
+
+logger = logging.getLogger(__name__)
 
 
 def _initialise(Handlers, bot=None):
@@ -20,7 +23,7 @@ def _watch_membership_change(bot, event, command):
 
     # JOIN
     if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
-        print(_('EXAMPLE_WATCHMEMBERS: {} has added {}').format(event.user.full_name, names))
+        logger.info('EXAMPLE_WATCHMEMBERS: {} has added {}'.format(event.user.full_name, names))
     # LEAVE
     else:
-        print(_('EXAMPLE_WATCHMEMBERS: {} has left').format(names))
+        logger.info('EXAMPLE_WATCHMEMBERS: {} has left'.format(names))

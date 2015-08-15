@@ -61,12 +61,12 @@ def _start_slack_sinks(bot):
             try:
                 certfile = sinkConfig["certfile"]
                 if not certfile:
-                    print("config.slack[{}].certfile must be configured".format(itemNo))
+                    logger.error("config.slack[{}].certfile must be configured".format(itemNo))
                     continue
                 name = sinkConfig["name"]
                 port = sinkConfig["port"]
             except KeyError as e:
-                print("config.slack[{}] missing keyword".format(itemNo), e)
+                logger.error("config.slack[{}] missing keyword".format(itemNo), e)
                 continue
 
             logger.info("started on https://{}:{}/".format(name, port))
@@ -157,7 +157,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
         label = "UNKNOWN"
         if id in self._slack_cache[type_str]:
             label = self._slack_cache[type_str][id]
-            logging.debug("_slack_get_label(): from cache {} = {}".format(id, label))
+            logger.debug("_slack_get_label(): from cache {} = {}".format(id, label))
         else:
             try:
                 response = urlopen(url)
@@ -166,9 +166,9 @@ class webhookReceiver(BaseHTTPRequestHandler):
                 if type_str in data:
                     label = data[type_str]["name"]
                     self._slack_cache[type_str][id] = label
-                    logging.debug("_slack_get_label(): from API {} = {}".format(id, label))
+                    logger.debug("_slack_get_label(): from API {} = {}".format(id, label))
             except Exception as e:
-                logging.error("EXCEPTION in _slack_get_label(): {}".format(e))
+                logger.error("EXCEPTION in _slack_get_label(): {}".format(e))
 
         return prefix + label
 
@@ -184,7 +184,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
         """
            receives post, handles it
        """
-        logging.debug('receiving POST...')
+        logger.debug('receiving POST...')
         data_string = self.rfile.read(int(self.headers['Content-Length'])).decode('UTF-8')
         self.send_response(200)
         message = bytes('OK', 'UTF-8')
@@ -192,19 +192,19 @@ class webhookReceiver(BaseHTTPRequestHandler):
         self.send_header("Content-length", str(len(message)))
         self.end_headers()
         self.wfile.write(message)
-        logging.debug('connection closed')
+        logger.debug('connection closed')
 
         # parse requested path + query string
         _parsed = urlparse(self.path)
         path = _parsed.path
         query_string = parse_qs(_parsed.query)
 
-        logging.debug("incoming path: {}".format(path))
+        logger.debug("incoming path: {}".format(path))
 
         # parse incoming data
         payload = parse_qs(data_string)
 
-        logging.debug("payload {}".format(payload))
+        logger.debug("payload {}".format(payload))
 
         self._handle_incoming(path, query_string, payload)
 
@@ -232,9 +232,9 @@ def _handle_slackout(bot, event, command):
                     try:
                        photo_url = "http:" + response.entities[0].properties.photo_url
                     except Exception as e:
-                        logging.error("could not pull avatar for {}".format(fullname))
+                        logger.error("could not pull avatar for {}".format(fullname))
 
                     client = SlackClient(slackkey)
                     client.chat_post_message(channel, event.text, username=fullname, icon_url=photo_url)
             except Exception as e:
-                logging.error("Could not handle slackout with key {} between {} and {}. is config.json properly configured?".format(slackkey,channel,convlist))
+                logger.error("Could not handle slackout with key {} between {} and {}. is config.json properly configured?".format(slackkey,channel,convlist))
