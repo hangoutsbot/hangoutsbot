@@ -27,6 +27,7 @@ import plugins
 
 from permamem import conversation_memory
 
+logger = logging.getLogger()
 
 LOG_FORMAT = '%(asctime)s %(levelname)s %(name)s: %(message)s'
 LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
@@ -123,18 +124,18 @@ class ConversationEvent(object):
 
     def print_debug(self, bot=None):
         """Print informations about conversation event"""
-        print('eid/dtime: {}/{}'.format(self.event_id, self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
+        logger.debug('eid/dtime: {}/{}'.format(self.event_id, self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
         if not bot:
             # don't crash on old usage, instruct dev to supply bot
-            print('cid/cname: {}/undetermined, supply parameter: bot'.format(self.conv_id))
+            logger.debug('cid/cname: {}/undetermined, supply parameter: bot'.format(self.conv_id))
         else:
-            print('cid/cname: {}/{}'.format(self.conv_id, bot.conversations.get_name(self.conv)))
+            logger.debug('cid/cname: {}/{}'.format(self.conv_id, bot.conversations.get_name(self.conv)))
         if self.user_id.chat_id == self.user_id.gaia_id:
-            print('uid/uname: {}/{}'.format(self.user_id.chat_id, self.user.full_name))
+            logger.debug('uid/uname: {}/{}'.format(self.user_id.chat_id, self.user.full_name))
         else:
-            print('uid/uname: {}!{}/{}'.format(self.user_id.chat_id, self.user_id.gaia_id, self.user.full_name))
-        print('txtlen/tx: {}/{}'.format(len(self.text), self.text))
-        print('eventdump: completed --8<--')
+            logger.debug('uid/uname: {}!{}/{}'.format(self.user_id.chat_id, self.user_id.gaia_id, self.user.full_name))
+        logger.debug('txtlen/tx: {}/{}'.format(len(self.text), self.text))
+        logger.debug('eventdump: completed --8<--')
 
 
 class HangupsBot(object):
@@ -962,6 +963,7 @@ def main():
             sys.exit(_('Failed to copy default config file: {}').format(e))
 
     # Configure logging
+    print("ARGS_DEBUG={}".format(args.debug))
     log_level = logging.DEBUG if args.debug else logging.INFO
 
     logging.basicConfig(filename=args.log, level=log_level, format=LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
@@ -972,7 +974,7 @@ def main():
     consoleHandler = logging.StreamHandler(stream=sys.stdout)
     format = logging.Formatter(CONSOLE_FORMAT, datefmt=CONSOLE_DATE_FORMAT)
     consoleHandler.setFormatter(format)
-    consoleHandler.setLevel(logging.INFO)
+    consoleHandler.setLevel(log_level)
     rootLogger.addHandler(consoleHandler)
 
     # asyncio's debugging logs are VERY noisy, so adjust the log level
