@@ -75,5 +75,5 @@ class WebFramework:
                     logger.exception("EXCEPTION in _handle_websync")
 
     def _send_to_external_chat(self, bot, event, config):
-        print("webbridge._send_to_external_chat(): {} {}".format(self.configkey, config))
+        logger.debug("webbridge._send_to_external_chat(): {} {}".format(self.configkey, config))
 

@@ -69,19 +69,19 @@ class EventHandler:
         """registers a shared object into bot.shared
         historically, this function was more lenient than the actual bot function it calls
         """
-        print("LEGACY handlers.register_object(): use plugins.register_shared")
+        logger.debug("LEGACY handlers.register_object(): use plugins.register_shared")
         self.bot.register_shared(id, objectref, forgiving=forgiving)
 
     def register_user_command(self, command_names):
-        print("LEGACY handlers.register_user_command(): use plugins.register_user_command")
+        logger.debug("LEGACY handlers.register_user_command(): use plugins.register_user_command")
         plugins.register_user_command(command_names)
 
     def register_admin_command(self, command_names):
-        print("LEGACY handlers.register_admin_command(): use plugins.register_admin_command")
+        logger.debug("LEGACY handlers.register_admin_command(): use plugins.register_admin_command")
         plugins.register_admin_command(command_names)
 
     def get_admin_commands(self, conversation_id):
-        print("LEGACY handlers.get_admin_commands(): use command.get_admin_commands")
+        logger.debug("LEGACY handlers.get_admin_commands(): use command.get_admin_commands")
         return command.get_admin_commands(self.bot, conversation_id)
 
     """handler core"""
@@ -150,10 +150,9 @@ class EventHandler:
         try:
             line_args = shlex.split(event.text, posix=False)
         except Exception as e:
-            print("EXCEPTION in {}: {}".format("handle_command", e))
+            logger.exception(e)
             yield from self.bot.coro_send_message(event.conv, _("{}: {}").format(
                 event.user.full_name, str(e)))
-            logger.exception(e)
             return
 
         # Test if command length is sufficient
@@ -240,7 +239,6 @@ class EventHandler:
                         raise
                     except:
                         message = " : ".join(message)
-                        print("EXCEPTION in {}".format(message))
                         logger.exception(message)
 
             except self.bot.Exceptions.SuppressAllHandlers:

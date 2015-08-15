@@ -123,18 +123,18 @@ class ConversationEvent(object):
 
     def print_debug(self, bot=None):
         """Print informations about conversation event"""
-        print('eid/dtime: {}/{}'.format(self.event_id, self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
+        logger.debug('eid/dtime: {}/{}'.format(self.event_id, self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
         if not bot:
             # don't crash on old usage, instruct dev to supply bot
-            print('cid/cname: {}/undetermined, supply parameter: bot'.format(self.conv_id))
+            logger.debug('cid/cname: {}/undetermined, supply parameter: bot'.format(self.conv_id))
         else:
-            print('cid/cname: {}/{}'.format(self.conv_id, bot.conversations.get_name(self.conv)))
+            logger.debug('cid/cname: {}/{}'.format(self.conv_id, bot.conversations.get_name(self.conv)))
         if self.user_id.chat_id == self.user_id.gaia_id:
-            print('uid/uname: {}/{}'.format(self.user_id.chat_id, self.user.full_name))
+            logger.debug('uid/uname: {}/{}'.format(self.user_id.chat_id, self.user.full_name))
         else:
-            print('uid/uname: {}!{}/{}'.format(self.user_id.chat_id, self.user_id.gaia_id, self.user.full_name))
-        print('txtlen/tx: {}/{}'.format(len(self.text), self.text))
-        print('eventdump: completed --8<--')
+            logger.debug('uid/uname: {}!{}/{}'.format(self.user_id.chat_id, self.user_id.gaia_id, self.user.full_name))
+        logger.debug('txtlen/tx: {}/{}'.format(len(self.text), self.text))
+        logger.debug('eventdump: completed --8<--')
 
 
 class HangupsBot(object):
@@ -271,15 +271,14 @@ class HangupsBot(object):
 
                     sys.exit(0)
                 except Exception as e:
-                    logging.exception("CLIENT: unrecoverable low-level error")
-                    print('Client unexpectedly disconnected:\n{}'.format(e))
-                    print('Waiting {} seconds...'.format(5 + retry * 5))
+                    logging.exception("CLIENT: unrecoverable low-level error, unexpectedly disconnected")
+                    logging.info('Waiting {} seconds...'.format(5 + retry * 5))
                     time.sleep(5 + retry * 5)
-                    print('Trying to connect again (try {} of {})...'.format(retry + 1, self._max_retries))
+                    logging.info('Trying to connect again (try {} of {})...'.format(retry + 1, self._max_retries))
 
-            print('Maximum number of retries reached! Exiting...')
+            logging.error('Maximum number of retries reached! Exiting...')
 
-        logging.info("valid login required, exiting")
+        logging.error("valid login required, exiting")
 
         sys.exit(1)
 
