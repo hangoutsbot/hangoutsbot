@@ -168,7 +168,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
                     self._slack_cache[type_str][id] = label
                     logger.debug("_slack_get_label(): from API {} = {}".format(id, label))
             except Exception as e:
-                logger.error("EXCEPTION in _slack_get_label(): {}".format(e))
+                logger.exception("EXCEPTION in _slack_get_label(): {}".format(e))
 
         return prefix + label
 

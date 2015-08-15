@@ -5,6 +5,8 @@ from urllib.parse import urlparse, parse_qs
 
 from utils import simple_parse_to_segments
 
+logger = logging.getLogger(__name__)
+
 
 class BaseBotRequestHandler(BaseHTTPRequestHandler):
     _bot = None # set externally by the hangupsbot sink loader
@@ -19,7 +21,7 @@ class BaseBotRequestHandler(BaseHTTPRequestHandler):
         """handle incoming POST request
         acquire the path, any query string (?abc=xyz), sent content
         """
-        print('{}: receiving POST...'.format(self.sinkname))
+        logger.debug('{}: receiving POST...'.format(self.sinkname))
 
         content = self.rfile.read(int(self.headers['Content-Length'])).decode('UTF-8')
         self.send_response(200)
@@ -28,14 +30,14 @@ class BaseBotRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-length", str(len(message)))
         self.end_headers()
         self.wfile.write(message)
-        print('{}: connection closed'.format(self.sinkname))
+        logger.debug('{}: connection closed'.format(self.sinkname))
 
         # parse requested path + query string
         _parsed = urlparse(self.path)
         path = _parsed.path
         query_string = parse_qs(_parsed.query)
 
-        print("{}: incoming: {} {} {} bytes".format(self.sinkname, path, query_string, len(content)))
+        logger.debug("{}: incoming: {} {} {} bytes".format(self.sinkname, path, query_string, len(content)))
 
         # process the payload
         try:
@@ -63,7 +65,7 @@ class BaseBotRequestHandler(BaseHTTPRequestHandler):
         path = path.split("/")
         conversation_id = path[1]
         if not conversation_id:
-            print("{}: conversation id must be provided as part of path".format(self.sinkname))
+            logger.error("{}: conversation id must be provided as part of path".format(self.sinkname))
             return
 
         html = None
@@ -85,7 +87,7 @@ class BaseBotRequestHandler(BaseHTTPRequestHandler):
                 logging.info("automatic image filename: {}".format(image_filename))
 
         if not html and not image_data:
-            print("{}: nothing to send".format(self.sinkname))
+            logger.debug("{}: nothing to send".format(self.sinkname))
             return
 
         yield from self.send_data(conversation_id, html, image_data=image_data, image_filename=image_filename)
@@ -106,11 +108,11 @@ class BaseBotRequestHandler(BaseHTTPRequestHandler):
             image_id = yield from self._bot._client.upload_image(image_data, filename=image_filename)
 
         if not html and not image_id:
-            print("{}: nothing to send".format(self.sinkname))
+            logger.debug("{}: nothing to send".format(self.sinkname))
             return
 
         segments = simple_parse_to_segments(html)
-        print("{}: sending segments: {}".format(self.sinkname, len(segments)))
+        logger.debug("{}: sending segments: {}".format(self.sinkname, len(segments)))
 
         yield from self._bot.coro_send_message(conversation_id, segments, context=None, image_id=image_id)
 
