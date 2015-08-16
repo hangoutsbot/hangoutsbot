@@ -2,7 +2,6 @@
 import gettext, os, sys, argparse, shutil, asyncio, time, signal
 import logging
 import logging.config
-import logging.handlers
 
 gettext.install('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'))
 
