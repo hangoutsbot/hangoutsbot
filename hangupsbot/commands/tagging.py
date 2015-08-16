@@ -154,11 +154,14 @@ def tagsuser(bot, event, *args):
         return
 
     active_user_tags = bot.tags.useractive(chat_id, conv_id)
-    if not active_user_tags:
-        active_user_tags = [_("<em>no tags returned</em>")]
+    if active_user_tags:
+        message_taglist = ", ".join([ "<pre>{}</pre>".format(tag) for tag in active_user_tags ])
+    else:
+        message_taglist = "<em>no tags returned</em>"
 
-    yield from bot.coro_send_message(event.conv_id, "<b><pre>{}</pre></b>@<b><pre>{}</pre></b>: {}".format(
-        chat_id, conv_id, ", ".join(active_user_tags)))
+    yield from bot.coro_send_message(event.conv_id,
+                                     "<b><pre>{}</pre></b>@<b><pre>{}</pre></b>: {}".format(
+                                        chat_id, conv_id, message_taglist))
 
 
 @command.register(admin=True)
