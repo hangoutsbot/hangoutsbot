@@ -13,10 +13,7 @@ internal = {}
 
 
 def _initialise(bot):
-    loop = asyncio.get_event_loop()
-    internal["task"] = loop.create_task(_periodic_watermark_update(bot))
-
-    asyncio.async(internal["task"]).add_done_callback(lambda future: future.result())
+    plugins.start_asyncio_task(_periodic_watermark_update)
 
 
 @asyncio.coroutine

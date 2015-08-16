@@ -162,7 +162,7 @@ def aiohttp_start(bot, name, port, certfile, RequestHandlerClass, group, callbac
                                                                group=group,
                                                                callback=callback ))
 
-    tracking.register_aiohttpweb(group)
+    tracking.register_aiohttp_web(group)
 
 def aiohttp_started(future, handler, app, group, callback=None):
     server = future.result()
