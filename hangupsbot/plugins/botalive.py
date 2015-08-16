@@ -13,11 +13,30 @@ internal = {}
 
 
 def _initialise(bot):
-    plugins.start_asyncio_task(_periodic_watermark_update)
+    config_botalive = bot.get_config_option("botalive") or {}
+    if not config_botalive:
+        return
+
+    _new_config = {}
+    if isinstance(config_botalive, list):
+        if "admins" in config_botalive:
+            _new_config["admins"] = 900
+        if "groups" in config_botalive:
+            _new_config["groups"] = 10800
+        config_botalive = _new_config
+
+    if "admin" in config_botalive and config_botalive["admin"] < 60:
+        config_botalive["admin"] = 60
+    if "groups" in config_botalive and config_botalive["groups"] < 60:
+        config_botalive["groups"] = 60
+
+    logger.info("timing {}".format(config_botalive))
+
+    plugins.start_asyncio_task(_periodic_watermark_update, config_botalive)
 
 
 @asyncio.coroutine
-def _periodic_watermark_update(bot):
+def _periodic_watermark_update(bot, config_botalive):
     """runs in a separate thread - to prevent the processor from being
     consumed entirely, we sleep for 5 seconds on each loop iteration"""
 
@@ -30,12 +49,8 @@ def _periodic_watermark_update(bot):
 
         yield from asyncio.sleep(5)
 
-        botalive = bot.get_config_option("botalive")
-        if not botalive:
-            continue
-
         """every 15 minutes: update watermark of global admin 1-on-1s"""
-        if "admins" in botalive and timestamp - last_run[0] > 900:
+        if "admins" in config_botalive and timestamp - last_run[0] > config_botalive["admins"]:
             admins = bot.get_config_option('admins')
             for admin in admins:
                 if bot.memory.exists(["user_data", admin, "1on1"]):
@@ -45,7 +60,7 @@ def _periodic_watermark_update(bot):
             last_run[0] = timestamp
 
         """every 3 hours: update watermark of all groups"""
-        if "groups" in botalive and timestamp - last_run[1] > 10800:
+        if "groups" in config_botalive and timestamp - last_run[1] > config_botalive["groups"]:
             for conv_id, conv_data in bot.conversations.get().items():
                 if conv_data["type"] == "GROUP":
                     watermarkUpdater.add(conv_id)
