@@ -45,10 +45,10 @@ def plugininfo(bot, event, *args):
                 lines.append("<b>threads:</b> {}".format(len(plugin["threads"])))
 
             """aiohttp.web"""
-            if len(plugin["aiohttp"]) > 0:
+            if len(plugin["aiohttp.web"]) > 0:
                 lines.append("<b>aiohttp.web:</b>")
                 from sinks import aiohttp_list
-                filtered = aiohttp_list(plugin["aiohttp"])
+                filtered = aiohttp_list(plugin["aiohttp.web"])
                 if len(filtered) > 0:
                     lines.append('<br />'.join([ '... {}'.format(constructors[0].sockets[0].getsockname())
                                                  for constructors in filtered ]))

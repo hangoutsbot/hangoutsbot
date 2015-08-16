@@ -42,7 +42,7 @@ class tracker:
             "shared": [],
             "metadata": None,
             "threads": [],
-            "aiohttp": []
+            "aiohttp.web": []
         }
 
     def start(self, metadata):
@@ -128,11 +128,11 @@ class tracker:
     def register_thread(self, thread):
         self._current["threads"].append(thread)
 
-    def register_aiohttp(self, group):
+    def register_aiohttpweb(self, group):
         # don't register actual references to the web listeners as they are asyncronously started
         #   instead, just track their group(name) so we can find them later
-        if group not in self._current["aiohttp"]:
-            self._current["aiohttp"].append(group)
+        if group not in self._current["aiohttp.web"]:
+            self._current["aiohttp.web"].append(group)
 
 
 tracking = tracker()
@@ -434,9 +434,9 @@ def unload(bot, module_path):
                     logger.debug("removing shared {}".format(id))
                     del bot.shared[id]
 
-            if len(plugin["aiohttp"]) > 0:
+            if len(plugin["aiohttp.web"]) > 0:
                 from sinks import aiohttp_terminate # XXX: needs to be late-imported
-                for group in plugin["aiohttp"]:
+                for group in plugin["aiohttp.web"]:
                     yield from aiohttp_terminate(group)
 
             logger.info("{} unloaded".format(module_path))
