@@ -13,22 +13,16 @@ to be able to run admin commands externally
 
 More info: https://github.com/hangoutsbot/hangoutsbot/wiki/API-Plugin
 """
-import asyncio, json, logging, time, functools
+import asyncio, functools, json, logging, time
 
-from urllib.parse import urlparse, parse_qs, unquote
+from urllib.parse import unquote
 
 from aiohttp import web
 
-import hangups
-
 import plugins
-
-import threadmanager
 
 from sinks import aiohttp_start
 from sinks.base_bot_request_handler import AsyncRequestHandler
-
-from parsers.kludgy_html_parser import segment_to_html
 
 
 logger = logging.getLogger(__name__)
@@ -71,12 +65,12 @@ def _start_api(bot):
             try:
                 certfile = sinkConfig["certfile"]
                 if not certfile:
-                    print("config.api[{}].certfile must be configured".format(itemNo))
+                    logger.error("config.api[{}].certfile must be configured".format(itemNo))
                     continue
                 name = sinkConfig["name"]
                 port = sinkConfig["port"]
             except KeyError as e:
-                print("config.api[{}] missing keyword".format(itemNo), e)
+                logger.error("config.api[{}] missing keyword".format(itemNo), e)
                 continue
 
             aiohttp_start(bot, name, port, certfile, APIRequestHandler, group=__name__)

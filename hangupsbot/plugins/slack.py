@@ -10,36 +10,22 @@ config.json will have to be configured as follows:
 }]
 
 You can (theoretically) set up as many slack sinks per bot as you like, by extending the list"""
-
-from urllib.parse import urlparse, parse_qs
+import asyncio, logging, json, re
 
 from html import unescape
-
-from pyslack import SlackClient
-try:
-    import emoji
-except ImportError:
-    print("Error: You need to install the python emoji library!")
-
-import ssl
-import asyncio
-import logging
-
-
-import re
+from urllib.parse import parse_qs
 from urllib.request import urlopen
-import json
 
 from aiohttp import web
 
-import hangups
+import emoji
+
+from pyslack import SlackClient
 
 import plugins
-import threadmanager
 
 from sinks import aiohttp_start
 from sinks.base_bot_request_handler import AsyncRequestHandler
-
 
 
 logger = logging.getLogger(__name__)
@@ -64,17 +50,17 @@ def _start_slack_sinks(bot):
             try:
                 certfile = sinkConfig["certfile"]
                 if not certfile:
-                    print("config.slack[{}].certfile must be configured".format(itemNo))
+                    logger.error("config.slack[{}].certfile must be configured".format(itemNo))
                     continue
                 name = sinkConfig["name"]
                 port = sinkConfig["port"]
             except KeyError as e:
-                print("config.slack[{}] missing keyword".format(itemNo), e)
+                logger.error("config.slack[{}] missing keyword".format(itemNo), e)
                 continue
 
             aiohttp_start(bot, name, port, certfile, SlackAsyncListener, group=__name__)
 
-    logger.info("_start_slack_sinks(): {} sink thread(s) started".format(itemNo + 1))
+    logger.info("{} slack listeners started".format(itemNo + 1))
 
 
 def _slack_repeater_cleaner(bot, event, id):
@@ -157,7 +143,7 @@ class SlackAsyncListener(AsyncRequestHandler):
         label = "UNKNOWN"
         if id in self._slack_cache[type_str]:
             label = self._slack_cache[type_str][id]
-            print("_slack_get_label(): from cache {} = {}".format(id, label))
+            logger.debug("slack label resolved from cache: {} = {}".format(id, label))
         else:
             try:
                 response = urlopen(url)
@@ -166,9 +152,10 @@ class SlackAsyncListener(AsyncRequestHandler):
                 if type_str in data:
                     label = data[type_str]["name"]
                     self._slack_cache[type_str][id] = label
-                    print("_slack_get_label(): from API {} = {}".format(id, label))
+                    logger.debug("slack label resolved from API: {} = {}".format(id, label))
+
             except Exception as e:
-                print("EXCEPTION in _slack_get_label(): {}".format(e))
+                logger.exception("FAILED to resolve slack label for {}".format(id))
 
         return prefix + label
 
@@ -196,9 +183,13 @@ def _handle_slackout(bot, event, command):
                     try:
                        photo_url = "http:" + response.entities[0].properties.photo_url
                     except Exception as e:
-                        print("Slack: Could not pull avatar for {}".format(fullname))
+                        logger.exception("FAILED to acquire photo_url for {}".format(fullname))
 
                     client = SlackClient(slackkey)
                     client.chat_post_message(channel, event.text, username=fullname, icon_url=photo_url)
+
             except Exception as e:
-                print("Could not handle slackout with key {} between {} and {}. is config.json properly configured?".format(slackkey,channel,convlist))
+                logger.exception( "Could not handle slackout with key {} between {} and {}."
+                                  " Is config.json properly configured?".format( slackkey,
+                                                                                 channel,
+                                                                                 convlist ))
