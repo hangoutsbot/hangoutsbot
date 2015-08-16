@@ -1,8 +1,11 @@
-import datetime
+import datetime, logging
+
+import hangups
 
 import plugins
 
-import hangups
+
+logger = logging.getLogger(__name__)
 
 
 def _initialise(bot):
@@ -23,15 +26,15 @@ def on_typing_notification(bot, event, command):
                                             fallback_string="? {}".format(event.conv_id))
 
     if typing_status == hangups.schemas.TypingStatus.TYPING:
-        print("{} ({}) typing on {} ({})".format(
+        logger.info("{} ({}) typing on {} ({})".format(
             user_full_name, user_chat_id, conv_title, event.conv_id))
 
     elif typing_status == hangups.schemas.TypingStatus.PAUSED:
-        print("{} ({}) paused typing on {} ({})".format(
+        logger.info("{} ({}) paused typing on {} ({})".format(
             user_full_name, user_chat_id, conv_title, event.conv_id))
 
     elif typing_status == hangups.schemas.TypingStatus.STOPPED:
-        print("{} ({}) stopped typing on {} ({})".format(
+        logger.info("{} ({}) stopped typing on {} ({})".format(
             user_full_name, user_chat_id, conv_title, event.conv_id))
 
     else:
@@ -47,7 +50,7 @@ def on_watermark_update(bot, event, command):
         event.timestamp // 1000000, datetime.timezone.utc
     ).replace(microsecond=(event.timestamp % 1000000))
 
-    print("{} ({}) read up to {} ({}) on {} ({})".format(
+    logger.info("{} ({}) read up to {} ({}) on {} ({})".format(
         event.user.full_name,
         event.user_id.chat_id,
         utc_datetime,

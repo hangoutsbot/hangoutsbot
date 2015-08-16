@@ -1,7 +1,9 @@
-import functools
-import time
+import functools, logging, time
 
 import plugins
+
+
+logger = logging.getLogger(__name__)
 
 
 def _initialise(bot):
@@ -20,7 +22,7 @@ def _migrate_dnd_config_to_memory(bot):
         del bot.config["donotdisturb"]
         bot.memory.save()
         bot.config.save()
-        print(_("dnd: list migrated to memory"))
+        logger.debug("list migrated to memory")
 
     # migrate memory.json DND to structure with more metadata
     if bot.memory.exists(["donotdisturb"]):
@@ -35,7 +37,7 @@ def _migrate_dnd_config_to_memory(bot):
                 }
             bot.memory.set_by_path(["donotdisturb"], dnd_dict)
             bot.memory.save()
-            print(_("dnd: list migrated to dictionary"))
+            logger.debug("list migrated to dictionary")
 
 
 def dnd(bot, event, *args):

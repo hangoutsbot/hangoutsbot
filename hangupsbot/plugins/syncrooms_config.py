@@ -1,4 +1,9 @@
+import logging
+
 import plugins
+
+
+logger = logging.getLogger(__name__)
 
 
 def _initialise(bot):
@@ -59,13 +64,13 @@ def attachsyncout(bot, event, *args):
         bot.config.set_by_path(["sync_rooms"], syncouts)
         bot.config.save()
         if found_existing:
-            print(_("SYNCROOM_CONFIG: extended"))
+            logger.info("syncrooms extended")
             html_message = _("<i>syncout updated: {} conversations</i>")
         else:
-            print(_("SYNCROOM_CONFIG: created"))
+            logger.info("syncrooms created")
             html_message = _("<i>syncout created: {} conversations</i>")
     else:
-        print(_("SYNCROOM_CONFIG: no change"))
+        logger.info("syncrooms unchanged")
         html_message = _("<i>syncouts unchanged</i>")
 
     if not quietly:

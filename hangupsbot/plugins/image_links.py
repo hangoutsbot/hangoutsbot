@@ -2,9 +2,12 @@
 Identify images, upload them to google plus, post in hangouts
 """
 
-import aiohttp, asyncio, io, os, re
+import aiohttp, asyncio, io, logging, os, re
 
 import plugins
+
+
+logger = logging.getLogger(__name__)
 
 
 def _initialise():
@@ -23,15 +26,18 @@ def _watch_image_link(bot, event, command):
 
     probable_image_link = False
     event_text_lower = event.text.lower()
+
     if re.match("^(https?://)?([a-z0-9.]*?\.)?imgur.com/", event_text_lower, re.IGNORECASE):
         """imgur links can be supplied with/without protocol and extension"""
         probable_image_link = True
+
     elif event_text_lower.startswith(("http://", "https://")) and event_text_lower.endswith((".png", ".gif", ".gifv", ".jpg")):
         """other image links must have protocol and end with valid extension"""
         probable_image_link = True
+
     if probable_image_link and "googleusercontent" in event_text_lower:
         """reject links posted by google to prevent endless attachment loop"""
-        print("_watch_image_link(): rejected link {}".format(event.text))
+        logger.debug("rejected link {} with googleusercontent".format(event.text))
         return
 
     if probable_image_link:
@@ -45,7 +51,7 @@ def _watch_image_link(bot, event, command):
 
         link_image = link_image.replace(".gifv",".gif")
 
-        print("_watch_image_link(): getting {}".format(link_image))
+        logger.info("getting {}".format(link_image))
 
         filename = os.path.basename(link_image)
         r = yield from aiohttp.request('get', link_image)
