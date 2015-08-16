@@ -1,11 +1,10 @@
-import os
-import sys
-import logging
-import inspect
+import asyncio, importlib, inspect, logging, os, sys
 
 from inspect import getmembers, isfunction
-from commands import command
+
 import handlers
+
+from commands import command
 
 
 logger = logging.getLogger(__name__)
@@ -25,7 +24,7 @@ class tracker:
     """
     def __init__(self):
         self.bot = None
-        self.list = []
+        self.list = {}
         self.reset()
 
     def set_bot(self, bot):
@@ -41,7 +40,10 @@ class tracker:
             },
             "handlers": [],
             "shared": [],
-            "metadata": None
+            "metadata": None,
+            "threads": [],
+            "asyncio.task": [],
+            "aiohttp.web": []
         }
 
     def start(self, metadata):
@@ -55,7 +57,8 @@ class tracker:
         return self._current
 
     def end(self):
-        self.list.append(self.current())
+        current_module = self.current()
+        self.list[current_module["metadata"]["module.path"]] = current_module
 
         # sync tagged commands to the command dispatcher
         if self._current["commands"]["tagged"]:
@@ -123,8 +126,27 @@ class tracker:
     def register_shared(self, id, objectref, forgiving):
         self._current["shared"].append((id, objectref, forgiving))
 
+    def register_thread(self, thread):
+        self._current["threads"].append(thread)
+
+    def register_aiohttp_web(self, group):
+        # don't register actual references to the web listeners as they are asyncronously started
+        #   instead, just track their group(name) so we can find them later
+        if group not in self._current["aiohttp.web"]:
+            self._current["aiohttp.web"].append(group)
+
+    def register_asyncio_task(self, task):
+        self._current["asyncio.task"].append(task)
+
 
 tracking = tracker()
+
+
+def asyncio_task_ended(future):
+    if future.cancelled():
+        logger.debug("task cancelled {}".format(future))
+    else:
+        future.result()
 
 
 """helpers, used by loaded plugins to register commands"""
@@ -151,6 +173,18 @@ def register_shared(id, objectref, forgiving=True):
     """register shared object"""
     bot = tracking.bot
     bot.register_shared(id, objectref, forgiving=forgiving)
+
+def start_asyncio_task(coroutine_function, *args, **kwargs):
+    if asyncio.iscoroutinefunction(coroutine_function):
+        loop = asyncio.get_event_loop()
+        task = loop.create_task(coroutine_function(tracking.bot, *args, **kwargs))
+
+        asyncio.async(task).add_done_callback(asyncio_task_ended)
+
+        tracking.register_asyncio_task(task)
+
+    else:
+        raise RuntimeError("coroutine function must be supplied")
 
 
 """plugin loader"""
@@ -262,16 +296,37 @@ def load_user_plugins(bot):
         load(bot, module_path)
 
 
+@asyncio.coroutine
+def unload_all(bot):
+    module_paths = list(tracking.list.keys())
+    for module_path in module_paths:
+        try:
+            yield from unload(bot, module_path)
+
+        except RuntimeError as e:
+            logger.exception("{} could not be unloaded".format(module_path))
+
+
 def load(bot, module_path, module_name=None):
     """loads a single plugin-like object as identified by module_path, and initialise it"""
 
     if module_name is None:
         module_name = module_path.split(".")[-1]
 
+    if module_path in tracking.list:
+        raise RuntimeError("{} already loaded".format(module_path))
+
     tracking.start({ "module": module_name, "module.path": module_path })
 
     try:
-        exec("import {}".format(module_path))
+        if module_path in sys.modules:
+            importlib.reload(sys.modules[module_path])
+            logger.debug("reloading {}".format(module_path))
+
+        else:
+            importlib.import_module(module_path)
+            logger.debug("importing {}".format(module_path))
+
     except Exception as e:
         logger.exception("EXCEPTION during plugin import: {}".format(module_path))
         return
@@ -365,3 +420,62 @@ def load(bot, module_path, module_name=None):
 
     tracking.end()
 
+    return True
+
+
+@asyncio.coroutine
+def unload(bot, module_path):
+    if module_path in tracking.list:
+        plugin = tracking.list[module_path]
+        loop = asyncio.get_event_loop()
+
+        if len(plugin["threads"]) == 0:
+            all_commands = plugin["commands"]["all"]
+            for command_name in all_commands:
+                if command_name in command.commands:
+                    logger.debug("removing function {}".format(command_name))
+                    del command.commands[command_name]
+                if command_name in command.admin_commands:
+                    logger.debug("deregistering admin command {}".format(command_name))
+                    command.admin_commands.remove(command_name)
+
+            for type in plugin["commands"]["tagged"]:
+                for command_name in plugin["commands"]["tagged"][type]:
+                    if command_name in command.command_tagsets:
+                        logger.debug("deregistering tagged command {}".format(command_name))
+                        del command.command_tagsets[command_name]
+
+            for type in bot._handlers.pluggables:
+                for handler in bot._handlers.pluggables[type]:
+                    if handler[2]["module.path"] == module_path:
+                        logger.debug("removing handler {} {}".format(type, handler))
+                        bot._handlers.pluggables[type].remove(handler)
+
+            shared = plugin["shared"]
+            for shared_def in shared:
+                id = shared_def[0]
+                if id in bot.shared:
+                    logger.debug("removing shared {}".format(id))
+                    del bot.shared[id]
+
+            if len(plugin["asyncio.task"]) > 0:
+                for task in plugin["asyncio.task"]:
+                    logger.info("cancelling task: {}".format(task))
+                    loop.call_soon_threadsafe(task.cancel)
+
+            if len(plugin["aiohttp.web"]) > 0:
+                from sinks import aiohttp_terminate # XXX: needs to be late-imported
+                for group in plugin["aiohttp.web"]:
+                    yield from aiohttp_terminate(group)
+
+            logger.info("{} unloaded".format(module_path))
+
+            del tracking.list[module_path]
+
+            return True
+
+        else:
+            raise RuntimeError("{} has {} thread(s)".format(module_path, len(plugin["threads"])))
+
+    else:
+        raise KeyError("{} not found".format(module_path))

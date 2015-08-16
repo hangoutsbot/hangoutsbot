@@ -1,12 +1,12 @@
 import asyncio, json, logging
 
-from sinks.base_bot_request_handler import BaseBotRequestHandler
+from sinks.base_bot_request_handler import AsyncRequestHandler
 
 
 logger = logging.getLogger(__name__)
 
 
-class webhookReceiver(BaseBotRequestHandler):
+class webhookReceiver(AsyncRequestHandler):
     _bot = None
 
     @asyncio.coroutine

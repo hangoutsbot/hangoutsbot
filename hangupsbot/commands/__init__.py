@@ -174,7 +174,8 @@ class CommandDispatcher(object):
         args = list(args[1:])
 
         try:
-            yield from func(bot, event, *args, **kwds)
+            results = yield from func(bot, event, *args, **kwds)
+            return results
 
         except Exception as e:
             logger.exception("RUN: {}".format(func.__name__))

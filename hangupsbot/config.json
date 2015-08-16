@@ -22,7 +22,7 @@
   },
   "jsonrpc": [
     {
-      "module": "sinks.generic.SimpleMessagePoster",
+      "module": "sinks.generic.AsyncMessagePoster",
       "certfile": null,
       "name": "127.0.0.1",
       "port": 9001

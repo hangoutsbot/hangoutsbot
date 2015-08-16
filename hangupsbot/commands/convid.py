@@ -38,7 +38,11 @@ def convfilter(bot, event, *args):
         for convid, convdata in bot.conversations.get(filter=posix_args[0]).items():
             lines.append("`{}` <b>{}</b> ({})".format(convid, convdata["title"], len(convdata["participants"])))
         lines.append(_('<b>Total: {}</b>').format(len(lines)))
-        yield from bot.coro_send_message(event.conv_id, '<br />'.join(lines))
+        message = '<br />'.join(lines)
+
+        yield from bot.coro_send_message(event.conv_id, message)
+
+        return { "api.response" : message }
 
 
 def convecho(bot, event, *args):
@@ -105,10 +109,10 @@ def convusers(bot, event, *args):
     posix_args = get_posix_args(args)
 
     if len(posix_args) != 1:
-        text = _("<em>should be 1 parameter, {} supplied</em>".format(len(posix_args)))
+        message = _("<em>should be 1 parameter, {} supplied</em>".format(len(posix_args)))
     elif not posix_args[0]:
         """don't do it in all conversations - might crash hangups"""
-        text = _("<em>retrieving ALL conversations blocked</em>")
+        message = _("<em>retrieving ALL conversations blocked</em>")
     else:
         chunks = [] # one "chunk" = info for 1 hangout
         for convid, convdata in bot.conversations.get(filter=posix_args[0]).items():
@@ -127,9 +131,11 @@ def convusers(bot, event, *args):
                 lines.append(_line)
             lines.append(_('<b>Users: {}</b>').format(len(convdata["participants"])))
             chunks.append('<br />'.join(lines))
-        text = '<br /><br />'.join(chunks)
+        message = '<br /><br />'.join(chunks)
 
-    yield from bot.coro_send_message(event.conv_id, text)
+    yield from bot.coro_send_message(event.conv_id, message)
+
+    return { "api.response" : message }
 
 
 def convleave(bot, event, *args):

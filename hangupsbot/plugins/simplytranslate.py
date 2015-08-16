@@ -1,6 +1,11 @@
-import asyncio, goslate, urllib
+import asyncio, logging, urllib
+
+import goslate
 
 import plugins
+
+
+logger = logging.getLogger(__name__)
 
 
 gs = goslate.Goslate()
@@ -30,9 +35,12 @@ def _handle_message(bot, event, command):
 
 @asyncio.coroutine
 def _translate(bot, event, text, iso_language, text_language):
-    print(_('TRANSLATE: "{}" to {}').format(text, iso_language))
+    logger.info('"{}" to {}'.format(text, iso_language))
+
     try:
         translated = gs.translate(text, iso_language)
         yield from bot.coro_send_message(event.conv, "<i>" + text_language + "</i> : " + translated)
+
     except urllib.error.HTTPError as e:
-        yield from bot.coro_send_message(event.conv, "Translation server error: <i>{}</i>".format(str(e)))
+        yield from bot.coro_send_message(event.conv, _("Translation server error: <i>{}</i>").format(str(e)))
+        logger.exception(e)

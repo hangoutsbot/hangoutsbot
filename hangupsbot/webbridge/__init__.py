@@ -3,8 +3,8 @@ import asyncio, logging
 import plugins
 import threadmanager
 
-from sinks import start_listening
-from sinks.base_bot_request_handler import BaseBotRequestHandler as IncomingRequestHandler
+from sinks import aiohttp_start
+from sinks.base_bot_request_handler import AsyncRequestHandler as IncomingRequestHandler
 
 
 logger = logging.getLogger(__name__)
@@ -48,14 +48,13 @@ class WebFramework:
                     logger.warning("config.{}[{}] missing keyword".format(self.configkey, itemNo))
                     continue
 
-                threadmanager.start_thread(start_listening, args=(
+                aiohttp_start(
                     bot,
-                    loop,
                     name,
                     port,
                     certfile,
                     self.RequestHandler,
-                    self.configkey))
+                    "webbridge." + self.configkey)
 
         logger.info("webbridge.sinks: {} thread(s) started for {}".format(itemNo, self.configkey))
 
@@ -75,5 +74,5 @@ class WebFramework:
                     logger.exception("EXCEPTION in _handle_websync")
 
     def _send_to_external_chat(self, bot, event, config):
-        print("webbridge._send_to_external_chat(): {} {}".format(self.configkey, config))
+        logger.info("webbridge._send_to_external_chat(): {} {}".format(self.configkey, config))
 

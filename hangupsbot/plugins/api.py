@@ -13,16 +13,22 @@ to be able to run admin commands externally
 
 More info: https://github.com/hangoutsbot/hangoutsbot/wiki/API-Plugin
 """
-import asyncio, json, logging
-
-import hangups
-
-import threadmanager
+import asyncio, json, logging, time, functools
 
 from urllib.parse import urlparse, parse_qs, unquote
 
-from sinks import start_listening
-from sinks.base_bot_request_handler import BaseBotRequestHandler
+from aiohttp import web
+
+import hangups
+
+import plugins
+
+import threadmanager
+
+from sinks import aiohttp_start
+from sinks.base_bot_request_handler import AsyncRequestHandler
+
+from parsers.kludgy_html_parser import segment_to_html
 
 
 logger = logging.getLogger(__name__)
@@ -31,16 +37,30 @@ logger = logging.getLogger(__name__)
 def _initialise(bot):
     _start_api(bot)
 
+reprocessor_queue = {}
 
-def _reprocess_the_event(bot, event, id):
+
+def response_received(bot, event, id, results, original_id):
+    if results:
+        if isinstance(results, dict) and "api.response" in results:
+            output = results["api.response"]
+        else:
+            output = results
+        reprocessor_queue[original_id] = output
+
+
+def handle_as_command(bot, event, id):
     event.from_bot = False
     event._syncroom_no_repeat = True
 
+    if "acknowledge" not in dir(event):
+        event.acknowledge = []
+
+    handle_response = functools.partial(response_received, original_id=id)
+    event.acknowledge.append(bot._handlers.register_reprocessor(handle_response))
+
 
 def _start_api(bot):
-    # Start and asyncio event loop
-    loop = asyncio.get_event_loop()
-
     api = bot.get_config_option('api')
     itemNo = -1
 
@@ -59,81 +79,71 @@ def _start_api(bot):
                 print("config.api[{}] missing keyword".format(itemNo), e)
                 continue
 
-            logger.info("started on https://{}:{}/".format(name, port))
-
-            threadmanager.start_thread(start_listening, args=(
-                bot,
-                loop,
-                name,
-                port,
-                certfile,
-                APIRequestHandler,
-                "plugin-api"))
+            aiohttp_start(bot, name, port, certfile, APIRequestHandler, group=__name__)
 
 
-class APIRequestHandler(BaseBotRequestHandler):
-    _bot = None
-
-    def do_GET(self):
-        """handle incoming GET request
-        everything is contained in the URL
-        """
-        print('{}: receiving GET...'.format(self.sinkname))
-
-        message = bytes('OK', 'UTF-8')
-        self.send_response(200)
-        self.send_header("Content-type", "text/plain")
-        self.end_headers()
-        self.wfile.write(message)
-        print('{}: connection closed'.format(self.sinkname))
-
-        _parsed = urlparse(self.path)
-        path = _parsed.path
-        query_string = parse_qs(_parsed.query)
-        tokens = path.split("/", maxsplit=3)
-
-        if len(tokens) != 4:
-            return
-
-        try:
-            print("SECURITY WARNING: sending API commands via GET is INSECURE, please use POST")
-
-            payload = {
-                "key": str(tokens[1]), 
-                "sendto": str(tokens[2]), 
-                "content": unquote(str(tokens[3]))}
-
-            # process the payload
-            asyncio.async(
-                self.process_request(path, query_string, payload)
-            ).add_done_callback(lambda future: future.result())
-
-        except Exception as e:
-            logger.exception(e)
+class APIRequestHandler(AsyncRequestHandler):
+    def addroutes(self, router):
+        router.add_route("POST", "/", self.adapter_do_POST)
+        router.add_route('GET', '/{api_key}/{id}/{message:.*?}', self.adapter_do_GET)
 
 
     @asyncio.coroutine
-    def process_request(self, path, query_string, content):
+    def adapter_do_GET(self, request):
+        payload = { "sendto": request.match_info["id"],
+                    "key": request.match_info["api_key"],
+                    "content": unquote(request.match_info["message"]) }
 
+        results = yield from self.process_request( '', # IGNORED
+                                                   '', # IGNORED
+                                                   payload )
+        if results:
+            content_type="text/html"
+            results = results.encode("ascii", "xmlcharrefreplace")
+        else:
+            content_type="text/plain"
+            results = "OK".encode('utf-8')
+
+        return web.Response(body=results, content_type=content_type)
+
+    @asyncio.coroutine
+    def process_request(self, path, query_string, content):
+        # XXX: bit hacky due to different routes...
         payload = content
         if isinstance(payload, str):
+            # XXX: POST - payload in incoming request BODY (and not yet parsed, do it here)
             payload = json.loads(payload)
+        # XXX: else GET - everything in query string (already parsed before it got here)
 
         api_key = self._bot.get_config_option("api_key")
 
         if payload["key"] != api_key:
             raise ValueError("API key does not match")
 
-        yield from self.send_actionable_message(payload["sendto"], payload["content"])
+        results = yield from self.send_actionable_message(payload["sendto"], payload["content"])
 
+        return results
 
     @asyncio.coroutine
     def send_actionable_message(self, id, content):
         """reprocessor: allow message to be intepreted as a command"""
-        content = content + self._bot.call_shared("reprocessor.attach_reprocessor", _reprocess_the_event)
+        reprocessor_context = self._bot._handlers.attach_reprocessor( handle_as_command,
+                                                                      return_as_dict=True )
+        content = content + reprocessor_context["fragment"]
+        reprocessor_id = reprocessor_context["id"]
 
         if id in self._bot.conversations.catalog:
-            yield from self._bot.coro_send_message(id, content)
+            results = yield from self._bot.coro_send_message(id, content)
         else:
             # attempt to send to a user id
-            yield from self._bot.coro_send_to_user(id, content)
+            results = yield from self._bot.coro_send_to_user(id, content)
+
+        start_time = time.time()
+        while time.time() - start_time < 3:
+            if reprocessor_id in reprocessor_queue:
+                response = reprocessor_queue[reprocessor_id]
+                del reprocessor_queue[reprocessor_id]
+                return "[" + str(time.time() - start_time) + "] " + response
+            yield from asyncio.sleep(0.1)
+
+        return results

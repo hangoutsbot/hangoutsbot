@@ -9,9 +9,10 @@ instructions:
 """
 
 import wolframalpha
-
 import plugins
+import logging
 
+logger = logging.getLogger(__name__)
 
 _internal = {}
 
@@ -22,7 +23,7 @@ def _initialise(bot):
         _internal["client"] = wolframalpha.Client(apikey)
         plugins.register_user_command(["ask"])
     else:
-        print(_("WOLFRAMALPHA: config.wolframalpha-apikey required"))
+        logger.error('WOLFRAMALPHA: config["wolframalpha-apikey"] required')
 
 
 def ask(bot, event, *args):

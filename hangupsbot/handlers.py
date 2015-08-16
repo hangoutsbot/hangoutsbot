@@ -53,15 +53,24 @@ class EventHandler:
 
         plugins.tracking.register_handler(function, type, priority)
 
-    def attach_reprocessor(self, callable):
+    def register_reprocessor(self, callable):
+        _id = str(uuid.uuid4())
+        self._reprocessors[_id] = callable
+        return _id
+
+    def attach_reprocessor(self, callable, return_as_dict=False):
         """reprocessor: map callable to a special hidden context link that can be added anywhere 
         in a message. when the message is sent and subsequently received by the bot, it will be 
         passed to the callable, which can modify the event object by reference
         """
-        _id = str(uuid.uuid4())
-        self._reprocessors[_id] = callable
+        _id = self.register_reprocessor(callable)
         context_fragment = '<a href="' + self._prefix_reprocessor + _id + '"> </a>'
-        return context_fragment
+        if return_as_dict:
+            return { "id": _id,
+                     "callable": callable,
+                     "fragment": context_fragment }
+        else:
+            return context_fragment
 
     """legacy helpers, pre-2.4"""
 
@@ -69,22 +78,41 @@ class EventHandler:
         """registers a shared object into bot.shared
         historically, this function was more lenient than the actual bot function it calls
         """
-        print("LEGACY handlers.register_object(): use plugins.register_shared")
+        logger.debug(   "[LEGACY] plugins.register_shared()"
+                        " instead of handlers.register_object()")
+
         self.bot.register_shared(id, objectref, forgiving=forgiving)
 
     def register_user_command(self, command_names):
-        print("LEGACY handlers.register_user_command(): use plugins.register_user_command")
+        logger.debug(   "[LEGACY] plugins.register_user_command()"
+                        " instead of handlers.register_user_command()")
+
         plugins.register_user_command(command_names)
 
     def register_admin_command(self, command_names):
-        print("LEGACY handlers.register_admin_command(): use plugins.register_admin_command")
+        logger.debug(   "[LEGACY] plugins.register_admin_command()"
+                        " instead of handlers.register_admin_command()")
+
         plugins.register_admin_command(command_names)
 
     def get_admin_commands(self, conversation_id):
-        print("LEGACY handlers.get_admin_commands(): use command.get_admin_commands")
+        logger.debug(   "[LEGACY] command.get_admin_commands()"
+                        " instead of handlers.get_admin_commands()")
+
         return command.get_admin_commands(self.bot, conversation_id)
 
     """handler core"""
+
+    @asyncio.coroutine
+    def run_reprocessor(self, id, event, *args, **kwargs):
+        if id in self._reprocessors:
+            is_coroutine = asyncio.iscoroutinefunction(self._reprocessors[id])
+            logger.info("reprocessor uuid found: {} coroutine={}".format(id, is_coroutine))
+            if is_coroutine:
+                yield from self._reprocessors[id](self.bot, event, id, *args, **kwargs)
+            else:
+                self._reprocessors[id](self.bot, event, id, *args, **kwargs)
+            del self._reprocessors[id]
 
     @asyncio.coroutine
     def handle_chat_message(self, event):
@@ -104,14 +132,7 @@ class EventHandler:
                     if segment.link_target:
                         if segment.link_target.startswith(self._prefix_reprocessor):
                             _id = segment.link_target[len(self._prefix_reprocessor):]
-                            if _id in self._reprocessors:
-                                is_coroutine = asyncio.iscoroutinefunction(self._reprocessors[_id])
-                                logger.info("reprocessor uuid found: {} coroutine={}".format(_id, is_coroutine))
-                                if is_coroutine:
-                                    yield from self._reprocessors[_id](self.bot, event, _id)
-                                else:
-                                    self._reprocessors[_id](self.bot, event, _id)
-                                del self._reprocessors[_id]
+                            yield from self.run_reprocessor(_id, event)
 
             """auto opt-in - opted-out users who chat with the bot will be opted-in again"""
             if self.bot.conversations.catalog[event.conv_id]["type"] == "ONE_TO_ONE":
@@ -150,10 +171,9 @@ class EventHandler:
         try:
             line_args = shlex.split(event.text, posix=False)
         except Exception as e:
-            print("EXCEPTION in {}: {}".format("handle_command", e))
+            logger.exception(e)
             yield from self.bot.coro_send_message(event.conv, _("{}: {}").format(
                 event.user.full_name, str(e)))
-            logger.exception(e)
             return
 
         # Test if command length is sufficient
@@ -175,7 +195,11 @@ class EventHandler:
             return
 
         # Run command
-        yield from command.run(self.bot, event, *line_args[1:])
+        results = yield from command.run(self.bot, event, *line_args[1:])
+
+        if "acknowledge" in dir(event):
+            for id in event.acknowledge:
+                yield from self.run_reprocessor(id, event, results)
 
     @asyncio.coroutine
     def handle_chat_membership(self, event):
@@ -240,7 +264,6 @@ class EventHandler:
                         raise
                     except:
                         message = " : ".join(message)
-                        print("EXCEPTION in {}".format(message))
                         logger.exception(message)
 
             except self.bot.Exceptions.SuppressAllHandlers:
