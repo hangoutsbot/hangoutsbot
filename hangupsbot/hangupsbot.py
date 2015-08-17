@@ -765,7 +765,7 @@ class HangupsBot(object):
         if message is None:
             segments = []
         elif "parser" in context and context["parser"] is False:
-            message = [hangups.ChatMessageSegment(text)]
+            message = [hangups.ChatMessageSegment(message)]
         elif isinstance(message, str):
             segments = simple_parse_to_segments(message)
         elif isinstance(message, list):
