@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-import gettext, os, sys, argparse, logging, shutil, asyncio, time, signal
+import gettext, os, sys, argparse, shutil, asyncio, time, signal
+import logging
+import logging.config
 
 gettext.install('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'))
 
@@ -26,14 +28,6 @@ import sinks
 import plugins
 
 from permamem import conversation_memory
-
-
-LOG_FORMAT = '%(asctime)s %(levelname)s %(name)s: %(message)s'
-LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
-
-CONSOLE_FORMAT = '%(asctime)s %(levelname)s %(name)s: %(message)s'
-CONSOLE_DATE_FORMAT = '%H:%M:%S'
-
 
 class SuppressHandler(Exception):
     pass
@@ -924,6 +918,74 @@ class HangupsBot(object):
 
         return myself
 
+def configure_logging(args):
+    """Configure Logging
+
+    If the user specified a logging config file, open it, and
+    fail if unable to open. If not, attempt to open the default
+    logging config file. If that fails, move on to basic
+    log configuration.
+    """
+
+    log_level = 'DEBUG' if args.debug else 'INFO'
+
+    default_config = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'console': {
+                'format': '%(asctime)s %(levelname)s %(name)s: %(message)s',
+                'datefmt': '%H:%M:%S'
+                },
+            'default': {
+                'format': '%(asctime)s %(levelname)s %(name)s: %(message)s',
+                'datefmt': '%Y-%m-%d %H:%M:%S'
+                }
+            },
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+                'stream': 'ext://sys.stdout',
+                'level': log_level,
+                'formatter': 'console'
+                },
+            'file': {
+                'class': 'logging.FileHandler',
+                'filename': args.log,
+                'level': log_level,
+                'formatter': 'default',
+                }
+            },
+        'loggers': {
+            '': {                                   # root logger
+                'handlers': ['file', 'console'],
+                'level': log_level
+                },
+
+            # requests is freakishly noisy
+            'requests': { 'level': 'INFO'},
+
+            # XXX: suppress erroneous WARNINGs until
+            # https://github.com/tdryer/hangups/issues/142 resolved
+            'hangups': {'level': 'ERROR'},
+
+            # asyncio's debugging logs are VERY noisy, so adjust the log level
+            'asyncio': {'level': 'WARNING'},
+
+            # hangups log is verbose too, suppress so we can debug the bot
+            'hangups.conversation': {'level': 'ERROR'}
+            }
+        }
+
+    # Temporarily bring in the configuration file, just so we can configure
+    # logging before bringing anything else up. There is no race internally,
+    # if logging() is called before configured, it outputs to stderr, and
+    # we will configure it soon enough
+    bootcfg = config.Config(args.config)
+    if bootcfg.exists(["logging"]):
+        logging.config.dictConfig(bootcfg["logging"])
+    else:
+        logging.config.dictConfig(default_config)
 
 def main():
     """Main entry point"""
@@ -968,31 +1030,7 @@ def main():
         except (OSError, IOError) as e:
             sys.exit(_('Failed to copy default config file: {}').format(e))
 
-    # Configure logging
-    log_level = logging.DEBUG if args.debug else logging.INFO
-
-    logging.basicConfig(filename=args.log, level=log_level, format=LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
-
-    rootLogger = logging.getLogger()
-
-    # output logs to console
-    consoleHandler = logging.StreamHandler(stream=sys.stdout)
-    format = logging.Formatter(CONSOLE_FORMAT, datefmt=CONSOLE_DATE_FORMAT)
-    consoleHandler.setFormatter(format)
-    consoleHandler.setLevel(logging.INFO)
-    rootLogger.addHandler(consoleHandler)
-
-    # asyncio's debugging logs are VERY noisy, so adjust the log level
-    logging.getLogger('asyncio').setLevel(logging.WARNING)
-
-    # hangups log is quite verbose too, suppress so we can debug the bot
-    logging.getLogger('hangups').setLevel(logging.WARNING)
-
-    # XXX: suppress erroneous WARNINGs until https://github.com/tdryer/hangups/issues/142 resolved
-    logging.getLogger('hangups.conversation').setLevel(logging.ERROR)
-
-    #requests is freakishly noisy
-    logging.getLogger("requests").setLevel(logging.INFO)
+    configure_logging(args)
 
     # initialise the bot
     bot = HangupsBot(args.cookies, args.config, memory_file=args.memory)
