@@ -982,8 +982,8 @@ def configure_logging(args):
     # if logging() is called before configured, it outputs to stderr, and
     # we will configure it soon enough
     bootcfg = config.Config(args.config)
-    if bootcfg.exists(["logging"]):
-        logging.config.dictConfig(bootcfg["logging"])
+    if bootcfg.exists(["logging.system"]):
+        logging.config.dictConfig(bootcfg["logging.system"])
     else:
         logging.config.dictConfig(default_config)
 
