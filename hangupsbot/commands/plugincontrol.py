@@ -86,44 +86,56 @@ def plugininfo(bot, event, *args):
 
 @command.register(admin=True)
 def pluginunload(bot, event, *args):
-    module_path = args[0]
+    if args:
+        module_path = args[0]
 
-    try:
-        yield from plugins.unload(bot, module_path)
-        message = "<b>{}: unloaded</b>".format(module_path)
+        try:
+            yield from plugins.unload(bot, module_path)
+            message = "<b>{}: unloaded</b>".format(module_path)
 
-    except (RuntimeError, KeyError) as e:
-        message = "<b>{}: {}</b>".format(module_path, str(e))
+        except (RuntimeError, KeyError) as e:
+            message = "<b>{}: {}</b>".format(module_path, str(e))
+
+    else:
+        message = "<b>module path required</b>"
 
     yield from bot.coro_send_message(event.conv_id, message)
 
 
 @command.register(admin=True)
 def pluginload(bot, event, *args):
-    module_path = args[0]
+    if args:
+        module_path = args[0]
 
-    try:
-        if plugins.load(bot, module_path):
-            message = "<b>{}: loaded</b>".format(module_path)
-        else:
-            message = "<b>{}: failed</b>".format(module_path)
+        try:
+            if plugins.load(bot, module_path):
+                message = "<b>{}: loaded</b>".format(module_path)
+            else:
+                message = "<b>{}: failed</b>".format(module_path)
 
-    except RuntimeError as e:
-        message = "<b>{}: {}</b>".format(module_path, str(e))
+        except RuntimeError as e:
+            message = "<b>{}: {}</b>".format(module_path, str(e))
+
+    else:
+        message = "<b>module path required</b>"
 
     yield from bot.coro_send_message(event.conv_id, message)
 
 
 @command.register(admin=True)
 def pluginreload(bot, event, *args):
-    module_path = args[0]
+    if args:
+        module_path = args[0]
 
-    try:
-        yield from plugins.unload(bot, module_path)
-        plugins.load(bot, module_path)
-        message = "<b>{}: reloaded</b>".format(module_path)
+        try:
+            yield from plugins.unload(bot, module_path)
+            plugins.load(bot, module_path)
+            message = "<b>{}: reloaded</b>".format(module_path)
 
-    except (RuntimeError, KeyError) as e:
-        message = "<b>{}: {}</b>".format(module_path, str(e))
+        except (RuntimeError, KeyError) as e:
+            message = "<b>{}: {}</b>".format(module_path, str(e))
+
+    else:
+        message = "<b>module path required</b>"
 
     yield from bot.coro_send_message(event.conv_id, message)
