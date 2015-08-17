@@ -946,7 +946,7 @@ def configure_logging(args):
             'console': {
                 'class': 'logging.StreamHandler',
                 'stream': 'ext://sys.stdout',
-                'level': log_level,
+                'level': 'INFO',
                 'formatter': 'console'
                 },
             'file': {
@@ -957,7 +957,8 @@ def configure_logging(args):
                 }
             },
         'loggers': {
-            '': {                                   # root logger
+            # root logger
+            '': {
                 'handlers': ['file', 'console'],
                 'level': log_level
                 },
@@ -965,8 +966,8 @@ def configure_logging(args):
             # requests is freakishly noisy
             'requests': { 'level': 'INFO'},
 
-            # XXX: suppress erroneous WARNINGs until
-            # https://github.com/tdryer/hangups/issues/142 resolved
+            # XXX: suppress erroneous WARNINGs until resolution of
+            #   https://github.com/tdryer/hangups/issues/142
             'hangups': {'level': 'ERROR'},
 
             # asyncio's debugging logs are VERY noisy, so adjust the log level
