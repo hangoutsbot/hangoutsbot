@@ -47,8 +47,8 @@ def tldr(bot, event, *args):
 
         return
 
-    if "clear" in parameters[0]:
-        if len(parameters) >= 2 and parameters[1].isdigit():
+    if parameters[0] == "clear":
+        if len(parameters) == 2 and parameters[1].isdigit():
             sorted_keys = sorted(list(conv_tldr.keys()), key=float)
             key_index = int(parameters[1]) - 1
             if key_index < 0 or key_index >= len(sorted_keys):
