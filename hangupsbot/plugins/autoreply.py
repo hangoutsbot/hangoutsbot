@@ -63,7 +63,9 @@ def _handle_autoreply(bot, event, command):
 @asyncio.coroutine
 def send_reply(bot, event, message):
     values = { "event": event,
-               "conv_title": bot.conversations.get_name(event.conv) }
+               "conv_title": bot.conversations.get_name( event.conv,
+                                                         fallback_string=_("Unidentified Conversation") )}
+
     if "participant_ids" in dir(event.conv_event):
         values["participants"] = [ event.conv.get_user(user_id)
                                    for user_id in event.conv_event.participant_ids ]
