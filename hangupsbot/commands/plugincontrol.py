@@ -129,11 +129,13 @@ def pluginreload(bot, event, *args):
 
         try:
             yield from plugins.unload(bot, module_path)
-            plugins.load(bot, module_path)
-            message = "<b><pre>{}</pre>: reloaded</b>".format(module_path)
+            if plugins.load(bot, module_path):
+                message = "<b><pre>{}</pre>: reloaded</b>".format(module_path)
+            else:
+                message = "<b><pre>{}</pre>: failed reload</b>".format(module_path)
 
         except (RuntimeError, KeyError) as e:
-            message = "<b><pre>{}<pre>: <pre>{}</pre></b>".format(module_path, str(e))
+            message = "<b><pre>{}</pre>: <pre>{}</pre></b>".format(module_path, str(e))
 
     else:
         message = "<b>module path required</b>"
