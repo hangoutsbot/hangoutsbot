@@ -60,6 +60,12 @@ def _user_has_dnd(bot, user_id):
 def mention(bot, event, *args):
     """alert a @mentioned user"""
 
+    """allow mentions to be disabled via global or per-conversation config"""
+    config_mentions_enabled = False if bot.get_config_suboption(event.conv.id_, 'mentions.enabled') is False else True
+    if not config_mentions_enabled:
+        logger.info("mentions explicitly disabled by config for {}".format(event.conv_id))
+        return
+
     """minimum length check for @mention"""
     minimum_length = bot.get_config_suboption(event.conv_id, 'mentionminlength')
     if not minimum_length:
