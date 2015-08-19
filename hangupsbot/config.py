@@ -66,8 +66,7 @@ class Config(collections.MutableMapping):
             if not recovery and self.failsafe_backups > 0 and self._recover_from_failsafe():
                 return
 
-            logger.exception("malformed json: {}: {}".format(self.filename))
-            sys.exit(0)
+            raise
 
         self.changed = False
 

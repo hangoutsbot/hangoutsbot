@@ -152,7 +152,11 @@ class HangupsBot(object):
         self._locales = {}
 
         # Load config file
-        self.config = config.Config(config_path)
+        try:
+            self.config = config.Config(config_path)
+        except ValueError:
+            logging.exception("failed to load config, malformed json")
+            sys.exit()
 
         # set localisation if anything defined in config.language or ENV[HANGOUTSBOT_LOCALE]
         _language = self.get_config_option('language') or os.environ.get("HANGOUTSBOT_LOCALE")
@@ -176,7 +180,7 @@ class HangupsBot(object):
                     self.memory.save()
 
                 except (OSError, IOError) as e:
-                    logging.exception('FAILED TO CREATE DEFAULT MEMORY FILE')
+                    logging.exception('failed to create default memory file')
                     sys.exit()
 
         # Handle signals on Unix

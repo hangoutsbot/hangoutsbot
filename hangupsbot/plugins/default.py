@@ -217,7 +217,11 @@ def leave(bot, event, conversation_id=None, *args):
 
 def reload(bot, event, *args):
     """reload config and memory, useful if manually edited on running bot"""
+
+    yield from bot.coro_send_message(event.conv, "<b>reloading config.json</b>")
     bot.config.load()
+
+    yield from bot.coro_send_message(event.conv, "<b>reloading memory.json</b>")
     bot.memory.load()
 
 
