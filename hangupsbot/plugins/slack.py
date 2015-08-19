@@ -186,7 +186,11 @@ def _handle_slackout(bot, event, command):
                         logger.exception("FAILED to acquire photo_url for {}".format(fullname))
                         photo_url = None
 
-                    client = SlackClient(slackkey)
+                    try:
+                        client = SlackClient(slackkey, verify=True)
+                    except TypeError:
+                        client = SlackClient(slackkey)
+
                     client.chat_post_message(channel, event.text, username=fullname, icon_url=photo_url)
 
             except Exception as e:
