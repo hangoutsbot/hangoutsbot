@@ -191,7 +191,7 @@ def _handle_slackout(bot, event, command):
                     except TypeError:
                         client = SlackClient(slackkey)
 
-                    client.chat_post_message(channel, event.text, username=fullname, icon_url=photo_url)
+                    client.chat_post_message(channel, event.text, username=fullname, icon_url=photo_url, link_names=1)
 
             except Exception as e:
                 logger.exception( "Could not handle slackout with key {} between {} and {}."
