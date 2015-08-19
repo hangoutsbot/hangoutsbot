@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-import gettext, os, sys, argparse, shutil, asyncio, time, signal
-import logging
-import logging.config
-
-gettext.install('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'))
-
-import appdirs
+import appdirs, argparse, asyncio, gettext, logging, logging.config, os, shutil, signal, sys, time
 
 import hangups
 
@@ -15,11 +9,6 @@ import config
 import handlers
 import version
 
-from commands import command
-from handlers import handler # shim for handler decorator
-
-from utils import simple_parse_to_segments, class_from_name
-
 import permamem
 import tagging
 
@@ -27,7 +16,14 @@ import hooks
 import sinks
 import plugins
 
+from commands import command
+from hangups_conversation import HangupsConversation
 from permamem import conversation_memory
+from utils import simple_parse_to_segments, class_from_name
+
+
+gettext.install('hangupsbot', localedir=os.path.join(os.path.dirname(__file__), 'locale'))
+
 
 class SuppressHandler(Exception):
     pass
@@ -337,15 +333,40 @@ class HangupsBot(object):
 
     def list_conversations(self):
         """List all active conversations"""
+        convs = []
+        check_ids = []
+        missing = []
+
         try:
-            _all_conversations = self._conv_list.get_all()
-            convs = _all_conversations
-            logging.info("list_conversations(): {} returned".format(len(convs)))
+            for conv_id in self.conversations.catalog:
+                convs.append(self.get_hangups_conversation(conv_id))
+                check_ids.append(conv_id)
+
+            hangups_conv_list = self._conv_list.get_all()
+
+            # XXX: run consistency check on reportedly missing conversations from catalog
+            for conv in hangups_conv_list:
+                if conv.id_ not in check_ids:
+                    missing.append(conv.id_)
+
+            logging.info("list_conversations: "
+                         "{} from permamem, "
+                         "{} from hangups - "
+                         "discrepancies: {}".format( len(convs),
+                                                     len(hangups_conv_list),
+                                                     ", ".join(missing) or "none" ))
+
         except Exception as e:
-            logging.exception("LIST_CONVERSATIONS(): failed")
+            logging.exception("LIST_CONVERSATIONS: failed")
             raise
 
         return convs
+
+    def get_hangups_conversation(self, conv_id):
+        if isinstance(conv_id, (FakeConversation, hangups.conversation.Conversation)):
+            conv_id = conv_id.id_
+
+        return HangupsConversation(self, conv_id)
 
     def get_hangups_user(self, user_id):
         hangups_user = False
