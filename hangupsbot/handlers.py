@@ -118,7 +118,7 @@ class EventHandler:
     def handle_chat_message(self, event):
         """Handle conversation event"""
         if logging.root.level == logging.DEBUG:
-            event.print_debug(self.bot)
+            event.log_debug(self.bot)
 
         if event.text:
             if event.user.is_self:
