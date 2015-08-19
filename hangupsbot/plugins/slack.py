@@ -181,9 +181,10 @@ def _handle_slackout(bot, event, command):
                     fullname = event.user.full_name
                     response = yield from bot._client.getentitybyid([event.user_id.chat_id])
                     try:
-                       photo_url = "http:" + response.entities[0].properties.photo_url
+                        photo_url = "http:" + response.entities[0].properties.photo_url
                     except Exception as e:
                         logger.exception("FAILED to acquire photo_url for {}".format(fullname))
+                        photo_url = None
 
                     client = SlackClient(slackkey)
                     client.chat_post_message(channel, event.text, username=fullname, icon_url=photo_url)
