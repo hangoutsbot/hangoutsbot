@@ -32,7 +32,9 @@ class EventHandler:
                             "typing": [],
                             "watermark": [] }
 
-        bot.register_shared('reprocessor.attach_reprocessor', self.attach_reprocessor)
+        bot.register_shared( 'reprocessor.attach_reprocessor',
+                             self.attach_reprocessor,
+                             forgiving=True )
 
 
     def register_handler(self, function, type="message", priority=50):
