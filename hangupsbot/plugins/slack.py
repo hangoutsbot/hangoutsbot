@@ -191,7 +191,14 @@ def _handle_slackout(bot, event, command):
                     except TypeError:
                         client = SlackClient(slackkey)
 
-                    client.chat_post_message(channel, event.text, username=fullname, icon_url=photo_url, link_names=1)
+                    slack_api_params = { 'username': fullname,
+                                         'icon_url': photo_url }
+
+                    if "link_names" not in sinkConfig or sinkConfig["link_names"]:
+                        logger.debug("slack api link_names is active")
+                        slack_api_params["link_names"] = 1
+
+                    client.chat_post_message(channel, event.text, **slack_api_params)
 
             except Exception as e:
                 logger.exception( "Could not handle slackout with key {} between {} and {}."
