@@ -79,7 +79,11 @@ def urbandict(bot, event, *args):
     data = f.read().decode('utf-8')
 
     urbanDictParser = UrbanDictParser()
-    urbanDictParser.feed(data)
+    try:
+        urbanDictParser.feed(data)
+    except IndexError:
+        # apparently, nothing was returned
+        pass
 
     if len(urbanDictParser.translations) > 0:
         html_text = ""
