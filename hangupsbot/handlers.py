@@ -32,7 +32,9 @@ class EventHandler:
                             "typing": [],
                             "watermark": [] }
 
-        bot.register_shared('reprocessor.attach_reprocessor', self.attach_reprocessor)
+        bot.register_shared( 'reprocessor.attach_reprocessor',
+                             self.attach_reprocessor,
+                             forgiving=True )
 
 
     def register_handler(self, function, type="message", priority=50):
@@ -117,9 +119,6 @@ class EventHandler:
     @asyncio.coroutine
     def handle_chat_message(self, event):
         """Handle conversation event"""
-        if logging.root.level == logging.DEBUG:
-            event.print_debug(self.bot)
-
         if event.text:
             if event.user.is_self:
                 event.from_bot = True

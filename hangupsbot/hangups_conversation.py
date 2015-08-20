@@ -142,3 +142,22 @@ class HangupsConversation(hangups.conversation.Conversation):
     @property
     def users(self):
         return [ self.bot.get_hangups_user(part.id_.chat_id) for part in self._conversation.participant_data ]
+
+
+class FakeConversation(object):
+    def __init__(self, _client, id_):
+        self._client = _client
+        self.id_ = id_
+
+    @asyncio.coroutine
+    def send_message(self, segments, image_id=None, otr_status=None):
+        with (yield from asyncio.Lock()):
+            if segments:
+                serialised_segments = [seg.serialize() for seg in segments]
+            else:
+                serialised_segments = None
+
+            yield from self._client.sendchatmessage(
+                self.id_, serialised_segments,
+                image_id=image_id, otr_status=otr_status
+            )
