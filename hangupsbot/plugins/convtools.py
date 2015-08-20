@@ -49,6 +49,9 @@ def addme(bot, event, *args):
         target_conv = args[0]
         yield from addusers(bot, event, *[event.user.id_.chat_id, "into", target_conv])
 
+    else:
+        raise ValueError(_("supply the id of the conversation to join"))
+
 
 def createconversation(bot, event, *args):
     """create a new conversation with the bot and the specified user(s)
