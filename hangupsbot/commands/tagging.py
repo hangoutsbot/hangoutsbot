@@ -8,12 +8,22 @@ logger = logging.getLogger(__name__)
 
 def _initialise(bot): pass # prevents commands from being automatically added
 
+def _tagshortcuts(event, type, id):
+    """Shortcut 'here' => this-conversation or all-users in this conversation"""
+    if id == "here":
+        id = event.conv_id
+        if type == "convuser":
+            id += "|*"
+
+    return type, id
+
 
 @command.register(admin=True)
 def tagset(bot, event, *args):
     """set a single tag. usage: tagset <"conv"|"user"|"convuser"> <id> <tag>"""
     if len(args) == 3:
         [type, id, tag] = args
+        type, id = _tagshortcuts(event, type, id)
         if bot.tags.add(type, id, tag):
             message = _("tagged <b><pre>{}</pre></b> with <b><pre>{}</pre></b>".format(id, tag))
         else:
@@ -28,6 +38,7 @@ def tagdel(bot, event, *args):
     """remove single tag. usage: tagdel <"conv"|"user"|"convuser"> <id> <tag>"""
     if len(args) == 3:
         [type, id, tag] = args
+        type, id = _tagshortcuts(event, type, id)
         if bot.tags.remove(type, id, tag):
             message = _("removed <b><pre>{}</pre></b> from <b><pre>{}</pre></b>".format(tag, id))
         else:
@@ -42,6 +53,7 @@ def tagspurge(bot, event, *args):
     """batch remove tags. usage: tagspurge <"user"|"conv"|"convuser"|"tag"|"usertag"|"convtag"> <id|"ALL">"""
     if len(args) == 2:
         [type, id] = args
+        type, id = _tagshortcuts(event, type, id)
         entries_removed = bot.tags.purge(type, id)
         message = _("entries removed: <b><pre>{}</pre></b>".format(entries_removed))
     else:
