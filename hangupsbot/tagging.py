@@ -228,32 +228,35 @@ class tags:
 
     def useractive(self, chat_id, conv_id="*"):
         """return active tags of user for current conv_id if supplied, globally if not"""
-        if conv_id != "*":
 
-            if not self.bot.memory.exists(["user_data", chat_id]):
-                raise ValueError("user {} does not exist".format(chat_id))
+        if self.bot.memory.exists(["user_data", chat_id]):
+            if conv_id != "*":
+                check_keys = []
+                if conv_id in self.bot.conversations.catalog:
+                    # per_conversation_user_override_keys
+                    check_keys.extend([ conv_id + "|" + chat_id,
+                                        conv_id + "|" + self.wildcard["user"] ])
 
-            if conv_id not in self.bot.conversations.catalog:
-                raise ValueError("conversation {} does not exist".format(conv_id))
+                    # additional overrides based on type of conversation
+                    if self.bot.conversations.catalog[conv_id]["type"] == "GROUP":
+                        check_keys.extend([ self.wildcard["group"] + "|" + chat_id,
+                                            self.wildcard["group"] + "|" + self.wildcard["user"] ])
+                    else:
+                        check_keys.extend([ self.wildcard["one2one"] + "|" + chat_id,
+                                            self.wildcard["one2one"] + "|" + self.wildcard["user"] ])
 
-            # per_conversation_user_override_keys
-            check_keys = [ conv_id + "|" + chat_id,
-                           conv_id + "|" + self.wildcard["user"] ]
+                else:
+                    logger.warning("useractive: conversation {} does not exist".format(conv_id))
 
-            # additional overrides based on type of conversation
-            if self.bot.conversations.catalog[conv_id]["type"] == "GROUP":
-                check_keys.extend([ self.wildcard["group"] + "|" + chat_id,
-                                    self.wildcard["group"] + "|" + self.wildcard["user"] ])
-            else:
-                check_keys.extend([ self.wildcard["one2one"] + "|" + chat_id,
-                                    self.wildcard["one2one"] + "|" + self.wildcard["user"] ])
+                for _key in check_keys:
+                    if _key in self.indices["user-tags"]:
+                        return self.indices["user-tags"][_key]
 
-            for _key in check_keys:
-                if _key in self.indices["user-tags"]:
-                    return self.indices["user-tags"][_key]
+            if chat_id in self.indices["user-tags"]:
+                return self.indices["user-tags"][chat_id]
 
-        if chat_id in self.indices["user-tags"]:
-            return self.indices["user-tags"][chat_id]
+        else:
+            logger.warning("useractive: user {} does not exist".format(chat_id))
 
         return []
 
@@ -264,7 +267,11 @@ class tags:
         if isinstance(tags, str):
             tags = [tags]
 
-        userlist = self.bot.conversations.catalog[conv_id]["participants"]
+        userlist = []
+        try:
+            userlist = self.bot.conversations.catalog[conv_id]["participants"]
+        except KeyError:
+            logger.warning("userlist: conversation {} does not exist".format(conv_id))
 
         results = {}
         for chat_id in userlist:
