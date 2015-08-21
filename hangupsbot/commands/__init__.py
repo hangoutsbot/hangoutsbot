@@ -13,6 +13,7 @@ class CommandDispatcher(object):
         self.commands = {}
         self.admin_commands = []
         self.unknown_command = None
+        self.blocked_command = None
         self.tracking = None
 
         self.command_tagsets = {}
@@ -217,6 +218,10 @@ class CommandDispatcher(object):
         self.unknown_command = asyncio.coroutine(func)
         return func
 
+    def register_blocked(self, func):
+        """Decorator for registering unknown command"""
+        self.blocked_command = asyncio.coroutine(func)
+        return func
 
 # CommandDispatcher singleton
 command = CommandDispatcher()

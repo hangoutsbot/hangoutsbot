@@ -137,4 +137,11 @@ def resourcememory(bot, event, *args):
 def unknown_command(bot, event, *args):
     """handle unknown commands"""
     yield from bot.coro_send_message( event.conv,
-                                      _('{}: unknown command').format(event.user.full_name) )
+                                      _('{}: Unknown Command').format(event.user.full_name) )
+
+
+@command.register_blocked
+def blocked_command(bot, event, *args):
+    """handle blocked commands"""
+    yield from bot.coro_send_message(event.conv, _('{}: Can\'t do that.').format(
+        event.user.full_name))
