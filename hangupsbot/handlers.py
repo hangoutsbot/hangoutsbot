@@ -188,10 +188,15 @@ class EventHandler:
             pass
         elif supplied_command in commands["admin"]:
             pass
-        else:
+        elif supplied_command in command.commands:
             yield from self.bot.coro_send_message(event.conv, _('{}: Can\'t do that.').format(
                 event.user.full_name))
             return
+        elif command.unknown_command:
+            yield from command.unknown_command(self.bot, event, *line_args[1:])
+            return
+        else:
+            raise KeyError("command {} not found".format(supplied_command))
 
         # Run command
         results = yield from command.run(self.bot, event, *line_args[1:])
