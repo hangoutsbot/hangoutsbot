@@ -195,7 +195,10 @@ def chat(bot, event, *args):
         __cleverbots[event.conv.id_] = Cleverbot()
 
     loop = asyncio.get_event_loop()
-    text = yield from loop.run_in_executor(None, __cleverbots[event.conv.id_].ask, ' '.join(args))
+    try:
+        text = yield from loop.run_in_executor(None, __cleverbots[event.conv.id_].ask, ' '.join(args))
+    except IndexError:
+        text = _("<em>Cleverbot is silent</em>")
 
     ad_text = ["Cleverscript.com.", "Clevermessage", "Clevertweet", "CleverEnglish"]
     for ad in ad_text:
