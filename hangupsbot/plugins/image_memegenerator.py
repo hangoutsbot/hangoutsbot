@@ -22,7 +22,7 @@ def _retrieve(url, css_selector, attribute):
     logger.debug("_retrieve(): getting {}".format(url))
     html_request = yield from aiohttp.request('get', url)
     html = yield from html_request.read()
-    soup = BeautifulSoup(str(html, 'utf-8'))
+    soup = BeautifulSoup(str(html, 'utf-8'), 'html.parser')
     links = []
     for link in soup.select(css_selector):
         links.append(link.get(attribute))

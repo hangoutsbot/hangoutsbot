@@ -11,10 +11,10 @@ def _initialise(bot): pass # prevents commands from being automatically added
 def _tagshortcuts(event, type, id):
     """given type=conv, type=convuser, id=here expands to event.conv_id"""
 
-    if type not in ["conv", "convuser"]:
-        raise TypeError("here cannot be used for type {}".format(type))
-
     if id == "here":
+        if type not in ["conv", "convuser"]:
+            raise TypeError("here cannot be used for type {}".format(type))
+
         id = event.conv_id
         if type == "convuser":
             id += "|*"

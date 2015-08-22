@@ -50,7 +50,7 @@ def lookup(bot, event, *args):
     # Adapted from http://stackoverflow.com/questions/23377533/python-beautifulsoup-parsing-table
     from bs4 import BeautifulSoup
 
-    soup = BeautifulSoup(str(html, 'utf-8'))
+    soup = BeautifulSoup(str(html, 'utf-8'), 'html.parser')
     table = soup.find('table', attrs={'class':table_class})
     table_body = table.find('tbody')
 
