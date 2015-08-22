@@ -151,7 +151,11 @@ class EventHandler:
         """Handle command messages"""
 
         # is commands_enabled?
-        if not self.bot.get_config_suboption(event.conv_id, 'commands_enabled'):
+
+        config_commands_enabled = self.bot.get_config_suboption(event.conv_id, 'commands_enabled')
+        tagged_ignore = "ignore" in self.bot.tags.useractive(event.user_id.chat_id, event.conv_id)
+
+        if not config_commands_enabled or tagged_ignore:
             admins_list = self.bot.get_config_suboption(event.conv_id, 'admins') or []
             # admins always have commands enabled
             if event.user_id.chat_id not in admins_list:
