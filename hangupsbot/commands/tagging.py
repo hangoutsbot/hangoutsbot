@@ -9,7 +9,11 @@ logger = logging.getLogger(__name__)
 def _initialise(bot): pass # prevents commands from being automatically added
 
 def _tagshortcuts(event, type, id):
-    """Shortcut 'here' => this-conversation or all-users in this conversation"""
+    """given type=convuser or type=conv, id=here expands to event.conv_id"""
+
+    if type == "user":
+        raise TypeError("here cannot be used for type user")
+
     if id == "here":
         id = event.conv_id
         if type == "convuser":
