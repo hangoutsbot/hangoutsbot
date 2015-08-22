@@ -73,7 +73,8 @@ class ConversationEvent(GenericEvent):
         self.text = conv_event.text.strip() if isinstance(conv_event, hangups.ChatMessageEvent) else ''
 
         #self.print_info()
-        self.log_info()
+        if logger.isEnabledFor(logging.DEBUG):
+            self.log_info()
 
 
     def print_info(self):
@@ -91,7 +92,7 @@ class ConversationEvent(GenericEvent):
 
 
     def log_info(self):
-        logger.info('eid/dt: {}/{}'.format(self.event_id, self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
-        logger.info('cid/cn: {}/{}'.format(self.conv_id, self.bot.conversations.get_name(self.conv)))
-        logger.info('c/g/un: {}/{}/{}'.format(self.user_id.chat_id, self.user_id.gaia_id, self.user.full_name))
-        logger.info('len/tx: {}/{}'.format(len(self.text), self.text))
+        logger.debug('eid/dt: {}/{}'.format(self.event_id, self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
+        logger.debug('cid/cn: {}/{}'.format(self.conv_id, self.bot.conversations.get_name(self.conv)))
+        logger.debug('c/g/un: {}/{}/{}'.format(self.user_id.chat_id, self.user_id.gaia_id, self.user.full_name))
+        logger.debug('len/tx: {}/{}'.format(len(self.text), self.text))
