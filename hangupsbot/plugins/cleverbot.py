@@ -37,6 +37,9 @@ class Cleverbot:
         'Pragma': 'no-cache'
     }
 
+    asked = 0
+    lastanswer = ""
+
     def __init__(self):
         """ The data that will get passed to Cleverbot's web API """
         self.data = {
@@ -68,6 +71,7 @@ class Cleverbot:
         # the log of our conversation with Cleverbot
         self.conversation = []
         self.resp = str()
+        self.asked = 0
 
         # install an opener with support for cookies
         cookies = CookieJar()
@@ -83,9 +87,7 @@ class Cleverbot:
         try:
             urllib2.urlopen(Cleverbot.PROTOCOL + Cleverbot.HOST)
         except urllib2.HTTPError:
-            # TODO errors shouldn't pass unnoticed,
-            # here and in other places as well
-            return str()
+            logger.exception(e)
 
 
     def ask(self, question):
@@ -99,7 +101,16 @@ class Cleverbot:
             Cleverbot's answer
         """
         # Set the current question
+        question = question.strip()
+        if not question:
+            return
+
+        if not question.endswith(("!", ",", ".", ")", "%", "*")):
+            # end a sentence with a full stop
+            question += "."
+
         self.data['stimulus'] = question
+        self.asked = self.asked + 1
 
         # Connect to Cleverbot's API and remember the response
         try:
@@ -119,6 +130,7 @@ class Cleverbot:
 
         # Add Cleverbot's reply to the conversation log
         self.conversation.append(parsed['answer'])
+        self.lastanswer = parsed['answer']
 
         return parsed['answer']
 
@@ -140,11 +152,20 @@ class Cleverbot:
                 if linecount == 8:
                     break
 
-        """XXX: unlike the original code this was adapted from which
-        used an ordered dict to build the payload, use an ordered string
-        to mimic the observed payload during normal operation of the bot
+        """XXX: unlike the original code which used an unordered dict to
+        build the payload, we use an ordered string to mimic the observed
+        payload during normal operation of the bot
         """
-        query_string = ("stimulus={0[stimulus]}"
+        if self.asked <= 1:
+            payload = ( "stimulus={0[stimulus]}"
+                        "&cb_settings_scripting=no"
+                        "&islearning=1"
+                        "&icognoid={0[icognoid]}" ).format(self.data)
+
+            query_string = ""
+
+        else:
+            payload = ( "stimulus={0[stimulus]}"
                         "&vText2={0[vText2]}"
                         "&vText3={0[vText3]}"
                         "&vText4={0[vText4]}"
@@ -155,16 +176,37 @@ class Cleverbot:
                         "&cb_settings_language=es"
                         "&cb_settings_scripting=no"
                         "&islearning={0[islearning]}"
-                        "&icognoid={0[icognoid]}").format(self.data)
+                        "&icognoid={0[icognoid]}" ).format(self.data)
+
+            query_string = ("out={2}"
+                            "&in={0[stimulus]}"
+                            "&bot=c"
+                            "&cbsid={0[sessionid]}"
+                            "&xai={4}"
+                            "&ns={1}"
+                            "&al="
+                            "&dl="
+                            "&flag="
+                            "&user="
+                            "&mode=1"
+                            "&t={3}"
+                            "&").format(self.data,
+                                        self.asked,
+                                        self.lastanswer,
+                                        randint(10000, 99999),
+                                        self.data["sessionid"][0:3])
 
         # Generate the token
-        digest_txt = query_string[9:35]
+        digest_txt = payload[9:35]
         token = hashlib.md5(digest_txt.encode('utf-8')).hexdigest()
-        query_string += "&icognocheck={}".format(token)
+        payload += "&icognocheck={}".format(token)
 
         # Add the token to the data
-        query_string = query_string.encode('utf-8')
-        req = urllib2.Request(self.API_URL, query_string, self.headers)
+        payload = payload.encode('utf-8')
+        full_url = self.API_URL + "?" + query_string
+        logger.debug(payload)
+        logger.debug(full_url)
+        req = urllib2.Request(full_url, payload, self.headers)
 
         # POST the data to Cleverbot's API
         conn = urllib2.urlopen(req)
@@ -200,6 +242,9 @@ def _initialise(bot):
 def _handle_incoming_message(bot, event, command):
     """Handle random message intercepting"""
 
+    if not event.text:
+        return
+
     if not bot.get_config_suboption(event.conv_id, 'cleverbot_percentage_replies'):
         return
 
@@ -213,10 +258,13 @@ def _handle_incoming_message(bot, event, command):
 
 def chat(bot, event, *args):
     """chat to Cleverbot"""
+    if args:
+        text = yield from cleverbot_ask(event.conv_id, ' '.join(args))
+        if not text:
+            text = _("<em>Cleverbot is silent</em>")
 
-    text = yield from cleverbot_ask(event.conv_id, ' '.join(args))
-    if not text:
-        text = _("<em>Cleverbot is silent</em>")
+    else:
+        text = _("<em>you have to say something to Cleverbot</em>")
 
     yield from bot.coro_send_message(event.conv_id, text)
 
