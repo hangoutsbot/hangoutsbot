@@ -165,6 +165,9 @@ def tagsuser(bot, event, *args):
         yield from bot.coro_send_message(event.conv_id, _("<b>supply chat_id, optional conv_id</b>"))
         return
 
+    if conv_id == "here":
+        conv_id = event.conv_id
+
     active_user_tags = bot.tags.useractive(chat_id, conv_id)
     if active_user_tags:
         message_taglist = ", ".join([ "<pre>{}</pre>".format(tag) for tag in active_user_tags ])
@@ -188,6 +191,9 @@ def tagsuserlist(bot, event, *args):
     else:
         yield from bot.coro_send_message(event.conv_id, _("<b>supply conv_id, optional tag list</b>"))
         return
+
+    if conv_id == "here":
+        conv_id = event.conv_id
 
     users_to_tags = bot.tags.userlist(conv_id, filter_tags)
 
