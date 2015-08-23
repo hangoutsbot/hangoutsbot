@@ -16,7 +16,8 @@ nicks = {}
 def _initialise(bot):
     _migrate_mention_config_to_memory(bot)
     plugins.register_handler(_handle_mention, "message")
-    plugins.register_user_command(["mention", "pushbulletapi", "setnickname", "bemorespecific"])
+    plugins.register_user_command(["pushbulletapi", "setnickname", "bemorespecific"])
+    plugins.register_admin_command(["mention"])
 
 
 def _migrate_mention_config_to_memory(bot):
