@@ -146,13 +146,18 @@ def users(bot, event, *args):
     yield from command.run(bot, event, *["convusers", "id:" + event.conv_id])
 
 
-def user(bot, event, username, *args):
+def user(bot, event, *args):
     """find people by name"""
 
-    username_lower = username.strip().lower()
-    username_upper = username.strip().upper()
+    search = " ".join(args)
 
-    segments = [hangups.ChatMessageSegment(_('results for user named "{}":').format(username),
+    if not search:
+        raise ValueError(_("supply search term"))
+
+    search_lower = search.strip().lower()
+    search_upper = search.strip().upper()
+
+    segments = [hangups.ChatMessageSegment(_('results for user named "{}":').format(search),
                                            is_bold=True),
                 hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
 
@@ -161,21 +166,28 @@ def user(bot, event, username, *args):
         all_known_users[chat_id] = bot.get_hangups_user(chat_id)
 
     for u in sorted(all_known_users.values(), key=lambda x: x.full_name.split()[-1]):
-        if (not username_lower in u.full_name.lower() and
-            not username_upper in remove_accents(u.full_name.upper())):
+        fullname_lower = u.full_name.lower()
+        fullname_upper = u.full_name.upper()
+        unspaced_lower = re.sub(r'\s+', '', fullname_lower)
+        unspaced_upper = re.sub(r'\s+', '', u.full_name.upper())
 
-            continue
+        if( search_lower in fullname_lower
+            or search_lower in unspaced_lower
+            # XXX: turkish alphabet special case: converstion works better when uppercase
+            or search_upper in remove_accents(fullname_upper)
+            or search_upper in remove_accents(unspaced_upper) ):
 
-        link = 'https://plus.google.com/u/0/{}/about'.format(u.id_.chat_id)
-        segments.append(hangups.ChatMessageSegment(u.full_name, hangups.SegmentType.LINK,
-                                                   link_target=link))
-        if u.emails:
-            segments.append(hangups.ChatMessageSegment(' ('))
-            segments.append(hangups.ChatMessageSegment(u.emails[0], hangups.SegmentType.LINK,
-                                                       link_target='mailto:{}'.format(u.emails[0])))
-            segments.append(hangups.ChatMessageSegment(')'))
-        segments.append(hangups.ChatMessageSegment(' ... {}'.format(u.id_.chat_id)))
-        segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+            link = 'https://plus.google.com/u/0/{}/about'.format(u.id_.chat_id)
+            segments.append(hangups.ChatMessageSegment(u.full_name, hangups.SegmentType.LINK,
+                                                       link_target=link))
+            if u.emails:
+                segments.append(hangups.ChatMessageSegment(' ('))
+                segments.append(hangups.ChatMessageSegment(u.emails[0], hangups.SegmentType.LINK,
+                                                           link_target='mailto:{}'.format(u.emails[0])))
+                segments.append(hangups.ChatMessageSegment(')'))
+            segments.append(hangups.ChatMessageSegment(' ... {}'.format(u.id_.chat_id)))
+            segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+
     yield from bot.coro_send_message(event.conv, segments)
 
 
