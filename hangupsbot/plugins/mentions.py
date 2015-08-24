@@ -300,12 +300,24 @@ def mention(bot, event, *args):
                 pushbullet_config = bot.memory.get_by_path(['user_data', u.id_.chat_id, "pushbullet"])
                 if pushbullet_config is not None:
                     if pushbullet_config["api"] is not None:
-                        pb = PushBullet(pushbullet_config["api"])
-                        success, push = pb.push_note(
-                            _("{} mentioned you in {}").format(
-                                    source_name,
-                                    conversation_name),
-                                event.text)
+                        success = False
+                        try:
+                            pb = PushBullet(pushbullet_config["api"])
+                            push = pb.push_note(
+                                _("{} mentioned you in {}").format(
+                                        source_name,
+                                        conversation_name),
+                                    event.text)
+                            if isinstance(push, tuple):
+                                # backward-compatibility for pushbullet library < 0.8.0
+                                success = push[0]
+                            elif isinstance(push, dict):
+                                success = True
+                            else:
+                                raise TypeError("unknown return from pushbullet library: {}".format(push))
+                        except Exception as e:
+                            logger.exception("pushbullet error")
+
                         if success:
                             user_tracking["mentioned"].append(u.full_name)
                             logger.info("{} ({}) alerted via pushbullet".format(u.full_name, u.id_.chat_id))
