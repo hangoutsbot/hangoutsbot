@@ -5,9 +5,10 @@
 wget https://www.python.org/ftp/python/3.4.2/Python-3.4.2.tgz
 tar xvf Python-3.4.2.tgz
 cd Python-3.4.2
-./config
+./configure
 make
-make install
+make test
+sudo make install
 ```
 
 **git clone the repository**
@@ -50,6 +51,12 @@ You will be prompted for your gmail username and password. Use your
 To quit the bot from the console, press CTRL-C
 
 # Initial Configuration
+
+DO NOT EDIT the `config.json` supplied with the bot. It is the 
+  reference file used to generate the actual config file, which
+  is located elsewhere. Please see the next section on 
+  **Additional Configuration** to get the location of the 
+  actual configuration file if you need to edit it manually.
 
 You will need to add your actual Hangouts user as a bot administrator.
 

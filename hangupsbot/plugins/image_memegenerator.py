@@ -1,23 +1,25 @@
+import aiohttp, asyncio, logging, os, random, urllib.request
+
 from bs4 import BeautifulSoup
 
-import os
-import random
-import asyncio
-import aiohttp
 import hangups
-import urllib.request
+
+import plugins
+
+
+logger = logging.getLogger(__name__)
+
 
 _externals = { "running": False }
 
 
-def _initialise(Handlers, bot=None):
-    Handlers.register_user_command(["meme"])
-    return []
+def _initialise(bot):
+    plugins.register_user_command(["meme"])
 
 
 @asyncio.coroutine
 def _retrieve(url, css_selector, attribute):
-    print("meme._retrieve(): getting {}".format(url))
+    logger.debug("_retrieve(): getting {}".format(url))
     html_request = yield from aiohttp.request('get', url)
     html = yield from html_request.read()
     soup = BeautifulSoup(str(html, 'utf-8'))
@@ -28,8 +30,10 @@ def _retrieve(url, css_selector, attribute):
 
 
 def meme(bot, event, *args):
+    """Searches for a meme related to <something>;
+    grabs a random meme when none provided"""
     if _externals["running"]:
-        bot.send_html_to_conversation(event.conv_id, "<i>busy, give me a moment...</i>")
+        yield from bot.coro_send_message(event.conv_id, "<i>busy, give me a moment...</i>")
         return
 
     _externals["running"] = True
@@ -53,15 +57,17 @@ def meme(bot, event, *args):
 
             legacy_segments = [hangups.ChatMessageSegment(instance_link, hangups.SegmentType.LINK, link_target=instance_link)]
 
-            print("meme(): uploading {} from {}".format(filename, jpg_link))
+            logger.debug("uploading {} from {}".format(filename, jpg_link))
             photo_id = yield from bot._client.upload_image(image_data, filename=filename)
 
-            bot.send_message_segments(event.conv.id_, legacy_segments, image_id=photo_id)
+            yield from bot.coro_send_message(event.conv.id_, legacy_segments, image_id=photo_id)
 
         else:
-            bot.send_html_to_conversation(event.conv_id, "<i>couldn't find a nice picture :( try again</i>")
+            yield from bot.coro_send_message(event.conv_id, "<i>couldn't find a nice picture :( try again</i>")
+
     except Exception as e:
-        bot.send_html_to_conversation(event.conv_id, "<i>couldn't find a suitable meme! try again</i>")
-        print("{}".format(e))
+        yield from bot.coro_send_message(event.conv_id, "<i>couldn't find a suitable meme! try again</i>")
+        logger.exception("FAILED TO RETRIEVE MEME")
+
     finally:
         _externals["running"] = False

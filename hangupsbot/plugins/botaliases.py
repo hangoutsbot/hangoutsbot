@@ -1,8 +1,13 @@
-"""
-add aliases for the bot
-"""
+"""aliases for the bot"""
+import logging
 
-def _initialise(Handlers, bot=None):
+import plugins
+
+
+logger = logging.getLogger(__name__)
+
+
+def _initialise(bot):
     """load in bot aliases from memory, create defaults if none"""
 
     if bot.memory.exists(["bot.command_aliases"]):
@@ -28,10 +33,10 @@ def _initialise(Handlers, bot=None):
     if len(bot_command_aliases) == 0:
         bot.append("/bot")
 
-    Handlers.bot_command = bot_command_aliases
-    print(_("bot aliases: {}").format(bot_command_aliases))
+    bot._handlers.bot_command = bot_command_aliases
+    logger.info("aliases: {}".format(bot_command_aliases))
 
-    Handlers.register_user_command(["botalias"])
+    plugins.register_user_command(["botalias"])
 
     return []
 
@@ -40,7 +45,7 @@ def botalias(bot, event, *args):
     """shows, adds and removes bot command aliases"""
 
     if len(args) == 0:
-        bot.send_message_parsed(
+        yield from bot.coro_send_message(
             event.conv,
             _("<i>bot alias: {}</i>").format(
                 ", ".join(bot._handlers.bot_command)))
@@ -69,6 +74,6 @@ def botalias(bot, event, *args):
 
             botalias(bot, event) # run with no arguments
         else:
-            bot.send_message_parsed(
+            yield from bot.coro_send_message(
                 event.conv,
                 _("<i>not authorised to change bot alias</i>"))

@@ -1,13 +1,20 @@
+import asyncio, logging, urllib
+
 import goslate
-import asyncio
-import urllib
+
+import plugins
+
+
+logger = logging.getLogger(__name__)
+
 
 gs = goslate.Goslate()
 
-def _initialise(command):
-    command.register_handler(_handle_message)
 
-@asyncio.coroutine
+def _initialise():
+    plugins.register_handler(_handle_message)
+
+
 def _handle_message(bot, event, command):
     language_map = gs.get_languages()
     raw_text = event.text.lower()
@@ -25,11 +32,15 @@ def _handle_message(bot, event, command):
     if translate_target is not None:
         yield from _translate(bot, event, raw_text, translate_target[0], translate_target[1])
 
+
 @asyncio.coroutine
 def _translate(bot, event, text, iso_language, text_language):
-    print(_('TRANSLATE: "{}" to {}').format(text, iso_language))
+    logger.info('"{}" to {}'.format(text, iso_language))
+
     try:
         translated = gs.translate(text, iso_language)
-        bot.send_message_parsed(event.conv, "<i>" + text_language + "</i> : " + translated)
+        yield from bot.coro_send_message(event.conv, "<i>" + text_language + "</i> : " + translated)
+
     except urllib.error.HTTPError as e:
-        bot.send_message_parsed(event.conv, "Translation server error: <i>{}</i>".format(str(e)))
+        yield from bot.coro_send_message(event.conv, _("Translation server error: <i>{}</i>").format(str(e)))
+        logger.exception(e)
