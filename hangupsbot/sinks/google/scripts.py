@@ -1,56 +1,41 @@
-from http.server import BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
+import asyncio, json, logging
 
-import json
+from sinks.base_bot_request_handler import AsyncRequestHandler
 
-class webhookReceiver(BaseHTTPRequestHandler):
+
+logger = logging.getLogger(__name__)
+
+
+class webhookReceiver(AsyncRequestHandler):
     _bot = None
 
-    def _handle_incoming(self, path, query_string, payload):
+    @asyncio.coroutine
+    def process_request(self, path, query_string, content):
         path = path.split("/")
         conv_or_user_id = path[1]
         if conv_or_user_id is None:
-            print(_("conversation or user id must be provided as part of path"))
+            logger.error("conversation or user id must be provided as part of path")
             return
 
-        if "message" in payload:
-            self._scripts_push(conv_or_user_id, payload["message"])
+        payload = content
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+
+        if not payload:
+            logger.error("payload has nothing")
+            return
+
+        if "message" not in payload:
+            logger.error("payload does not contain message")
+            return
+
+        yield from self.send_actionable_message(conv_or_user_id, payload["message"])
+
+
+    @asyncio.coroutine
+    def send_actionable_message(self, id, content):
+        if id in self._bot.conversations.catalog:
+            yield from self._bot.coro_send_message(id, content)
         else:
-            print(payload)
-
-        print(_("handler finished"))
-
-    def _scripts_push(self, conv_or_user_id, message):
-        try:
-            if not webhookReceiver._bot.send_html_to_user(conv_or_user_id, message): # Not a user id
-                webhookReceiver._bot.send_html_to_conversation(conv_or_user_id, message)
-        except Exception as e:
-            print(e)
-
-    def do_POST(self):
-        """
-            receives post, handles it
-        """
-        print(_('receiving POST...'))
-        data_string = self.rfile.read(int(self.headers['Content-Length'])).decode('UTF-8')
-        self.send_response(200)
-        message = bytes('OK', 'UTF-8')
-        self.send_header("Content-type", "text")
-        self.send_header("Content-length", str(len(message)))
-        self.end_headers()
-        self.wfile.write(message)
-        print(_('connection closed'))
-
-        # parse requested path + query string
-        _parsed = urlparse(self.path)
-        path = _parsed.path
-        query_string = parse_qs(_parsed.query)
-
-        print(_("incoming path: {}").format(path))
-
-        # parse incoming data
-        payload = json.loads(data_string)
-
-        print(_("payload {}").format(payload))
-
-        self._handle_incoming(path, query_string, payload)
+            # attempt to send to a user id
+            yield from self._bot.coro_send_to_user(id, content)

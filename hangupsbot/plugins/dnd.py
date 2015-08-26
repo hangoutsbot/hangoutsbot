@@ -1,11 +1,17 @@
-import functools
-import time
+import functools, logging, time
 
-def _initialise(Handlers, bot=None):
+import plugins
+
+
+logger = logging.getLogger(__name__)
+
+
+def _initialise(bot):
     _migrate_dnd_config_to_memory(bot)
-    Handlers.register_object('dnd.user_check', functools.partial(_user_has_dnd, bot))
-    Handlers.register_user_command(["dnd"])
-    return []
+    _reuseable = functools.partial(_user_has_dnd, bot)
+    functools.update_wrapper(_reuseable, _user_has_dnd)
+    plugins.register_shared('dnd.user_check', _reuseable)
+    plugins.register_user_command(["dnd"])
 
 
 def _migrate_dnd_config_to_memory(bot):
@@ -16,7 +22,7 @@ def _migrate_dnd_config_to_memory(bot):
         del bot.config["donotdisturb"]
         bot.memory.save()
         bot.config.save()
-        print(_("dnd: list migrated to memory"))
+        logger.debug("list migrated to memory")
 
     # migrate memory.json DND to structure with more metadata
     if bot.memory.exists(["donotdisturb"]):
@@ -31,7 +37,7 @@ def _migrate_dnd_config_to_memory(bot):
                 }
             bot.memory.set_by_path(["donotdisturb"], dnd_dict)
             bot.memory.save()
-            print(_("dnd: list migrated to dictionary"))
+            logger.debug("list migrated to dictionary")
 
 
 def dnd(bot, event, *args):
@@ -65,13 +71,13 @@ def dnd(bot, event, *args):
     bot.memory.save()
 
     if bot.call_shared("dnd.user_check", initiator_chat_id):
-        bot.send_message_parsed(
+        yield from bot.coro_send_message(
             event.conv,
             "global DND toggled ON for {}, expires in {} hour(s)".format(
                 event.user.full_name,
                 str(seconds_to_expire/3600)))
     else:
-        bot.send_message_parsed(
+        yield from bot.coro_send_message(
             event.conv,
             "global DND toggled OFF for {}".format(event.user.full_name))
 

@@ -1,13 +1,11 @@
-import random, asyncio
+import random
+import asyncio
+
+import plugins
 
 
-def _initialise(Handlers, bot=None):
-    if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
-        Handlers.register_admin_command(["easteregg"])
-        return []
-    else:
-        print(_("EASTEREGG: LEGACY FRAMEWORK MODE"))
-        return ["easteregg"]
+def _initialise(bot):
+    plugins.register_admin_command(["easteregg"])
 
 
 def easteregg(bot, event, easteregg, eggcount=1, period=0.5, *args):

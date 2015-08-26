@@ -9,6 +9,8 @@ from urllib.request import urlopen
 from urllib.parse import quote as urlquote
 from html.parser import HTMLParser
 
+import plugins
+
 
 class TermType(object):
     pass
@@ -77,7 +79,11 @@ def urbandict(bot, event, *args):
     data = f.read().decode('utf-8')
 
     urbanDictParser = UrbanDictParser()
-    urbanDictParser.feed(data)
+    try:
+        urbanDictParser.feed(data)
+    except IndexError:
+        # apparently, nothing was returned
+        pass
 
     if len(urbanDictParser.translations) > 0:
         html_text = ""
@@ -88,14 +94,13 @@ def urbandict(bot, event, *args):
         if "example" in the_definition:
             html_text += _("<b>example:</b> ") + the_definition["example"].strip().replace("\n", "<br />")
 
-        bot.send_message_parsed(event.conv, html_text)
+        yield from bot.coro_send_message(event.conv, html_text)
     else:
         if term:
-            bot.send_message_parsed(event.conv, _('<i>no urban dictionary definition for "{}"</i>').format(term))
+            yield from bot.coro_send_message(event.conv, _('<i>no urban dictionary definition for "{}"</i>').format(term))
         else:
-            bot.send_message_parsed(event.conv, _('<i>no term from urban dictionary</i>'))
+            yield from bot.coro_send_message(event.conv, _('<i>no term from urban dictionary</i>'))
 
 
-def _initialise(Handlers, bot=None):
-    Handlers.register_user_command(["urbandict"])
-    return []
+def _initialise(bot):
+    plugins.register_user_command(["urbandict"])

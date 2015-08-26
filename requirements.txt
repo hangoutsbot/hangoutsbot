@@ -1,4 +1,4 @@
-hangups
+git+https://github.com/tdryer/hangups.git
 appdirs
 asyncio
 jsonrpclib-pelix
@@ -7,4 +7,6 @@ beautifulsoup4
 goslate
 wikipedia
 wolframalpha
-pyslack
+git+https://github.com/loisaidasam/pyslack.git
+git+https://github.com/carpedm20/emoji
+selenium

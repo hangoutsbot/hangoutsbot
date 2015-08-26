@@ -1,12 +1,14 @@
-import hangups
-import hashlib, asyncio
-import urllib
-try:
-    import urllib.request as urllib2
-except ImportError:
-    import urllib2
+import asyncio, hashlib, urllib
 
-from random import randrange
+import urllib.request as urllib2
+from http.cookiejar import CookieJar
+
+from random import randrange, randint
+
+import hangups
+
+import plugins
+
 
 __cleverbots = dict()
 
@@ -14,7 +16,6 @@ __cleverbots = dict()
 class Cleverbot:
     """
     Wrapper over the Cleverbot API.
-
     """
     HOST = "www.cleverbot.com"
     PROTOCOL = "http://"
@@ -32,7 +33,6 @@ class Cleverbot:
         'Referer': PROTOCOL + HOST + '/',
         'Pragma': 'no-cache'
     }
-
 
     def __init__(self):
         """ The data that will get passed to Cleverbot's web API """
@@ -66,6 +66,25 @@ class Cleverbot:
         self.conversation = []
         self.resp = str()
 
+        # install an opener with support for cookies
+        cookies = CookieJar()
+        handlers = [
+            urllib2.HTTPHandler(),
+            urllib2.HTTPSHandler(),
+            urllib2.HTTPCookieProcessor(cookies)
+        ]
+        opener = urllib2.build_opener(*handlers)
+        urllib2.install_opener(opener)
+
+        # get the main page to get a cookie (see bug  #13)
+        try:
+            urllib2.urlopen(Cleverbot.PROTOCOL + Cleverbot.HOST)
+        except urllib2.HTTPError:
+            # TODO errors shouldn't pass unnoticed,
+            # here and in other places as well
+            return str()
+
+
     def ask(self, question):
         """Asks Cleverbot a question.
 
@@ -73,7 +92,6 @@ class Cleverbot:
 
         Args:
             q (str): The question to ask
-
         Returns:
             Cleverbot's answer
         """
@@ -101,10 +119,10 @@ class Cleverbot:
 
         return parsed['answer']
 
+
     def _send(self):
         """POST the user's question and all required information to the
         Cleverbot API
-
         Cleverbot tries to prevent unauthorized access to its API by
         obfuscating how it generates the 'icognocheck' token, so we have
         to URLencode the data twice: once to generate the token, and
@@ -126,9 +144,8 @@ class Cleverbot:
         self.data['icognocheck'] = token
 
         # Add the token to the data
-        enc_data = urllib.parse.urlencode(self.data)
-
-        req = urllib2.Request(self.API_URL, enc_data.encode('utf-8'), self.headers)
+        enc_data = urllib.parse.urlencode(self.data).encode('utf-8')
+        req = urllib2.Request(self.API_URL, enc_data, self.headers)
 
         # POST the data to Cleverbot's API
         conn = urllib2.urlopen(req)
@@ -145,27 +162,19 @@ class Cleverbot:
         parsed_dict = {
             'answer': parsed[0][0],
             'conversation_id': parsed[0][1],
+            'conversation_log_id': parsed[0][2],
         }
-        try:
-            parsed_dict['conversation_log_id'] = parsed[0][2]
-        except IndexError:
-            parsed_dict['conversation_log_id'] = None
-
         try:
             parsed_dict['unknown'] = parsed[1][-1]
         except IndexError:
             parsed_dict['unknown'] = None
-
         return parsed_dict
 
-def _initialise(Handlers, bot=None):
 
-    Handlers.register_handler(_handle_incoming_message, type="message")
+def _initialise(bot):
+    plugins.register_handler(_handle_incoming_message, type="message")
+    plugins.register_user_command(["chat"])
 
-    if "register_admin_command" in dir(Handlers) and "register_user_command" in dir(Handlers):
-        Handlers.register_admin_command([])
-        Handlers.register_user_command(["chat"])
-        return []
 
 @asyncio.coroutine
 def _handle_incoming_message(bot, event, context):
@@ -176,21 +185,24 @@ def _handle_incoming_message(bot, event, context):
 
     percentage = bot.get_config_suboption(event.conv_id, 'cleverbot_percentage_replies')
 
-    if randrange(0, 101, 2) < float(percentage):
+    if randrange(0, 101, 1) < float(percentage):
         chat(bot, event, event.text)
 
+
 def chat(bot, event, *args):
-    """Cleverbot for Hangupsbot"""
-    try:
-        if not __cleverbots[event.conv.id_]:
-            __cleverbots[event.conv.id_] = Cleverbot()
-    except KeyError:
+    """chat to Cleverbot"""
+    if event.conv.id_ not in __cleverbots:
         __cleverbots[event.conv.id_] = Cleverbot()
 
-    query = ' '.join(args)
+    loop = asyncio.get_event_loop()
+    try:
+        text = yield from loop.run_in_executor(None, __cleverbots[event.conv.id_].ask, ' '.join(args))
+    except IndexError:
+        text = _("<em>Cleverbot is silent</em>")
 
-    cb1 = __cleverbots[event.conv.id_]
-    text = cb1.ask(query)
-    if "Cleverscript.com." in text or "Clevermessage" in text or "Clevertweet" in text or "CleverEnglish" in text:
-        return
-    bot.send_html_to_conversation(event.conv.id_, text)
+    ad_text = ["Cleverscript.com.", "Clevermessage", "Clevertweet", "CleverEnglish"]
+    for ad in ad_text:
+        if ad.lower() in text.lower():
+            return
+
+    yield from bot.coro_send_message(event.conv.id_, text)

@@ -1,6 +1,10 @@
-import asyncio,re,logging
+import asyncio, logging, re
 
-from hangups.ui.utils import get_conv_name
+import plugins
+
+
+logger = logging.getLogger(__name__)
+
 
 class __internal_vars():
     def __init__(self):
@@ -9,11 +13,12 @@ class __internal_vars():
 
 _internal = __internal_vars()
 
-def _initialise(command):
-    command.register_handler(_handle_keyword)
-    return ["subscribe", "unsubscribe"]
 
-@asyncio.coroutine
+def _initialise():
+    plugins.register_handler(_handle_keyword)
+    plugins.register_user_command(["subscribe", "unsubscribe"])
+
+
 def _handle_keyword(bot, event, command):
     """handle keyword"""
 
@@ -36,48 +41,61 @@ def _handle_keyword(bot, event, command):
                 for phrase in _internal.keywords[user.id_.chat_id]:
                     regexphrase = "\\b" + phrase + "\\b"
                     if re.search(regexphrase, event.text, re.IGNORECASE):
-                        _send_notification(bot, event, phrase, user)
+                        yield from _send_notification(bot, event, phrase, user)
         except KeyError:
             # User probably hasn't subscribed to anything
             continue
+
 
 def _populate_keywords(bot, event):
     # Pull the keywords from file if not already
     if not _internal.keywords:
         bot.initialise_memory(event.user.id_.chat_id, "user_data")
         for userchatid in bot.memory.get_option("user_data"):
-            userkeywords = bot.memory.get_suboption("user_data", userchatid, "keywords")
+            userkeywords = []
+            if bot.memory.exists(["user_data", userchatid, "keywords"]):
+                userkeywords = bot.memory.get_by_path(["user_data", userchatid, "keywords"])
+
             if userkeywords:
                 _internal.keywords[userchatid] = userkeywords
             else:
                 _internal.keywords[userchatid] = []
 
+
+@asyncio.coroutine
 def _send_notification(bot, event, phrase, user):
     """Alert a user that a keyword that they subscribed to has been used"""
 
-    conversation_name = get_conv_name(event.conv, truncate=True);
-    logging.info(_("subscribe: keyword '{}' in '{}' ({})").format(phrase, conversation_name, event.conv.id_))
+    conversation_name = bot.conversations.get_name(event.conv)
+    logger.info("keyword '{}' in '{}' ({})".format(phrase, conversation_name, event.conv.id_))
+
+    """support for reprocessor
+    override the source name by defining event._external_source"""
+    source_name = event.user.full_name
+    if hasattr(event, '_external_source'):
+        source_name = event._external_source
 
     """send alert with 1on1 conversation"""
-    conv_1on1 = bot.get_1on1_conversation(user.id_.chat_id)
+    conv_1on1 = yield from bot.get_1to1(user.id_.chat_id)
     if conv_1on1:
         try:
             user_has_dnd = bot.call_shared("dnd.user_check", user.id_.chat_id)
         except KeyError:
             user_has_dnd = False
         if not user_has_dnd: # shared dnd check
-            bot.send_message_parsed(
+            yield from bot.coro_send_message(
                 conv_1on1,
                 _("<b>{}</b> mentioned '{}' in <i>{}</i>:<br />{}").format(
-                    event.user.full_name,
+                    source_name,
                     phrase,
                     conversation_name,
                     event.text))
-            logging.info(_("subscribe: {} ({}) alerted via 1on1 ({})").format(user.full_name, user.id_.chat_id, conv_1on1.id_))
+            logger.info("{} ({}) alerted via 1on1 ({})".format(user.full_name, user.id_.chat_id, conv_1on1.id_))
         else:
-            logging.info(_("subscribe: {} ({}) has dnd").format(user.full_name, user.id_.chat_id))
+            logger.info("{} ({}) has dnd".format(user.full_name, user.id_.chat_id))
     else:
-        logging.warning(_("subscribe: user {} ({}) could not be alerted via 1on1").format(user.full_name, user.id_.chat_id))
+        logger.warning("user {} ({}) could not be alerted via 1on1".format(user.full_name, user.id_.chat_id))
+
 
 def subscribe(bot, event, *args):
     """allow users to subscribe to phrases, only one input at a time"""
@@ -85,17 +103,17 @@ def subscribe(bot, event, *args):
 
     keyword = ' '.join(args).strip().lower()
 
-    conv_1on1 = bot.get_1on1_conversation(event.user.id_.chat_id)
+    conv_1on1 = yield from bot.get_1to1(event.user.id_.chat_id)
     if not conv_1on1:
-        bot.send_message_parsed(
+        yield from bot.coro_send_message(
             event.conv,
             _("Note: I am unable to ping you until you start a 1 on 1 conversation with me!"))
 
     if not keyword:
-        bot.send_message_parsed(
+        yield from bot.coro_send_message(
             event.conv,_("Usage: /bot subscribe [keyword]"))
         if _internal.keywords[event.user.id_.chat_id]:
-            bot.send_message_parsed(
+            yield from bot.coro_send_message(
                 event.conv,
                 _("Subscribed to: {}").format(', '.join(_internal.keywords[event.user.id_.chat_id])))
         return
@@ -103,7 +121,7 @@ def subscribe(bot, event, *args):
     if event.user.id_.chat_id in _internal.keywords:
         if keyword in _internal.keywords[event.user.id_.chat_id]:
             # Duplicate!
-            bot.send_message_parsed(
+            yield from bot.coro_send_message(
                 event.conv,_("Already subscribed to '{}'!").format(keyword))
             return
         else:
@@ -111,7 +129,7 @@ def subscribe(bot, event, *args):
             if not _internal.keywords[event.user.id_.chat_id]:
                 # First keyword!
                 _internal.keywords[event.user.id_.chat_id] = [keyword]
-                bot.send_message_parsed(
+                yield from bot.coro_send_message(
                     event.conv,
                     _("Note: You will not be able to trigger your own subscriptions. To test, please ask somebody else to test this for you."))
             else:
@@ -119,7 +137,7 @@ def subscribe(bot, event, *args):
                 _internal.keywords[event.user.id_.chat_id].append(keyword)
     else:
         _internal.keywords[event.user.id_.chat_id] = [keyword]
-        bot.send_message_parsed(
+        yield from bot.coro_send_message(
             event.conv,
             _("Note: You will not be able to trigger your own subscriptions. To test, please ask somebody else to test this for you."))
 
@@ -128,9 +146,10 @@ def subscribe(bot, event, *args):
     bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "keywords"], _internal.keywords[event.user.id_.chat_id])
     bot.memory.save()
 
-    bot.send_message_parsed(
+    yield from bot.coro_send_message(
         event.conv,
         _("Subscribed to: {}").format(', '.join(_internal.keywords[event.user.id_.chat_id])))
+
 
 def unsubscribe(bot, event, *args):
     """Allow users to unsubscribe from phrases"""
@@ -139,15 +158,15 @@ def unsubscribe(bot, event, *args):
     keyword = ' '.join(args).strip().lower()
 
     if not keyword:
-        bot.send_message_parsed(
+        yield from bot.coro_send_message(
             event.conv,_("Unsubscribing all keywords"))
         _internal.keywords[event.user.id_.chat_id] = []
     elif keyword in _internal.keywords[event.user.id_.chat_id]:
-        bot.send_message_parsed(
+        yield from bot.coro_send_message(
             event.conv,_("Unsubscribing from keyword '{}'").format(keyword))
         _internal.keywords[event.user.id_.chat_id].remove(keyword)
     else:
-        bot.send_message_parsed(
+        yield from bot.coro_send_message(
             event.conv,_("Error: keyword not found"))
 
     # Save to file
