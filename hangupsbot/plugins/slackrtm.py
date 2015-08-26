@@ -48,6 +48,10 @@ try:
 #                return textemoji
 #            except KeyError:
 #                raise ValueError("Unicode code is not an emoji: %s" % u_code)
+
+        # basic "simple_smile" support on request of @alvin853
+        emoji.EMOJI_UNICODE[':simple_smile:'] = emoji.EMOJI_UNICODE[':white_smiling_face:']
+        emoji.EMOJI_ALIAS_UNICODE[':simple_smile:'] = emoji.EMOJI_UNICODE[':white_smiling_face:']
 except Exception as e:
     print('Please install emoji: pip3 install emoji>=0.3.3')
     raise e
