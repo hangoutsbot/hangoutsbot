@@ -8,12 +8,26 @@ logger = logging.getLogger(__name__)
 
 def _initialise(bot): pass # prevents commands from being automatically added
 
+def _tagshortcuts(event, type, id):
+    """given type=conv, type=convuser, id=here expands to event.conv_id"""
+
+    if id == "here":
+        if type not in ["conv", "convuser"]:
+            raise TypeError("here cannot be used for type {}".format(type))
+
+        id = event.conv_id
+        if type == "convuser":
+            id += "|*"
+
+    return type, id
+
 
 @command.register(admin=True)
 def tagset(bot, event, *args):
     """set a single tag. usage: tagset <"conv"|"user"|"convuser"> <id> <tag>"""
     if len(args) == 3:
         [type, id, tag] = args
+        type, id = _tagshortcuts(event, type, id)
         if bot.tags.add(type, id, tag):
             message = _("tagged <b><pre>{}</pre></b> with <b><pre>{}</pre></b>".format(id, tag))
         else:
@@ -28,6 +42,7 @@ def tagdel(bot, event, *args):
     """remove single tag. usage: tagdel <"conv"|"user"|"convuser"> <id> <tag>"""
     if len(args) == 3:
         [type, id, tag] = args
+        type, id = _tagshortcuts(event, type, id)
         if bot.tags.remove(type, id, tag):
             message = _("removed <b><pre>{}</pre></b> from <b><pre>{}</pre></b>".format(tag, id))
         else:
@@ -42,6 +57,7 @@ def tagspurge(bot, event, *args):
     """batch remove tags. usage: tagspurge <"user"|"conv"|"convuser"|"tag"|"usertag"|"convtag"> <id|"ALL">"""
     if len(args) == 2:
         [type, id] = args
+        type, id = _tagshortcuts(event, type, id)
         entries_removed = bot.tags.purge(type, id)
         message = _("entries removed: <b><pre>{}</pre></b>".format(entries_removed))
     else:
@@ -153,6 +169,9 @@ def tagsuser(bot, event, *args):
         yield from bot.coro_send_message(event.conv_id, _("<b>supply chat_id, optional conv_id</b>"))
         return
 
+    if conv_id == "here":
+        conv_id = event.conv_id
+
     active_user_tags = bot.tags.useractive(chat_id, conv_id)
     if active_user_tags:
         message_taglist = ", ".join([ "<pre>{}</pre>".format(tag) for tag in active_user_tags ])
@@ -176,6 +195,9 @@ def tagsuserlist(bot, event, *args):
     else:
         yield from bot.coro_send_message(event.conv_id, _("<b>supply conv_id, optional tag list</b>"))
         return
+
+    if conv_id == "here":
+        conv_id = event.conv_id
 
     users_to_tags = bot.tags.userlist(conv_id, filter_tags)
 

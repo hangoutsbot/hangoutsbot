@@ -907,15 +907,30 @@ def configure_logging(args):
             }
         }
 
+    logging_config = default_config
+
     # Temporarily bring in the configuration file, just so we can configure
     # logging before bringing anything else up. There is no race internally,
     # if logging() is called before configured, it outputs to stderr, and
     # we will configure it soon enough
     bootcfg = config.Config(args.config)
     if bootcfg.exists(["logging.system"]):
-        logging.config.dictConfig(bootcfg["logging.system"])
-    else:
-        logging.config.dictConfig(default_config)
+        logging_config = bootcfg["logging.system"]
+
+    if "extras.setattr" in logging_config:
+        for class_attr, value in logging_config["extras.setattr"].items():
+            try:
+                [modulepath, classname, attribute] = class_attr.rsplit(".", maxsplit=2)
+                try:
+                    setattr(class_from_name(modulepath, classname), attribute, value)
+                except ImportError:
+                    logging.error("module {} not found".format(modulepath))
+                except AttributeError:
+                    logging.error("{} in {} not found".format(classname, modulepath))
+            except ValueError:
+                logging.error("format should be <module>.<class>.<attribute>")
+
+    logging.config.dictConfig(logging_config)
 
     logger = logging.getLogger()
     if args.debug:

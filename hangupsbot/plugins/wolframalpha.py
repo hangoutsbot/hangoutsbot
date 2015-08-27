@@ -29,6 +29,11 @@ def _initialise(bot):
 def ask(bot, event, *args):
     """request data from wolfram alpha"""
 
+    if not len(args):
+        yield from bot.coro_send_message(event.conv,
+                _("You need to ask WolframAlpha a question"))
+        return
+
     keyword = ' '.join(args)
     res = _internal["client"].query(keyword)
 

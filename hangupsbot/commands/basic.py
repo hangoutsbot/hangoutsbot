@@ -54,12 +54,15 @@ def help(bot, event, cmd=None, *args):
             help_lines.append(_('<b>Admin commands:</b>'))
             help_lines.append(', '.join(sorted(commands_admin)))
     else:
-        try:
+        if cmd in command.commands:
             command_fn = command.commands[cmd]
-            help_lines.append("<b>{}</b>: {}".format(cmd, command_fn.__doc__))
-        except KeyError:
+        elif cmd.lower() in command.commands:
+            command_fn = command.commands[cmd.lower()]
+        else:
             yield from command.unknown_command(bot, event)
             return
+
+        help_lines.append("<b>{}</b>: {}".format(command_fn.__name__, command_fn.__doc__))
 
     yield from bot.coro_send_to_user_and_conversation(
         event.user.id_.chat_id,
