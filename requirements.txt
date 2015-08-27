@@ -1,4 +1,4 @@
-git+https://github.com/tdryer/hangups.git
+git+https://github.com/tdryer/hangups.git@84c6a20a24bede2fa41ffd54fda510e453f080dc
 appdirs
 asyncio
 jsonrpclib-pelix
