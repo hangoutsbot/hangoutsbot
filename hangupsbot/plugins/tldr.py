@@ -64,15 +64,14 @@ def tldr(bot, event, *args):
         yield from bot.coro_send_message(event.conv_id, message)
 
     else:
-        tldr = ' '.join(parameters).replace("'", "").replace('"', '')
-
+        tldr = ' '.join(parameters)
         if tldr:
             # Add message to list
             conv_tldr[str(time.time())] = tldr
             bot.memory.set_by_path(['tldr', event.conv_id], conv_tldr)
             yield from bot.coro_send_message( event.conv_id,
-                                              _('Added "{}" to TL;DR. Count: {}').format( tldr,
-                                                                                          len(conv_tldr) ))
+                                              _('<em>{}</em> added to TL;DR. Count: {}').format( tldr,
+                                                                                                 len(conv_tldr) ))
 
     bot.memory.save()
 
