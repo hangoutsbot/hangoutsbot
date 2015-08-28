@@ -14,6 +14,29 @@ def _initialise(bot):
     plugins.register_admin_command(["addme", "addusers", "createconversation", "refresh", "kick"])
 
 
+@asyncio.coroutine
+def _batch_add_users(bot, target_conv, chat_ids, batch_max=20):
+    chat_ids = list(set(chat_ids))
+
+    not_there = []
+    for chat_id in chat_ids:
+        if chat_id not in bot.conversations.catalog[target_conv]["participants"]:
+            not_there.append(chat_id)
+        else:
+            logger.debug("addusers: user {} already in {}".format(chat_id, target_conv))
+    chat_ids = not_there
+
+    users_added = 0
+    chunks = [chat_ids[i:i+batch_max] for i in range(0, len(chat_ids), batch_max)]
+    for number, partial_list in enumerate(chunks):
+        logger.info("batch add users: {}/{} {} user(s) into {}".format(number+1, len(chunks), len(partial_list), target_conv))
+        yield from bot._client.adduser(target_conv, partial_list)
+        users_added = users_added + len(partial_list)
+        yield from asyncio.sleep(0.5)
+
+    return users_added
+
+
 def addusers(bot, event, *args):
     """adds user(s) into a chat
     Usage: /bot addusers
@@ -37,9 +60,10 @@ def addusers(bot, event, *args):
                 raise ValueError("UNKNOWN STATE: {}".format(state[-1]))
 
     list_add = list(set(list_add))
-    logger.info("addusers: {} into conversation {}".format(list_add, target_conv))
+    added = 0
     if len(list_add) > 0:
-        yield from bot._client.adduser(target_conv, list_add)
+        added = yield from _batch_add_users(bot, target_conv, list_add)
+    logger.info("addusers: {} added to {}".format(added, target_conv))
 
 
 def addme(bot, event, *args):
@@ -162,9 +186,12 @@ def refresh(bot, event, *args):
                                                                          " ".join(list_added) or _("<em>none</em>")))
     else:
         if len(list_added) > 1:
-            response = yield from bot._client.createconversation(list_added, force_group=True)
+            response = yield from bot._client.createconversation([], force_group=True)
             new_conversation_id = response['conversation']['id']['id']
-            yield from bot.coro_send_message(new_conversation_id, _("<i>group refreshed</i><br />"))
+            yield from bot.coro_send_message(new_conversation_id, _("<i>refreshing group...</i><br />"))
+            yield from asyncio.sleep(1)
+            yield from _batch_add_users(bot, new_conversation_id, list_added)
+            yield from bot.coro_send_message(new_conversation_id, _("<i>all users added</i><br />"))
             yield from asyncio.sleep(1)
             yield from bot._client.setchatname(new_conversation_id, new_title)
 
