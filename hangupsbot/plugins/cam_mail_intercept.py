@@ -197,7 +197,7 @@ def interceptMail(maildata):
         logger.info('content type: ' + typ + ' filename: ' + filename)
         if (typ == 'text/plain'):
             body = part.get_payload(decode=False)
-            item["content"] +=  str(body)
+            item["content"] += '\n' + str(body)
         if (typ == "image/jpeg"): 
             img = part.get_payload(decode=True)
             item["filename"] = filename
