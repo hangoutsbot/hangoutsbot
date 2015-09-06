@@ -126,10 +126,12 @@ def interceptCamMail(bot, event, *args):
        
 @asyncio.coroutine
 def my_message(loop, item):
-    if item["img"]: image_id = yield from mybot._client.upload_image(io.BytesIO(item["img"]), filename=item["filename"])
-    else: image_id = None
-    yield from mybot.coro_send_message( CAMMAILCID, item["content"], image_id=image_id)  
-  
+    count = 0
+    for i in item["img"]: 
+        image_id = yield from mybot._client.upload_image(io.BytesIO(i), filename=item["filename"][count])
+        yield from mybot.coro_send_message( CAMMAILCID, None, image_id=image_id)  
+        count +=1
+    yield from mybot.coro_send_message( CAMMAILCID, item["content"], image_id=None)    
 
 @asyncio.coroutine
 def _handle_incoming_message(bot, event, command):
@@ -187,26 +189,27 @@ def interceptMail(maildata):
                 logger.info("ignoring alarm, alarm system not active")
                 return True
         except: logger.exception('cannot talk to alarm system url')
-    counter = 1
-    item = {"filename": None, "img": None, "content": subject}
+    item = {"filename": [], "img": [], "content": subject}
+    counter = 0
     for part in msg.walk():
+        counter +=1
         # multipart/* are just containers
         if part.get_content_maintype() == 'multipart': continue
         typ = part.get_content_type()
-        filename = part.get_filename() or ''
+        if part.get_filename("xxx").startswith('=?'): filename = decode_header(part.get_filename())[0][0].decode()
+        else: filename = part.get_filename("xxx") 
         logger.info('content type: ' + typ + ' filename: ' + filename)
         if (typ == 'text/plain'):
             body = part.get_payload(decode=False)
             item["content"] += '\n' + str(body)
         if (typ == "image/jpeg"): 
             img = part.get_payload(decode=True)
-            item["filename"] = filename
-            item["img"] = img
+            item["filename"].append(filename)
+            item["img"].append(img)
             item["content"] = subject # remove body if there is an image - an image says more than 1000 words
             logger.info('feeding image data into bot - size: ' + str(len(img)) ) 
-        counter += 1 
     try: task = asyncio.async(my_message(mainloop, item), loop=mainloop) # will become mainloop.create_task
-    except: logger.exception('cannot post into bot')   
+    except: logger.exception('cannot post into bot')           
     forward = True
     return forward
 
