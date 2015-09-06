@@ -90,9 +90,7 @@ class tags:
         elif type == "user":
             index_type = "user"
 
-            if( not self.bot.memory.exists(["user_data", id]) and
-                  id != self.wildcard["user"] ):
-
+            if not self.bot.memory.exists(["user_data", id]) and id != self.wildcard["user"]:
                 raise ValueError("user {} is invalid".format(id))
 
             tags = self.bot.user_memory_get(id, "tags")
@@ -101,15 +99,13 @@ class tags:
             index_type = "user"
             [conv_id, chat_id] = id.split("|", maxsplit=1)
 
-            if( conv_id not in self.bot.conversations.catalog and
-                  conv_id not in (self.wildcard["group"], self.wildcard["one2one"]) ):
-
+            if conv_id not in self.bot.conversations.catalog and \
+                    conv_id not in (self.wildcard["group"], self.wildcard["one2one"]):
                 raise ValueError("conversation {} is invalid".format(conv_id))
 
-            if( not self.bot.memory.exists(["user_data", id]) and
-                  id != self.wildcard["user"] ):
-
-                raise ValueError("user {} is invalid".format(id))
+            if not self.bot.memory.exists(["user_data", chat_id]) and \
+                    chat_id != self.wildcard["user"]:
+                raise ValueError("user {} is invalid".format(chat_id))
 
             tags_users = self.bot.conversation_memory_get(conv_id, "tags-users")
 
