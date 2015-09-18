@@ -167,13 +167,18 @@ def search_spotify(query):
     """Searches spotify for the cleaned query and returns the first search
     result, if one exists."""
     bl_following = ["official", "with", "prod", "by", "from"]
-    bl_remove = ["freestyle", "acoustic"]
-    bl_aggressive = ["live", "session", "sessions", "edit", "premiere",
-                    "lyric", "lyrics", "records", "release", "video", "audio"]
+    bl_remove = ["freestyle", "acoustic", "original", "&"]
+    bl_contains = ["live", "session", "sessions", "edit", "premiere", "cover",
+                   "lyric", "lyrics", "records", "release", "video", "audio",
+                   "in the open"]
 
     gs = _clean(query)
     result = _search(gs)
     if result: return result
+
+    # Discard hashtags and mentions.
+    gs[:] = [" ".join(re.sub("(@[A-Za-z0-9]+)|(#[A-Za-z0-9]+)",
+                             " ", g).split()) for g in gs]
 
     # Discard everything in a group following certain words.
     for b in bl_following:
@@ -185,9 +190,11 @@ def search_spotify(query):
     for b in bl_remove:
         match = re.compile(re.escape(b), re.IGNORECASE)
         gs[:] = [match.sub("", g) for g in gs]
+    result = _search(gs)
+    if result: return result
 
     # Aggressively discard groups.
-    gs[:] = [g for g in gs if not any(b in g.lower() for b in bl_aggressive)]
+    gs[:] = [g for g in gs if not any(b in g.lower() for b in bl_contains)]
     return _search(gs)
 
 
@@ -196,12 +203,14 @@ def _clean(query):
     unrelated to the song title/artist. Returns a list of groups."""
 
     # Blacklists.
-    bl_exact = ["official", "audio", "audio stream", "lyric", "lyrics",
-                "with lyrics?", "explicit", "clean", "explicit version",
-                "clean version", "hq", "hd", "mv", "m/v", "interscope", "4ad"]
-    bl_contains = ["official video", "official music", "official audio",
-                   "official lyric", "official lyrics", "official clip",
-                   "video lyric", "video lyrics", "video clip", "full video"]
+    bl_exact = ["official", "audio", "audio\s+stream", "lyric", "lyrics",
+                "with\s+lyrics?", "explicit", "clean", "explicit\s+version",
+                "clean\s+version", "original\s+version", "hq", "hd", "mv", "m/v",
+                "interscope", "4ad"]
+    bl_following = ["official\s+video", "official\s+music", "official\s+audio",
+                    "official\s+lyric", "official\s+lyrics", "official\s+clip",
+                    "video\s+lyric", "video\s+lyrics", "video\s+clip",
+                    "full\s+video"]
 
     # Split into groups.
     gs = list(filter(
@@ -210,12 +219,12 @@ def _clean(query):
                  query)))
 
     # Discard groups that match with anything in the blacklists.
-    gs[:] = [g for g in gs if
-             g.lower() not in bl_exact and
-             not any(b in g.lower() for b in bl_contains)]
+    gs[:] = [g for g in gs if g.lower() not in bl_exact]
+    for b in bl_following:
+        gs[:] = [re.split(b, g, flags=re.IGNORECASE)[0] for g in gs]
 
     # Discard featured artists.
-    gs[:] = [re.split("(f(ea)t(.|\s))(?i)", g)[0] for g in gs]
+    gs[:] = [re.split("(f(ea)?t(.|\s+))(?i)", g)[0] for g in gs]
 
     return gs
 
