@@ -1029,7 +1029,7 @@ class SlackRTMThread(threading.Thread):
         global slackrtms
 
         try:
-            if self._listener:
+            if self._listener and self._listener in slackrtms:
                 slackrtms.remove(self._listener)
             self._listener = SlackRTM(self._config, self._bot, self._loop, threaded=True)
             slackrtms.append(self._listener)
@@ -1075,7 +1075,7 @@ class SlackRTMThread(threading.Thread):
 
     def stop(self):
         global slackrtms
-        if self._listener:
+        if self._listener and self._listener in slackrtms:
             slackrtms.remove(self._listener)
         self._stop.set()
 
