@@ -1,4 +1,4 @@
-import asyncio, hashlib, logging, urllib
+import asyncio, hashlib, html, logging, urllib
 
 import urllib.request as urllib2
 from http.cookiejar import CookieJar
@@ -108,6 +108,8 @@ class Cleverbot:
         if not question.endswith(("!", ",", ".", ")", "%", "*")):
             # end a sentence with a full stop
             question += "."
+
+        question = question.encode("ascii", "xmlcharrefreplace")
 
         self.data['stimulus'] = question
         self.asked = self.asked + 1
@@ -294,6 +296,7 @@ def cleverbot_ask(conv_id, message, filter_ads=True):
     text = False
     try:
         text = yield from loop.run_in_executor(None, __cleverbots[conv_id].ask, message)
+        text = html.unescape(text)
         logger.debug("API returned: {}".format(text))
         if text:
             if filter_ads:
