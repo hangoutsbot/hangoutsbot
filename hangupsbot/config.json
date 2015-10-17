@@ -43,7 +43,8 @@
     "port": 8085,
     "key": "SLACK_API_KEY",
     "channel": "#SLACK_CHANNEL_NAME",
-    "synced_conversations": ["CONV_ID_1", "CONV_ID_2"]
+    "synced_conversations": ["CONV_ID_1", "CONV_ID_2"],
+    "multi_hooks": false
     }
   ],
   "spreadsheet_enabled": false,

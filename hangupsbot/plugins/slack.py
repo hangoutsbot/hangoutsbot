@@ -179,6 +179,8 @@ def _handle_slackout(bot, event, command):
                 convlist = sinkConfig["synced_conversations"]
 
                 if event.conv_id in convlist:
+                    if sinkConfig["multi_hooks"]:
+                        channel = sinkConfig["channel"][convlist.index(event.conv_id)]
                     fullname = event.user.full_name
                     response = yield from bot._client.getentitybyid([event.user_id.chat_id])
                     try:
