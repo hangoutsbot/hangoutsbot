@@ -6,7 +6,8 @@ config.json will have to be configured as follows:
   "port": LISTENING_PORT,
   "key": SLACK_API_KEY,
   "channel": #SLACK_CHANNEL_NAME,
-  "synced_conversations": ["CONV_ID1", "CONV_ID2"]
+  "synced_conversations": ["CONV_ID1", "CONV_ID2"],
+  "otr_privacy" : true/false
 }]
 
 You can (theoretically) set up as many slack sinks per bot as you like, by extending the list"""
@@ -199,7 +200,8 @@ def _handle_slackout(bot, event, command):
                         logger.debug("slack api link_names is active")
                         slack_api_params["link_names"] = 1
 
-                    client.chat_post_message(channel, event.text, **slack_api_params)
+                    if bot.conversations.catalog[event.conv_id]["history"] or "otr_privacy" not in sinkConfig or not sinkConfig["otr_privacy"]:
+                        client.chat_post_message(channel, event.text, **slack_api_params)
 
             except Exception as e:
                 logger.exception( "Could not handle slackout with key {} between {} and {}."
