@@ -305,15 +305,15 @@ class SlackRTM(object):
                     print('slackrtm: Old thread found: %s - killing it' % pprint.pformat(t))
                     t.stop()
             
-        self.update_usernames(self.slack.server.login_data['users'])
-        self.update_channelnames(self.slack.server.login_data['channels'])
-        self.update_groupnames(self.slack.server.login_data['groups'])
+        self.update_userinfos(self.slack.server.login_data['users'])
+        self.update_channelinfos(self.slack.server.login_data['channels'])
+        self.update_groupinfos(self.slack.server.login_data['groups'])
         self.my_uid = self.slack.server.login_data['self']['id']
 
         self.admins = []
         if 'admins' in self.config:
             for a in self.config['admins']:
-                if not a in self.usernames:
+                if not a in self.userinfos:
                     print('slackrtm: WARNING: userid %s not found in user list, ignoring' % a)
                 else:
                     self.admins.append(a)
@@ -346,59 +346,59 @@ class SlackRTM(object):
                         hotag = self.hangoutnames[ conv[1] ]
                 self.syncs.append( SlackRTMSync(conv[0], conv[1], hotag) )
 
-    def update_usernames(self, users=None):
+    def update_userinfos(self, users=None):
         if users is None:
             response = json.loads(self.slack.api_call('users.list').decode("utf-8"))
             users = response['members']
-        usernames = {}
+        userinfos = {}
         for u in users:
-            usernames[u['id']] = u['name']
-        self.usernames = usernames
+            userinfos[u['id']] = u
+        self.userinfos = userinfos
 
     def get_username(self, user, default=None):
-        if not user in self.usernames:
+        if not user in self.userinfos:
             print('slackrtm: user not found, reloading users...')
-            self.update_usernames()
-            if not user in self.usernames:
+            self.update_userinfos()
+            if not user in self.userinfos:
                 print('slackrtm: could not find user "%s" although reloaded' % user)
                 return default
-        return self.usernames[user]
+        return self.userinfos[user]['name']
 
-    def update_channelnames(self, channels=None):
+    def update_channelinfos(self, channels=None):
         if channels is None:
             response = json.loads(self.slack.api_call('channels.list').decode("utf-8"))
             channels = response['channels']
-        channelnames = {}
+        channelinfos = {}
         for c in channels:
-            channelnames[c['id']] = c['name']
-        self.channelnames = channelnames
+            channelinfos[c['id']] = c
+        self.channelinfos = channelinfos
 
     def get_channelname(self, channel, default=None):
-        if not channel in self.channelnames:
+        if not channel in self.channelinfos:
             print('slackrtm: channel not found, reloading channels...')
-            self.update_channelnames()
-            if not channel in self.channelnames:
+            self.update_channelinfos()
+            if not channel in self.channelinfos:
                 print('slackrtm: could not find channel "%s" although reloaded' % channel)
                 return default
-        return self.channelnames[channel]
+        return self.channelinfos[channel]['name']
 
-    def update_groupnames(self, groups=None):
+    def update_groupinfos(self, groups=None):
         if groups is None:
             response = json.loads(self.slack.api_call('groups.list').decode("utf-8"))
             groups = response['groups']
-        groupnames = {}
+        groupinfos = {}
         for c in groups:
-            groupnames[c['id']] = c['name']
-        self.groupnames = groupnames
+            groupinfos[c['id']] = c
+        self.groupinfos = groupinfos
 
     def get_groupname(self, group, default=None):
-        if not group in self.groupnames:
+        if not group in self.groupinfos:
             print('slackrtm: group not found, reloading groups...')
-            self.update_groupnames()
-            if not group in self.groupnames:
+            self.update_groupinfos()
+            if not group in self.groupinfos:
                 print('slackrtm: could not find group "%s" although reloaded' % group)
                 return default
-        return self.groupnames[group]
+        return self.groupinfos[group]['name']
 
     def get_syncs(self, channelid = None, hangoutid = None):
         syncs = []
@@ -529,8 +529,8 @@ class SlackRTM(object):
                     user = match.group(1)
                 if not user.startswith('U'):
                     # username was given as string instead of mention, lookup in db
-                    for id in self.usernames:
-                        if self.usernames[id] == user:
+                    for id in self.userinfos:
+                        if self.userinfos[id]['name'] == user:
                             user = id
                             break
                 if not user.startswith('U'):
@@ -1172,20 +1172,23 @@ def slack_channels(bot, event, *args):
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a configured slack team with name "%s", use /bot slacks to list all teams' % slackname, is_bold=True)])
         return
 
-    segments = [
-        hangups.ChatMessageSegment('Slack channels in team %s:' % (slackname), is_bold=True),
-        hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-        ]
-    slackrtm.update_channelnames()
-    for id in slackrtm.channelnames:
-        segments.append(hangups.ChatMessageSegment('%s (%s)' % (slackrtm.channelnames[id], id)))
-        segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+    segments = []
+
+    segments.append(hangups.ChatMessageSegment('Slack channels in team %s:' % (slackname), is_bold=True))
+    segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+    slackrtm.update_channelinfos()
+    for id in slackrtm.channelinfos:
+        if not slackrtm.channelinfos[id]['is_archived']:
+            segments.append(hangups.ChatMessageSegment('%s (%s)' % (slackrtm.channelinfos[id]['name'], id)))
+            segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+
     segments.append(hangups.ChatMessageSegment('private groups:', is_bold=True))
     segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
-    slackrtm.update_groupnames()
-    for id in slackrtm.groupnames:
-        segments.append(hangups.ChatMessageSegment('%s (%s)' % (slackrtm.groupnames[id], id)))
-        segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+    slackrtm.update_groupinfos()
+    for id in slackrtm.groupinfos:
+        if not slackrtm.groupinfos[id]['is_archived']:
+            segments.append(hangups.ChatMessageSegment('%s (%s)' % (slackrtm.groupinfos[id]['name'], id)))
+            segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
                 
     bot.send_message_segments(event.conv, segments)
 
