@@ -44,6 +44,16 @@
     "synced_conversations": ["CONV_ID_1", "CONV_ID_2"]
     }
   ],
+  "spotify": {
+    "soundcloud": "SOUNDCLOUD_CLIENT_ID",
+    "spotify": {
+      "client_id": "SPOTIFY_CLIENT_ID",
+      "client_secret": "SPOTIFY_CLIENT_SECRET",
+      "redirect_uri": "SPOTIFY_REDIRECT_URI",
+      "user": "SPOTIFY_USER"
+    },
+    "youtube": "YOUTUBE_API_KEY"
+  },
   "spreadsheet_enabled": false,
   "spreadsheet_url": "INSERT_PUBLIC_URL_OF_GSHEET_HERE",
   "strict_botkeeper_check": false,
