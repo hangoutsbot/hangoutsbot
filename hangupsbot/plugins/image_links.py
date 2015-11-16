@@ -45,10 +45,11 @@ def _watch_image_link(bot, event, command):
 
         if "imgur.com" in link_image:
             """special imgur link handling"""
-            if not link_image.endswith((".jpg", ".gif", "gifv", "png")):
+            if not link_image.endswith((".jpg", ".gif", "gifv", "webm", "png")):
                 link_image = link_image + ".gif"
             link_image = "https://i.imgur.com/" + os.path.basename(link_image)
 
+        link_image = link_image.replace(".webm",".gif")
         link_image = link_image.replace(".gifv",".gif")
 
         logger.info("getting {}".format(link_image))
