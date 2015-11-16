@@ -12,8 +12,8 @@ import os
 import re
 import plugins
 
-from apiclient.discovery import build
-from apiclient.errors import HttpError as YouTubeHTTPError
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError as YouTubeHTTPError
 from requests.exceptions import HTTPError as SoundcloudHTTPError
 from spotipy.client import SpotifyException
 
