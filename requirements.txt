@@ -10,3 +10,5 @@ wolframalpha
 git+https://github.com/loisaidasam/pyslack.git
 git+https://github.com/carpedm20/emoji
 selenium
+google-api-python-client
+spotipy
