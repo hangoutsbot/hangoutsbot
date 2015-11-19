@@ -38,11 +38,7 @@ def weather(bot, event, *args):
             weather = lookup_weather(coords)
             if weather:
                 conv_weather[event.user_id] = coords
-                yield from bot.coro_send_message(event.conv_id,
-                    _('<em>It is currently %i%s %s, %i%% humidity.</em>' % (weather['temperature'],
-                                                                           weather['unit'],
-                                                                           weather['summary'],
-                                                                           weather['humidity'])))
+                yield from bot.coro_send_message(event.conv_id, format_current_weather(weather))
             else:
                 yield from bot.coro_send_message(event.conv_id, '<em>Unable to parse forecast data.</em>')
         else:
@@ -53,15 +49,22 @@ def weather(bot, event, *args):
             weather = lookup_weather(coords)
             if weather:
                 conv_weather[event.user_id] = coords
-                yield from bot.coro_send_message(event.conv_id,
-                    _('<em>It is currently %i %s %s, %i%% humidity.</em>' % (weather['temperature'],
-                                                                           weather['unit'],
-                                                                           weather['summary'],
-                                                                           weather['humidity'])))
+                yield from bot.coro_send_message(event.conv_id, format_current_weather(weather))
             else:
                 yield from bot.coro_send_message(event.conv_id, '<em>Unable to parse forecast data.</em>')
         else:
             yield from bot.coro_send_message(event.conv_id, _('<em>Location not found: <b>%s</b>.</em>' % (parameters[0])))
+
+def format_current_weather(weather):
+    """
+    Formats the current weather message to the user.
+    :params weather: dictionary containing parsed forecast.
+    :returns: message to the user.
+    """
+    return '<em>It is currently %i%s %s, %i%% humidity.</em>' % (weather['temperature'],
+                                                                 weather['unit'],
+                                                                 weather['summary'],
+                                                                 weather['humidity'])))
 
 def lookup_address(location):
     """
