@@ -43,8 +43,12 @@ def weather(bot, event, *args):
                 yield from bot.coro_send_message(event.conv_id, '<em>Unable to parse forecast data.</em>')
         else:
             yield from bot.coro_send_message(event.conv_id, _('<em>No location history found. Look up weather using /bot weather <b>address</b>.</em>'))
-    elif len(parameters) == 1:
-        coords = lookup_address(parameters[0])
+    else:
+        if len(parameters) == 1:
+            address = parameters[0]
+        else:
+            address = ''.join(parameters)
+        coords = lookup_address(address)
         if coords:
             weather = lookup_weather(coords)
             if weather:
@@ -54,6 +58,7 @@ def weather(bot, event, *args):
                 yield from bot.coro_send_message(event.conv_id, '<em>Unable to parse forecast data.</em>')
         else:
             yield from bot.coro_send_message(event.conv_id, _('<em>Location not found: <b>%s</b>.</em>' % (parameters[0])))
+        
 
 def format_current_weather(weather):
     """
@@ -64,7 +69,7 @@ def format_current_weather(weather):
     return '<em>It is currently %i%s %s, %i%% humidity.</em>' % (weather['temperature'],
                                                                  weather['unit'],
                                                                  weather['summary'],
-                                                                 weather['humidity'])))
+                                                                 weather['humidity'])
 
 def lookup_address(location):
     """
@@ -74,7 +79,7 @@ def lookup_address(location):
     :returns: dictionary containing latitutde and longitude.
     """
     google_map_url = 'http://maps.googleapis.com/maps/api/geocode/json'
-    payload = {'address': location}
+    payload = {'address': location.replace(' ', '')}
     r = requests.get(google_map_url, params=payload)
 
     try:
