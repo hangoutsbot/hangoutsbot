@@ -16,7 +16,7 @@ def _start_manager(bot):
 
     try:
         port = manager["port"]
-    except KeyError, TypeError as e:
+    except (KeyError, TypeError) as e:
         logger.error("config.manager missing keyword", e)
         logger.info("using default port for manager.py: 9090")
         port = 9090
