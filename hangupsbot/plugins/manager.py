@@ -7,13 +7,16 @@ import cherrypy
 logger = logging.getLogger(__name__)
 
 def _initialise(bot):
+    _start_manager(bot)
+
+def _start_manager(bot):
+    """will host a basic plugin manager at localhost:9090"""
     cherrypy.config.update({'server.socket_port': 9090})
-    _bot = bot
     # Start server
-    cherrypy.tree.mount(HelloWorld(bot), '/')
+    cherrypy.tree.mount(PluginManager(bot), '/')
     cherrypy.engine.start()
 
-class HelloWorld(object):
+class PluginManager(object):
     def __init__(self, bot):
         self._bot = bot
 
