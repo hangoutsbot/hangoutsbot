@@ -10,8 +10,18 @@ def _initialise(bot):
     plugins.register_handler(_start_manager(bot))
 
 def _start_manager(bot):
-    """will host a basic plugin manager at localhost:9090"""
-    cherrypy.config.update({'server.socket_port': 9091})
+    """will host a basic plugin manager"""
+
+    manager = bot.get_config_option('manager')
+
+    try:
+        port = manager["port"]
+    except KeyError as e:
+        logger.error("config.manager missing keyword", e)
+        logger.info("using default port for manager.py: 9090")
+        port = 9090
+
+    cherrypy.config.update({'server.socket_port': port})
     # Start server
     cherrypy.tree.mount(PluginManager(bot), '/')
     cherrypy.engine.start()
