@@ -11,7 +11,7 @@ def _initialise(bot):
 
 def _start_manager(bot):
     """will host a basic plugin manager at localhost:9090"""
-    cherrypy.config.update({'server.socket_port': 9090})
+    cherrypy.config.update({'server.socket_port': 9091})
     # Start server
     cherrypy.tree.mount(PluginManager(bot), '/')
     cherrypy.engine.start()
@@ -21,7 +21,7 @@ class PluginManager(object):
         self._bot = bot
 
     def index(self):
-        return "Hello World!"
+        return "<b>Bot Configuration</b><br><a href='/plugins'>Plugin Manager</a>"
 
     @cherrypy.expose
     def plugins(self):
@@ -52,6 +52,6 @@ class PluginManager(object):
         self._bot.config.set_by_path(["plugins"], plugin)
         self._bot.config.save()
         self._bot.config.load()
-        return "Plugins successfully updated!"
+        return "Plugins successfully updated!<br><a href='/'>Back to bot configuration</a>"
 
     index.exposed = True
