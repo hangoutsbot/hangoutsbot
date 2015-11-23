@@ -16,12 +16,13 @@ def _start_manager(bot):
 
     try:
         port = manager["port"]
-    except KeyError as e:
+    except KeyError, TypeError as e:
         logger.error("config.manager missing keyword", e)
         logger.info("using default port for manager.py: 9090")
         port = 9090
 
     cherrypy.config.update({'server.socket_port': port})
+    cherrypy.server.socket_host = '0.0.0.0' # cherrypy will listen on any ip
     # Start server
     cherrypy.tree.mount(PluginManager(bot), '/')
     cherrypy.engine.start()
