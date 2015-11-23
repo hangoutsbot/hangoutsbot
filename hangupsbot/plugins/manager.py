@@ -7,7 +7,7 @@ import cherrypy
 logger = logging.getLogger(__name__)
 
 def _initialise(bot):
-    _start_manager(bot)
+    plugins.register_handler(_start_manager(bot))
 
 def _start_manager(bot):
     """will host a basic plugin manager at localhost:9090"""
@@ -50,6 +50,7 @@ class PluginManager(object):
     def plugins_submit(self, plugin):
         print("Plugins: {}".format(plugin))
         self._bot.config.set_by_path(["plugins"], plugin)
+        self._bot.config.save()
         self._bot.config.load()
         return "Plugins successfully updated!"
 
