@@ -11,7 +11,7 @@ def _initialise(bot):
 
 def _start_manager(bot):
     """will host a basic plugin manager at localhost:9090"""
-    cherrypy.config.update({'server.socket_port': 9090})
+    cherrypy.config.update({'server.socket_port': 9093})
     # Start server
     cherrypy.tree.mount(PluginManager(bot), '/')
     cherrypy.engine.start()
@@ -25,10 +25,15 @@ class PluginManager(object):
 
     @cherrypy.expose
     def plugins(self):
+        all_plugins = plugins.retrieve_all_plugins()
         loaded_plugins = plugins.get_configured_plugins(self._bot)
         html = "<b>Loaded Plugins</b><br>"
-        for plugin in loaded_plugins:
-            html += "- {}<br>".format(plugin)
+        for plugin in all_plugins:
+            if plugin in loaded_plugins:
+                checked = " checked"
+            else:
+                checked = ""
+            html += "<input type=\"checkbox\" name=\"plugin\" value=\"{0}\"{1}> {0}<br>".format(plugin, checked)
         return html
 
     index.exposed = True
