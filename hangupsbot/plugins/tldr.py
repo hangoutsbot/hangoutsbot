@@ -75,9 +75,9 @@ def tldr(bot, event, *args):
                 tldr = ' '.join(parameters[2:len(parameters)])
                 conv_tldr[sorted_keys[key_index]] = tldr
                 bot.memory.set_by_path(['tldr', event.conv_id], conv_tldr)
-                message = _('TL;DR #{} edited - "{}"').format(parameters[1], edited_tldr)
+                message = _('TL;DR #{} edited - "{}" -> "{}"').format(parameters[1], edited_tldr, tldr)
         else:
-            message = _("Unknown Command at \"tldr edit\"")
+            message = _('Unknown Command at "tldr edit"')
 
         yield from bot.coro_send_message(event.conv_id, message)
 
