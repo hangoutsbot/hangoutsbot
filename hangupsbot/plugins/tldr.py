@@ -63,7 +63,7 @@ def tldr(bot, event, *args):
 
         yield from bot.coro_send_message(event.conv_id, message)
 
-    if parameters[0] == "edit":
+    elif parameters[0] == "edit":
         if len(parameters) > 2 and parameters[1].isdigit():
             sorted_keys = sorted(list(conv_tldr.keys()), key=float)
             key_index = int(parameters[1]) - 1
@@ -81,7 +81,7 @@ def tldr(bot, event, *args):
 
         yield from bot.coro_send_message(event.conv_id, message)
 
-    else:
+    elif len(parameters) < 2:
         tldr = ' '.join(parameters)
         if tldr:
             # Add message to list
