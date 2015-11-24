@@ -11,7 +11,8 @@ def tldr(bot, event, *args):
     """Adds a short message to a list saved for the conversation using:
     /bot tldr <message>
     All TLDRs can be retrieved by /bot tldr, single tldr with /bot <number>
-    All TLDRs can be deleted using /bot tldr clear, single tldr with /bot clear <number>"""
+    All TLDRs can be deleted using /bot tldr clear, single tldr with /bot clear <number>
+    Single TLDRs can be edited using /bot tldr edit <number> <new_message>"""
     parameters = list(args)
 
     if not bot.memory.exists(['tldr']):
