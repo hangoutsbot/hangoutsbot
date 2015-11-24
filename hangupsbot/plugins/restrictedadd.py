@@ -1,10 +1,11 @@
-import asyncio
-import hangups
-import time
+import asyncio, logging, time
 
-from hangups.ui.utils import get_conv_name
+import hangups
 
 import plugins
+
+
+logger = logging.getLogger(__name__)
 
 
 class __internal_vars():
@@ -21,6 +22,30 @@ def _initialise(bot):
     plugins.register_admin_command(["allowbotadd", "removebotadd"])
 
 
+def _botkeeper_list(bot, conv_id):
+    botkeepers = []
+
+    # users can be tagged as botkeeper
+    tagged_botkeeper = list(bot.tags.userlist(conv_id, "botkeeper").keys())
+
+    # config.admins are always botkeepers
+    admins_list = bot.get_config_suboption(conv_id, 'admins')
+    if not admins_list:
+        admins_list = []
+
+    # legacy: memory.allowbotadd are explicitly defined as botkeepers
+    if bot.memory.exists(["allowbotadd"]):
+        allowbotadd = bot.memory.get("allowbotadd")
+    else:
+        allowbotadd = []
+
+    botkeepers = tagged_botkeeper + admins_list + allowbotadd
+
+    botkeepers = list(set(botkeepers) - set([ bot.user_self()["chat_id"] ]))
+
+    return botkeepers
+
+
 @asyncio.coroutine
 def _check_if_admin_added_me(bot, event, command):
     bot_id = bot._user_list._self_user.id_
@@ -28,26 +53,15 @@ def _check_if_admin_added_me(bot, event, command):
         if bot_id in event.conv_event.participant_ids:
             # bot was part of the event
             initiator_user_id = event.user_id.chat_id
-            admins_list = bot.get_config_suboption(event.conv_id, 'admins')
-            if bot.memory.exists(["allowbotadd"]):
-                allowbotadd = bot.memory.get("allowbotadd")
-            else:
-                allowbotadd = []
 
-            if initiator_user_id in admins_list:
-                # bot added by an admin
-                print(_("RESTRICTEDADD: admin added me to {}").format(
-                    event.conv_id))
-            elif initiator_user_id in allowbotadd:
-                # bot added by an authorised user: /bot allowbotadd <id>
-                print(_("RESTRICTEDADD: authorised user added me to {}").format(
-                    event.conv_id))
-            else:
-                print(_("RESTRICTEDADD: user {} tried to add me to {}").format(
-                    event.user.full_name,
-                    event.conv_id))
+            if initiator_user_id in _botkeeper_list(bot, event.conv_id):
+                logger.info("botkeeper added me to {}".format(event.conv_id))
 
-                bot.send_message_parsed(
+            else:
+                logger.warning("{} ({}) tried to add me to {}".format(
+                    initiator_user_id, event.user.full_name, event.conv_id))
+
+                yield from bot.coro_send_message(
                     event.conv,
                     _("<i>{}, you need to be authorised to add me to another conversation. I'm leaving now...</i>").format(event.user.full_name))
 
@@ -60,6 +74,13 @@ def _verify_botkeeper_presence(bot, event, command):
         return
 
     try:
+        if bot.conversations.catalog[event.conv_id]["type"] != "GROUP":
+            return
+    except KeyError:
+        logger.warning("{} not found in permanent memory, skipping temporarily")
+        return
+
+    try:
         if time.time() - _internal.last_verified[event.conv_id] < 60:
             # don't check on every event
             return
@@ -67,31 +88,22 @@ def _verify_botkeeper_presence(bot, event, command):
         # not set - first time, so do a check
         pass
 
-    if len(event.conv.users) < 3:
-        # groups only!
-        return
-
-    admins_list = bot.get_config_suboption(event.conv_id, 'admins')
-    if bot.memory.exists(["allowbotadd"]):
-        allowbotadd = bot.memory.get("allowbotadd")
-    else:
-        allowbotadd = []
-
     botkeeper = False
+
+    botkeeper_list = _botkeeper_list(bot, event.conv_id)
+
     for user in event.conv.users:
-        if user.id_.chat_id in admins_list or user.id_.chat_id in allowbotadd:
-            # at least one user is a botkeeper
-            print(_("RESTRICTEDADD: found botkeeper {}").format(user.id_.chat_id))
+        if user.id_.chat_id in botkeeper_list:
+            logger.debug("botkeeper found for {}: {}".format(event.conv_id, user.id_.chat_id))
             botkeeper = True
             break
 
     _internal.last_verified[event.conv_id] = time.time()
 
     if not botkeeper:
-        print(_("RESTRICTEDADD: no botkeeper in {}").format(
-            event.conv_id))
+        logger.warning("no botkeeper in {}".format(event.conv_id))
 
-        bot.send_message_parsed(
+        yield from bot.coro_send_message(
             event.conv,
             _("<i>There is no botkeeper in here. I have to go...</i>"))
 
@@ -115,7 +127,7 @@ def allowbotadd(bot, event, user_id, *args):
 
     allowbotadd = bot.memory.get("allowbotadd")
     allowbotadd.append(user_id)
-    bot.send_message_parsed(
+    yield from bot.coro_send_message(
         event.conv,
         _("user id {} added as botkeeper").format(user_id))
     bot.memory["allowbotadd"] = allowbotadd
@@ -137,7 +149,7 @@ def removebotadd(bot, event, user_id, *args):
     allowbotadd = bot.memory.get("allowbotadd")
     if user_id in allowbotadd:
         allowbotadd.remove(user_id)
-        bot.send_message_parsed(
+        yield from bot.coro_send_message(
             event.conv,
             _("user id {} removed as botkeeper").format(user_id))
 
@@ -146,6 +158,6 @@ def removebotadd(bot, event, user_id, *args):
 
         _internal.last_verified = {} # force checks everywhere
     else:
-        bot.send_message_parsed(
+        yield from bot.coro_send_message(
             event.conv,
             _("user id {} is not authorised").format(user_id))

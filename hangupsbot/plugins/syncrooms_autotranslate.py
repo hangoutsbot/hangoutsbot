@@ -1,10 +1,10 @@
 import hangups
 import goslate
-
-from hangups.ui.utils import get_conv_name
+import logging
 
 import plugins
 
+logger = logging.getLogger(__name__)
 
 gs = goslate.Goslate()
 
@@ -23,7 +23,7 @@ def _translate_message(bot, broadcast_list, context):
             response = send[1]
             target_language = _get_room_language(bot, target_conversation_id)
             if origin_language != target_language:
-                print(_("AUTOTRANSLATE(): translating {} to {}").format(origin_language, target_language))
+                logger.debug("translating {} to {}".format(origin_language, target_language))
                 translated = gs.translate(_autotranslate["event_text"], target_language)
                 if _autotranslate["event_text"] != translated:
                     # mutate the original response by reference
@@ -52,10 +52,10 @@ def roomlanguage(bot, event, *args):
 
     if not language:
         try:
-            bot.send_message_parsed(
+            yield from bot.coro_send_message(
                 event.conv,
                 _('<i>syncroom "{}" language is {}</i>').format(
-                    get_conv_name(event.conv),
+                    bot.conversations.get_name(event.conv),
                     language_map[_get_room_language(bot, event.conv_id)]))
         except KeyError:
             pass
@@ -65,9 +65,9 @@ def roomlanguage(bot, event, *args):
         text_language = language_map[iso_language]
         if language.lower() in text_language.lower() or language == iso_language.upper():
             bot.conversation_memory_set(event.conv_id, 'syncroom_language', iso_language)
-            bot.send_message_parsed(
+            yield from bot.coro_send_message(
                 event.conv,
                 _('<i>syncroom "{}" language set to {}</i>').format(
-                    get_conv_name(event.conv),
+                    bot.conversations.get_name(event.conv),
                     text_language))
             break

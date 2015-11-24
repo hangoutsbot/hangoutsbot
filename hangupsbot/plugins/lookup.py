@@ -1,8 +1,12 @@
+import logging
 import hangups
 
 from utils import unicode_to_ascii
+import urllib.request
 
 import plugins
+
+logger = logging.getLogger(__name__)
 
 
 def _initialise(bot):
@@ -12,15 +16,15 @@ def _initialise(bot):
 def lookup(bot, event, *args):
     """find keywords in a specified spreadsheet"""
 
-    if not bot.get_config_option('spreadsheet_enabled'):
-        bot.send_message_parsed(event.conv, _("Spreadsheet function disabled"))
+    if not bot.get_config_suboption(event.conv_id, 'spreadsheet_enabled'):
+        yield from bot.coro_send_message(event.conv, _("Spreadsheet function disabled"))
         return
 
-    if not bot.get_config_option('spreadsheet_url'):
-        bot.send_message_parsed(event.conv, _("Spreadsheet URL not set"))
+    if not bot.get_config_suboption(event.conv_id, 'spreadsheet_url'):
+        yield from bot.coro_send_message(event.conv, _("Spreadsheet URL not set"))
         return
 
-    spreadsheet_url = bot.get_config_option('spreadsheet_url')
+    spreadsheet_url = bot.get_config_suboption(event.conv_id, 'spreadsheet_url')
     table_class = "waffle" # Name of table class to search. Note that 'waffle' seems to be the default for all spreadsheets
 
     if args[0].startswith('<'):
@@ -30,12 +34,10 @@ def lookup(bot, event, *args):
         counter_max = 5
         keyword = ' '.join(args)
 
-    print("Keyword: {} Max Counter: {}".format(keyword, counter_max))
-
     htmlmessage = _('Results for keyword <b>{}</b>:<br />').format(keyword)
 
-    print(_("{0} ({1}) has requested to lookup '{2}'").format(event.user.full_name, event.user.id_.chat_id, keyword))
-    import urllib.request
+    logger.debug("{0} ({1}) has requested to lookup '{2}'".format(event.user.full_name, event.user.id_.chat_id, keyword))
+
     html = urllib.request.urlopen(spreadsheet_url).read()
 
     keyword_raw = keyword.strip().lower()
@@ -48,7 +50,7 @@ def lookup(bot, event, *args):
     # Adapted from http://stackoverflow.com/questions/23377533/python-beautifulsoup-parsing-table
     from bs4 import BeautifulSoup
 
-    soup = BeautifulSoup(str(html, 'utf-8'))
+    soup = BeautifulSoup(str(html, 'utf-8'), 'html.parser')
     table = soup.find('table', attrs={'class':table_class})
     table_body = table.find('tbody')
 
@@ -84,4 +86,4 @@ def lookup(bot, event, *args):
     if counter == 0:
         htmlmessage += _('No match found')
 
-    bot.send_html_to_conversation(event.conv, htmlmessage)
+    yield from bot.coro_send_message(event.conv, htmlmessage)

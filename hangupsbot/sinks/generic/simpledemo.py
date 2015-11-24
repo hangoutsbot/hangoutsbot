@@ -3,6 +3,9 @@ import json
 import base64
 import io
 import asyncio
+import imghdr
+import logging
+
 
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -15,6 +18,8 @@ class webhookReceiver(BaseHTTPRequestHandler):
 
     @asyncio.coroutine
     def process_payload(self, path, query_string, payload):
+        logging.warning("[DEPRECATED] simpledemo.webhookReceiver, use sinks.generic.SimpleMessagePoster")
+
         sinkname = self.sinkname
 
         path = path.split("/")
@@ -27,13 +32,17 @@ class webhookReceiver(BaseHTTPRequestHandler):
         if "image" in payload:
             image_data = False
             image_filename = False
+            image_type = 'unknown'
             if "base64encoded" in payload["image"]:
-                raw = base64.b64decode(payload["image"]["base64encoded"])
+                raw = base64.b64decode(payload["image"]["base64encoded"], None, True)
                 image_data = io.BytesIO(raw)
+                image_type = imghdr.what('ignore', raw)
+                if not image_type:
+                  image_type = 'error'
             if "filename" in payload["image"]:
                 image_filename = payload["image"]["filename"]
             else:
-                image_filename = str(int(time.time())) + ".jpg"
+                image_filename = str(int(time.time())) + "." + image_type
             print("{}: uploading image: {}".format(sinkname, image_filename))
             image_id = yield from webhookReceiver._bot._client.upload_image(image_data, filename=image_filename)
 
@@ -46,9 +55,12 @@ class webhookReceiver(BaseHTTPRequestHandler):
         segments = simple_parse_to_segments(html)
         print("{} sending segments: {}".format(sinkname, len(segments)))
 
-        webhookReceiver._bot.send_message_segments(conversation_id, segments, context=None, image_id=image_id)
+        yield from self._bot.coro_send_message(conversation_id, segments, context=None, image_id=image_id)
+
 
     def do_POST(self):
+        logging.warning("[DEPRECATED] simpledemo.webhookReceiver, use sinks.generic.SimpleMessagePoster")
+
         sinkname = self.sinkname
 
         print('{}: receiving POST...'.format(sinkname))

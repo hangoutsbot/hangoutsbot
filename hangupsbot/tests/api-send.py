@@ -34,4 +34,5 @@ payload = {
 headers = {'content-type': 'application/json'}
 r = requests.post(args.url, data = json.dumps(payload), headers = headers, verify=False)
 
+print(r.text)
 print(r)
