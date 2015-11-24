@@ -81,7 +81,7 @@ def tldr(bot, event, *args):
 
         yield from bot.coro_send_message(event.conv_id, message)
 
-    elif len(parameters) < 2:
+    elif parameters[0]: ## need a better looking solution here
         tldr = ' '.join(parameters)
         if tldr:
             # Add message to list
