@@ -63,6 +63,24 @@ def tldr(bot, event, *args):
 
         yield from bot.coro_send_message(event.conv_id, message)
 
+    if parameters[0] == "edit":
+        if len(parameters) > 2 and parameters[1].isdigit():
+            sorted_keys = sorted(list(conv_tldr.keys()), key=float)
+            key_index = int(parameters[1]) - 1
+            if key_index < 0 or key_index >= len(sorted_keys):
+                message = _("TL;DR #{} not found").format(parameters[1])
+            else:
+                edited_tldr = conv_tldr[sorted_keys[key_index]]
+                conv_tldr[sorted_keys[key_index]]
+                tldr = ' '.join(parameters[2:len(parameters)])
+                conv_tldr[sorted_keys[key_index]] = tldr
+                bot.memory.set_by_path(['tldr', event.conv_id], conv_tldr)
+                message = _('TL;DR #{} edited - "{}"').format(parameters[1], popped_tldr)
+        else:
+            message = _("Unknown Command at \"tldr edit\"")
+
+        yield from bot.coro_send_message(event.conv_id, message)
+
     else:
         tldr = ' '.join(parameters)
         if tldr:
