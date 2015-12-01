@@ -215,8 +215,7 @@ class SlackMessage(object):
                         print('slackrtm: strange message without text in attachments:\n%s' % pprint.pformat(reply))
                     if 'fields' in reply['attachments'][0]:
                         for field in reply['attachments'][0]['fields']:
-                            text += "\n*%s* %s" % (field['title'], field['value'])
-                        pprint.pprint(reply)
+                            text += "\n*%s*\n%s" % (field['title'], field['value'])
                 else:
                     print('slackrtm: strange message without text and without attachments:\n%s' % pprint.pformat(reply))
             else:
