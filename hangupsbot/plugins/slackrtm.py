@@ -1,95 +1,73 @@
-# (C) 2015 Patrick Cernko <errror@gmx.de>
+"""
+Improved Slack sync plugin using the Slack RTM API instead of webhooks.
+(c) 2015 Patrick Cernko <errror@gmx.de>
+
+
+Create a Slack bot integration (not webhooks!) for each team you want
+to sync into hangouts.
+
+Your config.json should have a slackrtm section that looks something
+like this.  You only need ONE entry per Slack team, not per channel.
+
+    "slackrtm": [
+        {
+            "name": "SlackTeamNameForLoggingCommandsEtc",
+            "key": "SLACK_TEAM1_BOT_API_KEY",
+            "admins": [ "U01", "U02" ]
+        },
+        {
+            "name": "OptionalSlackOtherTeamNameForLoggingCommandsEtc",
+            "key": "SLACK_TEAM2_BOT_API_KEY",
+            "admins": [ "U01", "U02" ]
+        }
+    ]
+
+You can (theoretically) set up as many slack sinks per bot as you like,
+by extending the list.
+
+Once the team(s) are configured, and the hangupsbot is restarted, invite
+the newly created Slack bot into any channel or group that you want to sync,
+and then use the command:
+    @botname syncto <hangoutsid>
+
+Use "@botname help" for more help on the Slack side and /bot slack_help on
+the Hangouts side for more help.
 
 """
-systemd.unit:
-[Unit]
-Description=slackbot
-After=network-online.target
-[Service]
-ExecStart=/home/hobot/hangoutbot/configs/slack/slackbot.sh
-User=hobot
-Group=hobot
-Restart=always
-SyslogIdentifier=slackbot
-StandardOutput=syslog
-StandardError=syslog
-[Install]
-WantedBy=multi-user.target
-"""
-
-import time
-import re
-import os
-import pprint
-import traceback
-
-import threading
-import hangups.ui.utils
-try:
-    # for a python3 compatible slackclient, please use https://github.com/mlaferrera/python-slackclient.git
-    from slackclient import SlackClient
-except Exception as e:
-    print('Please install https://github.com/mlaferrera/python-slackclient.git for a Python3 compatible slackclient')
-    raise e
-try:
-    from websocket import WebSocketConnectionClosedException
-except Exception as e:
-    print('Please install websocket: pip3 install websocket')
-    raise e
 
 import asyncio
-import logging
-import hangups
 import json
+import logging
+import os
+import pprint
+import re
+import threading
+import time
+import traceback
+import urllib
+
+import hangups
+import hangups.ui.utils
+
+logger = logging.getLogger(__name__)
+
+try:
+    from slackclient import SlackClient
+except ImportError:
+    logger.error('missing module slackclient: pip3 install --upgrade python-slackclient >=0.16')
+    raise
+
+try:
+    from websocket import WebSocketConnectionClosedException
+except ImportError:
+    logger.error('missing module websocket: pip3 install --upgrade websocket >=0.34')
+    raise
 
 try:
     import emoji
-    if 'decode' in dir(emoji):
-        def emoji_decode(char):
-            return emoji.decode(char)
-    else:
-        # stolen from emoji-0.3.3
-        def emoji_decode(u_code):
-            # for the moment, we return the unicode character as-is as there seems to be many incompatible mappings for slack in the newer emoji module
-            return u_code
-#            try:
-#                u_code = u_code.decode('utf-8')
-#            except:
-#                pass
-#
-#            try:
-#                textemoji = emoji.UNICODE_EMOJI_ALIAS[u_code]
-#                slack_emoji_mapping = {
-#                    ':smiling_face_with_halo:': ':innocent',
-#                    }
-#                if textemoji in slack_emoji_mapping:
-#                    textemoji = slack_emoji_mapping[textemoji]
-#                return textemoji
-#            except KeyError:
-#                raise ValueError("Unicode code is not an emoji: %s" % u_code)
-
-        # basic "simple_smile" support on request of @alvin853
-        emoji.EMOJI_UNICODE[':simple_smile:'] = emoji.EMOJI_UNICODE[':white_smiling_face:']
-        emoji.EMOJI_ALIAS_UNICODE[':simple_smile:'] = emoji.EMOJI_UNICODE[':white_smiling_face:']
-except Exception as e:
-    print('Please install emoji: pip3 install emoji>=0.3.3')
-    raise e
-
-import urllib
-#import slacker
-
-""" SlackRTM plugin for listening to hangouts and slack and syncing messages between the two.
-config.json will have to be configured as follows:
-"slackrtm": [{
-  "name": "SlackNameForLoggingCommandsEtc",
-  "key": "SLACK_API_KEY",
-  "admins": [
-    "U01",
-    "U02"
-  ]
-}]
-
-You can (theoretically) set up as many slack sinks per bot as you like, by extending the list"""
+except ImportError:
+    logger.error('missing module emoji: pip3 install --upgrade emoji >=0.3.8')
+    raise
 
 
 def unicodeemoji2text(text):
