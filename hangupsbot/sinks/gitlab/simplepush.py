@@ -1,10 +1,15 @@
 import asyncio, json, logging
 
 from sinks.base_bot_request_handler import AsyncRequestHandler
-import dateutil.parser
-
 
 logger = logging.getLogger(__name__)
+
+try:
+    import dateutil.parser
+except ImportError:
+    logger.error("missing module python_dateutil: pip3 install python_dateutil")
+    raise
+
 
 
 class webhookReceiver(AsyncRequestHandler):
