@@ -1,0 +1,23 @@
+# This is a .service file for systemd(8)
+#
+# If you are using systemd as a system daemon manager, you may use this file
+# (with your own local modifications) as a reference.
+#
+# This file may be copied to /etc/systemd/system/ and modified with your own
+# local changes, such as the user to run the daemon as, and where the daemon
+# is located
+
+[Unit]
+Description=Hangouts Helper Bot
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/hangoutsbot/hangupsbot/hangupsbot.py
+User=hangupsbot
+Group=hangupsbot
+
+Restart=on-failure
+SyslogIdentifier=hangupsbot
+
+[Install]
+WantedBy=multi-user.target

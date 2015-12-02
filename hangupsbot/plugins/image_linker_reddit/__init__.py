@@ -2,13 +2,7 @@
 based on the word/image list for the image linker bot on reddit
 sauce: http://www.reddit.com/r/image_linker_bot/comments/2znbrg/image_suggestion_thread_20/
 """
-
-import logging
-import io
-import os
-import re
-import random
-import aiohttp
+import aiohttp, io, logging, os, random, re
 
 import plugins
 
@@ -30,7 +24,7 @@ def redditmemeword(bot, event, *args):
     Full list at http://goo.gl/ORmisN"""
     if len(args) == 1:
         image_link = _get_a_link(args[0])
-    bot.send_html_to_conversation(event.conv_id, "this one? {}".format(image_link))
+    yield from bot.coro_send_message(event.conv_id, "this one? {}".format(image_link))
 
 
 def _scan_for_triggers(bot, event, command):
@@ -60,7 +54,7 @@ def _scan_for_triggers(bot, event, command):
             image_data = io.BytesIO(raw)
             logger.debug("uploading: {}".format(filename))
             image_id = yield from bot._client.upload_image(image_data, filename=filename)
-            bot.send_message_segments(event.conv.id_, None, image_id=image_id)
+            yield from bot.coro_send_message(event.conv.id_, None, image_id=image_id)
 
 
 def _load_all_the_things():

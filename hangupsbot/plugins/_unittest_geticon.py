@@ -1,4 +1,10 @@
+import logging
+
 import hangups
+
+
+logger = logging.getLogger(__name__)
+
 
 def geticon(bot, event, *args):
     """ Return the avatar of the person who called this command """
@@ -6,6 +12,6 @@ def geticon(bot, event, *args):
     try:
         photo_url = "http:" + response.entities[0].properties.photo_url
     except Exception as e:
-        print("geticon() {} {} {}".format(event.user_id.chat_id, e, response))
+        logger.exception("{} {} {}".format(event.user_id.chat_id, e, response))
 
-    bot.send_html_to_conversation(event.conv_id, photo_url)
+    yield from bot.coro_send_message(event.conv_id, photo_url)

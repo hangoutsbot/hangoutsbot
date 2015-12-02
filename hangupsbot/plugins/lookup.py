@@ -17,11 +17,11 @@ def lookup(bot, event, *args):
     """find keywords in a specified spreadsheet"""
 
     if not bot.get_config_suboption(event.conv_id, 'spreadsheet_enabled'):
-        bot.send_message_parsed(event.conv, _("Spreadsheet function disabled"))
+        yield from bot.coro_send_message(event.conv, _("Spreadsheet function disabled"))
         return
 
     if not bot.get_config_suboption(event.conv_id, 'spreadsheet_url'):
-        bot.send_message_parsed(event.conv, _("Spreadsheet URL not set"))
+        yield from bot.coro_send_message(event.conv, _("Spreadsheet URL not set"))
         return
 
     spreadsheet_url = bot.get_config_suboption(event.conv_id, 'spreadsheet_url')
@@ -50,7 +50,7 @@ def lookup(bot, event, *args):
     # Adapted from http://stackoverflow.com/questions/23377533/python-beautifulsoup-parsing-table
     from bs4 import BeautifulSoup
 
-    soup = BeautifulSoup(str(html, 'utf-8'))
+    soup = BeautifulSoup(str(html, 'utf-8'), 'html.parser')
     table = soup.find('table', attrs={'class':table_class})
     table_body = table.find('tbody')
 
@@ -86,4 +86,4 @@ def lookup(bot, event, *args):
     if counter == 0:
         htmlmessage += _('No match found')
 
-    bot.send_html_to_conversation(event.conv, htmlmessage)
+    yield from bot.coro_send_message(event.conv, htmlmessage)

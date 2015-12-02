@@ -6,22 +6,39 @@ import plugins
 
 import threadmanager
 
-
 logger = logging.getLogger(__name__)
 
 
+internal = {}
+
+
 def _initialise(bot):
-    loop = asyncio.get_event_loop()
-    threadmanager.start_thread(_periodic_watermark_update, args=(
-        bot,
-        loop))
+    config_botalive = bot.get_config_option("botalive") or {}
+    if not config_botalive:
+        return
+
+    _new_config = {}
+    if isinstance(config_botalive, list):
+        if "admins" in config_botalive:
+            _new_config["admins"] = 900
+        if "groups" in config_botalive:
+            _new_config["groups"] = 10800
+        config_botalive = _new_config
+
+    if "admin" in config_botalive and config_botalive["admin"] < 60:
+        config_botalive["admin"] = 60
+    if "groups" in config_botalive and config_botalive["groups"] < 60:
+        config_botalive["groups"] = 60
+
+    logger.info("timing {}".format(config_botalive))
+
+    plugins.start_asyncio_task(_periodic_watermark_update, config_botalive)
 
 
-def _periodic_watermark_update(bot, loop):
+@asyncio.coroutine
+def _periodic_watermark_update(bot, config_botalive):
     """runs in a separate thread - to prevent the processor from being
     consumed entirely, we sleep for 5 seconds on each loop iteration"""
-
-    asyncio.set_event_loop(loop)
 
     last_run = [0, 0]
 
@@ -30,28 +47,24 @@ def _periodic_watermark_update(bot, loop):
     while True:
         timestamp = time.time()
 
-        time.sleep(5)
-
-        botalive = bot.get_config_option("botalive")
-        if not botalive:
-            continue
+        yield from asyncio.sleep(5)
 
         """every 15 minutes: update watermark of global admin 1-on-1s"""
-        if "admins" in botalive and timestamp - last_run[0] > 900:
+        if "admins" in config_botalive and timestamp - last_run[0] > config_botalive["admins"]:
             admins = bot.get_config_option('admins')
             for admin in admins:
                 if bot.memory.exists(["user_data", admin, "1on1"]):
                     conv_id = bot.memory.get_by_path(["user_data", admin, "1on1"])
                     watermarkUpdater.add(conv_id)
-            watermarkUpdater.start()
+            yield from watermarkUpdater.start()
             last_run[0] = timestamp
 
         """every 3 hours: update watermark of all groups"""
-        if "groups" in botalive and timestamp - last_run[1] > 10800:
+        if "groups" in config_botalive and timestamp - last_run[1] > config_botalive["groups"]:
             for conv_id, conv_data in bot.conversations.get().items():
                 if conv_data["type"] == "GROUP":
                     watermarkUpdater.add(conv_id)
-            watermarkUpdater.start()
+            yield from watermarkUpdater.start()
             last_run[1] = timestamp
 
 
@@ -68,7 +81,8 @@ class watermark_updater:
     queue = []
     busy = False
 
-    critical_errors = 0 # just in case for repeated errors from the asyncio.async call
+    _current_convid = False
+    _critical_errors = 0 # track repeated errors during asyncio.async call, resets when batch finished
 
     def __init__(self, bot):
         self.bot = bot
@@ -77,46 +91,52 @@ class watermark_updater:
         if conv_id not in self.queue:
             self.queue.append(conv_id)
 
+
+    @asyncio.coroutine
     def start(self):
         if self.busy:
             return
 
         self.busy = True
 
-        self.update_next_conversation()
+        yield from self.update_next_conversation()
 
+
+    @asyncio.coroutine
     def update_next_conversation(self):
         if len(self.queue) > 0:
             conv_id = self.queue.pop(0)
+
         else:
             self.busy = False
+            self._current_convid = False
+            self._critical_errors = 0
+
+            logger.debug("no more conversations to watermark")
             return
 
         logger.info("watermarking {}".format(conv_id))
 
-        asyncio.async(
-            self.bot._client.updatewatermark(
-                conv_id, 
-                datetime.datetime.fromtimestamp(time.time()))
-        ).add_done_callback(self.after_update)
+        self._current_convid = conv_id
 
-
-    def after_update(self, future):
-        """Handle showing an error if a message fails to send"""
         try:
-            future.result()
+            yield from self.bot._client.updatewatermark( self._current_convid, 
+                                                         datetime.datetime.fromtimestamp(time.time()))
+
+            if self._critical_errors > 0:
+                self._critical_errors = self._critical_errors - 1
+
         except Exception as e:
-            self.critical_errors = self.critical_errors + 1
+            self._critical_errors = self._critical_errors + 1
 
-            message = "critical error {}, clearing queue".format(self.critical_errors)
-            print(message)
-            logger.exception(message)
+            if self._critical_errors > max(10, len(self.queue) * 2):
+                logger.error("critical error threshold reached, clearing queue")
+                self.queue = []
 
-            if self.critical_errors > 3:
-                logger.error("critical error threshold reached, exiting thread")
-                exit()
+            else:
+                logger.exception("WATERMARK FAILED FOR {}".format(self._current_convid))
+                self.add(self._current_convid)
 
-            self.queue.clear()
+                yield from asyncio.sleep(1)
 
-
-        self.update_next_conversation()
+        yield from self.update_next_conversation()

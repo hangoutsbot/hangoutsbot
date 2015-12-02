@@ -3,25 +3,34 @@ import asyncio, logging
 import plugins
 import threadmanager
 
-from sinks import start_listening
-from sinks.base_bot_request_handler import BaseBotRequestHandler as IncomingRequestHandler
+from sinks import aiohttp_start
+from sinks.base_bot_request_handler import AsyncRequestHandler as IncomingRequestHandler
+
+
+logger = logging.getLogger(__name__)
 
 
 class WebFramework:
     def __init__(self, bot, configkey, RequestHandler=IncomingRequestHandler):
         self._bot = bot
 
+        self.bot = bot
         self.configkey = configkey
-        self.configuration = bot.get_config_option(self.configkey)
         self.RequestHandler = RequestHandler
 
-        if not self.configuration:
-            print("webbridge: no configuration for {}, aborting...".format(self.configkey))
+        if not self.load_configuration(bot, configkey):
+            logger.info("no configuration for {}, not running".format(self.configkey))
             return
 
         self._start_sinks(bot)
 
         plugins.register_handler(self._handle_websync)
+
+
+    def load_configuration(self, bot, configkey):
+        self.configuration = bot.get_config_option(self.configkey)
+
+        return self.configuration
 
 
     def _start_sinks(self, bot):
@@ -37,25 +46,23 @@ class WebFramework:
                 try:
                     certfile = listener["certfile"]
                     if not certfile:
-                        print(_("config.{}[{}].certfile must be configured").format(self.configkey, itemNo))
+                        logger.warning("config.{}[{}].certfile must be configured".format(self.configkey, itemNo))
                         continue
                     name = listener["name"]
                     port = listener["port"]
                 except KeyError as e:
-                    print(_("config.{}[{}] missing keyword").format(self.configkey, itemNo), e)
+                    logger.warning("config.{}[{}] missing keyword".format(self.configkey, itemNo))
                     continue
 
-                threadmanager.start_thread(start_listening, args=(
+                aiohttp_start(
                     bot,
-                    loop,
                     name,
                     port,
                     certfile,
                     self.RequestHandler,
-                    self.configkey))
+                    "webbridge." + self.configkey)
 
-        message = _("webbridge.sinks: {} thread(s) started for {}").format(itemNo, self.configkey)
-        logging.info(message)
+        logger.info("webbridge.sinks: {} thread(s) started for {}".format(itemNo + 1, self.configkey))
 
 
     def _handle_websync(self, bot, event, command):
@@ -70,8 +77,8 @@ class WebFramework:
                     if event.conv_id in convlist:
                         self._send_to_external_chat(bot, event, config)
                 except Exception as e:
-                    print("Could not handle external chat syncing. is config.json properly configured?", e)
+                    logger.exception("EXCEPTION in _handle_websync")
 
     def _send_to_external_chat(self, bot, event, config):
-        print("webbridge._send_to_external_chat(): {} {}".format(self.configkey, config))
+        logger.info("webbridge._send_to_external_chat(): {} {}".format(self.configkey, config))
 

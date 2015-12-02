@@ -10,41 +10,30 @@ config.json will have to be configured as follows:
 }]
 
 You can (theoretically) set up as many slack sinks per bot as you like, by extending the list"""
-
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import urlparse, parse_qs
+import asyncio, logging, json, re
 
 from html import unescape
+from urllib.parse import parse_qs
+from urllib.request import urlopen
+
+from aiohttp import web
+
+import emoji
 
 from pyslack import SlackClient
-try:
-    import emoji
-except ImportError:
-    print("Error: You need to install the python emoji library!")
 
-import ssl
-import asyncio
-import logging
+import plugins
 
+from sinks import aiohttp_start
+from sinks.base_bot_request_handler import AsyncRequestHandler
 
-import re
-from urllib.request import urlopen
-import json
-
-import hangups
-
-import threadmanager
 
 logger = logging.getLogger(__name__)
 
 
-def _initialise(Handlers, bot=None):
-    if bot:
-        _start_slack_sinks(bot)
-    else:
-        print("Slack sinks could not be initialized.")
-    Handlers.register_handler(_handle_slackout)
-    return []
+def _initialise(bot):
+    _start_slack_sinks(bot)
+    plugins.register_handler(_handle_slackout)
 
 
 def _start_slack_sinks(bot):
@@ -61,61 +50,18 @@ def _start_slack_sinks(bot):
             try:
                 certfile = sinkConfig["certfile"]
                 if not certfile:
-                    print("config.slack[{}].certfile must be configured".format(itemNo))
+                    logger.error("config.slack[{}].certfile must be configured".format(itemNo))
                     continue
                 name = sinkConfig["name"]
                 port = sinkConfig["port"]
             except KeyError as e:
-                print("config.slack[{}] missing keyword".format(itemNo), e)
+                logger.error("config.slack[{}] missing keyword".format(itemNo), e)
                 continue
 
-            logger.info("started on https://{}:{}/".format(name, port))
+            aiohttp_start(bot, name, port, certfile, SlackAsyncListener, group=__name__)
 
-            threadmanager.start_thread(start_listening, args=(
-                bot,
-                loop,
-                name,
-                port,
-                certfile))
+    logger.info("{} slack listeners started".format(itemNo + 1))
 
-    logger.info("_start_slack_sinks(): {} sink thread(s) started".format(itemNo + 1))
-
-
-def start_listening(bot=None, loop=None, name="", port=8014, certfile=None):
-    webhook = webhookReceiver
-
-    if loop:
-        asyncio.set_event_loop(loop)
-
-    if bot:
-        webhook._bot = bot
-
-    try:
-        httpd = HTTPServer((name, port), webhook)
-
-        httpd.socket = ssl.wrap_socket(
-          httpd.socket,
-          certfile=certfile,
-          server_side=True)
-
-        sa = httpd.socket.getsockname()
-
-        logger.info("listener: {}:{}...".format(sa[0], sa[1]))
-
-        httpd.serve_forever()
-
-    except OSError as e:
-        message = "EXCEPTION during start: {}:{} : {}".format(name, port, e)
-        print(message)
-        logger.exception(message)
-
-        try:
-            httpd.socket.close()
-        except Exception as e:
-            pass
-
-    except KeyboardInterrupt:
-        httpd.socket.close()
 
 def _slack_repeater_cleaner(bot, event, id):
     event_tokens = event.text.split(":", maxsplit=1)
@@ -128,15 +74,14 @@ def _slack_repeater_cleaner(bot, event, id):
     event._external_source = event_tokens[0].strip() + "@slack"
 
 
-class webhookReceiver(BaseHTTPRequestHandler):
-    _bot = None
+class SlackAsyncListener(AsyncRequestHandler):
+    def process_request(self, path, query_string, content):
+        payload  = parse_qs(content)
 
-    def _handle_incoming(self, path, query_string, payload):
         path = path.split("/")
         conversation_id = path[1]
-        if conversation_id is None:
-            print(_("conversation id must be provided as part of path"))
-            return
+        if not conversation_id:
+            raise ValueError("conversation id must be provided in path")
 
         if "text" in payload:
             try:
@@ -148,7 +93,14 @@ class webhookReceiver(BaseHTTPRequestHandler):
                 if "slackbot" not in str(payload["user_name"][0]):
                     text = self._remap_internal_slack_ids(text)
                     response = "<b>" + str(payload["user_name"][0]) + ":</b> " + unescape(text)
-                    self._scripts_push(conversation_id, response)
+                    response += self._bot.call_shared("reprocessor.attach_reprocessor", _slack_repeater_cleaner)
+
+                    yield from self.send_data( conversation_id, 
+                                               response, 
+                                               context = { 'base': {
+                                                                'tags': ['slack', 'relay'], 
+                                                                'source': 'slack', 
+                                                                'importance': 50 }} )
 
     def _remap_internal_slack_ids(self, text):
         text = self._slack_label_users(text)
@@ -191,7 +143,7 @@ class webhookReceiver(BaseHTTPRequestHandler):
         label = "UNKNOWN"
         if id in self._slack_cache[type_str]:
             label = self._slack_cache[type_str][id]
-            print("_slack_get_label(): from cache {} = {}".format(id, label))
+            logger.debug("slack label resolved from cache: {} = {}".format(id, label))
         else:
             try:
                 response = urlopen(url)
@@ -200,45 +152,12 @@ class webhookReceiver(BaseHTTPRequestHandler):
                 if type_str in data:
                     label = data[type_str]["name"]
                     self._slack_cache[type_str][id] = label
-                    print("_slack_get_label(): from API {} = {}".format(id, label))
+                    logger.debug("slack label resolved from API: {} = {}".format(id, label))
+
             except Exception as e:
-                print("EXCEPTION in _slack_get_label(): {}".format(e))
+                logger.exception("FAILED to resolve slack label for {}".format(id))
 
         return prefix + label
-
-    def _scripts_push(self, conversation_id, message):
-        webhookReceiver._bot.send_html_to_conversation(
-            conversation_id, 
-            message + self._bot.call_shared("reprocessor.attach_reprocessor", _slack_repeater_cleaner), 
-            context = {'base': {'tags': ['slack', 'relay'], 'source': 'slack', 'importance': 50}})
-
-    def do_POST(self):
-        """
-           receives post, handles it
-       """
-        print(_('receiving POST...'))
-        data_string = self.rfile.read(int(self.headers['Content-Length'])).decode('UTF-8')
-        self.send_response(200)
-        message = bytes('OK', 'UTF-8')
-        self.send_header("Content-type", "text")
-        self.send_header("Content-length", str(len(message)))
-        self.end_headers()
-        self.wfile.write(message)
-        print(_('connection closed'))
-
-        # parse requested path + query string
-        _parsed = urlparse(self.path)
-        path = _parsed.path
-        query_string = parse_qs(_parsed.query)
-
-        print(_("incoming path: {}").format(path))
-
-        # parse incoming data
-        payload = parse_qs(data_string)
-
-        print(_("payload {}").format(payload))
-
-        self._handle_incoming(path, query_string, payload)
 
 
 @asyncio.coroutine
@@ -262,11 +181,27 @@ def _handle_slackout(bot, event, command):
                     fullname = event.user.full_name
                     response = yield from bot._client.getentitybyid([event.user_id.chat_id])
                     try:
-                       photo_url = "http:" + response.entities[0].properties.photo_url
+                        photo_url = "http:" + response.entities[0].properties.photo_url
                     except Exception as e:
-                        print("Slack: Could not pull avatar for {}".format(fullname))
+                        logger.exception("FAILED to acquire photo_url for {}".format(fullname))
+                        photo_url = None
 
-                    client = SlackClient(slackkey)
-                    client.chat_post_message(channel, event.text, username=fullname, icon_url=photo_url)
+                    try:
+                        client = SlackClient(slackkey, verify=True)
+                    except TypeError:
+                        client = SlackClient(slackkey)
+
+                    slack_api_params = { 'username': fullname,
+                                         'icon_url': photo_url }
+
+                    if "link_names" not in sinkConfig or sinkConfig["link_names"]:
+                        logger.debug("slack api link_names is active")
+                        slack_api_params["link_names"] = 1
+
+                    client.chat_post_message(channel, event.text, **slack_api_params)
+
             except Exception as e:
-                print("Could not handle slackout with key {} between {} and {}. is config.json properly configured?".format(slackkey,channel,convlist))
+                logger.exception( "Could not handle slackout with key {} between {} and {}."
+                                  " Is config.json properly configured?".format( slackkey,
+                                                                                 channel,
+                                                                                 convlist ))

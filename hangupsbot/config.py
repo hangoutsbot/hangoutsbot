@@ -66,14 +66,7 @@ class Config(collections.MutableMapping):
             if not recovery and self.failsafe_backups > 0 and self._recover_from_failsafe():
                 return
 
-            logger.exception("malformed json: {}".format(self.filename))
-
-            # instructive error-handling for n00bs, including me!
-            print("EXCEPTION: .json likely malformed")
-            print("  check {}".format(self.filename))
-            print("  {}".format(sys.exc_info()[1]))
-
-            sys.exit(0)
+            raise
 
         self.changed = False
 
@@ -110,6 +103,11 @@ class Config(collections.MutableMapping):
 
         return self.changed
 
+    def flush(self):
+        if self._timer_save and self._timer_save.is_alive():
+            logger.info("flushing {}".format(self.filename))
+            self._timer_save.cancel()
+        self.save(delay=False)
 
     def get_by_path(self, keys_list):
         """Get item from config by path (list of keys)"""

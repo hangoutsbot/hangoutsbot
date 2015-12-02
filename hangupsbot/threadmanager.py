@@ -1,6 +1,10 @@
 from threading import Thread
 
+from plugins import tracking
+
+
 threads = []
+
 
 def start_thread(target, args):
     t = Thread(target=target, args=args)
@@ -9,3 +13,5 @@ def start_thread(target, args):
     t.start()
 
     threads.append(t)
+
+    tracking.register_thread(t)

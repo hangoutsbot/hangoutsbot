@@ -2,7 +2,10 @@
 example plugin which watches rename events
 """
 
-import asyncio
+import asyncio, logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def _initialise(Handlers, bot=None):
@@ -18,6 +21,6 @@ def _watch_rename(bot, event, command):
 
     # Only print renames for now...
     if event.conv_event.new_name == '':
-        print(_('EXAMPLE_PRINTRENAMES: {} cleared the conversation name').format(event.user.first_name))
+        logger.info('{} cleared the conversation name'.format(event.user.first_name))
     else:
-        print(_('EXAMPLE_PRINTRENAMES: {} renamed the conversation to {}').format(event.user.first_name, event.conv_event.new_name))
+        logger.info('{} renamed the conversation to {}'.format(event.user.first_name, event.conv_event.new_name))

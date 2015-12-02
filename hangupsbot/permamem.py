@@ -1,4 +1,4 @@
-import asyncio, logging, datetime
+import asyncio, datetime, logging, random, re
 
 import hangups
 
@@ -471,34 +471,112 @@ class conversation_memory:
         self.bot.memory.save()
 
 
-    def get(self, filter=False):
-        filtered = {} # function always return subset of self.catalog
+    def get(self, filter=""):
+        """get dictionary of conversations that matches filter term(s) (ALL if not supplied)
+        supports sequential boolean operations, each term must be enclosed with brackets ( ... )
+        """
 
-        if not filter:
-            # return everything
-            filtered = self.catalog
-        elif filter.startswith("id:"):
-            # explicit request for single conv
-            convid = filter[3:]
-            filtered[convid] = self.catalog[convid]
-        elif filter in self.catalog:
-            # prioritise exact convid matches
-            filtered[filter] = self.catalog[filter]
-        elif filter.startswith("text:"):
-            # perform case-insensitive search
-            filter_lower = filter[5:].lower()
-            for convid, convdata in self.catalog.items():
-                if filter_lower in convdata["title"].lower():
-                    filtered[convid] = convdata
-        elif filter.startswith("chat_id:"):
-            # return all conversations user is in
-            filter_chat_id = filter[8:]
-            for convid, convdata in self.catalog.items():
-                for chat_id in convdata["participants"]:
-                    if filter_chat_id == chat_id:
-                        filtered[convid] = convdata
+        terms = []
+        raw_filter = filter.strip()
+        operator = "start"
+        while raw_filter.startswith("("):
+            tokens = re.split(r"(?<!\\)(?:\\\\)*\)", raw_filter, maxsplit=1)
+            terms.append([operator, tokens[0][1:]])
+            if len(tokens) == 2:
+                raw_filter = tokens[1]
+                if not raw_filter:
+                    # finished consuming entire string
+                    pass
+                elif re.match(r"^\s*and\s*\(", raw_filter, re.IGNORECASE):
+                    operator = "and"
+                    raw_filter = tokens[1][raw_filter.index('('):].strip()
+                elif re.match(r"^\s*or\s*\(", raw_filter, re.IGNORECASE):
+                    operator = "or"
+                    raw_filter = tokens[1][raw_filter.index('('):].strip()
+                else:
+                    raise ValueError("invalid boolean operator near \"{}\"".format(raw_filter.strip()))
 
-        return filtered
+        if raw_filter or len(terms)==0:
+            # second condition is to ensure at least one term, even if blank
+            terms.append([operator, raw_filter])
+
+        sourcelist = self.catalog.copy()
+        matched = {}
+
+        logger.debug("get(): {}".format(terms))
+
+        for operator, term in terms:
+            if operator == "and":
+                sourcelist = matched
+                matched = {}
+
+            """extra search term types added here"""
+
+            if not term:
+                # return everything
+                matched = sourcelist
+
+            elif term.startswith("id:"):
+                # explicit request for single conv
+                convid = term[3:]
+                matched[convid] = sourcelist[convid]
+
+            elif term in sourcelist:
+                # prioritise exact convid matches
+                matched[term] = sourcelist[term]
+
+            elif term.startswith("text:"):
+                # perform case-insensitive search
+                filter_lower = term[5:].lower()
+                for convid, convdata in sourcelist.items():
+                    if filter_lower in convdata["title"].lower():
+                        matched[convid] = convdata
+
+            elif term.startswith("chat_id:"):
+                # return all conversations user is in
+                filter_chat_id = term[8:]
+                for convid, convdata in sourcelist.items():
+                    for chat_id in convdata["participants"]:
+                        if filter_chat_id == chat_id:
+                            matched[convid] = convdata
+
+            elif term.startswith("tag:"):
+                # return all conversations with the tag
+                filter_tag = term[4:]
+                if filter_tag in self.bot.tags.indices["tag-convs"]:
+                    for conv_id in self.bot.tags.indices["tag-convs"][filter_tag]:
+                        if conv_id in sourcelist:
+                            matched[conv_id] = sourcelist[conv_id]
+
+            elif term.startswith("type:"):
+                # return all conversations with matching type (case-insensitive)
+                filter_type = term[5:]
+                for convid, convdata in sourcelist.items():
+                    if convdata["type"].lower() == filter_type.lower():
+                        matched[convid] = convdata
+
+            elif term.startswith("minusers:"):
+                # return all conversations with number of users or higher
+                filter_numusers = term[9:]
+                for convid, convdata in sourcelist.items():
+                    if len(convdata["participants"]) >= int(filter_numusers):
+                        matched[convid] = convdata
+
+            elif term.startswith("maxusers:"):
+                # return all conversations with number of users or lower
+                filter_numusers = term[9:]
+                for convid, convdata in sourcelist.items():
+                    if len(convdata["participants"]) <= int(filter_numusers):
+                        matched[convid] = convdata
+
+            elif term.startswith("random:"):
+                # return random conversations based on selection threshold
+                filter_random = term[7:]
+                for convid, convdata in sourcelist.items():
+                    if random.random() <= float(filter_random):
+                        matched[convid] = convdata
+
+        return matched
 
     def get_name(self, conv, truncate=False, fallback_string=False):
         """drop-in replacement for hangups.ui.utils.get_conv_name

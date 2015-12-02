@@ -45,7 +45,7 @@ def botalias(bot, event, *args):
     """shows, adds and removes bot command aliases"""
 
     if len(args) == 0:
-        bot.send_message_parsed(
+        yield from bot.coro_send_message(
             event.conv,
             _("<i>bot alias: {}</i>").format(
                 ", ".join(bot._handlers.bot_command)))
@@ -74,6 +74,6 @@ def botalias(bot, event, *args):
 
             botalias(bot, event) # run with no arguments
         else:
-            bot.send_message_parsed(
+            yield from bot.coro_send_message(
                 event.conv,
                 _("<i>not authorised to change bot alias</i>"))
