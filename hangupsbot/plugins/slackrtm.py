@@ -49,6 +49,8 @@ import urllib
 import hangups
 import hangups.ui.utils
 
+import plugins
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -1077,7 +1079,7 @@ class SlackRTMThread(threading.Thread):
         return self._stop.isSet()
 
 
-def _initialise(Handlers, bot=None):
+def _initialise(bot):
     # Start and asyncio event loop
     loop = asyncio.get_event_loop()
     slack_sink = bot.get_config_option('slackrtm')
@@ -1091,11 +1093,11 @@ def _initialise(Handlers, bot=None):
             threads.append(t)
     logger.info("%d sink thread(s) started" % len(threads))
 
-    Handlers.register_handler(_handle_slackout)
-    Handlers.register_handler(_handle_membership_change, type="membership")
-    Handlers.register_handler(_handle_rename, type="rename")
+    plugins.register_handler(_handle_slackout)
+    plugins.register_handler(_handle_membership_change, type="membership")
+    plugins.register_handler(_handle_rename, type="rename")
 
-    Handlers.register_admin_command(["slack_help", "slacks", "slack_channels", "slack_listsyncs", "slack_syncto", "slack_disconnect", "slack_setsyncjoinmsgs", "slack_setimageupload", "slack_sethotag"])
+    plugins.register_admin_command(["slack_help", "slacks", "slack_channels", "slack_listsyncs", "slack_syncto", "slack_disconnect", "slack_setsyncjoinmsgs", "slack_setimageupload", "slack_sethotag"])
 
 
 @asyncio.coroutine
