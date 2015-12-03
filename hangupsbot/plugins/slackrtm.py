@@ -1131,58 +1131,12 @@ def _handle_rename(bot, event, command):
         except Exception as e:
             logger.exception('_handle_rename threw: %s' % str(e))
 
-# /bot slacks _lists all configured slack teams_
-# /bot slack_channels TEAMNAME _lists all channels/groups of slack team TEAMNAME_
-# /bot slack_syncto TEAMNAME CHANNELIID [Hangout-Tag] _starts syncing of messages between current Hangout and channel CHANNELID in slack team TEAMNAME, if given, all messages from Hangouts will be tagged with Hangout-Tag in Slack_
-# /bot slack_disconnect TEAMNAME CHANNELID _stops sync of current Hangout with channel CHANNELID in slack team TEAMNAME_
-# /bot slack_setsyncjoinmsgs TEAMNAME CHANNELID <TRUE|FALSE> _start/stop sending join msgs for the sync of current Hangout with channel CHANNELID in slack team TEAMNAME_
-# /bot slack_setimageupload TEAMNAME CHANNELID <TRUE|FALSE> _start/stop uploading images from Slack to the current Hangout from channel CHANNELID in slack team TEAMNAME_
-# /bot slack_sethotag TEAMNAME CHANNELID <none|_hotag_> _set the HO-Tag for the sync of the current Hangout to channel CHANNELID in slack team TEAMNAME (or disabled tagging with "none"_
-
-def slack_help(bot, event, *args):
-    """list all slack specific commands"""
-    segments = [
-        hangups.ChatMessageSegment('I understand the following slack specific commands:'),
-        hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-
-        hangups.ChatMessageSegment('/bot slacks '),
-        hangups.ChatMessageSegment('lists all configured slack teams', is_italic=True),
-        hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-
-        hangups.ChatMessageSegment('/bot slack_channels TEAMNAME '),
-        hangups.ChatMessageSegment('lists all channels/groups of slack team TEAMNAME', is_italic=True),
-        hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-
-        hangups.ChatMessageSegment('/bot slack_channels TEAMNAME '),
-        hangups.ChatMessageSegment('lists all channels/groups of slack team TEAMNAME', is_italic=True),
-        hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-
-        hangups.ChatMessageSegment('/bot slack_syncto TEAMNAME CHANNELIID [Hangout-Tag] '),
-        hangups.ChatMessageSegment('starts syncing of messages between current Hangout and channel CHANNELID in slack team TEAMNAME, if given, all messages from Hangouts will be tagged with Hangout-Tag in Slack', is_italic=True),
-        hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-
-        hangups.ChatMessageSegment('/bot slack_disconnect TEAMNAME CHANNELID '),
-        hangups.ChatMessageSegment('stops sync of current Hangout with channel CHANNELID in slack team TEAMNAME', is_italic=True),
-        hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-
-        hangups.ChatMessageSegment('/bot slack_setsyncjoinmsgs TEAMNAME CHANNELID <TRUE|FALSE> '),
-        hangups.ChatMessageSegment('start/stop sending join msgs for the sync of current Hangout with channel CHANNELID in slack team TEAMNAME', is_italic=True),
-        hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-
-        hangups.ChatMessageSegment('/bot slack_setimageupload TEAMNAME CHANNELID <TRUE|FALSE> '),
-        hangups.ChatMessageSegment('start/stop uploading images from Slack to the current Hangout from channel CHANNELID in slack team TEAMNAME', is_italic=True),
-        hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-
-        hangups.ChatMessageSegment('/bot slack_sethotag TEAMNAME CHANNELID <none|HOTAG> '),
-        hangups.ChatMessageSegment('set the HO-Tag for the sync of the current Hangout to channel CHANNELID in slack team TEAMNAME (or disabled tagging with "none"', is_italic=True),
-        hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-        ]
-    bot.send_message_segments(event.conv, segments)
-
 def slacks(bot, event, *args):
-    """list all slacks configured"""
+    """list all configured slack teams
+
+usage: /bot slacks"""
     segments = [
-        hangups.ChatMessageSegment('Slack configured:', is_bold=True),
+        hangups.ChatMessageSegment('Configured Slack teams:', is_bold=True),
         hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
         ]
     for slackrtm in slackrtms:
@@ -1191,7 +1145,9 @@ def slacks(bot, event, *args):
     bot.send_message_segments(event.conv, segments)
 
 def slack_channels(bot, event, *args):
-    """list all slack channels available in given slack team"""
+    """list all slack channels available in specified slack team
+
+usage: /bot slack_channels <teamname>"""
     if len(args) != 1:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name to list channels of', is_bold=True)])
         return
@@ -1227,8 +1183,11 @@ def slack_channels(bot, event, *args):
     bot.send_message_segments(event.conv, segments)
 
 def slack_listsyncs(bot, event, *args):
+    """list current conversations we are syncing
+
+usage: /bot slack_listsyncs"""
     segments = [
-        hangups.ChatMessageSegment('list of current sync connections:', is_bold=True),
+        hangups.ChatMessageSegment('list of currently synced conversations:', is_bold=True),
         hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)
         ]
     for slackrtm in slackrtms:
@@ -1259,7 +1218,9 @@ def slack_listsyncs(bot, event, *args):
     bot.send_message_segments(event.conv, segments)
 
 def slack_syncto(bot, event, *args):
-    """connects current hangout with given slack channel in given slack team"""
+    """start syncing the current hangout to a given slack team/channel
+
+usage: /bot slack_syncto <teamname> <channelid>"""
     if len(args) >= 3:
         honame = ' '.join(args[2:])
     else:
@@ -1293,7 +1254,9 @@ def slack_syncto(bot, event, *args):
 
 
 def slack_disconnect(bot, event, *args):
-    """stops syncing current hangout with given slack channel in given slack team"""
+    """stop syncing the current hangout with given slack team and channel
+
+usage: /bot slack_disconnect <teamname> <channelid>"""
     if len(args) != 2:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name and a channel', is_bold=True)])
         return
@@ -1323,7 +1286,9 @@ def slack_disconnect(bot, event, *args):
 
 
 def slack_setsyncjoinmsgs(bot, event, *args):
-    """enable/disable messages about joins/leaves/adds/invites/kicks when syncing current hangout with given slack channel in given slack team, default is enabled"""
+    """enable or disable sending notifications any time someone joins/leaves/adds/invites/kicks
+
+usage: /bot slack_setsyncjoinmsgs <teamname> <channelid> {true|false}"""
     if len(args) != 3:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name, a channel and "true" or "false"', is_bold=True)])
         return
@@ -1362,7 +1327,10 @@ def slack_setsyncjoinmsgs(bot, event, *args):
 
 
 def slack_setimageupload(bot, event, *args):
-    """enable/disable image uplad to current hangout when shared in given slack channel in given slack team, default is enabled"""
+    """enable/disable image upload between the synced conversations
+(default: enabled)
+
+usage: /bot slack_setimageupload <teamname> <channelid> {true|false}"""
     if len(args) != 3:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name, a channel and "true" or "false"', is_bold=True)])
         return
@@ -1401,7 +1369,10 @@ def slack_setimageupload(bot, event, *args):
 
 
 def slack_sethotag(bot, event, *args):
-    """set the tag of current hangout when syncing messages to the given slack channel in given slack team, default is the name of the Hangout when sync was set up, use 'none' to disable tagging"""
+    """sets the identity of current hangout when syncing this conversation
+(default: title of this hangout when sync was set up, use 'none' to disable tagging)
+
+usage: /bot slack_hotag <teamname> <channelid> {<tag>|none}"""
     if len(args) < 3:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name, a channel and a tag', is_bold=True)])
         return
