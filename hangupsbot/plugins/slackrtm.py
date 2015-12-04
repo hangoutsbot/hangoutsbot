@@ -261,9 +261,7 @@ class SlackRTMSync(object):
         sync_joins = True
         if 'sync_joins' in sync_dict and not sync_dict['sync_joins']:
             sync_joins = False
-        image_upload = True
         if 'image_upload' in sync_dict and not sync_dict['image_upload']:
-            image_upload = False
         return SlackRTMSync(sync_dict['channelid'], sync_dict['hangoutid'], sync_dict['hotag'], sync_joins)
 
     def toDict(self):
