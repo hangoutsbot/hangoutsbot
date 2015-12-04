@@ -82,6 +82,7 @@ def unicodeemoji2text(text):
         out = out + c
     return out
 
+
 def chatMessageEvent2SlackText(event):
     def renderTextSegment(segment):
         out = ''
@@ -114,17 +115,22 @@ def chatMessageEvent2SlackText(event):
 class ParseError(Exception):
     pass
 
+
 class AlreadySyncingError(Exception):
     pass
+
 
 class NotSyncingError(Exception):
     pass
 
+
 class ConnectionFailedError(Exception):
     pass
 
+
 class IncompleteLoginError(Exception):
     pass
+
 
 class SlackMessage(object):
     def __init__(self, slackrtm, reply):
@@ -138,7 +144,7 @@ class SlackMessage(object):
         self.channel = None
         self.file_attachment = None
 
-        if not 'type' in reply:
+        if 'type' not in reply:
             raise ParseError('no "type" in reply: %s' % str(reply))
 
         if reply['type'] in ['pong', 'presence_change',  'user_typing', 'file_shared', 'file_public', 'file_comment_added', 'file_comment_deleted', 'message_deleted']:
@@ -174,15 +180,15 @@ class SlackMessage(object):
             user = reply['comment']['user']
             text = reply['comment']['comment']
         else:
-            if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'bot_message' and not 'user' in reply:
+            if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'bot_message' and 'user' not in reply:
                 is_bot = True
                 # this might be a HO relayed message, check if username is set and use it as username
                 username = reply['username']
-            elif not 'text' in reply or not 'user' in reply:
+            elif 'text' not in reply or 'user' not in reply:
                 raise ParseError('no text/user in reply:\n%s' % str(reply))
             else:
                 user = reply['user']
-            if not 'text' in reply or not len(reply['text']):
+            if 'text' not in reply or not len(reply['text']):
                 # IFTTT?
                 if 'attachments' in reply:
                     if 'text' in reply['attachments'][0]:
@@ -202,14 +208,14 @@ class SlackMessage(object):
                 file_attachment = reply['file']['url']
 
         # now we check if the message has the hidden ho relay tag, extract and remove it
-        hoidfmt = re.compile(r'^(.*) <ho://([^/]+)/([^|]+)\| >$', re.MULTILINE|re.DOTALL)
+        hoidfmt = re.compile(r'^(.*) <ho://([^/]+)/([^|]+)\| >$', re.MULTILINE | re.DOTALL)
         match = hoidfmt.match(text)
         if match:
             text = match.group(1)
             from_ho_id = match.group(2)
             sender_id = match.group(3)
             if 'googleusercontent.com' in text:
-                gucfmt = re.compile(r'^(.*)<(https?://[^\s/]*googleusercontent.com/[^\s]*)>$', re.MULTILINE|re.DOTALL)
+                gucfmt = re.compile(r'^(.*)<(https?://[^\s/]*googleusercontent.com/[^\s]*)>$', re.MULTILINE | re.DOTALL)
                 match = gucfmt.match(text)
                 if match:
                     text = match.group(1)
@@ -229,7 +235,7 @@ class SlackMessage(object):
         if not channel:
             raise ParseError('no channel found in reply:\n%s' % pprint.pformat(reply))
 
-        if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] in [ 'channel_join', 'channel_leave', 'group_join', 'group_leave' ]:
+        if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] in ['channel_join', 'channel_leave', 'group_join', 'group_leave']:
             is_joinleave = True
 
         self.text = text
@@ -277,6 +283,7 @@ class SlackRTMSync(object):
             self.image_upload,
             )
 
+
 class SlackRTM(object):
     def __init__(self, sink_config, bot, loop, threaded=False):
         self.bot = bot
@@ -288,8 +295,8 @@ class SlackRTM(object):
         self.slack = SlackClient(self.apikey)
         if not self.slack.rtm_connect():
             raise ConnectionFailedError
-        for key in [ 'self' , 'team', 'users', 'channels', 'groups' ]:
-            if not key in self.slack.server.login_data:
+        for key in ['self', 'team', 'users', 'channels', 'groups']:
+            if key not in self.slack.server.login_data:
                 raise IncompleteLoginError
         if threaded:
             if 'name' in self.config:
@@ -313,7 +320,7 @@ class SlackRTM(object):
         self.admins = []
         if 'admins' in self.config:
             for a in self.config['admins']:
-                if not a in self.userinfos:
+                if a not in self.userinfos:
                     logger.warning('userid %s not found in user list, ignoring' % a)
                 else:
                     self.admins.append(a)
@@ -324,15 +331,15 @@ class SlackRTM(object):
         self.hangoutnames = {}
         for c in self.bot.list_conversations():
             name = hangups.ui.utils.get_conv_name(c, truncate=True)
-            self.hangoutids[ name ] = c.id_
-            self.hangoutnames[ c.id_ ] = name
+            self.hangoutids[name] = c.id_
+            self.hangoutnames[c.id_] = name
 
         self.syncs = []
         syncs = self.bot.user_memory_get(self.name, 'synced_conversations')
         if not syncs:
             syncs = []
         for s in syncs:
-            self.syncs.append( SlackRTMSync.fromDict(s) )
+            self.syncs.append(SlackRTMSync.fromDict(s))
         if 'synced_conversations' in self.config and len(self.config['synced_conversations']):
             logger.warning('defining synced_conversations in config is deprecated')
             for conv in self.config['synced_conversations']:
@@ -343,8 +350,8 @@ class SlackRTM(object):
                         logger.error("could not find conv %s in bot's conversations, but used in (deprecated) synced_conversations in config!" % conv[1])
                         hotag = conv[1]
                     else:
-                        hotag = self.hangoutnames[ conv[1] ]
-                self.syncs.append( SlackRTMSync(conv[0], conv[1], hotag) )
+                        hotag = self.hangoutnames[conv[1]]
+                self.syncs.append(SlackRTMSync(conv[0], conv[1], hotag))
 
     def update_userinfos(self, users=None):
         if users is None:
@@ -356,10 +363,10 @@ class SlackRTM(object):
         self.userinfos = userinfos
 
     def get_username(self, user, default=None):
-        if not user in self.userinfos:
+        if user not in self.userinfos:
             logger.debug('user not found, reloading users')
             self.update_userinfos()
-            if not user in self.userinfos:
+            if user not in self.userinfos:
                 logger.warning('could not find user "%s" although reloaded' % user)
                 return default
         return self.userinfos[user]['name']
@@ -374,10 +381,10 @@ class SlackRTM(object):
         self.channelinfos = channelinfos
 
     def get_channelname(self, channel, default=None):
-        if not channel in self.channelinfos:
+        if channel not in self.channelinfos:
             logger.debug('channel not found, reloading channels')
             self.update_channelinfos()
-            if not channel in self.channelinfos:
+            if channel not in self.channelinfos:
                 logger.warning('could not find channel "%s" although reloaded' % channel)
                 return default
         return self.channelinfos[channel]['name']
@@ -392,15 +399,15 @@ class SlackRTM(object):
         self.groupinfos = groupinfos
 
     def get_groupname(self, group, default=None):
-        if not group in self.groupinfos:
+        if group not in self.groupinfos:
             logger.debug('group not found, reloading groups')
             self.update_groupinfos()
-            if not group in self.groupinfos:
+            if group not in self.groupinfos:
                 logger.warning('could not find group "%s" although reloaded' % group)
                 return default
         return self.groupinfos[group]['name']
 
-    def get_syncs(self, channelid = None, hangoutid = None):
+    def get_syncs(self, channelid=None, hangoutid=None):
         syncs = []
         for sync in self.syncs:
             if channelid == sync.channelid:
@@ -467,9 +474,9 @@ class SlackRTM(object):
             logger.info('downloading %s' % image)
             filename = os.path.basename(image)
             image_response = urllib.request.urlopen(image)
-            logger.info('uploading as %s' % filename)
+            logger/info('uploading as %s' % filename)
             image_id = yield from self.bot._client.upload_image(image_response, filename=filename)
-            logger/info('sending HO message, image_id: %s' % image_id)
+            logger.info('sending HO message, image_id: %s' % image_id)
             self.bot.send_message_segments(hoid, None, image_id=image_id)
         except Exception as e:
             logger.exception('upload_image: %s(%s)' % (type(e), str(e)))
@@ -554,7 +561,7 @@ class SlackRTM(object):
 
         elif command == 'hangoutmembers':
             message = '@%s: the following users are in the synced Hangout(s):\n' % msg.username
-            for sync in self.get_syncs(channelid = msg.channel):
+            for sync in self.get_syncs(channelid=msg.channel):
                 hangoutname = 'unknown'
                 conv = None
                 for c in self.bot.list_conversations():
@@ -573,7 +580,7 @@ class SlackRTM(object):
 
         else:
             # the remaining commands are for admins only
-            if not msg.user in self.admins:
+            if msg.user not in self.admins:
                 self.slack.api_call('chat.postMessage',
                                     channel=msg.channel,
                                     text=u'@%s: sorry, command `%s` is only allowed for my admins' % (msg.username, command),
@@ -701,9 +708,9 @@ class SlackRTM(object):
                 else:
                     channelname = '#%s' % self.get_channelname(msg.channel)
 
-                if enable.lower() in [ 'true', 'on', 'y', 'yes' ]:
+                if enable.lower() in ['true', 'on', 'y', 'yes']:
                     enable = True
-                elif enable.lower() in [ 'false', 'off', 'n', 'no' ]:
+                elif enable.lower() in ['false', 'off', 'n', 'no']:
                     enable = False
                 else:
                     message += u'sorry, but "%s" is not "true" or "false"' % enable
@@ -778,9 +785,9 @@ class SlackRTM(object):
                 else:
                     channelname = '#%s' % self.get_channelname(msg.channel)
 
-                if upload.lower() in [ 'true', 'on', 'y', 'yes' ]:
+                if upload.lower() in ['true', 'on', 'y', 'yes']:
                     upload = True
-                elif upload.lower() in [ 'false', 'off', 'n', 'no' ]:
+                elif upload.lower() in ['false', 'off', 'n', 'no']:
                     upload = False
                 else:
                     message += u'sorry, but "%s" is not "true" or "false"' % upload
@@ -807,7 +814,7 @@ class SlackRTM(object):
         if not syncs:
             syncs = []
         logger.info('storing sync: %s' % sync.toDict())
-        syncs.append( sync.toDict() )
+        syncs.append(sync.toDict())
         self.bot.user_memory_set(self.name, 'synced_conversations', syncs)
         return
 
@@ -912,7 +919,7 @@ class SlackRTM(object):
         except Exception as e:
             logger.exception('error in handleCommands: %s(%s)' % (type(e), str(e)))
 
-        for sync in self.get_syncs(channelid = msg.channel):
+        for sync in self.get_syncs(channelid=msg.channel):
             if not sync.sync_joins and msg.is_joinleave:
                 continue
             if not msg.from_ho_id == sync.hangoutid:
@@ -926,7 +933,7 @@ class SlackRTM(object):
                 self.bot.send_html_to_conversation(sync.hangoutid, response)
 
     def handle_ho_message(self, event):
-        for sync in self.get_syncs(hangoutid = event.conv_id):
+        for sync in self.get_syncs(hangoutid=event.conv_id):
             fullname = event.user.full_name
             if sync.hotag:
                 fullname = '%s (%s)' % (fullname, sync.hotag)
@@ -969,7 +976,7 @@ class SlackRTM(object):
             links.append(u'<https://plus.google.com/%s/about|%s>' % (user.id_.chat_id, user.full_name))
         names = u', '.join(links)
 
-        for sync in self.get_syncs(hangoutid = event.conv_id):
+        for sync in self.get_syncs(hangoutid=event.conv_id):
             if not sync.sync_joins:
                 continue
             if sync.hotag:
@@ -995,7 +1002,7 @@ class SlackRTM(object):
     def handle_ho_rename(self, event):
         name = hangups.ui.utils.get_conv_name(event.conv, truncate=False)
 
-        for sync in self.get_syncs(hangoutid = event.conv_id):
+        for sync in self.get_syncs(hangoutid=event.conv_id):
             invitee = u'<https://plus.google.com/%s/about|%s>' % (event.user_id.chat_id, event.user.full_name)
             hotagaddendum = ''
             if sync.hotag:
@@ -1012,6 +1019,8 @@ class SlackRTM(object):
 
 
 slackrtms = []
+
+
 class SlackRTMThread(threading.Thread):
     def __init__(self, bot, loop, config):
         super(SlackRTMThread, self).__init__()
@@ -1039,7 +1048,7 @@ class SlackRTMThread(threading.Thread):
                 if replies:
                     if 'type' in replies[0]:
                         if replies[0]['type'] == 'hello':
-                            #print('slackrtm: ignoring first replies including type=hello message to avoid message duplication: %s...' % str(replies)[:30])
+                        # print('slackrtm: ignoring first replies including type=hello message to avoid message duplication: %s...' % str(replies)[:30])
                             continue
                     for reply in replies:
                         try:
@@ -1110,6 +1119,7 @@ def _handle_slackout(bot, event, command):
         except Exception as e:
             logger.exception('_handle_slackout threw: %s' % str(e))
 
+
 @asyncio.coroutine
 def _handle_membership_change(bot, event, command):
     if not slackrtms:
@@ -1131,6 +1141,7 @@ def _handle_rename(bot, event, command):
         except Exception as e:
             logger.exception('_handle_rename threw: %s' % str(e))
 
+
 def slacks(bot, event, *args):
     """list all configured slack teams
 
@@ -1143,6 +1154,7 @@ usage: /bot slacks"""
         segments.append(hangups.ChatMessageSegment('%s' % slackrtm.name))
         segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
     bot.send_message_segments(event.conv, segments)
+
 
 def slack_channels(bot, event, *args):
     """list all slack channels available in specified slack team
@@ -1182,6 +1194,7 @@ usage: /bot slack_channels <teamname>"""
 
     bot.send_message_segments(event.conv, segments)
 
+
 def slack_listsyncs(bot, event, *args):
     """list current conversations we are syncing
 
@@ -1216,6 +1229,7 @@ usage: /bot slack_listsyncs"""
                 )
 
     bot.send_message_segments(event.conv, segments)
+
 
 def slack_syncto(bot, event, *args):
     """start syncing the current hangout to a given slack team/channel
@@ -1310,9 +1324,9 @@ usage: /bot slack_setsyncjoinmsgs <teamname> <channelid> {true|false}"""
         return
 
     enable = args[2]
-    if enable.lower() in [ 'true', 'on', 'y', 'yes' ]:
+    if enable.lower() in ['true', 'on', 'y', 'yes']:
         enable = True
-    elif enable.lower() in [ 'false', 'off', 'n', 'no' ]:
+    elif enable.lower() in ['false', 'off', 'n', 'no']:
         enable = False
     else:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('sorry, but "%s" is not "true" or "false"' % enable, is_bold=True)])
@@ -1352,9 +1366,9 @@ usage: /bot slack_setimageupload <teamname> <channelid> {true|false}"""
         return
 
     upload = args[2]
-    if upload.lower() in [ 'true', 'on', 'y', 'yes' ]:
+    if upload.lower() in ['true', 'on', 'y', 'yes']:
         upload = True
-    elif upload.lower() in [ 'false', 'off', 'n', 'no' ]:
+    elif upload.lower() in ['false', 'off', 'n', 'no']:
         upload = False
     else:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('sorry, but "%s" is not "true" or "false"' % upload, is_bold=True)])
