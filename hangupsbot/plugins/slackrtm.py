@@ -474,7 +474,7 @@ class SlackRTM(object):
             logger.info('downloading %s' % image)
             filename = os.path.basename(image)
             image_response = urllib.request.urlopen(image)
-            logger/info('uploading as %s' % filename)
+            logger.info('uploading as %s' % filename)
             image_id = yield from self.bot._client.upload_image(image_response, filename=filename)
             logger.info('sending HO message, image_id: %s' % image_id)
             self.bot.send_message_segments(hoid, None, image_id=image_id)
