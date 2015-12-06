@@ -261,7 +261,7 @@ class SlackRTMSync(object):
         self.sync_joins = sync_joins
         self.image_upload = image_upload
 
-    def fromDict(self, sync_dict):
+    def fromDict(sync_dict):
         sync_joins = True
         if 'sync_joins' in sync_dict and not sync_dict['sync_joins']:
             sync_joins = False
