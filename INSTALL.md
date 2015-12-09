@@ -13,7 +13,7 @@ sudo make install
 
 **git clone the repository**
 ```
-git clone <repository url>
+git https://github.com/hangoutsbot/hangoutsbot.git
 ```
 
 **install dependencies**
