@@ -227,9 +227,11 @@ class SlackMessage(object):
         username4ho = username
         if not is_bot:
             teamname = slackrtm.get_teamname()
-            realname = slackrtm.get_realname(user,user)
+            domain = slackrtm.get_slack_domain()
             username = slackrtm.get_username(user, user)
-            username4ho = u'%s - %s (%s)' % (realname, username, teamname)
+            realname = slackrtm.get_realname(user,username)
+            
+            username4ho = u'<a href="https://%s.slack.com/team/%s">%s</a> (%s)' % (domain, username, realname, teamname)
         elif sender_id != '':
             username4ho = u'<a href="https://plus.google.com/%s">%s</a>' % (sender_id, username)
 
@@ -391,6 +393,12 @@ class SlackRTM(object):
     def get_teamname(self):
         response = json.loads(self.slack.api_call('team.info').decode("utf-8"))
         return response['team']['name']
+    
+    def get_slack_domain(self):
+        response = json.loads(self.slack.api_call('team.info').decode("utf-8"))
+        if response["ok"]:
+            return response['team']['domain']
+        return None
 
     def get_realname(self, user, default=None):
         if user not in self.userinfos:
@@ -399,6 +407,8 @@ class SlackRTM(object):
             if user not in self.userinfos:
                 logger.warning('could not find user "%s" although reloaded', user)
                 return default
+        if not self.userinfos[user]['real_name']:
+            return default
         return self.userinfos[user]['real_name']
 
 
