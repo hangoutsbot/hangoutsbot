@@ -32,8 +32,10 @@ class PluginManager(object):
         self._bot = bot
 
     def index(self):
-        return "<b>Bot Configuration</b><br><a href='/plugins'>Plugin Manager</a>"
-
+        return """<b>Bot Configuration</b>
+                    <br><a href='/plugins'>Plugin Manager</a>
+                    <br><a href='/conversations'>Conversation Manager</a>"""
+           
     @cherrypy.expose
     def plugins(self):
         all_plugins = plugins.retrieve_all_plugins()
@@ -49,6 +51,42 @@ class PluginManager(object):
             else:
                 checked = ""
             html += "<input type=\"checkbox\" name=\"plugin\" value=\"{0}\"{1}> {0}<br>".format(plugin, checked)
+
+        html += """
+              <button type="submit">Save</button>
+            </form>
+          </body>
+        </html>"""
+        return html
+
+    @cherrypy.expose
+    def conversations(self):
+        all_conversations = self._bot.conversations.get()
+        o2o_conversations = self._bot.conversations.get("type:ONE_TO_ONE")
+        group_conversations = self._bot.conversations.get("type:GROUP")
+        
+        html = """<html>
+        <head></head>
+          <body>
+            <H1>Conversations</H1>
+            <form method="get" action="conversations_submit">
+            <table style=\"width: 100%  ;\" >
+            <tr>
+            <th><H2>Group Conversations</H2></th>
+            <th><H2>One to one Conversations</H2></th>
+            </tr>
+            <tr>
+            <td style=\"vertical-align:top\">
+            """
+        for convid, convdata in group_conversations.items():
+            html += "<input style=\"width: 100%  ;\" type=\"text\" name=\"conv\" value=\"{0}\"> <br>".format(convdata["title"])
+
+        html += "</td><td style=\"vertical-align:top\>"
+
+        for convid, convdata in o2o_conversations.items():
+            html += "<input style=\"width: 100%  ;\" type=\"text\" name=\"conv\" value=\"{0}\"> <br>".format(convdata["title"])
+
+        html += "</td></tr></table>"
 
         html += """
               <button type="submit">Save</button>
