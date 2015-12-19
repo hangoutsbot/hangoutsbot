@@ -1,163 +1,133 @@
-import asyncio, logging, time
+import asyncio, logging, json
 
-from collections import namedtuple
+import plugins
 
-import hangups
-
+import cherrypy
+import os
+from commands import command
 
 logger = logging.getLogger(__name__)
+loop =  asyncio.get_event_loop()
+def _initialise(bot):
+    
+    print (loop)
+    
+    plugins.register_handler(_start_manager(bot,loop))
 
 
-ConversationID = namedtuple('conversation_id', ['id_'])
+def _start_manager(bot,loop):
+    """will host a basic plugin manager"""
+    
+    port = 9090
+    path   = os.path.abspath(os.path.dirname(__file__))
+    config = {
 
-ClientConversation = namedtuple( 'client_conversation',
-                                 [ 'conversation_id',
-                                   'current_participant',
-                                   'name',
-                                   'otr_status',
-                                   'participant_data',
-                                   'read_state',
-                                   'self_conversation_state',
-                                    'type_' ])
-
-ParticipantData = namedtuple( 'participant_data',
-                              [ 'fallback_name',
-                                'id_' ])
-
-LastRead = namedtuple( "read_state",
-                       [ 'last_read_timestamp',
-                         'participant_id' ])
-
-LatestRead = namedtuple( "self_read_state",
-                         [ "latest_read_timestamp",
-                           "participant_id" ])
-
-SelfConversationState = namedtuple( 'self_conversation_state',
-                                    [ 'active_timestamp',
-                                      'invite_timestamp',
-                                      'inviter_id',
-                                      'notification_level',
-                                      'self_read_state',
-                                      'sort_timestamp',
-                                      'status',
-                                      'view' ])
+      '/manager' : {
+        'tools.staticdir.on'            : True,
+        'tools.staticdir.dir'           : os.path.join(path, 'manager')
+        
+      }
+    }
+    cherrypy.config.update(config)
+    cherrypy.config.update({'server.socket_port': port})
+    cherrypy.server.socket_host = '0.0.0.0' # cherrypy will listen on any ip
+    # Start server
+    cherrypy.tree.mount(PluginManager(bot), '/')
+    cherrypy.engine.start()
 
 
-class HangupsConversation(hangups.conversation.Conversation):
-    bot = None
-
-    def __init__(self, bot, conv_id):
-        self.bot = bot
-        self._client = bot._client
-
-        # retrieve the conversation record from permamem
-        permamem_conv = bot.conversations.catalog[conv_id]
-
-        # retrieve the conversation record from hangups, if available
-        hangups_conv = False
-        if conv_id in bot._conv_list._conv_dict:
-            hangups_conv = bot._conv_list._conv_dict[conv_id]._conversation
-
-        # set some basic variables
-        bot_user = bot.user_self()
-        timestamp_now = int(time.time() * 1000000)
-
-        if permamem_conv["history"]:
-            otr_status = hangups.schemas.OffTheRecordStatus.ON_THE_RECORD
-        else:
-            otr_status = hangups.schemas.OffTheRecordStatus.OFF_THE_RECORD
-
-        if permamem_conv["type"] == "GROUP":
-            type_ = hangups.schemas.ConversationType.GROUP
-        else:
-            type_ = hangups.schemas.ConversationType.STICKY_ONE_TO_ONE
-
-        current_participant = []
-        participant_data = []
-        read_state = []
-
-        participants = permamem_conv["participants"][:] # use a clone
-        participants.append(bot_user["chat_id"])
-        participants = set(participants)
-        for chat_id in participants:
-            hangups_user = bot.get_hangups_user(chat_id)
-
-            UserID = hangups.user.UserID(chat_id=hangups_user.id_.chat_id, gaia_id=hangups_user.id_.gaia_id)
-            current_participant.append(UserID)
-
-            ParticipantInfo = ParticipantData( fallback_name=hangups_user.full_name,
-                                               id_=UserID )
-
-            participant_data.append(ParticipantInfo)
-
-            if not hangups_conv:
-                read_state.append( LastRead( last_read_timestamp=0,
-                                             participant_id=UserID ))
-
-        active_timestamp = timestamp_now
-        invite_timestamp = timestamp_now
-        inviter_id = hangups.user.UserID( chat_id=bot_user["chat_id"],
-                                          gaia_id=bot_user["chat_id"] )
-        latest_read_timestamp = timestamp_now
-        sort_timestamp = timestamp_now
-
-        if hangups_conv:
-            read_state = hangups_conv.read_state[:]
-            active_timestamp = hangups_conv.self_conversation_state.active_timestamp
-            invite_timestamp = hangups_conv.self_conversation_state.invite_timestamp
-            inviter_id = hangups_conv.self_conversation_state.inviter_id
-            latest_read_timestamp = hangups_conv.self_conversation_state.self_read_state.latest_read_timestamp
-            sort_timestamp = hangups_conv.self_conversation_state.sort_timestamp
-            logger.debug("properties cloned from hangups conversation")
-
-        conversation_id = ConversationID(id_=conv_id)
-
-        self_conversation_state = SelfConversationState( active_timestamp=timestamp_now,
-                                                         invite_timestamp=timestamp_now,
-                                                         inviter_id=hangups.user.UserID( chat_id=bot_user["chat_id"],
-                                                                                         gaia_id=bot_user["chat_id"] ),
-                                                         notification_level=hangups.schemas.ClientNotificationLevel.RING,
-                                                         self_read_state=LatestRead( latest_read_timestamp=latest_read_timestamp,
-                                                                                     participant_id=hangups.user.UserID( chat_id=bot_user["chat_id"],
-                                                                                                                         gaia_id=bot_user["chat_id"] )),
-                                                         sort_timestamp=sort_timestamp,
-                                                         status=hangups.schemas.ClientConversationStatus.ACTIVE,
-                                                         view=hangups.schemas.ClientConversationView.INBOX_VIEW )
-
-        self._conversation = ClientConversation( conversation_id=conversation_id,
-                                                 current_participant=current_participant,
-                                                 name=permamem_conv["title"],
-                                                 otr_status=otr_status,
-                                                 participant_data=participant_data,
-                                                 read_state=read_state,
-                                                 self_conversation_state=self_conversation_state,
-                                                 type_=type_ )
-
-        # initialise blank
-        self._user_list = []
-        self._events = []
-        self._events_dict = {}
-        self._send_message_lock = asyncio.Lock()
-
-    @property
-    def users(self):
-        return [ self.bot.get_hangups_user(part.id_.chat_id) for part in self._conversation.participant_data ]
-
-
-class FakeConversation(object):
-    def __init__(self, _client, id_):
-        self._client = _client
-        self.id_ = id_
-
-    @asyncio.coroutine
-    def send_message(self, segments, image_id=None, otr_status=None):
-        with (yield from asyncio.Lock()):
-            if segments:
-                serialised_segments = [seg.serialize() for seg in segments]
+class PluginManager(object):
+    
+    def __init__(self, bot):
+        self._bot = bot
+        self._loop = loop
+    @asyncio.coroutine 
+    def index(self):
+        return """<b>Bot Configuration</b>
+                    <br><a href='/plugins'>Plugin Manager</a>
+                    <br><a href='/conversations'>Conversation Manager</a>"""
+           
+    @cherrypy.expose
+    def plugins(self):
+        all_plugins = plugins.retrieve_all_plugins()
+        loaded_plugins = plugins.get_configured_plugins(self._bot)
+        
+        html = """<html>
+        <head></head>
+          <body>
+            <b>Loaded Plugins</b><br>
+            <form method="get" action="plugins_submit">"""
+        for plugin in all_plugins:
+            if plugin in loaded_plugins:
+                checked = " checked"
             else:
-                serialised_segments = None
+                checked = ""
+            html += "<input type=\"checkbox\" name=\"plugin\" value=\"{0}\"{1}> {0}<br>".format(plugin, checked)
 
-            yield from self._client.sendchatmessage(
-                self.id_, serialised_segments,
-                image_id=image_id, otr_status=otr_status
-            )
+        html += """
+              <button type="submit">Save</button>
+            </form>
+          </body>
+        </html>"""
+        return html
+
+    @cherrypy.expose
+    def conversations(self):
+        all_conversations = self._bot.conversations.get()
+        o2o_conversations = self._bot.conversations.get("type:ONE_TO_ONE")
+        group_conversations = self._bot.conversations.get("type:GROUP")
+        
+        html = """<html>
+        <head></head>
+          <body>
+            <H1>Conversations</H1>
+            <form method="get" action="conversations_submit">
+            <table style=\"width: 100%  ;\" >
+            <tr>
+            <th><H2>Group Conversations</H2></th>
+            <th><H2>One to one Conversations</H2></th>
+            </tr>
+            <tr>
+            <td style=\"vertical-align:top\">
+            """
+        for convid, convdata in group_conversations.items():
+            html += "<input style=\"width: 95%  ;\" type=\"text\" name=\"conv\" value=\"{0}\"><img onclick=\"location.href='conv_leave?id={1}';\" height=\"16\" width=\"16\" alt=\"Leave conversation\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABAUlEQVRYR+2XQU7DQAxF/U/CEYC9R3Azyg3gJj1CqlhRdoQbhBvAOok+MiqVqJIMQ0tXHimLyOPxy1tk9CGFK6X0TvJFRCqSPcnXpmm6wmMO27HUqKr3InJ3XAewmesh6RC9iHQAqmEY3tq29ffVtQawAfCQOyBTd1sO9FzX9XZubxaA5M51fzf/BYrko5nNmvsNwI/mlBJLrQRAGAgDYSAMnN2AX8FmdqOqPYCr3K/5PwA6M7tVVb/pri8OkBt4XD+7gQAIA2EgDISBSxnwbOhPZWaHZFQYTD720eypOJotfeUSgF/RADwte0itxnHsTwqnKwBfgdOH+MBpmrpT4vknX/8GP+z8WWcAAAAASUVORK5CYII=\"/> <br>".format(convdata["title"],convid)
+
+        html += "</td><td style=\"vertical-align:top\>"
+
+        for convid, convdata in o2o_conversations.items():
+            html += "<input style=\"width: 100%  ;\" type=\"text\" name=\"conv\" value=\"{0}\"> <br>".format(convdata["title"])
+
+        html += "</td></tr></table>"
+
+        html += """
+              <button type="submit">Save</button>
+            </form>
+          </body>
+        </html>"""
+        return html
+
+    @cherrypy.expose
+    def plugins_submit(self, plugin):
+        print("Plugins: {}".format(plugin))
+        self._bot.config.set_by_path(["plugins"], plugin)
+        self._bot.config.save()
+        self._bot.config.load()
+        return "Plugins successfully updated!<br><a href='/'>Back to bot configuration</a>"
+
+    @cherrypy.expose
+    
+    def conv_leave(self, id):
+        
+         # workaround for missing event
+        event = {'conv_id' : "blob" }
+        
+        
+        print (loop)
+        asyncio.async(command.run(self._bot, event, *["convleave", "id:" + id, " quietly"]),loop=loop)
+        return "Left  !<br><a href='/'>Back to bot configuration</a>"
+
+
+    index.exposed = True
+
+
