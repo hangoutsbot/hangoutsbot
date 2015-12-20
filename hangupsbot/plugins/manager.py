@@ -83,7 +83,7 @@ class PluginManager(object):
         <head></head>
           <body>
             <H1>Conversations</H1>
-            <form method="get" action="conversations_submit">
+            
             <table style=\"width: 100%  ;\" >
             <tr>
             <th><H2>Group Conversations</H2></th>
@@ -93,7 +93,7 @@ class PluginManager(object):
             <td style=\"vertical-align:top\">
             """
         for convid, convdata in group_conversations.items():
-            html += "<input style=\"width: 90%  ;\" type=\"text\" name=\"{1}\" value=\"{0}\"><img onclick=\"location.href='conv_rename?id={1}&'+document.getElementById('{{1}}').value;;\" height=\"16\" width=\"16\" alt=\"rename conversation\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABEklEQVQ4T7WTvW3DMBBGvxOlOiPEGwTuVJCAN4lGcEbIBvIEpjfIBiZAFuqibOBskF4kGJxAAYZsmY6BsCOI9+6Hd4QHjpSyJaLeWqvpr7xSqgkh9EIIA2BLUsoNEe0BrJZkMcavsiw3/O69N0T0GULYFUXRsOBERM85OITQAohCiLckaccSlFKRYWvtYjlKKQ3gNQXRLDHG/PA9K5jBzByEENu7BEuw9/7onFvfzOAabK1tpJQ9Eb1MJV8tYQnmiPOeXQjqul5VVdUDeEpNO3Dk6ZeyAo7OX5YG5eMcviuDFEEPw/Dedd1pPh/ZDHKj/S8CnqipYbkExvcY47dzbtydcZkA6Fv7cG5lGEDjnONtxC86bbZsYHOH1gAAAABJRU5ErkJggg==\"/><img onclick=\"location.href='conv_leave?id={1}';\" height=\"16\" width=\"16\" alt=\"Leave conversation\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABAUlEQVRYR+2XQU7DQAxF/U/CEYC9R3Azyg3gJj1CqlhRdoQbhBvAOok+MiqVqJIMQ0tXHimLyOPxy1tk9CGFK6X0TvJFRCqSPcnXpmm6wmMO27HUqKr3InJ3XAewmesh6RC9iHQAqmEY3tq29ffVtQawAfCQOyBTd1sO9FzX9XZubxaA5M51fzf/BYrko5nNmvsNwI/mlBJLrQRAGAgDYSAMnN2AX8FmdqOqPYCr3K/5PwA6M7tVVb/pri8OkBt4XD+7gQAIA2EgDISBSxnwbOhPZWaHZFQYTD720eypOJotfeUSgF/RADwte0itxnHsTwqnKwBfgdOH+MBpmrpT4vknX/8GP+z8WWcAAAAASUVORK5CYII=\"/> <br>".format(convdata["title"],convid)
+            html += "<form method=\"get\" id=\"{1}\" action=\"conv_rename\"> <input type=\"hidden\" name=\"id\" value=\"\{1}\"><input style=\"width: 90%  ;\" type=\"text\" name=\"text\" value=\"{0}\"><img onclick=\"document.getElementById('{1}').submit();\" height=\"16\" width=\"16\" alt=\"rename conversation\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABEklEQVQ4T7WTvW3DMBBGvxOlOiPEGwTuVJCAN4lGcEbIBvIEpjfIBiZAFuqibOBskF4kGJxAAYZsmY6BsCOI9+6Hd4QHjpSyJaLeWqvpr7xSqgkh9EIIA2BLUsoNEe0BrJZkMcavsiw3/O69N0T0GULYFUXRsOBERM85OITQAohCiLckaccSlFKRYWvtYjlKKQ3gNQXRLDHG/PA9K5jBzByEENu7BEuw9/7onFvfzOAabK1tpJQ9Eb1MJV8tYQnmiPOeXQjqul5VVdUDeEpNO3Dk6ZeyAo7OX5YG5eMcviuDFEEPw/Dedd1pPh/ZDHKj/S8CnqipYbkExvcY47dzbtydcZkA6Fv7cG5lGEDjnONtxC86bbZsYHOH1gAAAABJRU5ErkJggg==\"/><img onclick=\"location.href='conv_leave?id={1}';\" height=\"16\" width=\"16\" alt=\"Leave conversation\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABAUlEQVRYR+2XQU7DQAxF/U/CEYC9R3Azyg3gJj1CqlhRdoQbhBvAOok+MiqVqJIMQ0tXHimLyOPxy1tk9CGFK6X0TvJFRCqSPcnXpmm6wmMO27HUqKr3InJ3XAewmesh6RC9iHQAqmEY3tq29ffVtQawAfCQOyBTd1sO9FzX9XZubxaA5M51fzf/BYrko5nNmvsNwI/mlBJLrQRAGAgDYSAMnN2AX8FmdqOqPYCr3K/5PwA6M7tVVb/pri8OkBt4XD+7gQAIA2EgDISBSxnwbOhPZWaHZFQYTD720eypOJotfeUSgF/RADwte0itxnHsTwqnKwBfgdOH+MBpmrpT4vknX/8GP+z8WWcAAAAASUVORK5CYII=\"/> </form> <br>".format(convdata["title"],convid)
 
         html += "</td><td style=\"vertical-align:top\>"
 
@@ -104,7 +104,7 @@ class PluginManager(object):
 
         html += """
               <button type="submit">Save</button>
-            </form>
+            
           </body>
         </html>"""
         return html
@@ -129,14 +129,14 @@ class PluginManager(object):
         return "Left  !<br><a href='/'>Back to bot configuration</a>"
 
     @cherrypy.expose
-    def conv_rename(self, id,topic):
+    def conv_rename(self,id, text):
         
          # workaround for missing event
         event = {'conv_id' : "blob" }
         
         
         print (loop)
-        asyncio.async(command.run(self._bot, event, *["convrename", "id:" + id, " "+ topic]),loop=loop)
+        asyncio.async(command.run(self._bot, event, *["convrename", "id:" + id, " "+ text]),loop=loop)
         return "Renamed  !<br><a href='/'>Back to bot configuration</a>"
 
     @cherrypy.expose
