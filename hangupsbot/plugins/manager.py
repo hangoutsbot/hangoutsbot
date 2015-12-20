@@ -135,7 +135,7 @@ class PluginManager(object):
         
         print (loop)
         asyncio.async(command.run(self._bot, event, *["convrename", "id:" + id, " "+ topic]),loop=loop)
-        return "Left  !<br><a href='/'>Back to bot configuration</a>"
+        return "Renamed  !<br><a href='/'>Back to bot configuration</a>"
 
 
     index.exposed = True
