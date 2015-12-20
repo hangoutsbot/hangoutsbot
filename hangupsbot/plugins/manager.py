@@ -7,14 +7,17 @@ import os
 from commands import command
 
 logger = logging.getLogger(__name__)
-
+loop =  asyncio.get_event_loop()
 def _initialise(bot):
-    plugins.register_handler(_start_manager(bot))
     
+    print (loop)
+    
+    plugins.register_handler(_start_manager(bot,loop))
 
-def _start_manager(bot):
+
+def _start_manager(bot,loop):
     """will host a basic plugin manager"""
-
+    
     port = 9090
     path   = os.path.abspath(os.path.dirname(__file__))
     config = {
@@ -32,11 +35,13 @@ def _start_manager(bot):
     cherrypy.tree.mount(PluginManager(bot), '/')
     cherrypy.engine.start()
 
+
 class PluginManager(object):
     
     def __init__(self, bot):
         self._bot = bot
-
+        self._loop = loop
+    
     def index(self):
         return """<b>Bot Configuration</b>
                     <br><a href='/plugins'>Plugin Manager</a>
@@ -86,7 +91,7 @@ class PluginManager(object):
             <td style=\"vertical-align:top\">
             """
         for convid, convdata in group_conversations.items():
-            html += "<input style=\"width: 95%  ;\" type=\"text\" name=\"conv\" value=\"{0}\"><img onclick=\"location.href='conv_leave?id={1}';\" height=\"16\" width=\"16\" alt=\"Leave conversation\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABAUlEQVRYR+2XQU7DQAxF/U/CEYC9R3Azyg3gJj1CqlhRdoQbhBvAOok+MiqVqJIMQ0tXHimLyOPxy1tk9CGFK6X0TvJFRCqSPcnXpmm6wmMO27HUqKr3InJ3XAewmesh6RC9iHQAqmEY3tq29ffVtQawAfCQOyBTd1sO9FzX9XZubxaA5M51fzf/BYrko5nNmvsNwI/mlBJLrQRAGAgDYSAMnN2AX8FmdqOqPYCr3K/5PwA6M7tVVb/pri8OkBt4XD+7gQAIA2EgDISBSxnwbOhPZWaHZFQYTD720eypOJotfeUSgF/RADwte0itxnHsTwqnKwBfgdOH+MBpmrpT4vknX/8GP+z8WWcAAAAASUVORK5CYII=\"/> <br>".format(convdata["title"],convid)
+            html += "<input style=\"width: 90%  ;\" type=\"text\" name=\"conv\" value=\"{0}\"><img onclick=\"location.href='conv_rename?id={1}';\" height=\"16\" width=\"16\" alt=\"rename conversation\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABEklEQVQ4T7WTvW3DMBBGvxOlOiPEGwTuVJCAN4lGcEbIBvIEpjfIBiZAFuqibOBskF4kGJxAAYZsmY6BsCOI9+6Hd4QHjpSyJaLeWqvpr7xSqgkh9EIIA2BLUsoNEe0BrJZkMcavsiw3/O69N0T0GULYFUXRsOBERM85OITQAohCiLckaccSlFKRYWvtYjlKKQ3gNQXRLDHG/PA9K5jBzByEENu7BEuw9/7onFvfzOAabK1tpJQ9Eb1MJV8tYQnmiPOeXQjqul5VVdUDeEpNO3Dk6ZeyAo7OX5YG5eMcviuDFEEPw/Dedd1pPh/ZDHKj/S8CnqipYbkExvcY47dzbtydcZkA6Fv7cG5lGEDjnONtxC86bbZsYHOH1gAAAABJRU5ErkJggg==\"/><img onclick=\"location.href='conv_leave?id={1}';\" height=\"16\" width=\"16\" alt=\"Leave conversation\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABAUlEQVRYR+2XQU7DQAxF/U/CEYC9R3Azyg3gJj1CqlhRdoQbhBvAOok+MiqVqJIMQ0tXHimLyOPxy1tk9CGFK6X0TvJFRCqSPcnXpmm6wmMO27HUqKr3InJ3XAewmesh6RC9iHQAqmEY3tq29ffVtQawAfCQOyBTd1sO9FzX9XZubxaA5M51fzf/BYrko5nNmvsNwI/mlBJLrQRAGAgDYSAMnN2AX8FmdqOqPYCr3K/5PwA6M7tVVb/pri8OkBt4XD+7gQAIA2EgDISBSxnwbOhPZWaHZFQYTD720eypOJotfeUSgF/RADwte0itxnHsTwqnKwBfgdOH+MBpmrpT4vknX/8GP+z8WWcAAAAASUVORK5CYII=\"/> <br>".format(convdata["title"],convid)
 
         html += "</td><td style=\"vertical-align:top\>"
 
@@ -111,16 +116,28 @@ class PluginManager(object):
         return "Plugins successfully updated!<br><a href='/'>Back to bot configuration</a>"
 
     @cherrypy.expose
-
     def conv_leave(self, id):
         
-        # workaround for missing event
-        #event = {'conv_id' : "blob" }
-       
+         # workaround for missing event
+        event = {'conv_id' : "blob" }
         
-        res = yield from self._bot._client.removeuser(id)
+        
+        print (loop)
+        asyncio.async(command.run(self._bot, event, *["convleave", "id:" + id, " quietly"]),loop=loop)
+        return "Left  !<br><a href='/'>Back to bot configuration</a>"
+
+    @cherrypy.expose
+    def conv_rename(self, id,topic):
+        
+         # workaround for missing event
+        event = {'conv_id' : "blob" }
+        
+        
+        print (loop)
+        asyncio.async(command.run(self._bot, event, *["convrename", "id:" + id, " "+ topic]),loop=loop)
         return "Left  !<br><a href='/'>Back to bot configuration</a>"
 
 
     index.exposed = True
+
 
