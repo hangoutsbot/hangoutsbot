@@ -17,7 +17,8 @@
   "conversations": {
     "CONV_ID": {
       "autoreplies_enabled": false,
-      "commands_enabled": false
+      "commands_enabled": false,
+      "silentmode": true
     }
   },
   "jsonrpc": [
@@ -30,6 +31,7 @@
   ],
   "link_to_guide": "https://github.com/hangoutsbot/hangoutsbot/wiki/User-Guide",
   "mentionall":true,
+  "silentmode":false,
   "mentionallwhitelist": [],
   "mentionerrors": true,
   "mentionquidproquo": false,
