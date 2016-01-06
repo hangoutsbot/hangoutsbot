@@ -19,10 +19,13 @@ def help(bot, event, cmd=None, *args):
     link_to_guide = bot.get_config_suboption(event.conv_id, 'link_to_guide')
     admins_list = bot.get_config_suboption(event.conv_id, 'admins')
 
-    if not cmd or (cmd=="impersonate" and event.user.id_.chat_id in admins_list):
+    help_chat_id = event.user.id_.chat_id
+    help_conv_id = event.conv_id
+    commands = command.get_available_commands(bot, help_chat_id, help_conv_id)
+    commands_admin = commands["admin"]
+    commands_nonadmin = commands["user"]
 
-        help_chat_id = event.user.id_.chat_id
-        help_conv_id = event.conv_id
+    if not cmd or (cmd=="impersonate" and event.user.id_.chat_id in admins_list):
 
         if cmd == "impersonate":
             if len(args) == 1:
@@ -37,10 +40,6 @@ def help(bot, event, cmd=None, *args):
                                 '<b><pre>{}</pre></b><br />').format( help_chat_id,
                                                                       help_conv_id ))
 
-        commands = command.get_available_commands(bot, help_chat_id, help_conv_id)
-        commands_admin = commands["admin"]
-        commands_nonadmin = commands["user"]
-
         if len(commands_nonadmin) > 0:
             help_lines.append(_('<b>User commands:</b>'))
             help_lines.append(', '.join(sorted(commands_nonadmin)))
@@ -54,9 +53,9 @@ def help(bot, event, cmd=None, *args):
             help_lines.append(_('<b>Admin commands:</b>'))
             help_lines.append(', '.join(sorted(commands_admin)))
     else:
-        if cmd in command.commands:
+        if cmd in command.commands and (cmd in commands_admin or cmd in commands_nonadmin):
             command_fn = command.commands[cmd]
-        elif cmd.lower() in command.commands:
+        elif cmd.lower() in command.commands and (cmd in commands_admin or cmd in commands_nonadmin):
             command_fn = command.commands[cmd.lower()]
         else:
             yield from command.unknown_command(bot, event)
