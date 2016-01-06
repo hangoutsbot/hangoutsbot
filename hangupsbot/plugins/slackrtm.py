@@ -54,37 +54,15 @@ import hangups.ui.utils
 
 import plugins
 
+import emoji
+from websocket import WebSocketConnectionClosedException
+from slackclient import SlackClient
+
 logger = logging.getLogger(__name__)
 
-try:
-    from slackclient import SlackClient
-except ImportError:
-    logger.error('missing module slackclient: pip3 install --upgrade python-slackclient >=0.16')
-    raise
-
-try:
-    from websocket import WebSocketConnectionClosedException
-except ImportError:
-    logger.error('missing module websocket: pip3 install --upgrade websocket >=0.34')
-    raise
-
-try:
-    import emoji
-except ImportError:
-    logger.error('missing module emoji: pip3 install --upgrade emoji >=0.3.8')
-    raise
-
-
-def unicodeemoji2text(text):
-    out = u''
-    for c in text[:]:
-        try:
-            c = emoji_decode(c)
-        except Exception:
-            pass
-        out = out + c
-    return out
-
+# fix for simple_smile support
+emoji.EMOJI_UNICODE[':simple_smile:'] = emoji.EMOJI_UNICODE[':white_smiling_face:']
+emoji.EMOJI_ALIAS_UNICODE[':simple_smile:'] = emoji.EMOJI_UNICODE[':white_smiling_face:']
 
 def chatMessageEvent2SlackText(event):
     def renderTextSegment(segment):
@@ -93,7 +71,7 @@ def chatMessageEvent2SlackText(event):
             out += ' *'
         if segment.is_italic:
             out += ' _'
-        out += unicodeemoji2text(segment.text)
+        out += segment.text
         if segment.is_italic:
             out += '_ '
         if segment.is_bold:
@@ -105,7 +83,6 @@ def chatMessageEvent2SlackText(event):
         if segment.type_ == hangups.schemas.SegmentType.TEXT:
             lines[-1] += renderTextSegment(segment)
         elif segment.type_ == hangups.schemas.SegmentType.LINK:
-            # unfortunately slack does not format links :-(
             lines[-1] += segment.text
         elif segment.type_ == hangups.schemas.SegmentType.LINE_BREAK:
             lines.append('')
@@ -226,8 +203,12 @@ class SlackMessage(object):
 
         username4ho = username
         if not is_bot:
+            teamname = slackrtm.get_teamname()
+            domain = slackrtm.get_slack_domain()
             username = slackrtm.get_username(user, user)
-            username4ho = u'%s (Slack)' % username
+            realname = slackrtm.get_realname(user,username)
+            
+            username4ho = u'<a href="https://%s.slack.com/team/%s">%s</a> (%s)' % (domain, username, realname, teamname)
         elif sender_id != '':
             username4ho = u'<a href="https://plus.google.com/%s">%s</a>' % (sender_id, username)
 
@@ -356,6 +337,10 @@ class SlackRTM(object):
                         hotag = self.hangoutnames[conv[1]]
                 self.syncs.append(SlackRTMSync(conv[0], conv[1], hotag))
 
+    def get_slackDM(self, userid):
+        response = json.loads(self.slack.api_call('im.open',user = userid).decode("utf-8"))
+        return response['channel']['id']
+
     def update_userinfos(self, users=None):
         if users is None:
             response = json.loads(self.slack.api_call('users.list').decode("utf-8"))
@@ -365,6 +350,45 @@ class SlackRTM(object):
             userinfos[u['id']] = u
         self.userinfos = userinfos
 
+    def get_channel_users(self,channelid,default=None):
+        response =''
+        
+        response = json.loads(self.slack.api_call('channels.info', channel = channelid).decode("utf-8"))
+        if not response['ok']:
+            response = json.loads(self.slack.api_call('groups.info', channel = channelid).decode("utf-8"))
+        channelusers = response['channel']['members']
+        users = {}
+        for u in channelusers:
+            user = json.loads(self.slack.api_call('users.info',user = u).decode("utf-8"))
+            if user["ok"] and user['user']:
+                username = user['user']['name']
+                username += " " + u
+                realname = user['user'].get('real_name', "No real name")
+                users[username] = realname
+        return users
+
+    def get_teamname(self):
+        response = json.loads(self.slack.api_call('team.info').decode("utf-8"))
+        return response['team']['name']
+    
+    def get_slack_domain(self):
+        response = json.loads(self.slack.api_call('team.info').decode("utf-8"))
+        if response["ok"]:
+            return response['team']['domain']
+        return None
+
+    def get_realname(self, user, default=None):
+        if user not in self.userinfos:
+            logger.debug('user not found, reloading users')
+            self.update_userinfos()
+            if user not in self.userinfos:
+                logger.warning('could not find user "%s" although reloaded', user)
+                return default
+        if not self.userinfos[user]['real_name']:
+            return default
+        return self.userinfos[user]['real_name']
+
+
     def get_username(self, user, default=None):
         if user not in self.userinfos:
             logger.debug('user not found, reloading users')
@@ -373,7 +397,7 @@ class SlackRTM(object):
                 logger.warning('could not find user "%s" although reloaded', user)
                 return default
         return self.userinfos[user]['name']
-
+    
     def update_channelinfos(self, channels=None):
         if channels is None:
             response = json.loads(self.slack.api_call('channels.list').decode("utf-8"))
@@ -506,8 +530,9 @@ class SlackRTM(object):
             message += u'<@%s> setsyncjoinmsgs HangoutId [true|false] _enable/disable messages about joins/leaves/adds/invites/kicks in synced Hangout/channel, default is enabled (only available for admins)_\n' % self.my_uid
             message += u'<@%s> sethotag HangoutId [HOTAG|none] _set the tag, that is displayed in Slack for messages from that Hangout (behind the user\'s name), default is the hangout title when sync was set up, use "none" if you want to disable tag display  (only available for admins)_\n' % self.my_uid
             message += u'<@%s> setimageupload HangoutId [true|false] _enable/disable upload of shared images in synced Hangout, default is enabled (only available for admins)_\n' % self.my_uid
+            userID = self.get_slackDM(msg.user)
             self.slack.api_call('chat.postMessage',
-                                channel=msg.channel,
+                                channel=userID,
                                 text=message,
                                 as_user=True,
                                 link_names=True)
@@ -520,9 +545,9 @@ class SlackRTM(object):
                                 link_names=True)
 
         elif command == 'whoami':
-
+            userID = self.get_slackDM(msg.user)
             self.slack.api_call('chat.postMessage',
-                                channel=msg.channel,
+                                channel=userID,
                                 text=u'@%s: your userid is %s' % (msg.username, msg.user),
                                 as_user=True,
                                 link_names=True)
@@ -546,8 +571,9 @@ class SlackRTM(object):
                     message = u'%s: sorry, but I could not find user _%s_ in this slack.' % (msg.username, user)
                 else:
                     message = u'@%s: the user id of _%s_ is %s' % (msg.username, self.get_username(user), user)
+            userID = self.get_slackDM(msg.user)
             self.slack.api_call('chat.postMessage',
-                                channel=msg.channel,
+                                channel=userID,
                                 text=message,
                                 as_user=True,
                                 link_names=True)
@@ -556,8 +582,9 @@ class SlackRTM(object):
             message = '@%s: my admins are:\n' % msg.username
             for a in self.admins:
                 message += '@%s: _%s_\n' % (self.get_username(a), a)
+            userID = self.get_slackDM(msg.user)
             self.slack.api_call('chat.postMessage',
-                                channel=msg.channel,
+                                channel=userID,
                                 text=message,
                                 as_user=True,
                                 link_names=True)
@@ -575,11 +602,12 @@ class SlackRTM(object):
                 message += '%s aka %s (%s):\n' % (hangoutname, sync.hotag if sync.hotag else 'untagged', sync.hangoutid)
                 for u in conv.users:
                     message += ' + <https://plus.google.com/%s|%s>\n' % (u.id_.gaia_id, u.full_name)
+            userID = self.get_slackDM(msg.user)
             self.slack.api_call('chat.postMessage',
-                                channel=msg.channel,
-                                text=message,
-                                as_user=True,
-                                link_names=True)
+                        channel=userID,
+                        text=message,
+                        as_user=True,
+                        link_names=True)
 
         else:
             # the remaining commands are for admins only
@@ -595,11 +623,12 @@ class SlackRTM(object):
                 message = '@%s: list of active hangouts:\n' % msg.username
                 for c in self.bot.list_conversations():
                     message += '*%s:* _%s_\n' % (hangups.ui.utils.get_conv_name(c, truncate=True), c.id_)
+                userID = self.get_slackDM(msg.user)
                 self.slack.api_call('chat.postMessage',
-                                    channel=msg.channel,
-                                    text=message,
-                                    as_user=True,
-                                    link_names=True)
+                                        channel=userID,
+                                        text=message,
+                                        as_user=True,
+                                        link_names=True)
 
             elif command == 'listsyncs':
                 message = '@%s: list of current sync connections with this slack team:\n' % msg.username
@@ -616,12 +645,12 @@ class SlackRTM(object):
                         sync.hangoutid,
                         sync.getPrintableOptions()
                         )
+                userID = self.get_slackDM(msg.user)
                 self.slack.api_call('chat.postMessage',
-                                    channel=msg.channel,
-                                    text=message,
-                                    as_user=True,
-                                    link_names=True)
-
+                                        channel=userID,
+                                        text=message,
+                                        as_user=True,
+                                        link_names=True)
             elif command == 'syncto':
                 message = '@%s: ' % msg.username
                 if not len(args):
@@ -993,7 +1022,6 @@ class SlackRTM(object):
             # LEAVE
             else:
                 message = u'%s has left _%s_' % (names, honame)
-            message = unicodeemoji2text(message)
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             logger.debug("sending to channel/group %s: %s", sync.channelid, message)
             self.slack.api_call('chat.postMessage',
@@ -1011,7 +1039,6 @@ class SlackRTM(object):
             if sync.hotag:
                 hotagaddendum = ' _%s_' % sync.hotag
             message = u'%s has renamed the Hangout%s to _%s_' % (invitee, hotagaddendum, name)
-            message = unicodeemoji2text(message)
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             logger.debug("sending to channel/group %s: %s", sync.channelid, message)
             self.slack.api_call('chat.postMessage',
@@ -1109,7 +1136,7 @@ def _initialise(bot):
     plugins.register_handler(_handle_membership_change, type="membership")
     plugins.register_handler(_handle_rename, type="rename")
 
-    plugins.register_admin_command(["slack_help", "slacks", "slack_channels", "slack_listsyncs", "slack_syncto", "slack_disconnect", "slack_setsyncjoinmsgs", "slack_setimageupload", "slack_sethotag"])
+    plugins.register_admin_command(["slack_help", "slacks", "slack_channels", "slack_listsyncs", "slack_syncto", "slack_disconnect", "slack_setsyncjoinmsgs", "slack_setimageupload", "slack_sethotag","slack_users"])
 
 
 @asyncio.coroutine
@@ -1155,6 +1182,8 @@ usage: /bot slacks"""
     bot.send_message_segments(event.conv, segments)
 
 
+
+
 def slack_channels(bot, event, *args):
     """list all slack channels available in specified slack team
 
@@ -1190,6 +1219,45 @@ usage: /bot slack_channels <teamname>"""
         if not slackrtm.groupinfos[gid]['is_archived']:
             segments.append(hangups.ChatMessageSegment('%s (%s)' % (slackrtm.groupinfos[gid]['name'], gid)))
             segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+
+    bot.send_message_segments(event.conv, segments)
+
+def slack_users(bot, event, *args):
+    """list all slack channels available in specified slack team
+        
+        usage: /bot slack_users <team> <channel>"""
+    if len(args) >= 3:
+        honame = ' '.join(args[2:])
+    else:
+        if len(args) != 2:
+            bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name and a channel', is_bold=True)])
+            return
+        honame = hangups.ui.utils.get_conv_name(event.conv)
+    
+    slackname = args[0]
+    slackrtm = None
+    for s in _slackrtms:
+        if s.name == slackname:
+            slackrtm = s
+            break
+    if not slackrtm:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a configured slack team with name "%s", use /bot slacks to list all teams' % slackname, is_bold=True)])
+        return
+    slackrtm.update_channelinfos()
+    channelid = args[1]
+    channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
+    if not channelname:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a channel with id "%s" in team "%s", use /bot slack_channels %s to list all teams' % (channelid, slackname, slackname), is_bold=True)])
+        return
+    
+    segments = []
+
+    segments.append(hangups.ChatMessageSegment('Slack users in channel %s:' % (channelname), is_bold=True))
+    segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+    users=slackrtm.get_channel_users(channelid)
+    for username, realname in sorted(users.items()):
+        segments.append(hangups.ChatMessageSegment('%s (%s)' % (realname,username)))
+        segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
 
     bot.send_message_segments(event.conv, segments)
 
