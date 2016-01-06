@@ -15,3 +15,4 @@ git+https://github.com/carpedm20/emoji
 selenium # screenshots
 google-api-python-client # for spotify
 spotipy
+slackclient >=0.16 # slackrtm (includes websockets)

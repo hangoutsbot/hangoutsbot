@@ -54,37 +54,15 @@ import hangups.ui.utils
 
 import plugins
 
+import emoji
+from websocket import WebSocketConnectionClosedException
+from slackclient import SlackClient
+
 logger = logging.getLogger(__name__)
 
-try:
-    from slackclient import SlackClient
-except ImportError:
-    logger.error('missing module slackclient: pip3 install --upgrade python-slackclient >=0.16')
-    raise
-
-try:
-    from websocket import WebSocketConnectionClosedException
-except ImportError:
-    logger.error('missing module websocket: pip3 install --upgrade websocket >=0.34')
-    raise
-
-try:
-    import emoji
-except ImportError:
-    logger.error('missing module emoji: pip3 install --upgrade emoji >=0.3.8')
-    raise
-
-
-def unicodeemoji2text(text):
-    out = u''
-    for c in text[:]:
-        try:
-            c = emoji_decode(c)
-        except Exception:
-            pass
-        out = out + c
-    return out
-
+# fix for simple_smile support
+emoji.EMOJI_UNICODE[':simple_smile:'] = emoji.EMOJI_UNICODE[':white_smiling_face:']
+emoji.EMOJI_ALIAS_UNICODE[':simple_smile:'] = emoji.EMOJI_UNICODE[':white_smiling_face:']
 
 def chatMessageEvent2SlackText(event):
     def renderTextSegment(segment):
@@ -93,7 +71,7 @@ def chatMessageEvent2SlackText(event):
             out += ' *'
         if segment.is_italic:
             out += ' _'
-        out += unicodeemoji2text(segment.text)
+        out += segment.text
         if segment.is_italic:
             out += '_ '
         if segment.is_bold:
@@ -105,7 +83,6 @@ def chatMessageEvent2SlackText(event):
         if segment.type_ == hangups.schemas.SegmentType.TEXT:
             lines[-1] += renderTextSegment(segment)
         elif segment.type_ == hangups.schemas.SegmentType.LINK:
-            # unfortunately slack does not format links :-(
             lines[-1] += segment.text
         elif segment.type_ == hangups.schemas.SegmentType.LINE_BREAK:
             lines.append('')
@@ -1045,7 +1022,6 @@ class SlackRTM(object):
             # LEAVE
             else:
                 message = u'%s has left _%s_' % (names, honame)
-            message = unicodeemoji2text(message)
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             logger.debug("sending to channel/group %s: %s", sync.channelid, message)
             self.slack.api_call('chat.postMessage',
@@ -1063,7 +1039,6 @@ class SlackRTM(object):
             if sync.hotag:
                 hotagaddendum = ' _%s_' % sync.hotag
             message = u'%s has renamed the Hangout%s to _%s_' % (invitee, hotagaddendum, name)
-            message = unicodeemoji2text(message)
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             logger.debug("sending to channel/group %s: %s", sync.channelid, message)
             self.slack.api_call('chat.postMessage',
