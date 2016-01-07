@@ -180,23 +180,20 @@ class Cleverbot:
                         "&islearning={0[islearning]}"
                         "&icognoid={0[icognoid]}" ).format(self.data)
 
-            query_string = ("out={2}"
-                            "&in={0[stimulus]}"
-                            "&bot=c"
-                            "&cbsid={0[sessionid]}"
-                            "&xai={4}"
-                            "&ns={1}"
-                            "&al="
-                            "&dl="
-                            "&flag="
-                            "&user="
-                            "&mode=1"
-                            "&t={3}"
-                            "&").format(self.data,
-                                        self.asked,
-                                        self.lastanswer,
-                                        randint(10000, 99999),
-                                        self.data["sessionid"][0:3])
+            query_string = {
+                'out' : self.lastanswer, 
+                'in' : self.data['stimulus'], 
+                'bot' : 'c', 
+                'cbsid' : self.data['sessionid'], 
+                'xai' : self.data["sessionid"][0:3], 
+                'ns' : self.asked, 
+                'al' : '', 
+                'dl' : '', 
+                'flag': '', 
+                'user' : '', 
+                'mode' : 1, 
+                't' : randint(10000, 99999)
+            }
 
         # Generate the token
         digest_txt = payload[9:35]
@@ -205,7 +202,7 @@ class Cleverbot:
 
         # Add the token to the data
         payload = payload.encode('utf-8')
-        full_url = self.API_URL + "?" + query_string
+        full_url = self.API_URL + "?" + urllib.parse.urlencode(query_string)
         logger.debug(payload)
         logger.debug(full_url)
         req = urllib2.Request(full_url, payload, self.headers)
