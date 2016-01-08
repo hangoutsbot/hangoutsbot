@@ -47,7 +47,7 @@ import pprint
 import re
 import threading
 import time
-import urllib
+import urllib.request
 
 import hangups
 import hangups.ui.utils
@@ -143,7 +143,7 @@ class SlackMessage(object):
         is_bot = False
         if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'message_changed':
             if 'edited' in reply['message']:
-                edited = '(msgupd)'
+                edited = '(Edited)'
                 user = reply['message']['edited']['user']
                 text = reply['message']['text']
             else:
@@ -184,8 +184,8 @@ class SlackMessage(object):
                 text = reply['text']
         file_attachment = None
         if 'file' in reply:
-            if 'url' in reply['file']:
-                file_attachment = reply['file']['url']
+            if 'url_private_download' in reply['file']:
+                file_attachment = reply['file']['url_private_download']
 
         # now we check if the message has the hidden ho relay tag, extract and remove it
         hoidfmt = re.compile(r'^(.*) <ho://([^/]+)/([^|]+)\| >$', re.MULTILINE | re.DOTALL)
@@ -498,9 +498,12 @@ class SlackRTM(object):
     @asyncio.coroutine
     def upload_image(self, hoid, image):
         try:
+            token = self.apikey
             logger.info('downloading %s', image)
             filename = os.path.basename(image)
-            image_response = urllib.request.urlopen(image)
+            request = urllib.request.Request(image)
+            request.add_header("Authorization", "Bearer %s" % token)
+            image_response = urllib.request.urlopen(request)
             logger.info('uploading as %s', filename)
             image_id = yield from self.bot._client.upload_image(image_response, filename=filename)
             logger.info('sending HO message, image_id: %s', image_id)
@@ -968,7 +971,7 @@ class SlackRTM(object):
         for sync in self.get_syncs(hangoutid=event.conv_id):
             fullname = event.user.full_name
             if sync.hotag:
-                fullname = '%s (%s)' % (fullname, sync.hotag)
+                fullname = '%s' % (fullname)
             try:
                 photo_url = "http:"+self.bot._user_list.get_user(event.user_id).photo_url
             except Exception as e:
@@ -1018,7 +1021,7 @@ class SlackRTM(object):
             # JOIN
             if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
                 invitee = u'<https://plus.google.com/%s/about|%s>' % (event.user_id.chat_id, event.user.full_name)
-                message = u'%s has added %s to _%s_' % (invitee, names, honame)
+                message = u'%s has added %s to %s' % (invitee, names, honame)
             # LEAVE
             else:
                 message = u'%s has left _%s_' % (names, honame)
