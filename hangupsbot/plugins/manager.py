@@ -17,6 +17,8 @@ def _initialise(bot):
     """will host a basic plugin manager"""
     try:
         port = bot.get_config_option( 'manager_port')
+    except:
+        pass
     else:
         port = 9090
             
