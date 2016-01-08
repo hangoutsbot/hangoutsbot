@@ -181,10 +181,13 @@ class EventHandler:
 
         # Test if command length is sufficient
         if len(line_args) < 2:
-            yield from self.bot.coro_send_message(event.conv, _('{}: Missing parameter(s)').format(
-                event.user.full_name))
+            config_silent = bot.get_config_suboption(event.conv.id_, 'silentmode')
+            tagged_silent = "silent" in bot.tags.useractive(event.user_id.chat_id, event.conv.id_)
+            if not (config_silent or tagged_silent):
+                yield from self.bot.coro_send_message(event.conv, _('{}: Missing parameter(s)').format(
+                    event.user.full_name))
             return
-
+        
         commands = command.get_available_commands(self.bot, event.user.id_.chat_id, event.conv_id)
 
         supplied_command = line_args[1].lower()
