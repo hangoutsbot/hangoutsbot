@@ -21,6 +21,7 @@
       "silentmode": true
     }
   },
+  "forecast_api_key": "FORECAST_API_KEY",
   "jsonrpc": [
     {
       "module": "sinks.generic.AsyncMessagePoster",
