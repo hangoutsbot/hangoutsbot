@@ -15,8 +15,12 @@ def _initialise(bot):
 
 #def _start_manager(bot,loop):
     """will host a basic plugin manager"""
+    try:
+        port = bot.get_config_option( 'manager_port')
+    else:
+        port = 9090
+            
     
-    port = 9090
     path   = os.path.abspath(os.path.dirname(__file__))
     config = {
 
