@@ -14,17 +14,23 @@ class WebFramework:
     def __init__(self, bot, configkey, RequestHandler=IncomingRequestHandler):
         self._bot = bot
 
+        self.bot = bot
         self.configkey = configkey
-        self.configuration = bot.get_config_option(self.configkey)
         self.RequestHandler = RequestHandler
 
-        if not self.configuration:
+        if not self.load_configuration(bot, configkey):
             logger.info("no configuration for {}, not running".format(self.configkey))
             return
 
         self._start_sinks(bot)
 
         plugins.register_handler(self._handle_websync)
+
+
+    def load_configuration(self, bot, configkey):
+        self.configuration = bot.get_config_option(self.configkey)
+
+        return self.configuration
 
 
     def _start_sinks(self, bot):
@@ -56,7 +62,7 @@ class WebFramework:
                     self.RequestHandler,
                     "webbridge." + self.configkey)
 
-        logger.info("webbridge.sinks: {} thread(s) started for {}".format(itemNo, self.configkey))
+        logger.info("webbridge.sinks: {} thread(s) started for {}".format(itemNo + 1, self.configkey))
 
 
     def _handle_websync(self, bot, event, command):

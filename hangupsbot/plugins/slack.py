@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 def _initialise(bot):
     _start_slack_sinks(bot)
     plugins.register_handler(_handle_slackout)
+    plugins.register_user_command(["slackusers"])
 
 
 def _start_slack_sinks(bot):
@@ -205,3 +206,39 @@ def _handle_slackout(bot, event, command):
                                   " Is config.json properly configured?".format( slackkey,
                                                                                  channel,
                                                                                  convlist ))
+
+
+def slackusers(bot, event, *args):
+    slack_sink = bot.get_config_option('slack')
+    if isinstance(slack_sink, list):
+        for sinkConfig in slack_sink:
+            slackkey = sinkConfig["key"]
+            channel = sinkConfig["channel"]
+            convlist = sinkConfig["synced_conversations"]
+
+            if event.conv_id in convlist:
+                try:
+                    client = SlackClient(slackkey, verify=True)
+                except TypeError:
+                    client = SlackClient(slackkey)
+
+                chan_id = client.channel_name_to_id(channel)
+                slack_api_params = {'channel': chan_id}
+                info = client._make_request('channels.info', slack_api_params)
+                msg =  "Slack channel {}: {}".format(info['channel']['name'],
+                                                       info['channel']['topic']['value'])
+                users = {}
+                for uid in info['channel']['members']:
+                    slack_api_params = {'user': uid}
+                    user = client._make_request('users.info', slack_api_params)
+                    if user["ok"] and user['user']:
+                        username = user['user']['name']
+                        realname = user['user'].get('real_name', "No real name")
+                        users[username] = realname
+
+                msg += "\n{} members:".format(len(users))
+
+                for username, realname in sorted(users.items()):
+                    msg += "\n  {}: {}".format(username, realname)
+
+                yield from bot.coro_send_message(event.conv, msg)

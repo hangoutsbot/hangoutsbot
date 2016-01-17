@@ -106,10 +106,10 @@ class tags:
 
                 raise ValueError("conversation {} is invalid".format(conv_id))
 
-            if( not self.bot.memory.exists(["user_data", id]) and
-                  id != self.wildcard["user"] ):
+            if( not self.bot.memory.exists(["user_data", chat_id]) and
+                  chat_id != self.wildcard["user"] ):
 
-                raise ValueError("user {} is invalid".format(id))
+                raise ValueError("user {} is invalid".format(chat_id))
 
             tags_users = self.bot.conversation_memory_get(conv_id, "tags-users")
 
