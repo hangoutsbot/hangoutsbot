@@ -170,13 +170,14 @@ from email.header import decode_header
 
 
 def interceptMail(maildata):
+    logger.info("in interceptMail")
     msg = email.message_from_string(maildata)
     subject = msg['Subject'] 
-    subject = decode_header(subject)[0][0].decode()
-    logger.info('subject: ' + subject)
+    if subject: subject = decode_header(subject)[0][0].decode()
+    else: subject = ""
     mo = re.match(ALARMSUBJECTFORMAT["regexp"], subject)
-    location= mo.group(ALARMSUBJECTFORMAT["locationindex"])
-    logger.info('location: ' + location)
+    if mo: location= mo.group(ALARMSUBJECTFORMAT["locationindex"])
+    else: location = ""
     # notify alarm system in all cases
     if ALARMNOTURL and (location in CAMURLS):
         try: r = requests.get(ALARMNOTURL % {'location': location }, auth=HTTPBasicAuth(ALARMSYSUSR, ALARMSYSPWD)) 
@@ -217,10 +218,12 @@ def interceptMail(maildata):
 class CustomSMTPServer(smtpd.SMTPServer):
     
     def process_message(self, peer, mailfrom, rcpttos, data):
+        logger.info("mail received from :" + mailfrom + " to: " + str(rcpttos))
         # analyze and intercept mail
         forward = interceptMail(data)
         # Forward the message to provider SMTP server if required.
         if forward: 
+            logger.info("forward mail received from :" + mailfrom + " to: " + str(rcpttos))
             s = smtplib.SMTP(EXTSMTPSERVER,EXTSMTPPORT)
             s.ehlo()
             s.starttls()
