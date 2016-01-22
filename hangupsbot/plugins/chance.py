@@ -31,7 +31,7 @@ def diceroll(bot, event, dice="1d6", *args):
     usage = "usage: diceroll <b>n</b>d<b>s</b>"
     try:
         n,s = dice.split('d')
-    except Exception:
+    except ValueError:
         yield from bot.coro_send_message(event.conv, usage)
         return
     if not s:
