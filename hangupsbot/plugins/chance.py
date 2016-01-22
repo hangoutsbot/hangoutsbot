@@ -22,9 +22,34 @@ def _handle_me_action(bot, event, command):
             pass
 
 
-def diceroll(bot, event, *args):
-    """roll a dice"""
-    yield from bot.coro_send_message(event.conv, _("<i>{} rolled <b>{}</b></i>").format(event.user.full_name, randint(1,6)))
+def diceroll(bot, event, dice="1d6", *args):
+    """rolls dice
+    supply the number and sides of the dice as 'xdy' to roll x dice with y sides, e.g. 2d10 rolls 2 ten sided dice
+    specifying simply dy will roll 1 y sided dice
+    no parameter defaults to 1d6
+    """
+    errmsg = "<i>dice rolls are specified as '$number<b>d</b>$sides'</i>"
+    try:
+        n,s = dice.split('d')
+    except Exception:
+        yield from bot.coro_send_message(event.conv, errmsg)
+        return
+    if not s:
+        yield from bot.coro_send_message(event.conv, errmsg)
+        return
+    if not n:
+        n = 1
+    msg = "<i>{} rolled <b>".format(event.user.full_name)
+    tot = 0
+    for i in range(0,int(n)):
+        r = randint(1,int(s))
+        tot = tot+r
+        if i != 0:
+            msg = msg+", "
+        msg = msg+"{}".format(r)
+    if int(n) != 1:
+        msg = msg+"</b> for a total of <b>{}</b></i>".format(tot)
+    yield from bot.coro_send_message(event.conv, msg)
 
 
 def coinflip(bot, event, *args):
