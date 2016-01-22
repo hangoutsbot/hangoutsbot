@@ -23,32 +23,40 @@ def _handle_me_action(bot, event, command):
 
 
 def diceroll(bot, event, dice="1d6", *args):
-    """rolls dice
-    supply the number and sides of the dice as 'xdy' to roll x dice with y sides, e.g. 2d10 rolls 2 ten sided dice
-    specifying simply dy will roll 1 y sided dice
-    no parameter defaults to 1d6
+    """Rolls dice
+    supply the number and sides of the dice as '<b>n</b>d<b>s</b>' to roll <b>n</b> dice with <b>s</b> sides
+    'd<b>s</b>' will roll 1 <b>s</b> sided dice
+    no parameters defaults to 1d6
     """
-    errmsg = "<i>dice rolls are specified as '$number<b>d</b>$sides'</i>"
+    usage = "usage: diceroll <b>n</b>d<b>s</b>"
     try:
         n,s = dice.split('d')
     except Exception:
-        yield from bot.coro_send_message(event.conv, errmsg)
+        yield from bot.coro_send_message(event.conv, usage)
         return
     if not s:
-        yield from bot.coro_send_message(event.conv, errmsg)
+        yield from bot.coro_send_message(event.conv, usage)
         return
     if not n:
         n = 1
-    msg = "<i>{} rolled <b>".format(event.user.full_name)
-    tot = 0
-    for i in range(0,int(n)):
-        r = randint(1,int(s))
-        tot = tot+r
+    n = int(n)
+    s = int(s)
+    if n < 1:
+        yield from bot.coro_send_message(event.conv, "number of dice must be 1 or more")
+        return
+    if s < 2:
+        yield from bot.coro_send_message(event.conv, "number of sides must be 2 or more")
+        return
+    msg = _("<i>{} rolled ").format(event.user.full_name)
+    total = 0
+    for i in range(0,n):
+        roll = randint(1,s)
+        total = total + roll
         if i != 0:
-            msg = msg+", "
-        msg = msg+"{}".format(r)
-    if int(n) != 1:
-        msg = msg+"</b> for a total of <b>{}</b></i>".format(tot)
+            msg = msg + ", "
+        msg = msg + _("<b>{}</b>").format(roll)
+    if n != 1:
+        msg = msg + _(" totalling <b>{}</b></i>").format(total)
     yield from bot.coro_send_message(event.conv, msg)
 
 
