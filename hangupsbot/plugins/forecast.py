@@ -44,22 +44,25 @@ def forecast(bot, event, *args):
     if len(args) == 2 and args[0] == 'unit':
         unit = parse_unit(args[1])
         if unit is None:
-            yield from bot.coro_send_message(event.conv_id,
+            yield from bot.coro_send_message(
+                event.conv_id,
                 _('<em>{} is not a recognized unit. Try <b>F</b> or <b>C</b>').format(args[1]))
         else:
             _internal['unit'] = unit
             conv_forecast['unit'] = unit
             bot.memory.set_by_path(['forecast', 'unit'], conv_forecast)
             bot.memory.save()
-            yield from bot.coro_send_message(event.conv_id,
+            yield from bot.coro_send_message(
+                event.conv_id,
                 _('<em>Reporting weather in degrees {}</em>').format(unit))
         return
 
     if args:
         coords = lookup_address(' '.join(args))
         if not coords:
-            yield from bot.coro_send_message(event.conv_id,
-                _('<em><b>{}</b>: not found</em>').format(parameters[0]))
+            yield from bot.coro_send_message(
+                event.conv_id,
+                _('<em><b>{}</b>: not found</em>').format(' '.join(args)))
             return
         conv_forecast[event.user.id_.chat_id] = coords
         bot.memory.set_by_path(['forecast', event.conv_id], conv_forecast)
@@ -67,7 +70,8 @@ def forecast(bot, event, *args):
     else:
         coords = conv_forecast.get(event.user.id_.chat_id, None)
         if not coords:
-            yield from bot.coro_send_message(event.conv_id,
+            yield from bot.coro_send_message(
+                event.conv_id,
                 _('<em>Your location history not found. Use /bot weather <b>address</b>.</em>'))
             return
     yield from bot.coro_send_message(event.conv_id, lookup_weather(coords))
@@ -82,17 +86,17 @@ def lookup_address(location):
     """
     google_map_url = 'https://maps.googleapis.com/maps/api/geocode/json'
     payload = {'address': location}
-    r = requests.get(google_map_url, params=payload)
+    resp = requests.get(google_map_url, params=payload)
     try:
-        r.raise_for_status()
-        results = r.json()['results'][0]
+        resp.raise_for_status()
+        results = resp.json()['results'][0]
         return {
             'lat': results['geometry']['location']['lat'],
             'lng': results['geometry']['location']['lng'],
             'address': results['formatted_address']
         }
     except (IndexError, KeyError):
-        logger.error('unable to parse address return data: %d: %s' % r.status_code, r.json())
+        logger.error('unable to parse address return data: %d: %s', resp.status_code, resp.json())
         return None
 
 
@@ -105,14 +109,14 @@ def lookup_weather(coords):
     """
 
     url = 'https://api.forecast.io/forecast/{}/{},{}'.format(
-        _internal['forecast_api_key'],coords['lat'], coords['lng'])
-    r = requests.get(url)
+        _internal['forecast_api_key'], coords['lat'], coords['lng'])
+    resp = requests.get(url)
 
     try:
-        r.raise_for_status()
-        j = r.json()['currently']
+        resp.raise_for_status()
+        j = resp.json()['currently']
     except (IndexError, KeyError):
-        logger.exception('bad weather results: %d' % r.status_code)
+        logger.exception('bad weather results: %d', resp.status_code)
         return _('<em>Unable to parse forecast data.</em>')
 
     unit = _internal.get('unit', 'F')
