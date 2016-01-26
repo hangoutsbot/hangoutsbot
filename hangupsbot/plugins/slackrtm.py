@@ -1103,8 +1103,8 @@ class SlackRTMThread(threading.Thread):
             logger.exception('IncompleteLoginError, restarting')
             time.sleep(1)
             return self.run()
-        except ConnectionFailedError:
-            logger.exception('ConnectionFailedError, waiting 10 sec trying to restart')
+        except (ConnectionFailedError, TimeoutError):
+            logger.exception('Connection failed or Timeout, waiting 10 sec trying to restart')
             time.sleep(10)
             return self.run()
         except Exception as e:
