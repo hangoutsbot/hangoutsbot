@@ -1,4 +1,4 @@
-import asyncio, io, logging, os, re, time
+import asyncio, io, logging, os, re, time, tempfile
 
 import selenium
 
@@ -103,7 +103,7 @@ def screenshot(bot, event, *args):
         if not re.match(r'^[a-zA-Z]+://', url):
             url = 'http://' + url
         filename = event.conv_id + "." + str(time.time()) +".png"
-        filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)), filename)
+        filepath = tempfile.NamedTemporaryFile(prefix=event.conv_id, suffix=".png", delete=False).name
         logger.debug("temporary screenshot file: {}".format(filepath))
 
         try:
