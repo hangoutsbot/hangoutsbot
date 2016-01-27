@@ -11,7 +11,6 @@
       "Hello world!"
     ]
   ],
-  "cleverbot_percentage_replies": "0",
   "commands_user": [],
   "commands_enabled": true,
   "conversations": {
@@ -21,35 +20,19 @@
       "silentmode": true
     }
   },
-  "jsonrpc": [
-    {
-      "module": "sinks.generic.AsyncMessagePoster",
-      "certfile": null,
-      "name": "127.0.0.1",
-      "port": 9001
-    }
-  ],
   "link_to_guide": "https://github.com/hangoutsbot/hangoutsbot/wiki/User-Guide",
   "mentionall":true,
   "silentmode":false,
   "mentionallwhitelist": [],
   "mentionerrors": true,
   "mentionquidproquo": false,
-  "plugins": null,
-  "slack": [
-    {
-    "certfile": null,
-    "name": "SERVER_NAME",
-    "port": 8085,
-    "key": "SLACK_API_KEY",
-    "channel": "#SLACK_CHANNEL_NAME",
-    "synced_conversations": ["CONV_ID_1", "CONV_ID_2"]
-    }
-  ],
-  "spreadsheet_enabled": false,
-  "spreadsheet_url": "INSERT_PUBLIC_URL_OF_GSHEET_HERE",
-  "strict_botkeeper_check": false,
-  "sync_rooms": [["CONV_ID_1", "CONV_ID_2"]],
-  "syncing_enabled": false,
-  "watch_new_adds": false
+  "plugins": [
+    "default",
+    "mentions",
+    "autoreply",
+    "cleverbot",
+    "dnd",
+    "starter",
+    "remind"
+  ]
 }

@@ -150,7 +150,10 @@ def _handle_incoming_message(bot, event, command):
 
             source_message = ""
             for segment in event.conv_event.segments:
-                source_message += segment.text
+                try:
+                    source_message += segment.text
+                except TypeError as e:
+                    source_message += '<br />'
 
             for _conv_id in sync_room_list:
                 if not _conv_id == event.conv_id:

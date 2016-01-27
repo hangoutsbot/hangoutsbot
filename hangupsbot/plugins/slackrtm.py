@@ -47,7 +47,7 @@ import pprint
 import re
 import threading
 import time
-import urllib
+import urllib.request
 
 import hangups
 import hangups.ui.utils
@@ -143,7 +143,7 @@ class SlackMessage(object):
         is_bot = False
         if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'message_changed':
             if 'edited' in reply['message']:
-                edited = '(msgupd)'
+                edited = '(Edited)'
                 user = reply['message']['edited']['user']
                 text = reply['message']['text']
             else:
@@ -184,8 +184,8 @@ class SlackMessage(object):
                 text = reply['text']
         file_attachment = None
         if 'file' in reply:
-            if 'url' in reply['file']:
-                file_attachment = reply['file']['url']
+            if 'url_private_download' in reply['file']:
+                file_attachment = reply['file']['url_private_download']
 
         # now we check if the message has the hidden ho relay tag, extract and remove it
         hoidfmt = re.compile(r'^(.*) <ho://([^/]+)/([^|]+)\| >$', re.MULTILINE | re.DOTALL)
@@ -207,7 +207,7 @@ class SlackMessage(object):
             domain = slackrtm.get_slack_domain()
             username = slackrtm.get_username(user, user)
             realname = slackrtm.get_realname(user,username)
-            
+
             username4ho = u'<a href="https://%s.slack.com/team/%s">%s</a> (%s)' % (domain, username, realname, teamname)
         elif sender_id != '':
             username4ho = u'<a href="https://plus.google.com/%s">%s</a>' % (sender_id, username)
@@ -352,7 +352,7 @@ class SlackRTM(object):
 
     def get_channel_users(self,channelid,default=None):
         response =''
-        
+
         response = json.loads(self.slack.api_call('channels.info', channel = channelid).decode("utf-8"))
         if not response['ok']:
             response = json.loads(self.slack.api_call('groups.info', channel = channelid).decode("utf-8"))
@@ -370,7 +370,7 @@ class SlackRTM(object):
     def get_teamname(self):
         response = json.loads(self.slack.api_call('team.info').decode("utf-8"))
         return response['team']['name']
-    
+
     def get_slack_domain(self):
         response = json.loads(self.slack.api_call('team.info').decode("utf-8"))
         if response["ok"]:
@@ -397,7 +397,7 @@ class SlackRTM(object):
                 logger.warning('could not find user "%s" although reloaded', user)
                 return default
         return self.userinfos[user]['name']
-    
+
     def update_channelinfos(self, channels=None):
         if channels is None:
             response = json.loads(self.slack.api_call('channels.list').decode("utf-8"))
@@ -498,9 +498,12 @@ class SlackRTM(object):
     @asyncio.coroutine
     def upload_image(self, hoid, image):
         try:
+            token = self.apikey
             logger.info('downloading %s', image)
             filename = os.path.basename(image)
-            image_response = urllib.request.urlopen(image)
+            request = urllib.request.Request(image)
+            request.add_header("Authorization", "Bearer %s" % token)
+            image_response = urllib.request.urlopen(request)
             logger.info('uploading as %s', filename)
             image_id = yield from self.bot._client.upload_image(image_response, filename=filename)
             logger.info('sending HO message, image_id: %s', image_id)
@@ -968,7 +971,7 @@ class SlackRTM(object):
         for sync in self.get_syncs(hangoutid=event.conv_id):
             fullname = event.user.full_name
             if sync.hotag:
-                fullname = '%s (%s)' % (fullname, sync.hotag)
+                fullname = '%s' % (fullname)
             try:
                 photo_url = "http:"+self.bot._user_list.get_user(event.user_id).photo_url
             except Exception as e:
@@ -1018,7 +1021,7 @@ class SlackRTM(object):
             # JOIN
             if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
                 invitee = u'<https://plus.google.com/%s/about|%s>' % (event.user_id.chat_id, event.user.full_name)
-                message = u'%s has added %s to _%s_' % (invitee, names, honame)
+                message = u'%s has added %s to %s' % (invitee, names, honame)
             # LEAVE
             else:
                 message = u'%s has left _%s_' % (names, honame)
@@ -1100,9 +1103,13 @@ class SlackRTMThread(threading.Thread):
             logger.exception('IncompleteLoginError, restarting')
             time.sleep(1)
             return self.run()
-        except ConnectionFailedError:
-            logger.exception('ConnectionFailedError, waiting 10 sec trying to restart')
+        except (ConnectionFailedError, TimeoutError):
+            logger.exception('Connection failed or Timeout, waiting 10 sec trying to restart')
             time.sleep(10)
+            return self.run()
+        except ConnectionResetError:
+            logger.exception('ConnectionResetError, attempting to restart')
+            time.sleep(1)
             return self.run()
         except Exception as e:
             logger.exception('SlackRTMThread: unhandled exception: %s', str(e))
@@ -1224,7 +1231,7 @@ usage: /bot slack_channels <teamname>"""
 
 def slack_users(bot, event, *args):
     """list all slack channels available in specified slack team
-        
+
         usage: /bot slack_users <team> <channel>"""
     if len(args) >= 3:
         honame = ' '.join(args[2:])
@@ -1233,7 +1240,7 @@ def slack_users(bot, event, *args):
             bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name and a channel', is_bold=True)])
             return
         honame = hangups.ui.utils.get_conv_name(event.conv)
-    
+
     slackname = args[0]
     slackrtm = None
     for s in _slackrtms:
@@ -1249,7 +1256,7 @@ def slack_users(bot, event, *args):
     if not channelname:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a channel with id "%s" in team "%s", use /bot slack_channels %s to list all teams' % (channelid, slackname, slackname), is_bold=True)])
         return
-    
+
     segments = []
 
     segments.append(hangups.ChatMessageSegment('Slack users in channel %s:' % (channelname), is_bold=True))
