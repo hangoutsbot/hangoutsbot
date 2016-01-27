@@ -31,7 +31,7 @@ def _watch_image_link(bot, event, command):
         """imgur links can be supplied with/without protocol and extension"""
         probable_image_link = True
 
-    elif event_text_lower.startswith(("http://", "https://")) and event_text_lower.endswith((".png", ".gif", ".gifv", ".jpg")):
+    elif event_text_lower.startswith(("http://", "https://")) and event_text_lower.endswith((".png", ".gif", ".gifv", ".jpg", ".jpeg")):
         """other image links must have protocol and end with valid extension"""
         probable_image_link = True
 
@@ -45,10 +45,11 @@ def _watch_image_link(bot, event, command):
 
         if "imgur.com" in link_image:
             """special imgur link handling"""
-            if not link_image.endswith((".jpg", ".gif", "gifv", "png")):
+            if not link_image.endswith((".jpg", ".gif", "gifv", "webm", "png")):
                 link_image = link_image + ".gif"
             link_image = "https://i.imgur.com/" + os.path.basename(link_image)
 
+        link_image = link_image.replace(".webm",".gif")
         link_image = link_image.replace(".gifv",".gif")
 
         logger.info("getting {}".format(link_image))

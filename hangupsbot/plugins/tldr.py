@@ -10,8 +10,9 @@ def _initialise(bot):
 def tldr(bot, event, *args):
     """Adds a short message to a list saved for the conversation using:
     /bot tldr <message>
-    All TLDRs can be retrieved by /bot tldr, single tldr with /bot <number>
-    All TLDRs can be deleted using /bot tldr clear, single tldr with /bot clear <number>"""
+    All TLDRs can be retrieved by /bot tldr, single tldr with /bot tldr <number>
+    All TLDRs can be deleted using /bot tldr clear, single tldr with /bot tldr clear <number>
+    Single TLDRs can be edited using /bot tldr edit <number> <new_message>"""
     parameters = list(args)
 
     if not bot.memory.exists(['tldr']):
@@ -63,16 +64,33 @@ def tldr(bot, event, *args):
 
         yield from bot.coro_send_message(event.conv_id, message)
 
-    else:
-        tldr = ' '.join(parameters).replace("'", "").replace('"', '')
+    elif parameters[0] == "edit":
+        if len(parameters) > 2 and parameters[1].isdigit():
+            sorted_keys = sorted(list(conv_tldr.keys()), key=float)
+            key_index = int(parameters[1]) - 1
+            if key_index < 0 or key_index >= len(sorted_keys):
+                message = _("TL;DR #{} not found").format(parameters[1])
+            else:
+                edited_tldr = conv_tldr[sorted_keys[key_index]]
+                conv_tldr[sorted_keys[key_index]]
+                tldr = ' '.join(parameters[2:len(parameters)])
+                conv_tldr[sorted_keys[key_index]] = tldr
+                bot.memory.set_by_path(['tldr', event.conv_id], conv_tldr)
+                message = _('TL;DR #{} edited - "{}" -> "{}"').format(parameters[1], edited_tldr, tldr)
+        else:
+            message = _('Unknown Command at "tldr edit"')
 
+        yield from bot.coro_send_message(event.conv_id, message)
+
+    elif parameters[0]: ## need a better looking solution here
+        tldr = ' '.join(parameters)
         if tldr:
             # Add message to list
             conv_tldr[str(time.time())] = tldr
             bot.memory.set_by_path(['tldr', event.conv_id], conv_tldr)
             yield from bot.coro_send_message( event.conv_id,
-                                              _('Added "{}" to TL;DR. Count: {}').format( tldr,
-                                                                                          len(conv_tldr) ))
+                                              _('<em>{}</em> added to TL;DR. Count: {}').format( tldr,
+                                                                                                 len(conv_tldr) ))
 
     bot.memory.save()
 
