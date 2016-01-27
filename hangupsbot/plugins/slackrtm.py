@@ -207,7 +207,7 @@ class SlackMessage(object):
             domain = slackrtm.get_slack_domain()
             username = slackrtm.get_username(user, user)
             realname = slackrtm.get_realname(user,username)
-            
+
             username4ho = u'<a href="https://%s.slack.com/team/%s">%s</a> (%s)' % (domain, username, realname, teamname)
         elif sender_id != '':
             username4ho = u'<a href="https://plus.google.com/%s">%s</a>' % (sender_id, username)
@@ -352,7 +352,7 @@ class SlackRTM(object):
 
     def get_channel_users(self,channelid,default=None):
         response =''
-        
+
         response = json.loads(self.slack.api_call('channels.info', channel = channelid).decode("utf-8"))
         if not response['ok']:
             response = json.loads(self.slack.api_call('groups.info', channel = channelid).decode("utf-8"))
@@ -370,7 +370,7 @@ class SlackRTM(object):
     def get_teamname(self):
         response = json.loads(self.slack.api_call('team.info').decode("utf-8"))
         return response['team']['name']
-    
+
     def get_slack_domain(self):
         response = json.loads(self.slack.api_call('team.info').decode("utf-8"))
         if response["ok"]:
@@ -397,7 +397,7 @@ class SlackRTM(object):
                 logger.warning('could not find user "%s" although reloaded', user)
                 return default
         return self.userinfos[user]['name']
-    
+
     def update_channelinfos(self, channels=None):
         if channels is None:
             response = json.loads(self.slack.api_call('channels.list').decode("utf-8"))
@@ -1107,6 +1107,10 @@ class SlackRTMThread(threading.Thread):
             logger.exception('Connection failed or Timeout, waiting 10 sec trying to restart')
             time.sleep(10)
             return self.run()
+        except ConnectionResetError:
+            logger.exception('ConnectionResetError, attempting to restart')
+            time.sleep(1)
+            return self.run()
         except Exception as e:
             logger.exception('SlackRTMThread: unhandled exception: %s', str(e))
         return
@@ -1227,7 +1231,7 @@ usage: /bot slack_channels <teamname>"""
 
 def slack_users(bot, event, *args):
     """list all slack channels available in specified slack team
-        
+
         usage: /bot slack_users <team> <channel>"""
     if len(args) >= 3:
         honame = ' '.join(args[2:])
@@ -1236,7 +1240,7 @@ def slack_users(bot, event, *args):
             bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name and a channel', is_bold=True)])
             return
         honame = hangups.ui.utils.get_conv_name(event.conv)
-    
+
     slackname = args[0]
     slackrtm = None
     for s in _slackrtms:
@@ -1252,7 +1256,7 @@ def slack_users(bot, event, *args):
     if not channelname:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a channel with id "%s" in team "%s", use /bot slack_channels %s to list all teams' % (channelid, slackname, slackname), is_bold=True)])
         return
-    
+
     segments = []
 
     segments.append(hangups.ChatMessageSegment('Slack users in channel %s:' % (channelname), is_bold=True))
