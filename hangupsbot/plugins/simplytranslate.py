@@ -40,7 +40,7 @@ def _translate(bot, event, text, iso_language, text_language):
     logger.info('"{}" to {}'.format(text, iso_language))
 
     try:
-        en_blog = TextBlob(text)
+        en_blob = TextBlob(text)
         translated = "{0}".format(en_blob.translate(to=iso_language))
         yield from bot.coro_send_message(event.conv, "<i>" + text_language + "</i> : " + translated)
 
