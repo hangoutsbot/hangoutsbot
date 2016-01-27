@@ -111,23 +111,24 @@ def screenshot(bot, event, *args):
         except selenium.common.exceptions.WebDriverException as e:
             yield from bot.coro_send_message(event.conv, "<i>phantomjs could not be started - is it installed?</i>".format(e))
             return
-        
+        finally:
+            _externals["running"] = False
+
         try:
             loop = asyncio.get_event_loop()
-            image_data = yield from _screencap(browser, url, filename)
-
+            image_data = yield from _screencap(browser, url, filepath)
         except Exception as e:
             yield from bot.coro_send_message(event.conv_id, "<i>error getting screenshot</i>")
             logger.exception("screencap failed".format(url))
             return
+        finally:
+            _externals["running"] = False
             
         try:
             image_id = yield from bot._client.upload_image(image_data, filename=filename)
             yield from bot._client.sendchatmessage(event.conv.id_, None, image_id=image_id)
-
         except Exception as e:
             yield from bot.coro_send_message(event.conv_id, "<i>error uploading screenshot</i>")
             logger.exception("upload failed".format(url))
-
         finally:
             _externals["running"] = False
