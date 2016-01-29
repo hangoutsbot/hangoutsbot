@@ -45,19 +45,17 @@ def _initalize(bot):
         logger.error('SHOWME: config["showme"] dict required')
 
 def showme(bot, event, *args):
-    "Request snapshot and send message"
+    """Retrieve images from showme sources by saying: "/bot showme SOURCE" or list sources by saying "/bot showme sources" """
     sources = bot.get_config_option("showme")
     if not len(args):
         yield from bot.coro_send_message(event.conv, _("Show you what?"))
-    elif args[0].lower() in ('sources','help'):
-        html = """Retrieve images from showme sources by saying<br />
-/bot showme SOURCE<br />
-My sources are:<br />"""
+    elif args[0].lower() in ('sources',):
+        html = """My sources are:<br />"""
         for name in sources.keys():
             html += " * {}<br />".format(name)
         yield from bot.coro_send_message(event.conv, _(html))
     elif not args[0] in sources:
-        yield from bot.coro_send_message(event.conv, _("I don't know a \"{}\", try help".format(args[0])))
+        yield from bot.coro_send_message(event.conv, _("I don't know a \"{}\", try sources".format(args[0])))
     else:
         imgLink = sources[args[0]]
         logger.info("Getting {}".format(imgLink))
