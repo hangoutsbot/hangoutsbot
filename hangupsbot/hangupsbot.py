@@ -959,9 +959,13 @@ def main():
                         help=_('memory storage path'))
     parser.add_argument('--config', default=default_config_path,
                         help=_('config storage path'))
+    parser.add_argument('--retries', default=5, type=int,
+                        help=_('Maximum disconnect / reconnect retries before quitting'))
     parser.add_argument('--version', action='version', version='%(prog)s {}'.format(version.__version__),
                         help=_('show program\'s version number and exit'))
     args = parser.parse_args()
+
+    
 
     # Create all necessary directories.
     for path in [args.log, args.cookies, args.config, args.memory]:
@@ -983,7 +987,7 @@ def main():
     configure_logging(args)
 
     # initialise the bot
-    bot = HangupsBot(args.cookies, args.config, memory_file=args.memory)
+    bot = HangupsBot(args.cookies, args.config, args.retries, args.memory)
 
     # start the bot
     bot.run()

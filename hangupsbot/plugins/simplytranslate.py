@@ -2,6 +2,8 @@ import asyncio, logging, urllib
 
 import goslate
 
+from textblob import TextBlob
+
 import plugins
 
 
@@ -38,7 +40,8 @@ def _translate(bot, event, text, iso_language, text_language):
     logger.info('"{}" to {}'.format(text, iso_language))
 
     try:
-        translated = gs.translate(text, iso_language)
+        en_blob = TextBlob(text)
+        translated = "{0}".format(en_blob.translate(to=iso_language))
         yield from bot.coro_send_message(event.conv, "<i>" + text_language + "</i> : " + translated)
 
     except urllib.error.HTTPError as e:

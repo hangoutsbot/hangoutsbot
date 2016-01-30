@@ -1,7 +1,7 @@
 import plugins
 import asyncio
 
-def initialise(bot):
+def _initialise(bot):
     plugins.register_user_command(["remindme","remindall"])
 
 def remindme(bot, event, dly, *args):
