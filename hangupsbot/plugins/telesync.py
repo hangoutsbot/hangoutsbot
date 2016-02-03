@@ -77,14 +77,18 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
     global ho_bot
 
     tg2ho_dict = ho_bot.memory.get_by_path(['telesync_tg2ho'])
+    tg_bot.sendMessage(tg_chat_id, "msg received: {txt}".format(txt=msg['text']))
 
-    if tg_chat_id in tg2ho_dict:
+    if str(tg_chat_id) in tg2ho_dict:
         logger.info("[TELESYNC] telegram message received: {msg}".format(msg=msg['text']))
 
-        target_ho = tg2ho_dict[tg_chat_id]
-        text_msg = "to: {ho_id} | message: {txt}".format(ho_id=target_ho, txt=msg['text'])
+        ho_conv_id = tg2ho_dict[str(tg_chat_id)]
+        text_msg = "to: {ho_id} | message: {txt}".format(ho_id=ho_conv_id, txt=msg['text'])
         tg_bot.sendMessage(tg_chat_id, text_msg)
-        ho_bot.coro_send_message(tg2ho_dict[tg_chat_id], text_msg)
+
+        _context={"explicit_relay" : True}
+
+        ho_bot.coro_send_message(ho_conv_id, text_msg, context=_context)
 
         logger.info("[TELESYNC] telegram message forwarded: {msg}".format(msg=msg['text']))
 
