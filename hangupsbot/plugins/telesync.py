@@ -9,11 +9,10 @@ import telepot.async
 from handlers import handler
 from commands import command
 
-
 logger = logging.getLogger(__name__)
 
-# TELEGRAM BOT
 
+# TELEGRAM BOT
 
 class TelegramBot(telepot.async.Bot):
     def __init__(self, token, hangupsbot):
@@ -32,7 +31,7 @@ class TelegramBot(telepot.async.Bot):
     @staticmethod
     def parse_command(cmd):
         txt_split = cmd.split()
-        return txt_split[0], txt_split[1:]
+        return txt_split[0].split("@")[0], txt_split[1:]
 
     @staticmethod
     def on_message(bot, chat_id, msg):
@@ -75,7 +74,7 @@ class TelegramBot(telepot.async.Bot):
             raise telepot.BadFlavor(msg)
 
 
-def tg_get_group_name(msg):
+def tg_util_get_group_name(msg):
     '''
     :param msg: msg object from telepot
     :return: if msg sent to a group, will return Groups name, return msg type otherwise
@@ -87,12 +86,11 @@ def tg_get_group_name(msg):
 
 
 def tg_on_message(tg_bot, tg_chat_id, msg):
-
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
 
     if str(tg_chat_id) in tg2ho_dict:
         text = "{uname} on {gname}: {text}".format(uname=msg['from']['first_name'],
-                                                   gname=tg_get_group_name(msg),
+                                                   gname=tg_util_get_group_name(msg),
                                                    text=msg['text'])
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
@@ -121,7 +119,22 @@ def tg_command_set_sync_ho(bot, chat_id, params):  # /setsyncho <hangout conv_id
     bot.ho_bot.memory.set_by_path(['telesync_tg2ho'], tg2ho_dict)
     bot.ho_bot.memory.set_by_path(['telesync_ho2tg'], ho2tg_dict)
 
-    yield from bot.sendMessage(chat_id, "Sync tarhget set to {ho_conv_id}".format(ho_conv_id=str(params[0])))
+    yield from bot.sendMessage(chat_id, "Sync target set to {ho_conv_id}".format(ho_conv_id=str(params[0])))
+
+
+def tg_command_clear_sync_ho(bot, chat_id, params):
+    tg2ho_dict = bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
+    ho2tg_dict = bot.ho_bot.memory.get_by_path(['telesync_ho2tg'])
+
+    if str(chat_id) in tg2ho_dict:
+        ho_conv_id = tg2ho_dict[str(chat_id)]
+        del tg2ho_dict[str(chat_id)]
+        del ho2tg_dict[ho_conv_id]
+
+    bot.ho_bot.memory.set_by_path(['telesync_tg2ho'], tg2ho_dict)
+    bot.ho_bot.memory.set_by_path(['telesync_ho2tg'], ho2tg_dict)
+
+    yield from bot.sendMessage(chat_id, "Sync target cleared")
 
 
 # TELEGRAM DEFINITIONS END
@@ -129,6 +142,41 @@ def tg_command_set_sync_ho(bot, chat_id, params):  # /setsyncho <hangout conv_id
 # HANGOUTSBOT
 
 tg_bot = 0
+
+
+def telesync(bot, event, *args):
+    '''
+    /bot telesync <telegram chat id> - set sync with telegram group
+    /bot telesync - disable sync and clear sync data from memory
+    '''
+    parameters = list(args)
+
+    tg2ho_dict = bot.memory.get_by_path(['telesync_tg2ho'])
+    ho2tg_dict = bot.memory.get_by_path(['telesync_ho2tg'])
+
+    if len(parameters) > 1:
+        yield from bot.coro_send_message(event.conv_id, "Too many arguments")
+
+    elif len(parameters) == 0:
+        if str(event.conv_id) in ho2tg_dict:
+            tg_chat_id = ho2tg_dict[str(event.conv_id)]
+            del ho2tg_dict[str(event.conv_id)]
+            del tg2ho_dict[str(tg_chat_id)]
+
+        yield from bot.coro_send_message(event.conv_id, "Sync target cleared")
+
+    elif len(parameters) == 1:
+        tg_chat_id = str(parameters[0])
+        tg2ho_dict[str(tg_chat_id)] = str(event.conv_id)
+        ho2tg_dict[str(event.conv_id)] = str(tg_chat_id)
+        yield from bot.coro_send_message(event.conv_id,
+                                         "Sync target set to {tg_conv_id}".format(tg_conv_id=str(tg_chat_id)))
+
+    else:
+        raise RuntimeError("plugins/telesync: it seems something really went wrong, you should not see this error")
+
+    bot.memory.set_by_path(['telesync_tg2ho'], tg2ho_dict)
+    bot.memory.set_by_path(['telesync_ho2tg'], ho2tg_dict)
 
 
 def _initialise(bot):
@@ -141,6 +189,8 @@ def _initialise(bot):
     if not bot.memory.exists(['telesync_tg2ho']):
         bot.memory.set_by_path(['telesync_tg2ho'], {})
 
+    plugins.register_admin_command(["telesync"])
+
     global tg_bot
     tg_bot_token = bot.config.get_by_path(['telegram_bot_api_key'])
 
@@ -150,11 +200,12 @@ def _initialise(bot):
     tg_bot.set_on_message_callback(tg_on_message)
     tg_bot.add_command("/whereami", tg_command_whereami)
     tg_bot.add_command("/setsyncho", tg_command_set_sync_ho)
+    tg_bot.add_command("/clearsyncho", tg_command_clear_sync_ho)
 
     loop.create_task(tg_bot.messageLoop())
 
 
-@handler.register(priority=50, event=hangups.ChatMessageEvent)
+@handler.register(priority=5, event=hangups.ChatMessageEvent)
 def _on_hangouts_message(bot, event, command=""):
     global tg_bot
     ho2tg_dict = bot.memory.get_by_path(['telesync_ho2tg'])
