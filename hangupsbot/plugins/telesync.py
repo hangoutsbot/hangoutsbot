@@ -5,12 +5,12 @@ import asyncio
 import hangups
 import plugins
 import telepot
-
-# TEST VARIABLES
-TG_BOT_TOKEN = "TELEGRAM_BOT_API_KEY_FROM_BOTFATHER"
-TG_TARGET_CHAT_ID = 999999999
+from handlers import handler
+from commands import command
 
 logger = logging.getLogger(__name__)
+ho_bot = 0
+
 
 # TELEGRAM BOT
 
@@ -41,7 +41,6 @@ class TelegramBot(telepot.Bot):
         self.onMessageCallback = func
 
     def handle(self, msg):
-        print("[HANDLE]")
         flavor = telepot.flavor(msg)
 
         if flavor == "normal":  # normal message
@@ -59,7 +58,8 @@ class TelegramBot(telepot.Bot):
                         self.sendMessage(chat_id, "Unknown command: {cmd}".format(cmd=cmd))
 
                 else:  # plain text message
-                    self.sendMessage(chat_id, "[TXT] {msg}".format(msg=msg_text))
+                    # self.sendMessage(chat_id, "[TXT] {msg}".format(msg=msg_text))
+                    pass
 
         elif flavor == "inline_query":  # inline query e.g. "@gif cute panda"
             query_id, from_id, query_string = telepot.glance2(msg, flavor=flavor)
@@ -73,8 +73,40 @@ class TelegramBot(telepot.Bot):
             raise telepot.BadFlavor(msg)
 
 
-def tg_sample_on_message(bot, chat_id, msg):
-    bot.sendMessage(chat_id, "msg received: {txt}".foramt(msg['text']))
+def tg_on_message(tg_bot, tg_chat_id, msg):
+    global ho_bot
+
+    tg2ho_dict = ho_bot.memory.get_by_path(['telesync_tg2ho'])
+
+    if tg_chat_id in tg2ho_dict:
+        logger.info("[TELESYNC] telegram message received: {msg}".format(msg=msg['text']))
+
+        target_ho = tg2ho_dict[tg_chat_id]
+        text_msg = "to: {ho_id} | message: {txt}".format(ho_id=target_ho, txt=msg['text'])
+        tg_bot.sendMessage(tg_chat_id, text_msg)
+        ho_bot.coro_send_message(tg2ho_dict[tg_chat_id], text_msg)
+
+        logger.info("[TELESYNC] telegram message forwarded: {msg}".format(msg=msg['text']))
+
+
+def tg_command_whereami(bot, chat_id, params):
+    bot.sendMessage(chat_id, "current group's id: {chat_id}".format(chat_id=chat_id))
+
+
+def tg_command_set_sync_ho(bot, chat_id, params):  # /setsyncho <hangout conv_id>
+
+    if len(params) != 1:
+        bot.sendMessage(chat_id, "Illegal or Missing arguments!!!")
+        return
+
+    tg2ho_dict = ho_bot.memory.get_by_path(['telesync_tg2ho'])
+    ho2tg_dict = ho_bot.memory.get_by_path(['telesync_ho2tg'])
+
+    tg2ho_dict[str(chat_id)] = str(params[0])
+    ho2tg_dict[str(params[0])] = str(chat_id)
+
+    ho_bot.memory.set_by_path(['telesync_tg2ho'], tg2ho_dict)
+    ho_bot.memory.set_by_path(['telesync_ho2tg'], ho2tg_dict)
 
 
 # TELEGRAM DEFINITIONS END
@@ -85,13 +117,36 @@ tg_bot = 0
 
 
 def _initialise(bot):
+    if not bot.config.exists(['telegram_bot_api_key']):
+        bot.config.set_by_path(['telegram_bot_api_key'], "PUT_YOUR_TELEGRAM_API_KEY_HERE")
+
+    if not bot.memory.exists(['telesync_ho2tg']):
+        bot.memory.set_by_path(['telesync_ho2tg'], {})
+
+    if not bot.memory.exists(['telesync_tg2ho']):
+        bot.memory.set_by_path(['telesync_tg2ho'], {})
+
     global tg_bot
-    tg_bot = TelegramBot(TG_BOT_TOKEN) # TODO: get telegram bot api key in a proper way
-    tg_bot.set_on_message_callback(tg_sample_on_message)
+    global ho_bot
+    ho_bot = bot
 
-    plugins.register_handler(_on_hangouts_message, type="message", priority=50)
+    tg_bot_token = bot.config.get_by_path(['telegram_bot_api_key'])
+
+    tg_bot = TelegramBot(tg_bot_token)
+    tg_bot.set_on_message_callback(tg_on_message)
+    tg_bot.add_command("/whereami", tg_command_whereami)
+    tg_bot.add_command("/setsyncho", tg_command_set_sync_ho)
+
+    tg_bot.notifyOnMessage()
+
+    # plugins.register_handler(_on_hangouts_message, type="message", priority=50)
 
 
-def _on_hangouts_message(bot, event, command):
-    tg_chat_id = TG_TARGET_CHAT_ID  # TODO: get proper telegram chat id
-    tg_bot.sendMessage(tg_chat_id,  event.text)
+@handler.register(priority=50, event=hangups.ChatMessageEvent)
+def _on_hangouts_message(bot, event, command=""):
+    global tg_bot
+    ho2tg_dict = ho_bot.memory.get_by_path(['telesync_ho2tg'])
+
+    if event.conv_id in ho2tg_dict:
+        text = "{uname} on {gname}: {text}".format(uname=event.user.full_name, gname=event.conv.name, text=event.text)
+        tg_bot.sendMessage(ho2tg_dict[event.conv_id], text)
