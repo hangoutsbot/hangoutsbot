@@ -2,6 +2,7 @@
 git+https://github.com/hangoutsbot/hangups.git
 appdirs
 asyncio
+aiohttp >= 0.20.2
 jsonrpclib-pelix
 
 # PLUGIN DEPENDENCIES #
@@ -17,4 +18,4 @@ google-api-python-client # for spotify
 spotipy
 slackclient >=0.16 # slackrtm (includes websockets)
 textblob
-telepot
+telepot >= 6.2
