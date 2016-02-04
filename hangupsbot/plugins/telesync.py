@@ -1,6 +1,7 @@
 # A Sync plugin for Telegram and Hangouts
 
 import os, logging
+import io
 import asyncio
 import hangups
 import plugins
@@ -19,6 +20,7 @@ class TelegramBot(telepot.async.Bot):
         super(TelegramBot, self).__init__(token)
         self.commands = {}
         self.onMessageCallback = TelegramBot.on_message
+        self.onPhotoCallback = TelegramBot.on_photo
         self.ho_bot = hangupsbot
 
     def add_command(self, cmd, func):
@@ -37,8 +39,15 @@ class TelegramBot(telepot.async.Bot):
     def on_message(bot, chat_id, msg):
         print("[MSG] {uid} : {txt}".format(uid=msg['from']['id'], txt=msg['text']))
 
+    @staticmethod
+    def on_photo(bot, chat_id, msg):
+        print("[PIC]{uid} : {photo_id}".format(uid=msg['from']['id'], photo_id=msg['photo'][0]['file_id']))
+
     def set_on_message_callback(self, func):
         self.onMessageCallback = func
+
+    def set_on_photo_callback(self, func):
+        self.onPhotoCallback = func
 
     @asyncio.coroutine
     def handle(self, msg):
@@ -46,21 +55,24 @@ class TelegramBot(telepot.async.Bot):
 
         if flavor == "normal":  # normal message
             content_type, chat_type, chat_id = telepot.glance2(msg)
-            if content_type == "text":
+            if content_type == 'text':
                 msg_text = msg['text']
-
-                yield from self.onMessageCallback(self, chat_id, msg)
 
                 if msg_text[0] == "/":  # bot command
                     cmd, params = TelegramBot.parse_command(msg_text)
-                    try:
+                    if cmd in self.commands:
                         yield from self.commands[cmd](self, chat_id, params)
-                    except KeyError:
+                    else:
                         yield from self.sendMessage(chat_id, "Unknown command: {cmd}".format(cmd=cmd))
 
                 else:  # plain text message
                     # self.sendMessage(chat_id, "[TXT] {msg}".format(msg=msg_text))
+                    yield from self.onMessageCallback(self, chat_id, msg)
                     pass
+
+            elif content_type == 'photo':
+                yield from self.onPhotoCallback(self, chat_id, msg)
+
 
         elif flavor == "inline_query":  # inline query e.g. "@gif cute panda"
             query_id, from_id, query_string = telepot.glance2(msg, flavor=flavor)
@@ -85,6 +97,23 @@ def tg_util_get_group_name(msg):
     return title
 
 
+def tg_util_get_photo_caption(msg):
+    caption = ""
+    if 'caption' in msg:
+        caption = msg['caption']
+
+    return caption
+
+
+def tg_util_get_photo_list(msg):
+    photos = []
+    if 'photo' in msg:
+        photos = msg['photo']
+        photos = sorted(photos, key=lambda k: k['width'])
+
+    return photos
+
+
 def tg_on_message(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
 
@@ -98,6 +127,37 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
 
         logger.info("[TELESYNC] Telegram message forwarded: {msg} to: {ho_conv_id}".format(msg=msg['text'],
                                                                                            ho_conv_id=ho_conv_id))
+
+
+def tg_on_photo(tg_bot, tg_chat_id, msg):
+    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
+
+    if str(tg_chat_id) in tg2ho_dict:
+        ho_conv_id = tg2ho_dict[str(tg_chat_id)]
+
+        photos = tg_util_get_photo_list(msg)
+        photo_caption = tg_util_get_photo_caption(msg)
+
+        photo_id = photos[len(photos) - 1]['file_id']  # get photo id so we can download it
+        photo_path = 'hangupsbot/plugins/telesync_photos/' + photo_id + ".jpg"  # find a better way to handling file paths
+
+        text = "Uploading photo from {uname} on {gname}...".format(uname=msg['from']['first_name'],
+                                                                   gname=tg_util_get_group_name(msg))
+        yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
+
+        yield from tg_bot.downloadFile(photo_id, photo_path)
+
+        logger.info("[TELESYNC] Uploading photo...")
+        with open(photo_path, "rb") as photo_file:
+            ho_photo_id = yield from tg_bot.ho_bot._client.upload_image(photo_file,
+                                                                        filename=os.path.basename(photo_path))
+
+        yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, photo_caption, image_id=ho_photo_id)
+
+        logger.info("[TELESYNC] Upload succeed.")
+
+        if tg_bot.ho_bot.config.get_by_path(['telesync_do_not_keep_photos']):
+            os.remove(photo_path)  # don't use unnecessary space on disk
 
 
 def tg_command_whereami(bot, chat_id, params):
@@ -180,8 +240,14 @@ def telesync(bot, event, *args):
 
 
 def _initialise(bot):
+    print(os.getcwd())
+
     if not bot.config.exists(['telegram_bot_api_key']):
         bot.config.set_by_path(['telegram_bot_api_key'], "PUT_YOUR_TELEGRAM_API_KEY_HERE")
+
+    # Don't keep photos on disk after sync done by default
+    if not bot.config.exists(['telesync_do_not_keep_photos']):
+        bot.config.set_by_path(['telesync_do_not_keep_photos'], True)
 
     if not bot.memory.exists(['telesync_ho2tg']):
         bot.memory.set_by_path(['telesync_ho2tg'], {})
@@ -198,6 +264,7 @@ def _initialise(bot):
 
     tg_bot = TelegramBot(tg_bot_token, bot)
     tg_bot.set_on_message_callback(tg_on_message)
+    tg_bot.set_on_photo_callback(tg_on_photo)
     tg_bot.add_command("/whereami", tg_command_whereami)
     tg_bot.add_command("/setsyncho", tg_command_set_sync_ho)
     tg_bot.add_command("/clearsyncho", tg_command_clear_sync_ho)
