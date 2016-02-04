@@ -145,6 +145,10 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
                                                                    gname=tg_util_get_group_name(msg))
         yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
 
+        file_dir = os.path.dirname(photo_path)
+        if not os.path.exists(file_dir):
+            os.makedirs(file_dir)
+
         yield from tg_bot.downloadFile(photo_id, photo_path)
 
         logger.info("[TELESYNC] Uploading photo...")
