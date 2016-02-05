@@ -98,17 +98,20 @@ def _lookup_address(location):
     Retrieve the coordinates of the location from googles geocode api.
     Limit of 2,000 requests a day
     """
-    google_map_url = 'http://maps.googleapis.com/maps/api/geocode/json'
-    payload = {'address': location.replace(' ', '')}
-    r = requests.get(google_map_url, params=payload)
-
+     google_map_url = 'https://maps.googleapis.com/maps/api/geocode/json'
+    payload = {'address': location}
+    resp = requests.get(google_map_url, params=payload)
     try:
-        coords = r.json()['results'][0]['geometry']['location']
-    except ValueError as e:
-        logger.error("Forecast Error: {}".format(e))
-        coords = {}
-
-    return coords
+        resp.raise_for_status()
+        results = resp.json()['results'][0]
+        return {
+            'lat': results['geometry']['location']['lat'],
+            'lng': results['geometry']['location']['lng'],
+            'address': results['formatted_address']
+        }
+    except (IndexError, KeyError):
+        logger.error('unable to parse address return data: %d: %s', resp.status_code, resp.json())
+        return None
 
 def _lookup_weather(coords):
     """
