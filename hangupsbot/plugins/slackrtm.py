@@ -299,6 +299,8 @@ class SlackRTM(object):
         self.update_userinfos(self.slack.server.login_data['users'])
         self.update_channelinfos(self.slack.server.login_data['channels'])
         self.update_groupinfos(self.slack.server.login_data['groups'])
+        self.update_teaminfos(self.slack.server.login_data['team'])
+        self.dminfos = {}
         self.my_uid = self.slack.server.login_data['self']['id']
 
         self.admins = []
@@ -338,8 +340,9 @@ class SlackRTM(object):
                 self.syncs.append(SlackRTMSync(conv[0], conv[1], hotag))
 
     def get_slackDM(self, userid):
-        response = json.loads(self.slack.api_call('im.open',user = userid).decode("utf-8"))
-        return response['channel']['id']
+        if not userid in self.dminfos:
+            self.dminfos[userid] = json.loads(self.slack.api_call('im.open', user = userid).decode("utf-8"))['channel']
+        return self.dminfos[userid]['id']
 
     def update_userinfos(self, users=None):
         if users is None:
@@ -350,32 +353,48 @@ class SlackRTM(object):
             userinfos[u['id']] = u
         self.userinfos = userinfos
 
-    def get_channel_users(self,channelid,default=None):
-        response =''
-
-        response = json.loads(self.slack.api_call('channels.info', channel = channelid).decode("utf-8"))
-        if not response['ok']:
-            response = json.loads(self.slack.api_call('groups.info', channel = channelid).decode("utf-8"))
-        channelusers = response['channel']['members']
+    def get_channel_users(self, channelid, default=None):
+        channelinfo = None
+        if channelid.startswith('C'):
+            if not channelid in self.channelinfos:
+                self.update_channelinfos()
+            if not channelid in self.channelinfos:
+                logger.error('get_channel_users: Failed to find channel %s' % channelid)
+                return None
+            else:
+                channelinfo = self.channelinfos[channelid]
+        else:
+            if not channelid in self.groupinfos:
+                self.update_groupinfos()
+            if not channelid in self.groupinfos:
+                logger.error('get_channel_users: Failed to find private group %s' % channelid)
+                return None
+            else:
+                channelinfo = self.groupinfos[channelid]
+            
+        channelusers = channelinfo['members']
         users = {}
         for u in channelusers:
-            user = json.loads(self.slack.api_call('users.info',user = u).decode("utf-8"))
-            if user["ok"] and user['user']:
-                username = user['user']['name']
-                username += " " + u
-                realname = user['user'].get('real_name', "No real name")
-                users[username] = realname
+            username = self.get_username(u)
+            realname = self.get_realname(u, "No real name")
+            if username:
+                users[username+" "+u] = realname
+
         return users
 
+    def update_teaminfos(self, team=None):
+        if team is None:
+            response = json.loads(self.slack.api_call('team.info').decode("utf-8"))
+            team = response['team']
+        self.team = team
+
     def get_teamname(self):
-        response = json.loads(self.slack.api_call('team.info').decode("utf-8"))
-        return response['team']['name']
+        # team info is static, no need to update
+        return self.team['name']
 
     def get_slack_domain(self):
-        response = json.loads(self.slack.api_call('team.info').decode("utf-8"))
-        if response["ok"]:
-            return response['team']['domain']
-        return None
+        # team info is static, no need to update
+        return self.team['domain']
 
     def get_realname(self, user, default=None):
         if user not in self.userinfos:
@@ -423,6 +442,7 @@ class SlackRTM(object):
         groupinfos = {}
         for c in groups:
             groupinfos[c['id']] = c
+        print('%s' % groupinfos)
         self.groupinfos = groupinfos
 
     def get_groupname(self, group, default=None):
@@ -1261,9 +1281,9 @@ def slack_users(bot, event, *args):
 
     segments.append(hangups.ChatMessageSegment('Slack users in channel %s:' % (channelname), is_bold=True))
     segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
-    users=slackrtm.get_channel_users(channelid)
+    users = slackrtm.get_channel_users(channelid)
     for username, realname in sorted(users.items()):
-        segments.append(hangups.ChatMessageSegment('%s (%s)' % (realname,username)))
+        segments.append(hangups.ChatMessageSegment('%s (%s)' % (realname, username)))
         segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
 
     bot.send_message_segments(event.conv, segments)
