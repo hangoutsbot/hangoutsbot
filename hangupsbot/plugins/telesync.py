@@ -85,14 +85,16 @@ class TelegramBot(telepot.async.Bot):
                         yield from self.commands[cmd](self, chat_id, params)
                     else:
                         yield from self.sendMessage(chat_id, "Unknown command: {cmd}".format(cmd=cmd))
-                elif 'new_chat_participant' in msg:
-                    yield from self.onUserJoinCallback(self, chat_id, msg)
-
-                elif 'left_chat_participant' in msg:
-                    yield from self.onUserLeaveCallback(self, chat_id, msg)
 
                 else:  # plain text message
                     yield from self.onMessageCallback(self, chat_id, msg)
+
+            elif content_type == 'new_chat_participant':
+                yield from self.onUserJoinCallback(self, chat_id, msg)
+
+            elif content_type == 'left_chat_participant':
+                yield from self.onUserLeaveCallback(self, chat_id, msg)
+
 
             elif content_type == 'photo':
                 yield from self.onPhotoCallback(self, chat_id, msg)
