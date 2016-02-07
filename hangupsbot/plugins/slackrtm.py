@@ -687,8 +687,13 @@ class SlackRTM(object):
                         if c.id_ == sync.hangoutid:
                             hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
                             break
-                    message += '*%s(%s) : %s(%s)* _%s_\n' % (
-                        self.get_channelname(sync.channelid),
+                    channelname = 'unknown'
+                    if sync.channelid.startswith('C'):
+                        channelname = self.get_channelname(sync.channelid)
+                    elif sync.channelid.startswith('G'):
+                        channelname = self.get_groupname(sync.channelid)
+                    message += '*%s (%s) : %s (%s)* _%s_\n' % (
+                        channelname,
                         sync.channelid,
                         hangoutname,
                         sync.hangoutid,
