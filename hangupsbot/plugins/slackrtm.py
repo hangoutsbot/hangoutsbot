@@ -118,6 +118,8 @@ class SlackMessage(object):
         self.user = None
         self.username = None
         self.username4ho = None
+        self.realname4ho = None
+        self.tag_from_slack = None
         self.edited = None
         self.from_ho_id = None
         self.sender_id = None
@@ -202,15 +204,20 @@ class SlackMessage(object):
                     file_attachment = match.group(2)
 
         username4ho = username
+        realname4ho = username
         if not is_bot:
             domain = slackrtm.get_slack_domain()
             username = slackrtm.get_username(user, user)
             realname = slackrtm.get_realname(user,username)
 
-            username4ho = u'<a href="https://%s.slack.com/team/%s">%s</a>' % (domain, username, realname)
+            username4ho = u'<a href="https://%s.slack.com/team/%s">%s</a>' % (domain, username, username)
+            realname4ho = u'<a href="https://%s.slack.com/team/%s">%s</a>' % (domain, username, realname)
+            tag_from_slack = True
         elif sender_id != '':
             username4ho = u'<a href="https://plus.google.com/%s">%s</a>' % (sender_id, username)
-
+            realname4ho = u'<a href="https://plus.google.com/%s">%s</a>' % (sender_id, username)
+            tag_from_slack = False
+            
         if 'channel' in reply:
             channel = reply['channel']
         elif 'group' in reply:
@@ -225,6 +232,8 @@ class SlackMessage(object):
         self.user = user
         self.username = username
         self.username4ho = username4ho
+        self.realname4ho = realname4ho
+        self.tag_from_slack = tag_from_slack
         self.edited = edited
         self.from_ho_id = from_ho_id
         self.sender_id = sender_id
@@ -234,13 +243,14 @@ class SlackMessage(object):
 
 
 class SlackRTMSync(object):
-    def __init__(self, channelid, hangoutid, hotag, slacktag, sync_joins=True, image_upload=True):
+    def __init__(self, channelid, hangoutid, hotag, slacktag, sync_joins=True, image_upload=True, showslackrealnames=False):
         self.channelid = channelid
         self.hangoutid = hangoutid
         self.hotag = hotag
         self.sync_joins = sync_joins
         self.image_upload = image_upload
         self.slacktag = slacktag
+        self.showslackrealnames = showslackrealnames
 
     def fromDict(sync_dict):
         sync_joins = True
@@ -254,7 +264,10 @@ class SlackRTMSync(object):
             slacktag = sync_dict['slacktag']
         else:
             slacktag = 'NOT_IN_CONFIG'
-        return SlackRTMSync(sync_dict['channelid'], sync_dict['hangoutid'], sync_dict['hotag'], slacktag, sync_joins, image_upload)
+        realnames = True
+        if 'showslackrealnames' in sync_dict and not sync_dict['showslackrealnames']:
+            realnames = False
+        return SlackRTMSync(sync_dict['channelid'], sync_dict['hangoutid'], sync_dict['hotag'], slacktag, sync_joins, image_upload, realnames)
 
     def toDict(self):
         return {
@@ -264,14 +277,16 @@ class SlackRTMSync(object):
             'sync_joins': self.sync_joins,
             'image_upload': self.image_upload,
             'slacktag': self.slacktag,
+            'showslackrealnames': self.showslackrealnames,
             }
 
     def getPrintableOptions(self):
-        return 'hotag="%s", sync_joins=%s, image_upload=%s, slacktag=%s' % (
+        return 'hotag="%s", sync_joins=%s, image_upload=%s, slacktag=%s, showslackrealnames=%s' % (
             self.hotag if self.hotag else 'NONE',
             self.sync_joins,
             self.image_upload,
             self.slacktag if self.slacktag else 'NONE',
+            self.showslackrealnames,
             )
 
 
@@ -541,7 +556,7 @@ class SlackRTM(object):
             logger.exception('upload_image: %s(%s)', type(e), str(e))
 
     def handleCommands(self, msg):
-        cmdfmt = re.compile(r'^<@'+self.my_uid+r'>:?\s+(help|whereami|whoami|whois|admins|hangoutmembers|hangouts|listsyncs|syncto|disconnect|setsyncjoinmsgs|sethotag|setimageupload|setslacktag)', re.IGNORECASE)
+        cmdfmt = re.compile(r'^<@'+self.my_uid+r'>:?\s+(help|whereami|whoami|whois|admins|hangoutmembers|hangouts|listsyncs|syncto|disconnect|setsyncjoinmsgs|sethotag|setimageupload|setslacktag|showslackrealnames)', re.IGNORECASE)
         match = cmdfmt.match(msg.text)
         if not match:
             return
@@ -563,6 +578,7 @@ class SlackRTM(object):
             message += u'<@%s> sethotag HangoutId [HOTAG|none] _set the tag, that is displayed in Slack for messages from that Hangout (behind the user\'s name), default is the hangout title when sync was set up, use "none" if you want to disable tag display  (only available for admins)_\n' % self.my_uid
             message += u'<@%s> setimageupload HangoutId [true|false] _enable/disable upload of shared images in synced Hangout, default is enabled (only available for admins)_\n' % self.my_uid
             message += u'<@%s> setslacktag HangoutId [SLACKTAG|none] _set the tag, that is displayed in that Hangout for messages from the current Slack channel (behind the user\'s name), default is the Slack team name, use "none" if you want to disable tag display (only available for admins)_\n' % self.my_uid
+            message += u'<@%s> showslackrealnames HangoutId [true|false] _enable/disable display of realname instead of username in handouts when syncing slack messages, default is disabled (only available for admins)_\n' % self.my_uid
             userID = self.get_slackDM(msg.user)
             self.slack.api_call('chat.postMessage',
                                 channel=userID,
@@ -904,6 +920,46 @@ class SlackRTM(object):
                     message += u'OK, messages in this slack channel (%s) will %s in Hangout _%s_.' % (channelname, oktext, hangoutname)
                 self.slack.api_call('chat.postMessage', channel=msg.channel, text=message, as_user=True, link_names=True)
 
+            elif command == 'showslackrealnames':
+                message = '@%s: ' % msg.username
+                if len(args) != 2:
+                    message += u'sorry, but you have to specify a Hangout Id and a `true` or `false` for command `showslackrealnames`'
+                    self.slack.api_call('chat.postMessage', channel=msg.channel, text=message, as_user=True, link_names=True)
+                    return
+
+                hangoutid = args[0]
+                realnames = args[1]
+                for c in self.bot.list_conversations():
+                    if c.id_ == hangoutid:
+                        hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
+                        break
+                if not hangoutname:
+                    message += u'sorry, but I\'m not a member of a Hangout with Id %s' % hangoutid
+                    self.slack.api_call('chat.postMessage', channel=msg.channel, text=message, as_user=True, link_names=True)
+                    return
+
+                if msg.channel.startswith('D'):
+                    channelname = 'DM'
+                else:
+                    channelname = '#%s' % self.get_channelname(msg.channel)
+
+                if realnames.lower() in ['true', 'on', 'y', 'yes']:
+                    realnames = True
+                elif realnames.lower() in ['false', 'off', 'n', 'no']:
+                    realnames = False
+                else:
+                    message += u'sorry, but "%s" is not "true" or "false"' % upload
+                    self.slack.api_call('chat.postMessage', channel=msg.channel, text=message, as_user=True, link_names=True)
+                    return
+
+                try:
+                    self.showslackrealnames(msg.channel, hangoutid, realnames)
+                except NotSyncingError:
+                    message += u'This channel (%s) is not synced with Hangout _%s_, not changing showslackrealnames.' % (channelname, hangoutname)
+                else:
+                    message += u'OK, I will display %s when syncing messages from this channel (%s) with Hangout _%s_.' % (('realnames' if realnames else 'usernames'), channelname, hangoutname)
+                self.slack.api_call('chat.postMessage', channel=msg.channel, text=message, as_user=True, link_names=True)
+
 
     def syncto(self, channel, hangoutid, shortname):
         for sync in self.syncs:
@@ -1029,6 +1085,28 @@ class SlackRTM(object):
         self.bot.user_memory_set(self.name, 'synced_conversations', syncs)
         return
 
+    def showslackrealnames(self, channel, hangoutid, realnames):
+        sync = None
+        for s in self.syncs:
+            if s.channelid == channel and s.hangoutid == hangoutid:
+                sync = s
+        if not sync:
+            raise NotSyncingError
+
+        logger.info('setting showslackrealnames=%s for sync=%s', realnames, sync.toDict())
+        sync.showslackrealnames = realnames
+
+        syncs = self.bot.user_memory_get(self.name, 'synced_conversations')
+        if not syncs:
+            syncs = []
+        for s in syncs:
+            if s['channelid'] == channel and s['hangoutid'] == hangoutid:
+                syncs.remove(s)
+        logger.info('storing new sync=%s with changed hotag', s)
+        syncs.append(sync.toDict())
+        self.bot.user_memory_set(self.name, 'synced_conversations', syncs)
+        return
+
     def handle_reply(self, reply):
         try:
             msg = SlackMessage(self, reply)
@@ -1049,9 +1127,9 @@ class SlackRTM(object):
                 continue
             if msg.from_ho_id != sync.hangoutid:
                 slacktag = ''
-                if sync.slacktag:
+                if sync.slacktag and msg.tag_from_slack:
                     slacktag = ' (%s)' % sync.slacktag
-                response = u'<b>%s%s%s:</b> %s' % (msg.username4ho, slacktag, msg.edited, msg_html)
+                response = u'<b>%s%s%s:</b> %s' % (msg.realname4ho if sync.showslackrealnames else msg.username4ho, slacktag, msg.edited, msg_html)
                 logger.debug('forwarding to HO %s: %s', sync.hangoutid, response.encode('utf-8'))
                 if msg.file_attachment:
                     if sync.image_upload:
@@ -1065,7 +1143,7 @@ class SlackRTM(object):
         for sync in self.get_syncs(hangoutid=event.conv_id):
             fullname = event.user.full_name
             if sync.hotag:
-                fullname = '%s' % (fullname)
+                fullname = '%s (%s)' % (fullname, sync.hotag)
             try:
                 photo_url = "http:"+self.bot._user_list.get_user(event.user_id).photo_url
             except Exception as e:
@@ -1237,7 +1315,7 @@ def _initialise(bot):
     plugins.register_handler(_handle_membership_change, type="membership")
     plugins.register_handler(_handle_rename, type="rename")
 
-    plugins.register_admin_command(["slack_help", "slacks", "slack_channels", "slack_listsyncs", "slack_syncto", "slack_disconnect", "slack_setsyncjoinmsgs", "slack_setimageupload", "slack_sethotag","slack_users", "slack_setslacktag"])
+    plugins.register_admin_command(["slack_help", "slacks", "slack_channels", "slack_listsyncs", "slack_syncto", "slack_disconnect", "slack_setsyncjoinmsgs", "slack_setimageupload", "slack_sethotag","slack_users", "slack_setslacktag", "slack_showslackrealnames"])
 
 
 @asyncio.coroutine
@@ -1627,3 +1705,46 @@ usage: /bot slack_slacktag <teamname> <channelid> {<tag>|none}"""
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('This Hangout is NOT synced to %s:%s.' % (slackname, channelname), is_bold=True)])
     else:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('OK, messages from slack channel %s:%s will %s in this Hangout.' % (oktext, slackname, channelname), is_bold=True)])
+
+
+
+def slack_showslackrealnames(bot, event, *args):
+    """enable/disable display of realnames instead of usernames in messages synced from slack
+(default: disabled)
+
+usage: /bot slack_showslackrealnames <teamname> <channelid> {true|false}"""
+    if len(args) != 3:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name, a channel and "true" or "false"', is_bold=True)])
+        return
+
+    slackname = args[0]
+    slackrtm = None
+    for s in _slackrtms:
+        if s.name == slackname:
+            slackrtm = s
+            break
+    if not slackrtm:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a configured slack team with name "%s", use /bot slacks to list all teams' % slackname, is_bold=True)])
+        return
+
+    channelid = args[1]
+    channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
+    if not channelname:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a channel with id "%s" in team "%s", use /bot slack_channels %s to list all teams' % (channelid, slackname, slackname), is_bold=True)])
+        return
+
+    realnames = args[2]
+    if realnames.lower() in ['true', 'on', 'y', 'yes']:
+        realnames = True
+    elif realnames.lower() in ['false', 'off', 'n', 'no']:
+        realnames = False
+    else:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('sorry, but "%s" is not "true" or "false"' % upload, is_bold=True)])
+        return
+
+    try:
+        slackrtm.showslackrealnames(channelid, event.conv.id_, realnames)
+    except NotSyncingError:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('This Hangout is NOT synced to %s:%s.' % (slackname, channelname), is_bold=True)])
+    else:
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('OK, I will display %s in this Hangout when syncing from %s:%s.' % (('realnames' if realnames else 'usernames'), slackname, channelname), is_bold=True)])
