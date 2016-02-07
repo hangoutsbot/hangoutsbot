@@ -21,6 +21,8 @@ class TelegramBot(telepot.async.Bot):
         self.commands = {}
         self.onMessageCallback = TelegramBot.on_message
         self.onPhotoCallback = TelegramBot.on_photo
+        self.onUserJoinCallback = TelegramBot.on_user_join
+        self.onUserLeaveCallback = TelegramBot.on_user_leave
         self.ho_bot = hangupsbot
 
     def add_command(self, cmd, func):
@@ -29,6 +31,13 @@ class TelegramBot(telepot.async.Bot):
     def remove_command(self, cmd):
         if cmd in self.commands:
             del self.commands[cmd]
+
+    @staticmethod
+    def is_command(msg):
+        if 'text' in msg:
+            if msg['text'].startswith('/'):
+                return True
+        return False
 
     @staticmethod
     def parse_command(cmd):
@@ -43,11 +52,25 @@ class TelegramBot(telepot.async.Bot):
     def on_photo(bot, chat_id, msg):
         print("[PIC]{uid} : {photo_id}".format(uid=msg['from']['id'], photo_id=msg['photo'][0]['file_id']))
 
+    @staticmethod
+    def on_user_join(bot, chat_id, msg):
+        print("New User: {name}".format(name=msg['left_chat_participant']['first_name']))
+
+    @staticmethod
+    def on_user_leave(bot, chat_id, msg):
+        print("{name} Left the gorup".format(name=msg['left_chat_participant']['first_name']))
+
     def set_on_message_callback(self, func):
         self.onMessageCallback = func
 
     def set_on_photo_callback(self, func):
         self.onPhotoCallback = func
+
+    def set_on_user_join_callback(self, func):
+        self.onUserJoinCallback = func
+
+    def set_on_user_leave_callback(self, func):
+        self.onUserLeaveCallback = func
 
     @asyncio.coroutine
     def handle(self, msg):
@@ -56,19 +79,20 @@ class TelegramBot(telepot.async.Bot):
         if flavor == "normal":  # normal message
             content_type, chat_type, chat_id = telepot.glance2(msg)
             if content_type == 'text':
-                msg_text = msg['text']
-
-                if msg_text[0] == "/":  # bot command
-                    cmd, params = TelegramBot.parse_command(msg_text)
+                if TelegramBot.is_command(msg):  # bot command
+                    cmd, params = TelegramBot.parse_command(msg['text'])
                     if cmd in self.commands:
                         yield from self.commands[cmd](self, chat_id, params)
                     else:
                         yield from self.sendMessage(chat_id, "Unknown command: {cmd}".format(cmd=cmd))
+                elif 'new_chat_participant' in msg:
+                    yield from self.onUserJoinCallback(self, chat_id, msg)
+
+                elif 'left_chat_participant' in msg:
+                    yield from self.onUserLeaveCallback(self, chat_id, msg)
 
                 else:  # plain text message
-                    # self.sendMessage(chat_id, "[TXT] {msg}".format(msg=msg_text))
                     yield from self.onMessageCallback(self, chat_id, msg)
-                    pass
 
             elif content_type == 'photo':
                 yield from self.onPhotoCallback(self, chat_id, msg)
@@ -114,6 +138,7 @@ def tg_util_get_photo_list(msg):
     return photos
 
 
+@asyncio.coroutine
 def tg_on_message(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
 
@@ -129,6 +154,7 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
                                                                                            ho_conv_id=ho_conv_id))
 
 
+@asyncio.coroutine
 def tg_on_photo(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
 
@@ -139,7 +165,9 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
         photo_caption = tg_util_get_photo_caption(msg)
 
         photo_id = photos[len(photos) - 1]['file_id']  # get photo id so we can download it
-        photo_path = 'hangupsbot/plugins/telesync_photos/' + photo_id + ".jpg"  # find a better way to handling file paths
+
+        # TODO: find a better way to handling file paths
+        photo_path = 'hangupsbot/plugins/telesync_photos/' + photo_id + ".jpg"
 
         text = "Uploading photo from {uname} on {gname}...".format(uname=msg['from']['first_name'],
                                                                    gname=tg_util_get_group_name(msg))
@@ -162,6 +190,36 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
 
         if tg_bot.ho_bot.config.get_by_path(['telesync_do_not_keep_photos']):
             os.remove(photo_path)  # don't use unnecessary space on disk
+
+
+@asyncio.coroutine
+def tg_on_user_join(tg_bot, tg_chat_id, msg):
+    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
+    if str(tg_chat_id) in tg2ho_dict:
+        text = "{uname} joined to {gname}".format(uname=msg['new_chat_participant']['first_name'],
+                                                  gname=tg_util_get_group_name(msg))
+
+        ho_conv_id = tg2ho_dict[str(tg_chat_id)]
+        yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
+
+        # yield from tg_bot.sendMessage(tg_chat_id, text)
+
+        logger.info("[TELESYNC] {text}".format(text=text))
+
+
+@asyncio.coroutine
+def tg_on_user_leave(tg_bot, tg_chat_id, msg):
+    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
+    if str(tg_chat_id) in tg2ho_dict:
+        text = "{uname} left {gname}".format(uname=msg['left_chat_participant']['first_name'],
+                                             gname=tg_util_get_group_name(msg))
+
+        ho_conv_id = tg2ho_dict[str(tg_chat_id)]
+        yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
+
+        # yield from tg_bot.sendMessage(tg_chat_id, text)
+
+        logger.info("[TELESYNC] {text}".format(text=text))
 
 
 def tg_command_whereami(bot, chat_id, params):
@@ -205,9 +263,45 @@ def tg_command_clear_sync_ho(bot, chat_id, params):
 
 # HANGOUTSBOT
 
-tg_bot = 0
+tg_bot = None
 
 
+def _initialise(bot):
+    print(os.getcwd())
+
+    if not bot.config.exists(['telegram_bot_api_key']):
+        bot.config.set_by_path(['telegram_bot_api_key'], "PUT_YOUR_TELEGRAM_API_KEY_HERE")
+
+    # Don't keep photos on disk after sync done by default
+    if not bot.config.exists(['telesync_do_not_keep_photos']):
+        bot.config.set_by_path(['telesync_do_not_keep_photos'], True)
+
+    if not bot.memory.exists(['telesync_ho2tg']):
+        bot.memory.set_by_path(['telesync_ho2tg'], {})
+
+    if not bot.memory.exists(['telesync_tg2ho']):
+        bot.memory.set_by_path(['telesync_tg2ho'], {})
+
+        # plugins.register_admin_command(["telesync"])
+
+    global tg_bot
+    tg_bot_token = bot.config.get_by_path(['telegram_bot_api_key'])
+
+    loop = asyncio.get_event_loop()
+
+    tg_bot = TelegramBot(tg_bot_token, bot)
+    tg_bot.set_on_message_callback(tg_on_message)
+    tg_bot.set_on_photo_callback(tg_on_photo)
+    tg_bot.set_on_user_join_callback(tg_on_user_join)
+    tg_bot.set_on_user_leave_callback(tg_on_user_leave)
+    tg_bot.add_command("/whereami", tg_command_whereami)
+    tg_bot.add_command("/setsyncho", tg_command_set_sync_ho)
+    tg_bot.add_command("/clearsyncho", tg_command_clear_sync_ho)
+
+    loop.create_task(tg_bot.messageLoop())
+
+
+@command.register(admin=True)
 def telesync(bot, event, *args):
     '''
     /bot telesync <telegram chat id> - set sync with telegram group
@@ -243,44 +337,36 @@ def telesync(bot, event, *args):
     bot.memory.set_by_path(['telesync_ho2tg'], ho2tg_dict)
 
 
-def _initialise(bot):
-    print(os.getcwd())
-
-    if not bot.config.exists(['telegram_bot_api_key']):
-        bot.config.set_by_path(['telegram_bot_api_key'], "PUT_YOUR_TELEGRAM_API_KEY_HERE")
-
-    # Don't keep photos on disk after sync done by default
-    if not bot.config.exists(['telesync_do_not_keep_photos']):
-        bot.config.set_by_path(['telesync_do_not_keep_photos'], True)
-
-    if not bot.memory.exists(['telesync_ho2tg']):
-        bot.memory.set_by_path(['telesync_ho2tg'], {})
-
-    if not bot.memory.exists(['telesync_tg2ho']):
-        bot.memory.set_by_path(['telesync_tg2ho'], {})
-
-    plugins.register_admin_command(["telesync"])
-
-    global tg_bot
-    tg_bot_token = bot.config.get_by_path(['telegram_bot_api_key'])
-
-    loop = asyncio.get_event_loop()
-
-    tg_bot = TelegramBot(tg_bot_token, bot)
-    tg_bot.set_on_message_callback(tg_on_message)
-    tg_bot.set_on_photo_callback(tg_on_photo)
-    tg_bot.add_command("/whereami", tg_command_whereami)
-    tg_bot.add_command("/setsyncho", tg_command_set_sync_ho)
-    tg_bot.add_command("/clearsyncho", tg_command_clear_sync_ho)
-
-    loop.create_task(tg_bot.messageLoop())
-
-
 @handler.register(priority=5, event=hangups.ChatMessageEvent)
 def _on_hangouts_message(bot, event, command=""):
     global tg_bot
+
+    if event.text.startswith('/'):  # don't sync /bot commands
+        return
+
     ho2tg_dict = bot.memory.get_by_path(['telesync_ho2tg'])
 
     if event.conv_id in ho2tg_dict:
         text = "{uname} on {gname}: {text}".format(uname=event.user.full_name, gname=event.conv.name, text=event.text)
+        yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text)
+
+
+@handler.register(priority=5, event=hangups.MembershipChangeEvent)
+def _on_membership_change(bot, event, command=""):
+    # Generate list of added or removed users
+    event_users = [event.conv.get_user(user_id) for user_id
+                   in event.conv_event.participant_ids]
+    names = ', '.join([user.full_name for user in event_users])
+
+    text = ""
+
+    if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
+        text = "{user} joined {group}".format(user=event.user.full_name, group=event.conv.name)
+    else:
+        # TODO: FIX: Need to show new comers name but currently shows adders name
+        text = "{user} left {group}".format(user=names, group=event.conv.name)
+
+    ho2tg_dict = bot.memory.get_by_path(['telesync_ho2tg'])
+
+    if event.conv_id in ho2tg_dict:
         yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text)
