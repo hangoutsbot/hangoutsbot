@@ -57,6 +57,7 @@ import plugins
 import emoji
 from websocket import WebSocketConnectionClosedException
 from slackclient import SlackClient
+import html # for html.unescape
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +204,9 @@ class SlackMessage(object):
                     text = match.group(1)
                     file_attachment = match.group(2)
 
+        # text now contains the real message, but html entities have to be dequoted still
+        text = html.unescape(text)
+        
         username4ho = username
         realname4ho = username
         if not is_bot:
