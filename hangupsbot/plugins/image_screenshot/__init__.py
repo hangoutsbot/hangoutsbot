@@ -13,9 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 _externals = { "running": False }
-
 _internal = {"browser": None}
-
 
 dcap = dict(DesiredCapabilities.PHANTOMJS)
 dcap["phantomjs.page.settings.userAgent"] = (
@@ -123,7 +121,7 @@ def screenshot(bot, event, *args):
             image_data = yield from _screencap(_internal['browser'], url, filepath)
         except Exception as e:
             yield from bot.coro_send_message(event.conv_id, "<i>error getting screenshot</i>")
-            logger.exception("screencap failed".format(url))            
+            logger.exception("screencap failed".format(url))
             return
         finally:
             _externals["running"] = False
