@@ -44,31 +44,36 @@ def _initalize(bot):
     else:
         logger.error('SHOWME: config["showme"] dict required')
 
+def sendSource(bot, event, name, imgLink):
+    logger.info("Getting {}".format(imgLink))
+    r = yield from aiohttp.request("get", imgLink)
+    raw = yield from r.read()
+    contentType = r.headers['Content-Type']
+    logger.info("\tContent-type: {}".format(contentType))
+    ext = contentType.split('/')[1]
+    image_data = io.BytesIO(raw)
+    filename = "{}_{}.{}".format(name, int(time.time()), ext)
+    try:
+        image_id = yield from bot._client.upload_image(image_data, filename=filename)
+    except:
+        yield from bot.coro_send_message(event.conv, _("I'm sorry, I couldn't upload a {} image".format(ext)))
+    else:
+        yield from bot.coro_send_message(event.conv.id_, None, image_id=image_id)
+
 def showme(bot, event, *args):
-    """Retrieve images from showme sources by saying: "/bot showme SOURCE" or list sources by saying "/bot showme sources" """
+    """Retrieve images from showme sources by saying: "/bot showme SOURCE" or list sources by saying "/bot showme sources" or all sources by saying "/bot showme all" """
     sources = bot.get_config_option("showme")
     if not len(args):
         yield from bot.coro_send_message(event.conv, _("Show you what?"))
-    elif args[0].lower() in ('sources',):
+    elif args[0].lower() == 'sources':
         html = """My sources are:<br />"""
         for name in sources.keys():
             html += " * {}<br />".format(name)
         yield from bot.coro_send_message(event.conv, _(html))
+    elif args[0].lower() == 'all':
+        for name, source in sources.items():
+            yield from sendSource(bot, event, name, source)
     elif not args[0] in sources:
         yield from bot.coro_send_message(event.conv, _("I don't know a \"{}\", try sources".format(args[0])))
     else:
-        imgLink = sources[args[0]]
-        logger.info("Getting {}".format(imgLink))
-        r = yield from aiohttp.request("get", imgLink)
-        raw = yield from r.read()
-        contentType = r.headers['Content-Type']
-        logger.info("\tContent-type: {}".format(contentType))
-        ext = contentType.split('/')[1]
-        image_data = io.BytesIO(raw)
-        filename = "{}_{}.{}".format(args[0], int(time.time()), ext) # For the moment, we will just assume jpeg, really we should look inside the xheaders
-        try:
-            image_id = yield from bot._client.upload_image(image_data, filename=filename)
-        except:
-            yield from bot.coro_send_message(event.conv, _("I'm sorry, I couldn't upload a {} images".format(ext)))
-        else:
-            yield from bot.coro_send_message(event.conv.id_, None, image_id=image_id)
+        yield from sendSource(bot, event, args[0], sources[args[0]])
