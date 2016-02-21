@@ -95,10 +95,8 @@ class TelegramBot(telepot.async.Bot):
             elif content_type == 'left_chat_participant':
                 yield from self.onUserLeaveCallback(self, chat_id, msg)
 
-
             elif content_type == 'photo':
                 yield from self.onPhotoCallback(self, chat_id, msg)
-
 
         elif flavor == "inline_query":  # inline query e.g. "@gif cute panda"
             query_id, from_id, query_string = telepot.glance2(msg, flavor=flavor)
@@ -113,10 +111,10 @@ class TelegramBot(telepot.async.Bot):
 
 
 def tg_util_get_group_name(msg):
-    '''
+    """
     :param msg: msg object from telepot
     :return: if msg sent to a group, will return Groups name, return msg type otherwise
-    '''
+    """
     title = msg['chat']['type']
     if title == 'group':
         title = msg['chat']['title']
@@ -305,10 +303,10 @@ def _initialise(bot):
 
 @command.register(admin=True)
 def telesync(bot, event, *args):
-    '''
+    """
     /bot telesync <telegram chat id> - set sync with telegram group
     /bot telesync - disable sync and clear sync data from memory
-    '''
+    """
     parameters = list(args)
 
     tg2ho_dict = bot.memory.get_by_path(['telesync_tg2ho'])
