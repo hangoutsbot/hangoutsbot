@@ -110,9 +110,8 @@ def screenshot(bot, event, *args):
             browser = webdriver.PhantomJS(desired_capabilities=dcap,service_log_path=os.path.devnull)
         except selenium.common.exceptions.WebDriverException as e:
             yield from bot.coro_send_message(event.conv, "<i>phantomjs could not be started - is it installed?</i>".format(e))
-            return
-        finally:
             _externals["running"] = False
+            return
 
         try:
             loop = asyncio.get_event_loop()
@@ -120,9 +119,8 @@ def screenshot(bot, event, *args):
         except Exception as e:
             yield from bot.coro_send_message(event.conv_id, "<i>error getting screenshot</i>")
             logger.exception("screencap failed".format(url))
-            return
-        finally:
             _externals["running"] = False
+            return
             
         try:
             image_id = yield from bot._client.upload_image(image_data, filename=filename)
