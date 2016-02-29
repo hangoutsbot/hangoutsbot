@@ -123,9 +123,8 @@ def screenshot(bot, event, *args):
         except Exception as e:
             yield from bot.coro_send_message(event.conv_id, "<i>error getting screenshot</i>")
             logger.exception("screencap failed".format(url))
-            return
-        finally:
             _externals["running"] = False
+            return
             
         try:
             image_id = yield from bot._client.upload_image(image_data, filename=filename)
