@@ -143,7 +143,7 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
 
     if str(tg_chat_id) in tg2ho_dict:
-        text = "{uname} on {gname}: {text}".format(uname=msg['from']['first_name'],
+        text = "<b>{uname}</b> <b>{gname}</b>: {text}".format(uname=msg['from']['first_name'],
                                                    gname=tg_util_get_group_name(msg),
                                                    text=msg['text'])
 
@@ -169,7 +169,7 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
         # TODO: find a better way to handling file paths
         photo_path = 'hangupsbot/plugins/telesync_photos/' + photo_id + ".jpg"
 
-        text = "Uploading photo from {uname} on {gname}...".format(uname=msg['from']['first_name'],
+        text = "Uploading photo from <b>{uname}</b> in <b>{gname}</b>...".format(uname=msg['from']['first_name'],
                                                                    gname=tg_util_get_group_name(msg))
         yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
 
@@ -196,7 +196,7 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
 def tg_on_user_join(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
     if str(tg_chat_id) in tg2ho_dict:
-        text = "{uname} joined to {gname}".format(uname=msg['new_chat_participant']['first_name'],
+        text = "<b>{uname}</b> joined <b>{gname}</b>".format(uname=msg['new_chat_participant']['first_name'],
                                                   gname=tg_util_get_group_name(msg))
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
@@ -211,7 +211,7 @@ def tg_on_user_join(tg_bot, tg_chat_id, msg):
 def tg_on_user_leave(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
     if str(tg_chat_id) in tg2ho_dict:
-        text = "{uname} left {gname}".format(uname=msg['left_chat_participant']['first_name'],
+        text = "<b>{uname}</b> left <b>{gname}</b>".format(uname=msg['left_chat_participant']['first_name'],
                                              gname=tg_util_get_group_name(msg))
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
