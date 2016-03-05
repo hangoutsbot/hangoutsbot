@@ -348,10 +348,10 @@ def _on_hangouts_message(bot, event, command=""):
 
     if event.conv_id in ho2tg_dict:
         user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
-        text = "[{uname}](user_gplus) on *({gname})*: {text}".format(uname=event.user.full_name,
+        text = "[{uname}]({user_gplus}) on *({gname})*: {text}".format(uname=event.user.full_name,
                                                                      user_gplus=user_gplus,
                                                                      gname=event.conv.name, text=event.text)
-        yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='Markdown')
+        yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='Markdown', disable_web_page_preview=True)
 
 
 @handler.register(priority=5, event=hangups.MembershipChangeEvent)
