@@ -348,10 +348,18 @@ def _on_hangouts_message(bot, event, command=""):
 
     if event.conv_id in ho2tg_dict:
         user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
-        text = "[{uname}]({user_gplus}) on *({gname})*: {text}".format(uname=event.user.full_name,
-                                                                     user_gplus=user_gplus,
-                                                                     gname=event.conv.name, text=event.text)
-        yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='Markdown', disable_web_page_preview=True)
+        text = "[{uname}]({user_gplus}) *({gname})*: {text}".format(uname=event.user.full_name,
+                                                                    user_gplus=user_gplus,
+                                                                    gname=event.conv.name, text=event.text)
+        yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='Markdown',
+                                      disable_web_page_preview=True)
+
+
+def create_membership_change_message(user_name, user_gplus, group_name, membership_event="left"):
+    text = "[{uname}]({user_gplus}) {membership_event} *({gname})*".format(uname=user_name, user_gplus=user_gplus,
+                                                                           gname=group_name,
+                                                                           membership_event=membership_event)
+    return text
 
 
 @handler.register(priority=5, event=hangups.MembershipChangeEvent)
@@ -361,15 +369,13 @@ def _on_membership_change(bot, event, command=""):
                    in event.conv_event.participant_ids]
     names = ', '.join([user.full_name for user in event_users])
 
-    text = ""
+    user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
 
-    if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
-        text = "{user} joined {group}".format(user=event.user.full_name, group=event.conv.name)
-    else:
-        # TODO: FIX: Need to show new comers name but currently shows adders name
-        text = "*{user}* left *[{group}]*".format(user=names, group=event.conv.name)
+    membership_event = "joined" if event.conv_event.type_ == hangups.MembershipChangeType.JOIN else "left"
+    text = create_membership_change_message(names, user_gplus, event.conv.name, membership_event)
 
     ho2tg_dict = bot.memory.get_by_path(['telesync_ho2tg'])
 
     if event.conv_id in ho2tg_dict:
-        yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='Markdown')
+        yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='Markdown',
+                                      disable_web_page_preview=True)
