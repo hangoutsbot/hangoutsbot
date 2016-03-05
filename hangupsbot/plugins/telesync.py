@@ -347,8 +347,11 @@ def _on_hangouts_message(bot, event, command=""):
     ho2tg_dict = bot.memory.get_by_path(['telesync_ho2tg'])
 
     if event.conv_id in ho2tg_dict:
-        text = "{uname} on {gname}: {text}".format(uname=event.user.full_name, gname=event.conv.name, text=event.text)
-        yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text)
+        user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
+        text = "[{uname}](user_gplus) on *({gname})*: {text}".format(uname=event.user.full_name,
+                                                                     user_gplus=user_gplus,
+                                                                     gname=event.conv.name, text=event.text)
+        yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='Markdown')
 
 
 @handler.register(priority=5, event=hangups.MembershipChangeEvent)
@@ -364,9 +367,9 @@ def _on_membership_change(bot, event, command=""):
         text = "{user} joined {group}".format(user=event.user.full_name, group=event.conv.name)
     else:
         # TODO: FIX: Need to show new comers name but currently shows adders name
-        text = "{user} left {group}".format(user=names, group=event.conv.name)
+        text = "*{user}* left *[{group}]*".format(user=names, group=event.conv.name)
 
     ho2tg_dict = bot.memory.get_by_path(['telesync_ho2tg'])
 
     if event.conv_id in ho2tg_dict:
-        yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text)
+        yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='Markdown')
