@@ -25,6 +25,7 @@ class TelegramBot(telepot.async.Bot):
         self.onPhotoCallback = TelegramBot.on_photo
         self.onUserJoinCallback = TelegramBot.on_user_join
         self.onUserLeaveCallback = TelegramBot.on_user_leave
+        self.onLocationShareCallback = TelegramBot.on_location_share
         self.ho_bot = hangupsbot
 
     def add_command(self, cmd, func):
@@ -62,6 +63,10 @@ class TelegramBot(telepot.async.Bot):
     def on_user_leave(bot, chat_id, msg):
         print("{name} Left the gorup".format(name=msg['left_chat_participant']['first_name']))
 
+    @staticmethod
+    def on_location_share(bot, chat_id, msg):
+        print("{name} shared a location".format(name=msg['left_chat_participant']['first_name']))
+
     def set_on_message_callback(self, func):
         self.onMessageCallback = func
 
@@ -73,6 +78,9 @@ class TelegramBot(telepot.async.Bot):
 
     def set_on_user_leave_callback(self, func):
         self.onUserLeaveCallback = func
+
+    def set_on_location_share_callback(self, func):
+        self.onLocationShareCallback = func
 
     @asyncio.coroutine
     def handle(self, msg):
@@ -90,6 +98,9 @@ class TelegramBot(telepot.async.Bot):
 
                 else:  # plain text message
                     yield from self.onMessageCallback(self, chat_id, msg)
+
+            elif content_type == 'location':
+                yield from self.onLocationShareCallback(self, chat_id, msg)
 
             elif content_type == 'new_chat_participant':
                 yield from self.onUserJoinCallback(self, chat_id, msg)
@@ -138,6 +149,22 @@ def tg_util_get_photo_list(msg):
         photos = sorted(photos, key=lambda k: k['width'])
 
     return photos
+
+
+def tg_util_location_share_get_lat_long(msg):
+    lat = ""
+    long = ""
+    if 'location' in msg:
+        loc = msg['location']
+        lat = loc['latitude']
+        long = loc['longitude']
+
+    return lat, long
+
+
+def tg_util_create_gmaps_url(lat, long, https=True):
+    return "{https}://maps.google.com/maps?q={lat},{long}".format(https='https' if https else 'http', lat=lat,
+                                                                  long=long)
 
 
 @asyncio.coroutine
@@ -222,6 +249,25 @@ def tg_on_user_leave(tg_bot, tg_chat_id, msg):
         # yield from tg_bot.sendMessage(tg_chat_id, text)
 
         logger.info("[TELESYNC] {text}".format(text=text))
+
+
+@asyncio.coroutine
+def tg_on_location_share(tg_bot, tg_chat_id, msg):
+    lat, long = tg_util_location_share_get_lat_long(msg)
+    maps_url = tg_util_create_gmaps_url(lat, long)
+
+    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
+
+    if str(tg_chat_id) in tg2ho_dict:
+        text = "<b>{uname}</b> <b>({gname})</b>: {text}".format(uname=msg['from']['first_name'],
+                                                                gname=tg_util_get_group_name(msg),
+                                                                text=maps_url)
+
+        ho_conv_id = tg2ho_dict[str(tg_chat_id)]
+        yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
+
+        logger.info("[TELESYNC] Telegram location forwarded: {msg} to: {ho_conv_id}".format(msg=maps_url,
+                                                                                            ho_conv_id=ho_conv_id))
 
 
 def tg_command_whereami(bot, chat_id, params):
@@ -359,8 +405,6 @@ def is_animated_photo(file_name):
     return True if get_photo_extension(file_name).endswith((".gif", ".gifv", ".webm", ".mp4")) else False
 
 
-
-
 @handler.register(priority=5, event=hangups.ChatMessageEvent)
 def _on_hangouts_message(bot, event, command=""):
     global tg_bot
@@ -410,7 +454,6 @@ def _on_hangouts_message(bot, event, command=""):
 
             if tg_bot.ho_bot.config.get_by_path(['telesync_do_not_keep_photos']):
                 os.remove(photo_path)  # don't use unnecessary space on disk
-
 
 
 def create_membership_change_message(user_name, user_gplus, group_name, membership_event="left"):
