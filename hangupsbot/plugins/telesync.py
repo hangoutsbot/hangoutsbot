@@ -342,7 +342,8 @@ def telesync(bot, event, *args):
 def is_valid_image_link(url):
     if ' ' in url:
         return False
-    url = url.lower
+
+    url = url.lower()
     if url.startswith('http://') or url.startswith('https://'):
         if url.endswith(".jpg", ".gif", ".gifv", ".webm", ".png"):
             return True
@@ -352,6 +353,10 @@ def is_valid_image_link(url):
 
 def get_photo_extension(file_name):
     return ".{}".format(file_name.rpartition('.')[-1])
+
+
+def is_animated_photo(file_name):
+    return True if get_photo_extension(file_name).endswith((".gif", ".gifv", ".webm")) else False
 
 
 @handler.register(priority=5, event=hangups.ChatMessageEvent)
@@ -395,7 +400,11 @@ def _on_hangouts_message(bot, event, command=""):
                 raw_data = yield from resp.read()
                 with open(photo_path, "wb") as f:
                     f.write(raw_data)
-                yield from tg_bot.sendPhoto(ho2tg_dict[event.conv_id], open(photo_path, 'rb'))
+                    
+                if is_animated_photo(photo_path):
+                    yield from tg_bot.sendDocument(ho2tg_dict[event.conv_id], open(photo_path, 'rb'))
+                else:
+                    yield from tg_bot.sendPhoto(ho2tg_dict[event.conv_id], open(photo_path, 'rb'))
 
             if tg_bot.ho_bot.config.get_by_path(['telesync_do_not_keep_photos']):
                 os.remove(photo_path)  # don't use unnecessary space on disk
