@@ -385,12 +385,14 @@ def _on_hangouts_message(bot, event, command=""):
                 os.makedirs(file_dir)
 
             with aiohttp.ClientSession() as session:
-                r = yield from session.get(photo_url)
-                raw = yield from r.read()
-                image_data = io.BytesIO(raw)
+                resp = yield from session.get(photo_url)
+                raw_data = yield from resp.read()
                 with open(photo_path, "wb") as f:
-                    f.write(image_data)
-                #tg_bot.sendPhoto(ho2tg_dict[event.conv_id], image_data)
+                    f.write(raw_data)
+                yield from tg_bot.sendPhoto(ho2tg_dict[event.conv_id], open(photo_path, 'rb'))
+
+            if tg_bot.ho_bot.config.get_by_path(['telesync_do_not_keep_photos']):
+                os.remove(photo_path)  # don't use unnecessary space on disk
 
 
 
