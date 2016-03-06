@@ -11,6 +11,14 @@
       "Hello world!"
     ]
   ],
+  "users_whitelisted" : [
+    "10121212111111212112",
+    "11121212121212121121"
+  ],
+    "users_blacklisted" : [
+    "10121212111111212112",
+    "11121212121212121121"
+  ],
   "commands_user": [],
   "commands_enabled": true,
   "conversations": {
