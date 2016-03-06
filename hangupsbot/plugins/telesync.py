@@ -342,6 +342,7 @@ def _initialise(bot):
     tg_bot.set_on_photo_callback(tg_on_photo)
     tg_bot.set_on_user_join_callback(tg_on_user_join)
     tg_bot.set_on_user_leave_callback(tg_on_user_leave)
+    tg_bot.set_on_location_share_callback(tg_on_location_share)
     tg_bot.add_command("/whereami", tg_command_whereami)
     tg_bot.add_command("/setsyncho", tg_command_set_sync_ho)
     tg_bot.add_command("/clearsyncho", tg_command_clear_sync_ho)
