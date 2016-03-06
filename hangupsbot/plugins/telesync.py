@@ -342,12 +342,16 @@ def telesync(bot, event, *args):
 def is_valid_image_link(url):
     if ' ' in url:
         return False
-
+    url = url.lower
     if url.startswith('http://') or url.startswith('https://'):
-        if url.endswith('jpeg') or url.endswith('jpg'):
+        if url.endswith(".jpg", ".gif", ".gifv", ".webm", ".png"):
             return True
     else:
         return False
+
+
+def get_photo_extension(file_name):
+    return ".{}".format(file_name.rpartition('.')[-1])
 
 
 @handler.register(priority=5, event=hangups.ChatMessageEvent)
@@ -377,7 +381,9 @@ def _on_hangouts_message(bot, event, command=""):
                                       disable_web_page_preview=True)
         if has_photo:
             photo_name = photo_url.rpartition('/')[-1]
-            photo_name = photo_name.replace('.jpg', '-{}.jpg'.format(random.randint(1, 100000)))
+            photo_ext = get_photo_extension(photo_url)
+            photo_name = photo_name.replace(photo_ext, '-{rand}{ext}'.format(
+                rand=random.randint(1, 100000), ext=photo_ext))
             photo_path = 'hangupsbot/plugins/telesync_photos/' + photo_name
 
             file_dir = os.path.dirname(photo_path)
