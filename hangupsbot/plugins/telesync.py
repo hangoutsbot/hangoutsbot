@@ -345,7 +345,7 @@ def is_valid_image_link(url):
 
     url = url.lower()
     if url.startswith('http://') or url.startswith('https://'):
-        if url.endswith(".jpg", ".gif", ".gifv", ".webm", ".png"):
+        if url.endswith((".jpg", ".gif", ".gifv", ".webm", ".png")):
             return True
     else:
         return False
@@ -400,7 +400,7 @@ def _on_hangouts_message(bot, event, command=""):
                 raw_data = yield from resp.read()
                 with open(photo_path, "wb") as f:
                     f.write(raw_data)
-                    
+
                 if is_animated_photo(photo_path):
                     yield from tg_bot.sendDocument(ho2tg_dict[event.conv_id], open(photo_path, 'rb'))
                 else:
