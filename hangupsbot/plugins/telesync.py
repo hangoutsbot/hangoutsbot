@@ -345,7 +345,7 @@ def is_valid_image_link(url):
 
     url = url.lower()
     if url.startswith('http://') or url.startswith('https://'):
-        if url.endswith((".jpg", ".gif", ".gifv", ".webm", ".png")):
+        if url.endswith((".jpg", ".gif", ".gifv", ".webm", ".png", ".mp4")):
             return True
     else:
         return False
@@ -356,7 +356,9 @@ def get_photo_extension(file_name):
 
 
 def is_animated_photo(file_name):
-    return True if get_photo_extension(file_name).endswith((".gif", ".gifv", ".webm")) else False
+    return True if get_photo_extension(file_name).endswith((".gif", ".gifv", ".webm", ".mp4")) else False
+
+
 
 
 @handler.register(priority=5, event=hangups.ChatMessageEvent)
