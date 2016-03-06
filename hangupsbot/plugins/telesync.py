@@ -5,10 +5,12 @@ import io
 import asyncio
 import hangups
 import plugins
+import aiohttp
 import telepot
 import telepot.async
 from handlers import handler
 from commands import command
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -144,8 +146,8 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
 
     if str(tg_chat_id) in tg2ho_dict:
         text = "<b>{uname}</b> <b>({gname})</b>: {text}".format(uname=msg['from']['first_name'],
-                                                   gname=tg_util_get_group_name(msg),
-                                                   text=msg['text'])
+                                                                gname=tg_util_get_group_name(msg),
+                                                                text=msg['text'])
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
         yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
@@ -170,7 +172,7 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
         photo_path = 'hangupsbot/plugins/telesync_photos/' + photo_id + ".jpg"
 
         text = "Uploading photo from <b>{uname}</b> in <b>{gname}</b>...".format(uname=msg['from']['first_name'],
-                                                                   gname=tg_util_get_group_name(msg))
+                                                                                 gname=tg_util_get_group_name(msg))
         yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
 
         file_dir = os.path.dirname(photo_path)
@@ -197,7 +199,7 @@ def tg_on_user_join(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
     if str(tg_chat_id) in tg2ho_dict:
         text = "<b>{uname}</b> joined <b>{gname}</b>".format(uname=msg['new_chat_participant']['first_name'],
-                                                  gname=tg_util_get_group_name(msg))
+                                                             gname=tg_util_get_group_name(msg))
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
         yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
@@ -212,7 +214,7 @@ def tg_on_user_leave(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
     if str(tg_chat_id) in tg2ho_dict:
         text = "<b>{uname}</b> left <b>{gname}</b>".format(uname=msg['left_chat_participant']['first_name'],
-                                             gname=tg_util_get_group_name(msg))
+                                                           gname=tg_util_get_group_name(msg))
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
         yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
@@ -337,6 +339,17 @@ def telesync(bot, event, *args):
     bot.memory.set_by_path(['telesync_ho2tg'], ho2tg_dict)
 
 
+def is_valid_image_link(url):
+    if ' ' in url:
+        return False
+
+    if url.startswith('http://') or url.startswith('https://'):
+        if url.endswith('jpeg') or url.endswith('jpg'):
+            return True
+    else:
+        return False
+
+
 @handler.register(priority=5, event=hangups.ChatMessageEvent)
 def _on_hangouts_message(bot, event, command=""):
     global tg_bot
@@ -344,15 +357,41 @@ def _on_hangouts_message(bot, event, command=""):
     if event.text.startswith('/'):  # don't sync /bot commands
         return
 
+    has_photo = False
+    sync_text = event.text
+    photo_url = ""
+
+    if is_valid_image_link(sync_text):
+        photo_url = sync_text
+        sync_text = "(shared an image)"
+        has_photo = True
+
     ho2tg_dict = bot.memory.get_by_path(['telesync_ho2tg'])
 
     if event.conv_id in ho2tg_dict:
         user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
         text = "[{uname}]({user_gplus}) *({gname})*: {text}".format(uname=event.user.full_name,
                                                                     user_gplus=user_gplus,
-                                                                    gname=event.conv.name, text=event.text)
+                                                                    gname=event.conv.name, text=sync_text)
         yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='Markdown',
                                       disable_web_page_preview=True)
+        if has_photo:
+            photo_name = photo_url.rpartition('/')[-1]
+            photo_name = photo_name.replace('.jpg', '-{}.jpg'.format(random.randint(1, 100000)))
+            photo_path = 'hangupsbot/plugins/telesync_photos/' + photo_name
+
+            file_dir = os.path.dirname(photo_path)
+            if not os.path.exists(file_dir):
+                os.makedirs(file_dir)
+
+            with aiohttp.ClientSession() as session:
+                r = yield from session.get(photo_url)
+                raw = yield from r.read()
+                image_data = io.BytesIO(raw)
+                with open(photo_path, "wb") as f:
+                    f.write(image_data)
+                #tg_bot.sendPhoto(ho2tg_dict[event.conv_id], image_data)
+
 
 
 def create_membership_change_message(user_name, user_gplus, group_name, membership_event="left"):
