@@ -150,6 +150,54 @@ class EventHandler:
     def handle_command(self, event):
         """Handle command messages"""
 
+        # Is user blocked or allowed?
+        
+        # to do : - Admin check   - done
+        #         - add default commands to add and remove users from both list
+        #         - add config directive for debug prints
+        #         - add convtools integration
+        #         - add tagset integration
+        #         - check error handling
+        #         - add logging of blacklisted users issueing commands
+        #         - clean up (duplicate) code
+        
+
+        users_whitelisted = self.bot.get_config_option( 'users_whitelisted')
+        users_blacklisted = self.bot.get_config_option( 'users_blacklisted')
+        admins_list = self.bot.get_config_suboption(event.conv_id, 'admins') or []
+        
+        if not event.user_id.chat_id in admins_list:
+          
+          if users_whitelisted:
+            print('Whitelist:')
+            print(users_whitelisted)
+            if event.user_id.chat_id in users_whitelisted:
+              print ('user is in whitelist : ')
+              print (event.user_id.chat_id)
+
+            else:
+              print ('user is NOT in whitelist : ')
+              print (event.user_id.chat_id)
+              return
+
+
+
+          elif users_blacklisted:
+            print('Blacklist:')
+            print( users_blacklisted)
+            if not event.user_id.chat_id in users_blacklisted:
+              print ('user is NOT in blacklist : ')
+              print (event.user_id.chat_id)
+
+            else:
+              print ('user is in blacklist : ')
+              print(event.user_id.chat_id)
+              return
+
+        
+        
+        
+        
         # is commands_enabled?
 
         config_commands_enabled = self.bot.get_config_suboption(event.conv_id, 'commands_enabled')
@@ -187,7 +235,7 @@ class EventHandler:
                 yield from self.bot.coro_send_message(event.conv, _('{}: Missing parameter(s)').format(
                     event.user.full_name))
             return
-        
+
         commands = command.get_available_commands(self.bot, event.user.id_.chat_id, event.conv_id)
 
         supplied_command = line_args[1].lower()
