@@ -92,6 +92,13 @@ def ping(bot, event, *args):
 
     return { "api.response": "pong" }
 
+@command.register
+def c(bot, event, *args):
+    
+    lastcommand = bot.user_memory_get(event.user.id_.chat_id, 'lastcommand')
+    yield from bot.coro_send_message(event.conv, '<b>Last command :<br>' + lastcommand , context={ "parser": True })
+
+    yield from command.run(bot, event, *lastcommand.split())
 
 @command.register
 def optout(bot, event, *args):
