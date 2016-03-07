@@ -358,6 +358,10 @@ def tg_command_add_bot_admin(bot, chat_id, args):
         yield from bot.sendMessage(chat_id, "Only admins can do that")
         return
 
+    if len(params) != 1:
+        yield from bot.sendMessage(chat_id, "Illegal or Missing arguments!!!")
+        return
+
     text = ""
 
     admins = bot.ho_bot.config.get_by_path(['telegram_admins'])
@@ -376,7 +380,6 @@ def tg_command_remove_bot_admin(bot, chat_id, args):
     user_id = args['user_id']
     params = args['params']
     chat_type = args['chat_type']
-    target_user = str(params[0])
 
     if 'private' != chat_type:
         yield from bot.sendMessage(chat_id, "This command must be invoked in private chat")
@@ -385,6 +388,12 @@ def tg_command_remove_bot_admin(bot, chat_id, args):
     if not bot.is_telegram_admin(user_id):
         yield from bot.sendMessage(chat_id, "Only admins can do that")
         return
+
+    if len(params) != 1:
+        yield from bot.sendMessage(chat_id, "Illegal or Missing arguments!!!")
+        return
+
+    target_user = str(params[0])
 
     text = ""
     admins = bot.ho_bot.config.get_by_path(['telegram_admins'])
