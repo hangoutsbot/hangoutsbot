@@ -95,7 +95,7 @@ class TelegramBot(telepot.async.Bot):
         self.onLocationShareCallback = func
 
     def is_telegram_admin(self, user_id):
-        tg_admins = self.ho_bot.config.get_by_path('telegram_admins')
+        tg_admins = self.ho_bot.config.get_by_path(['telegram_admins'])
         return True if str(user_id) in tg_admins else False
 
     @asyncio.coroutine
@@ -351,7 +351,7 @@ def tg_commad_add_bot_admin(bot, chat_id, args):
 
     text = ""
 
-    admins = bot.ho_bot.config.get_by_path('telegram_admins')
+    admins = bot.ho_bot.config.get_by_path(['telegram_admins'])
     if str(params[0]) not in admins:
         admins.append(str(params[0]))
         text = "User added to admins"
