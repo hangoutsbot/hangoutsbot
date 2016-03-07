@@ -204,6 +204,8 @@ class EventHandler:
 
         # Run command
         results = yield from command.run(self.bot, event, *line_args[1:])
+        if not line_args[1] == 'c' :
+            self.bot.user_memory_set(event.user.id_.chat_id, 'lastcommand', ' '.join(line_args[1:]))
 
         if "acknowledge" in dir(event):
             for id in event.acknowledge:
