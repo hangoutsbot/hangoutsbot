@@ -34,5 +34,9 @@
     "dnd",
     "starter",
     "remind"
-  ]
+    "telesync"
+  ],
+  "telegram_bot_api_key":"PUT_YOUR_TELEGRAM_API_KEY_HERE",
+  "telesync_do_not_keep_photos":true,
+  "telegram_admins":[]
 }

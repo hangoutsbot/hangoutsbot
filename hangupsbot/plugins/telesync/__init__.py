@@ -48,6 +48,18 @@ class TelegramBot(telepot.async.Bot):
         return txt_split[0].split("@")[0], txt_split[1:]
 
     @staticmethod
+    def get_user_id(msg):
+        if 'from' in msg:
+            return str(msg['from']['id'])
+        return ""
+
+    @staticmethod
+    def get_username(msg):
+        if 'username' in msg['from']:
+            return str(msg['from']['username'])
+        return ""
+
+    @staticmethod
     def on_message(bot, chat_id, msg):
         print("[MSG] {uid} : {txt}".format(uid=msg['from']['id'], txt=msg['text']))
 
@@ -82,6 +94,10 @@ class TelegramBot(telepot.async.Bot):
     def set_on_location_share_callback(self, func):
         self.onLocationShareCallback = func
 
+    def is_telegram_admin(self, user_id):
+        tg_admins = self.ho_bot.get_config_option('telegram_admins')
+        return True if str(user_id) in tg_admins else False
+
     @asyncio.coroutine
     def handle(self, msg):
         flavor = telepot.flavor(msg)
@@ -91,8 +107,10 @@ class TelegramBot(telepot.async.Bot):
             if content_type == 'text':
                 if TelegramBot.is_command(msg):  # bot command
                     cmd, params = TelegramBot.parse_command(msg['text'])
+                    user_id = TelegramBot.get_user_id(msg)
+                    args = {'params': params, 'user_id': user_id, 'chat_type': chat_type}
                     if cmd in self.commands:
-                        yield from self.commands[cmd](self, chat_id, params)
+                        yield from self.commands[cmd](self, chat_id, args)
                     else:
                         yield from self.sendMessage(chat_id, "Unknown command: {cmd}".format(cmd=cmd))
 
@@ -270,11 +288,22 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
                                                                                             ho_conv_id=ho_conv_id))
 
 
-def tg_command_whereami(bot, chat_id, params):
-    yield from bot.sendMessage(chat_id, "current group's id: {chat_id}".format(chat_id=chat_id))
+def tg_command_whereami(bot, chat_id, args):
+    user_id = args['user_id']
+    if bot.is_telegram_admin(user_id):
+        yield from bot.sendMessage(chat_id, "current group's id: '{chat_id}'".format(chat_id=chat_id))
+    else:
+        yield from bot.sendMessage(chat_id, "Only admins can do that")
 
 
-def tg_command_set_sync_ho(bot, chat_id, params):  # /setsyncho <hangout conv_id>
+def tg_command_set_sync_ho(bot, chat_id, args):  # /setsyncho <hangout conv_id>
+
+    user_id = args['user_id']
+    params = args['params']
+
+    if not bot.is_telegram_admin(user_id):
+        yield from bot.sendMessage(chat_id, "Only admins can do that")
+        return
 
     if len(params) != 1:
         yield from bot.sendMessage(chat_id, "Illegal or Missing arguments!!!")
@@ -292,7 +321,12 @@ def tg_command_set_sync_ho(bot, chat_id, params):  # /setsyncho <hangout conv_id
     yield from bot.sendMessage(chat_id, "Sync target set to {ho_conv_id}".format(ho_conv_id=str(params[0])))
 
 
-def tg_command_clear_sync_ho(bot, chat_id, params):
+def tg_command_clear_sync_ho(bot, chat_id, args):
+    user_id = args['user_id']
+    if not bot.is_telegram_admin(user_id):
+        yield from bot.sendMessage(chat_id, "Only admins can do that")
+        return
+
     tg2ho_dict = bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
     ho2tg_dict = bot.ho_bot.memory.get_by_path(['telesync_ho2tg'])
 
@@ -307,6 +341,27 @@ def tg_command_clear_sync_ho(bot, chat_id, params):
     yield from bot.sendMessage(chat_id, "Sync target cleared")
 
 
+def tg_commad_add_bot_admin(bot, chat_id, args):
+    user_id = args['user_id']
+    params = args['params']
+
+    if not bot.is_telegram_admin(user_id):
+        yield from bot.sendMessage(chat_id, "Only admins can do that")
+        return
+
+    text = ""
+
+    admins = bot.ho_bot.get_config_option('telegram_admins')
+    if str(params[0]) not in admins:
+        admins.append(str(params[0]))
+        text = "User added to admins"
+        bot.ho_bot.config.set_by_path(['telegram_admins'], admins)
+    else:
+        text = "User is already an admin"
+
+    yield from bot.sendMessage(chat_id, text)
+
+
 # TELEGRAM DEFINITIONS END
 
 # HANGOUTSBOT
@@ -319,6 +374,9 @@ def _initialise(bot):
 
     if not bot.config.exists(['telegram_bot_api_key']):
         bot.config.set_by_path(['telegram_bot_api_key'], "PUT_YOUR_TELEGRAM_API_KEY_HERE")
+
+    if not bot.config.exists(['telegram_admins']):
+        bot.config.set_by_path(['telegram_admins'], [])
 
     # Don't keep photos on disk after sync done by default
     if not bot.config.exists(['telesync_do_not_keep_photos']):
