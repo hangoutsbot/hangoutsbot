@@ -196,7 +196,7 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
         photo_id = photos[len(photos) - 1]['file_id']  # get photo id so we can download it
 
         # TODO: find a better way to handling file paths
-        photo_path = 'hangupsbot/plugins/telesync_photos/' + photo_id + ".jpg"
+        photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_id + ".jpg"
 
         text = "Uploading photo from <b>{uname}</b> in <b>{gname}</b>...".format(uname=msg['from']['first_name'],
                                                                                  gname=tg_util_get_group_name(msg))
@@ -436,7 +436,7 @@ def _on_hangouts_message(bot, event, command=""):
             photo_ext = get_photo_extension(photo_url)
             photo_name = photo_name.replace(photo_ext, '-{rand}{ext}'.format(
                 rand=random.randint(1, 100000), ext=photo_ext))
-            photo_path = 'hangupsbot/plugins/telesync_photos/' + photo_name
+            photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_name
 
             file_dir = os.path.dirname(photo_path)
             if not os.path.exists(file_dir):
