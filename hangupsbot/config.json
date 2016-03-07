@@ -33,7 +33,7 @@
     "cleverbot",
     "dnd",
     "starter",
-    "remind"
+    "remind",
     "telesync"
   ],
   "telegram_bot_api_key":"PUT_YOUR_TELEGRAM_API_KEY_HERE",
