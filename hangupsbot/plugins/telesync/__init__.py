@@ -288,6 +288,7 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
                                                                                             ho_conv_id=ho_conv_id))
 
 
+@asyncio.coroutine
 def tg_command_whereami(bot, chat_id, args):
     user_id = args['user_id']
     if bot.is_telegram_admin(user_id):
@@ -296,6 +297,7 @@ def tg_command_whereami(bot, chat_id, args):
         yield from bot.sendMessage(chat_id, "Only admins can do that")
 
 
+@asyncio.coroutine
 def tg_command_set_sync_ho(bot, chat_id, args):  # /setsyncho <hangout conv_id>
 
     user_id = args['user_id']
@@ -321,6 +323,7 @@ def tg_command_set_sync_ho(bot, chat_id, args):  # /setsyncho <hangout conv_id>
     yield from bot.sendMessage(chat_id, "Sync target set to {ho_conv_id}".format(ho_conv_id=str(params[0])))
 
 
+@asyncio.coroutine
 def tg_command_clear_sync_ho(bot, chat_id, args):
     user_id = args['user_id']
     if not bot.is_telegram_admin(user_id):
@@ -341,9 +344,15 @@ def tg_command_clear_sync_ho(bot, chat_id, args):
     yield from bot.sendMessage(chat_id, "Sync target cleared")
 
 
-def tg_commad_add_bot_admin(bot, chat_id, args):
+@asyncio.coroutine
+def tg_command_add_bot_admin(bot, chat_id, args):
     user_id = args['user_id']
     params = args['params']
+    chat_type = args['chat_type']
+
+    if 'private' != chat_type:
+        yield from bot.sendMessage(chat_id, "This command must be invoked in private chat")
+        return
 
     if not bot.is_telegram_admin(user_id):
         yield from bot.sendMessage(chat_id, "Only admins can do that")
@@ -354,10 +363,37 @@ def tg_commad_add_bot_admin(bot, chat_id, args):
     admins = bot.ho_bot.config.get_by_path(['telegram_admins'])
     if str(params[0]) not in admins:
         admins.append(str(params[0]))
-        text = "User added to admins"
         bot.ho_bot.config.set_by_path(['telegram_admins'], admins)
+        text = "User added to admins"
     else:
         text = "User is already an admin"
+
+    yield from bot.sendMessage(chat_id, text)
+
+
+@asyncio.coroutine
+def tg_command_remove_bot_admin(bot, chat_id, args):
+    user_id = args['user_id']
+    params = args['params']
+    chat_type = args['chat_type']
+    target_user = str(params[0])
+
+    if 'private' != chat_type:
+        yield from bot.sendMessage(chat_id, "This command must be invoked in private chat")
+        return
+
+    if not bot.is_telegram_admin(user_id):
+        yield from bot.sendMessage(chat_id, "Only admins can do that")
+        return
+
+    text = ""
+    admins = bot.ho_bot.config.get_by_path(['telegram_admins'])
+    if target_user in admins:
+        admins.remove(target_user)
+        bot.ho_bot.config.set_by_path(['telegram_admins'], admins)
+        text = "User removed from admins"
+    else:
+        text = "User is not an admin"
 
     yield from bot.sendMessage(chat_id, text)
 
@@ -404,6 +440,8 @@ def _initialise(bot):
     tg_bot.add_command("/whereami", tg_command_whereami)
     tg_bot.add_command("/setsyncho", tg_command_set_sync_ho)
     tg_bot.add_command("/clearsyncho", tg_command_clear_sync_ho)
+    tg_bot.add_command("/addadmin", tg_command_add_bot_admin)
+    tg_bot.add_command("/removeadmin", tg_command_remove_bot_admin)
 
     loop.create_task(tg_bot.messageLoop())
 
