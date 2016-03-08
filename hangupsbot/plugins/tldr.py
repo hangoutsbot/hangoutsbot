@@ -14,7 +14,7 @@ def tldr(bot, event, *args):
 
 def tldr_shared(bot, args):
     """
-
+    Shares tldr functionality with other plugins
     :param bot: hangouts bot
     :param args: a dictionary which holds arguments.
     Must contain 'params' (tldr command parameters) and 'conv_id' (Hangouts conv_id)
@@ -70,7 +70,7 @@ def tldr_base(bot, conv_id, parameters):
             html.append(_("TL;DR not found"))
         else:
             html.insert(0, _("<b>TL;DR ({} stored):</b>").format(len(conv_tldr)))
-        message = _("<br />".join(html))
+        message = _("\n".join(html))
 
         return message
 

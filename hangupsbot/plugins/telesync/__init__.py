@@ -406,6 +406,20 @@ def tg_command_remove_bot_admin(bot, chat_id, args):
 
     yield from bot.sendMessage(chat_id, text)
 
+@asyncio.coroutine
+def tg_command_tldr(bot, chat_id, args):
+    params = args['params']
+
+    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
+    if str(chat_id) in tg2ho_dict:
+        ho_conv_id = tg2ho_dict[str(chat_id)]
+        tldr_args = {'params' : params, 'conv_id' : ho_conv_id}
+        try:
+            text = bot.ho_bot.call_shared("plugin_tldr_shared", bot.ho_bot, tldr_args)
+            yield from bot.sendMessage(chat_id, text, parse_mode='HTML')
+        except KeyError as ke:
+            yield from bot.sendMessage(chat_id, "TLDR plugin is not active. KeyError: {e}".format(e=ke))
+
 
 # TELEGRAM DEFINITIONS END
 
@@ -451,6 +465,7 @@ def _initialise(bot):
     tg_bot.add_command("/clearsyncho", tg_command_clear_sync_ho)
     tg_bot.add_command("/addadmin", tg_command_add_bot_admin)
     tg_bot.add_command("/removeadmin", tg_command_remove_bot_admin)
+    tg_bot.add_command("/tldr", tg_command_tldr)
 
     loop.create_task(tg_bot.messageLoop())
 
