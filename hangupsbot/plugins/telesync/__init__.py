@@ -289,6 +289,16 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
 
 
 @asyncio.coroutine
+def tg_command_whoami(bot, chat_id, args):
+    user_id = args['user_id']
+    chat_type = args['chat_type']
+    if 'private' == chat_type:
+        yield from bot.sendMessage(chat_id, "Your Telegram user id: {user_id}".format(user_id=user_id))
+    else:
+        yield from bot.sendMessage(chat_id, "This command can only be used in private chats")
+
+
+@asyncio.coroutine
 def tg_command_whereami(bot, chat_id, args):
     user_id = args['user_id']
     if bot.is_telegram_admin(user_id):
@@ -406,6 +416,7 @@ def tg_command_remove_bot_admin(bot, chat_id, args):
 
     yield from bot.sendMessage(chat_id, text)
 
+
 @asyncio.coroutine
 def tg_command_tldr(bot, chat_id, args):
     params = args['params']
@@ -413,7 +424,7 @@ def tg_command_tldr(bot, chat_id, args):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
     if str(chat_id) in tg2ho_dict:
         ho_conv_id = tg2ho_dict[str(chat_id)]
-        tldr_args = {'params' : params, 'conv_id' : ho_conv_id}
+        tldr_args = {'params': params, 'conv_id': ho_conv_id}
         try:
             text = bot.ho_bot.call_shared("plugin_tldr_shared", bot.ho_bot, tldr_args)
             yield from bot.sendMessage(chat_id, text, parse_mode='HTML')
@@ -460,6 +471,7 @@ def _initialise(bot):
     tg_bot.set_on_user_join_callback(tg_on_user_join)
     tg_bot.set_on_user_leave_callback(tg_on_user_leave)
     tg_bot.set_on_location_share_callback(tg_on_location_share)
+    tg_bot.add_command("/whoami", tg_command_whoami)
     tg_bot.add_command("/whereami", tg_command_whereami)
     tg_bot.add_command("/setsyncho", tg_command_set_sync_ho)
     tg_bot.add_command("/clearsyncho", tg_command_clear_sync_ho)
