@@ -153,8 +153,9 @@ class EventHandler:
         # Is user blocked or allowed?
         
         # to do : - Admin check   - done
+        #         - add config directive for debug prints - done
+        #
         #         - add default commands to add and remove users from both list
-        #         - add config directive for debug prints
         #         - add convtools integration
         #         - add tagset integration
         #         - check error handling
@@ -162,44 +163,55 @@ class EventHandler:
         #         - clean up (duplicate) code
         
 
-        users_whitelisted = self.bot.get_config_option( 'users_whitelisted')
-        users_blacklisted = self.bot.get_config_option( 'users_blacklisted')
+        
         admins_list = self.bot.get_config_suboption(event.conv_id, 'admins') or []
-        
+        control_debug = self.bot.get_config_option( 'control_debug')
+
         if not event.user_id.chat_id in admins_list:
-          
-          if users_whitelisted:
-            print('Whitelist:')
-            print(users_whitelisted)
-            if event.user_id.chat_id in users_whitelisted:
-              print ('user is in whitelist : ')
-              print (event.user_id.chat_id)
 
-            else:
-              print ('user is NOT in whitelist : ')
-              print (event.user_id.chat_id)
-              return
+            users_whitelisted = self.bot.get_config_option( 'users_whitelisted')
+            users_blacklisted = self.bot.get_config_option( 'users_blacklisted')
+            
+
+            if users_whitelisted:
+                if control_debug:
+                    print('Whitelist:')
+                    print(users_whitelisted)
+                if event.user_id.chat_id in users_whitelisted:
+                    if control_debug:
+                        print ('user is in whitelist : ')
+                        print (event.user_id.chat_id)
+
+                else:
+                    if control_debug:
+                        print ('user is NOT in whitelist : ')
+                        print (event.user_id.chat_id)
+                    return
 
 
 
-          elif users_blacklisted:
-            print('Blacklist:')
-            print( users_blacklisted)
-            if not event.user_id.chat_id in users_blacklisted:
-              print ('user is NOT in blacklist : ')
-              print (event.user_id.chat_id)
+            elif users_blacklisted:
+                if control_debug:
+                    print('Blacklist:')
+                    print( users_blacklisted)
+                if not event.user_id.chat_id in users_blacklisted:
+                    if control_debug:
+                        print ('user is NOT in blacklist : ')
+                        print (event.user_id.chat_id)
 
-            else:
-              print ('user is in blacklist : ')
-              print(event.user_id.chat_id)
-              return
+                else:
+                    if control_debug:
+                        print ('user is in blacklist : ')
+                        print(event.user_id.chat_id)
+                    return
+        else:
+            if control_debug:
+                        print ('user is ADMIN : ')
+                        print (event.user_id.chat_id)
 
-        
-        
-        
         
         # is commands_enabled?
-
+        
         config_commands_enabled = self.bot.get_config_suboption(event.conv_id, 'commands_enabled')
         tagged_ignore = "ignore" in self.bot.tags.useractive(event.user_id.chat_id, event.conv_id)
 
