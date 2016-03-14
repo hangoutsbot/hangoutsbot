@@ -147,7 +147,8 @@ def tg_util_get_group_name(msg):
     :return: if msg sent to a group, will return Groups name, return msg type otherwise
     """
     title = msg['chat']['type']
-    if title == 'group':
+    # if title == 'group' or title == 'supergroup':
+    if title in ['group', 'supergroup']:
         title = msg['chat']['title']
     return title
 
