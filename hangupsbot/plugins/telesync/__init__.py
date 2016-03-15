@@ -456,7 +456,6 @@ tg_bot = None
 
 
 def _initialise(bot):
-    print(os.getcwd())
 
     if not bot.config.exists(['telegram_bot_api_key']):
         bot.config.set_by_path(['telegram_bot_api_key'], "PUT_YOUR_TELEGRAM_API_KEY_HERE")
@@ -476,8 +475,13 @@ def _initialise(bot):
 
         # plugins.register_admin_command(["telesync"])
 
-    global tg_bot
     tg_bot_token = bot.config.get_by_path(['telegram_bot_api_key'])
+
+    if tg_bot_token == "PUT_YOUR_TELEGRAM_API_KEY_HERE":
+        logger.error("Telegram Bot API key seems invalid!")
+        return False
+
+    global tg_bot
 
     loop = asyncio.get_event_loop()
 
