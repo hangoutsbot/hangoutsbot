@@ -8,6 +8,7 @@ import plugins
 import aiohttp
 import telepot
 import telepot.async
+import telepot.exception
 from handlers import handler
 from commands import command
 import random
@@ -18,15 +19,23 @@ logger = logging.getLogger(__name__)
 # TELEGRAM BOT
 
 class TelegramBot(telepot.async.Bot):
-    def __init__(self, token, hangupsbot):
-        super(TelegramBot, self).__init__(token)
-        self.commands = {}
-        self.onMessageCallback = TelegramBot.on_message
-        self.onPhotoCallback = TelegramBot.on_photo
-        self.onUserJoinCallback = TelegramBot.on_user_join
-        self.onUserLeaveCallback = TelegramBot.on_user_leave
-        self.onLocationShareCallback = TelegramBot.on_location_share
-        self.ho_bot = hangupsbot
+    def __init__(self, hangupsbot):
+        self.config = hangupsbot.config.get_by_path(['telesync'])
+        if self.config['enabled']:
+            try:
+                super(TelegramBot, self).__init__(self.config['api_key'])
+            except Exception as e:
+                raise telepot.TelegramError("Couldn't initialize telesync", 10)
+
+            self.commands = {}
+            self.onMessageCallback = TelegramBot.on_message
+            self.onPhotoCallback = TelegramBot.on_photo
+            self.onUserJoinCallback = TelegramBot.on_user_join
+            self.onUserLeaveCallback = TelegramBot.on_user_leave
+            self.onLocationShareCallback = TelegramBot.on_location_share
+            self.ho_bot = hangupsbot
+        else:
+            logger.info('telesync disabled in config.json')
 
     def add_command(self, cmd, func):
         self.commands[cmd] = func
@@ -95,7 +104,7 @@ class TelegramBot(telepot.async.Bot):
         self.onLocationShareCallback = func
 
     def is_telegram_admin(self, user_id):
-        tg_admins = self.ho_bot.config.get_by_path(['telegram_admins'])
+        tg_admins = self.ho_bot.config.get_by_path(['telesync'])['admins']
         return True if str(user_id) in tg_admins else False
 
     @asyncio.coroutine
@@ -201,7 +210,7 @@ def tg_util_sync_get_user_name(msg, chat_action='from'):
 
 @asyncio.coroutine
 def tg_on_message(tg_bot, tg_chat_id, msg):
-    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
+    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
 
     if str(tg_chat_id) in tg2ho_dict:
         text = "<b>{uname}</b> <b>({gname})</b>: {text}".format(uname=tg_util_sync_get_user_name(msg),
@@ -217,7 +226,7 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
 
 @asyncio.coroutine
 def tg_on_photo(tg_bot, tg_chat_id, msg):
-    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
+    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
 
     if str(tg_chat_id) in tg2ho_dict:
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
@@ -249,13 +258,13 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
 
         logger.info("[TELESYNC] Upload succeed.")
 
-        if tg_bot.ho_bot.config.get_by_path(['telesync_do_not_keep_photos']):
+        if tg_bot.ho_bot.config.get_by_path(['telesync'])['do_not_keep_photos']:
             os.remove(photo_path)  # don't use unnecessary space on disk
 
 
 @asyncio.coroutine
 def tg_on_user_join(tg_bot, tg_chat_id, msg):
-    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
+    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
     if str(tg_chat_id) in tg2ho_dict:
         text = "<b>{uname}</b> joined <b>{gname}</b>".format(
             uname=tg_util_sync_get_user_name(msg, chat_action='new_chat_participant'),
@@ -271,7 +280,7 @@ def tg_on_user_join(tg_bot, tg_chat_id, msg):
 
 @asyncio.coroutine
 def tg_on_user_leave(tg_bot, tg_chat_id, msg):
-    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
+    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
     if str(tg_chat_id) in tg2ho_dict:
         text = "<b>{uname}</b> left <b>{gname}</b>".format(
             uname=tg_util_sync_get_user_name(msg, chat_action='left_chat_participant'),
@@ -290,7 +299,7 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
     lat, long = tg_util_location_share_get_lat_long(msg)
     maps_url = tg_util_create_gmaps_url(lat, long)
 
-    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
+    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
 
     if str(tg_chat_id) in tg2ho_dict:
         text = "<b>{uname}</b> <b>({gname})</b>: {text}".format(uname=tg_util_sync_get_user_name(msg),
@@ -337,14 +346,15 @@ def tg_command_set_sync_ho(bot, chat_id, args):  # /setsyncho <hangout conv_id>
         yield from bot.sendMessage(chat_id, "Illegal or Missing arguments!!!")
         return
 
-    tg2ho_dict = bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
-    ho2tg_dict = bot.ho_bot.memory.get_by_path(['telesync_ho2tg'])
+    memory = bot.ho_bot.memory.get_by_path(['telesync'])
+    tg2ho_dict = memory['tg2ho']
+    ho2tg_dict = memory['ho2tg']
 
     tg2ho_dict[str(chat_id)] = str(params[0])
     ho2tg_dict[str(params[0])] = str(chat_id)
 
-    bot.ho_bot.memory.set_by_path(['telesync_tg2ho'], tg2ho_dict)
-    bot.ho_bot.memory.set_by_path(['telesync_ho2tg'], ho2tg_dict)
+    new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
+    bot.ho_bot.memory.set_by_path(['telesync'], new_memory)
 
     yield from bot.sendMessage(chat_id, "Sync target set to {ho_conv_id}".format(ho_conv_id=str(params[0])))
 
@@ -355,17 +365,17 @@ def tg_command_clear_sync_ho(bot, chat_id, args):
     if not bot.is_telegram_admin(user_id):
         yield from bot.sendMessage(chat_id, "Only admins can do that")
         return
-
-    tg2ho_dict = bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
-    ho2tg_dict = bot.ho_bot.memory.get_by_path(['telesync_ho2tg'])
+    memory = bot.ho_bot.memory.get_by_path(['telesync'])
+    tg2ho_dict = memory['tg2ho']
+    ho2tg_dict = memory['ho2tg']
 
     if str(chat_id) in tg2ho_dict:
         ho_conv_id = tg2ho_dict[str(chat_id)]
         del tg2ho_dict[str(chat_id)]
         del ho2tg_dict[ho_conv_id]
 
-    bot.ho_bot.memory.set_by_path(['telesync_tg2ho'], tg2ho_dict)
-    bot.ho_bot.memory.set_by_path(['telesync_ho2tg'], ho2tg_dict)
+    new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
+    bot.ho_bot.memory.set_by_path(['telesync'], new_memory)
 
     yield from bot.sendMessage(chat_id, "Sync target cleared")
 
@@ -390,10 +400,10 @@ def tg_command_add_bot_admin(bot, chat_id, args):
 
     text = ""
 
-    admins = bot.ho_bot.config.get_by_path(['telegram_admins'])
-    if str(params[0]) not in admins:
-        admins.append(str(params[0]))
-        bot.ho_bot.config.set_by_path(['telegram_admins'], admins)
+    tg_conf = bot.ho_bot.config.get_by_path(['telesync'])
+    if str(params[0]) not in tg_conf['admins']:
+        tg_conf['admins'].append(str(params[0]))
+        bot.ho_bot.config.set_by_path(['telesync'], tg_conf)
         text = "User added to admins"
     else:
         text = "User is already an admin"
@@ -422,10 +432,10 @@ def tg_command_remove_bot_admin(bot, chat_id, args):
     target_user = str(params[0])
 
     text = ""
-    admins = bot.ho_bot.config.get_by_path(['telegram_admins'])
-    if target_user in admins:
-        admins.remove(target_user)
-        bot.ho_bot.config.set_by_path(['telegram_admins'], admins)
+    tg_conf = bot.ho_bot.config.get_by_path(['telesync'])
+    if target_user in tg_conf['admins']:
+        tg_conf['admins'].remove(target_user)
+        bot.ho_bot.config.set_by_path(['telesync'], tg_conf)
         text = "User removed from admins"
     else:
         text = "User is not an admin"
@@ -437,7 +447,7 @@ def tg_command_remove_bot_admin(bot, chat_id, args):
 def tg_command_tldr(bot, chat_id, args):
     params = args['params']
 
-    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
+    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
     if str(chat_id) in tg2ho_dict:
         ho_conv_id = tg2ho_dict[str(chat_id)]
         tldr_args = {'params': params, 'conv_id': ho_conv_id}
@@ -456,50 +466,37 @@ tg_bot = None
 
 
 def _initialise(bot):
+    if not bot.config.exists(['telesync']):
+        bot.config.set_by_path(['telesync'], {'api_key': "PUT_YOUR_TELEGRAM_API_KEY_HERE",
+                                              'enabled': True,
+                                              'ho2tg': {},
+                                              'tg2ho': {},
+                                              'admins': [],
+                                              'do_not_keep_photos': True})
 
-    if not bot.config.exists(['telegram_bot_api_key']):
-        bot.config.set_by_path(['telegram_bot_api_key'], "PUT_YOUR_TELEGRAM_API_KEY_HERE")
+    if not bot.memory.exists(['telesync']):
+        bot.memory.set_by_path(['telesync'], {'ho2tg': {}, 'tg2ho': {}})
 
-    if not bot.config.exists(['telegram_admins']):
-        bot.config.set_by_path(['telegram_admins'], [])
+    telesync_config = bot.config.get_by_path(['telesync'])
 
-    # Don't keep photos on disk after sync done by default
-    if not bot.config.exists(['telesync_do_not_keep_photos']):
-        bot.config.set_by_path(['telesync_do_not_keep_photos'], True)
+    if telesync_config['enabled']:
+        global tg_bot
+        tg_bot = TelegramBot(bot)
+        tg_bot.set_on_message_callback(tg_on_message)
+        tg_bot.set_on_photo_callback(tg_on_photo)
+        tg_bot.set_on_user_join_callback(tg_on_user_join)
+        tg_bot.set_on_user_leave_callback(tg_on_user_leave)
+        tg_bot.set_on_location_share_callback(tg_on_location_share)
+        tg_bot.add_command("/whoami", tg_command_whoami)
+        tg_bot.add_command("/whereami", tg_command_whereami)
+        tg_bot.add_command("/setsyncho", tg_command_set_sync_ho)
+        tg_bot.add_command("/clearsyncho", tg_command_clear_sync_ho)
+        tg_bot.add_command("/addadmin", tg_command_add_bot_admin)
+        tg_bot.add_command("/removeadmin", tg_command_remove_bot_admin)
+        tg_bot.add_command("/tldr", tg_command_tldr)
 
-    if not bot.memory.exists(['telesync_ho2tg']):
-        bot.memory.set_by_path(['telesync_ho2tg'], {})
-
-    if not bot.memory.exists(['telesync_tg2ho']):
-        bot.memory.set_by_path(['telesync_tg2ho'], {})
-
-        # plugins.register_admin_command(["telesync"])
-
-    tg_bot_token = bot.config.get_by_path(['telegram_bot_api_key'])
-
-    if tg_bot_token == "PUT_YOUR_TELEGRAM_API_KEY_HERE":
-        logger.error("Telegram Bot API key seems invalid!")
-        return False
-
-    global tg_bot
-
-    loop = asyncio.get_event_loop()
-
-    tg_bot = TelegramBot(tg_bot_token, bot)
-    tg_bot.set_on_message_callback(tg_on_message)
-    tg_bot.set_on_photo_callback(tg_on_photo)
-    tg_bot.set_on_user_join_callback(tg_on_user_join)
-    tg_bot.set_on_user_leave_callback(tg_on_user_leave)
-    tg_bot.set_on_location_share_callback(tg_on_location_share)
-    tg_bot.add_command("/whoami", tg_command_whoami)
-    tg_bot.add_command("/whereami", tg_command_whereami)
-    tg_bot.add_command("/setsyncho", tg_command_set_sync_ho)
-    tg_bot.add_command("/clearsyncho", tg_command_clear_sync_ho)
-    tg_bot.add_command("/addadmin", tg_command_add_bot_admin)
-    tg_bot.add_command("/removeadmin", tg_command_remove_bot_admin)
-    tg_bot.add_command("/tldr", tg_command_tldr)
-
-    loop.create_task(tg_bot.messageLoop())
+        loop = asyncio.get_event_loop()
+        loop.create_task(tg_bot.messageLoop())
 
 
 @command.register(admin=True)
@@ -510,8 +507,9 @@ def telesync(bot, event, *args):
     """
     parameters = list(args)
 
-    tg2ho_dict = bot.memory.get_by_path(['telesync_tg2ho'])
-    ho2tg_dict = bot.memory.get_by_path(['telesync_ho2tg'])
+    memory = bot.memory.get_by_path(['telesync'])
+    tg2ho_dict = memory['tg2ho']
+    ho2tg_dict = memory['ho2tg']
 
     if len(parameters) > 1:
         yield from bot.coro_send_message(event.conv_id, "Too many arguments")
@@ -534,8 +532,8 @@ def telesync(bot, event, *args):
     else:
         raise RuntimeError("plugins/telesync: it seems something really went wrong, you should not see this error")
 
-    bot.memory.set_by_path(['telesync_tg2ho'], tg2ho_dict)
-    bot.memory.set_by_path(['telesync_ho2tg'], ho2tg_dict)
+    new_memory = {'ho2tg': ho2tg_dict, 'tg2ho': tg2ho_dict}
+    bot.memory.set_by_path(['telesync'], new_memory)
 
 
 def is_valid_image_link(url):
@@ -574,7 +572,7 @@ def _on_hangouts_message(bot, event, command=""):
         sync_text = "(shared an image)"
         has_photo = True
 
-    ho2tg_dict = bot.memory.get_by_path(['telesync_ho2tg'])
+    ho2tg_dict = bot.memory.get_by_path(['telesync'])['ho2tg']
 
     if event.conv_id in ho2tg_dict:
         user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
@@ -605,7 +603,7 @@ def _on_hangouts_message(bot, event, command=""):
                 else:
                     yield from tg_bot.sendPhoto(ho2tg_dict[event.conv_id], open(photo_path, 'rb'))
 
-            if tg_bot.ho_bot.config.get_by_path(['telesync_do_not_keep_photos']):
+            if tg_bot.ho_bot.config.get_by_path(['telesync'])['do_not_keep_photos']:
                 os.remove(photo_path)  # don't use unnecessary space on disk
 
 
@@ -628,7 +626,7 @@ def _on_membership_change(bot, event, command=""):
     membership_event = "joined" if event.conv_event.type_ == hangups.MembershipChangeType.JOIN else "left"
     text = create_membership_change_message(names, user_gplus, event.conv.name, membership_event)
 
-    ho2tg_dict = bot.memory.get_by_path(['telesync_ho2tg'])
+    ho2tg_dict = bot.memory.get_by_path(['telesync'])['ho2tg']
 
     if event.conv_id in ho2tg_dict:
         yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='Markdown',
