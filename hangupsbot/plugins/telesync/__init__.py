@@ -54,9 +54,9 @@ class TelegramBot(telepot.async.Bot):
         return ""
 
     @staticmethod
-    def get_username(msg):
-        if 'username' in msg['from']:
-            return str(msg['from']['username'])
+    def get_username(msg, chat_action='from'):
+        if 'username' in msg[chat_action]:
+            return str(msg[chat_action]['username'])
         return ""
 
     @staticmethod
@@ -186,12 +186,25 @@ def tg_util_create_gmaps_url(lat, long, https=True):
                                                                   long=long)
 
 
+def tg_util_create_telegram_me_link(username, https=True):
+    return "{https}://telegram.me/{username}".format(https='https' if https else 'http', username=username)
+
+
+def tg_util_sync_get_user_name(msg, chat_action='from'):
+    username = TelegramBot.get_username(msg, chat_action=chat_action)
+    url = tg_util_create_telegram_me_link(username)
+    return msg[chat_action]['first_name'] if username == "" else "<a href='{url}' >{uname}</a>".format(url=url,
+                                                                                                       uname=
+                                                                                                       msg[chat_action][
+                                                                                                           'first_name'])
+
+
 @asyncio.coroutine
 def tg_on_message(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
 
     if str(tg_chat_id) in tg2ho_dict:
-        text = "<b>{uname}</b> <b>({gname})</b>: {text}".format(uname=msg['from']['first_name'],
+        text = "<b>{uname}</b> <b>({gname})</b>: {text}".format(uname=tg_util_sync_get_user_name(msg),
                                                                 gname=tg_util_get_group_name(msg),
                                                                 text=msg['text'])
 
@@ -217,7 +230,7 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
         # TODO: find a better way to handling file paths
         photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_id + ".jpg"
 
-        text = "Uploading photo from <b>{uname}</b> in <b>{gname}</b>...".format(uname=msg['from']['first_name'],
+        text = "Uploading photo from <b>{uname}</b> in <b>{gname}</b>...".format(uname=tg_util_sync_get_user_name(msg),
                                                                                  gname=tg_util_get_group_name(msg))
         yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
 
@@ -244,8 +257,9 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
 def tg_on_user_join(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
     if str(tg_chat_id) in tg2ho_dict:
-        text = "<b>{uname}</b> joined <b>{gname}</b>".format(uname=msg['new_chat_participant']['first_name'],
-                                                             gname=tg_util_get_group_name(msg))
+        text = "<b>{uname}</b> joined <b>{gname}</b>".format(
+            uname=tg_util_sync_get_user_name(msg, chat_action='new_chat_participant'),
+            gname=tg_util_get_group_name(msg))
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
         yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
@@ -259,8 +273,9 @@ def tg_on_user_join(tg_bot, tg_chat_id, msg):
 def tg_on_user_leave(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
     if str(tg_chat_id) in tg2ho_dict:
-        text = "<b>{uname}</b> left <b>{gname}</b>".format(uname=msg['left_chat_participant']['first_name'],
-                                                           gname=tg_util_get_group_name(msg))
+        text = "<b>{uname}</b> left <b>{gname}</b>".format(
+            uname=tg_util_sync_get_user_name(msg, chat_action='left_chat_participant'),
+            gname=tg_util_get_group_name(msg))
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
         yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
@@ -278,7 +293,7 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync_tg2ho'])
 
     if str(tg_chat_id) in tg2ho_dict:
-        text = "<b>{uname}</b> <b>({gname})</b>: {text}".format(uname=msg['from']['first_name'],
+        text = "<b>{uname}</b> <b>({gname})</b>: {text}".format(uname=tg_util_sync_get_user_name(msg),
                                                                 gname=tg_util_get_group_name(msg),
                                                                 text=maps_url)
 
@@ -525,7 +540,7 @@ def is_valid_image_link(url):
 
     url = url.lower()
     if url.startswith('http://') or url.startswith('https://'):
-        if url.endswith((".jpg", ".gif", ".gifv", ".webm", ".png", ".mp4")):
+        if url.endswith((".jpg", ".jpeg", ".gif", ".gifv", ".webm", ".png", ".mp4")):
             return True
     else:
         return False
