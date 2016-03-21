@@ -11,11 +11,7 @@ def _initialise(bot):
 @asyncio.coroutine
 def botdoc(bot, event, *args):
    """Shows the bot related documentation"""
-   if not bot.memory.exists(['botdoc']):
-      bot.memory.set_by_path(['botdoc'], {})
-   
    text = bot.user_memory_get('botdocmemory', 'botdoc')
-   #if not bot.memory.exists(['tldr']):
    if text is None:
       message = u'There is no documentation for this HO bot! :('
    else:
@@ -28,7 +24,7 @@ def setbotdoc(bot, event, *args):
    parameters = list(args)
    if parameters[0] == "clear":
       bot.user_memory_set('botdocmemory', 'botdoc', None)
-      message = u'Botdoc message CEARED'
+      message = u'Botdoc message CLEARED!'
    else: 
       bot.user_memory_set('botdocmemory', 'botdoc', ' '.join(args))
       text = bot.user_memory_get('botdocmemory', 'botdoc')
