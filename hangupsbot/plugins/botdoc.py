@@ -28,5 +28,5 @@ def setbotdoc(bot, event, *args):
    else: 
       bot.user_memory_set('botdocmemory', 'botdoc', ' '.join(args))
       text = bot.user_memory_get('botdocmemory', 'botdoc')
-      message = u'Botdoc message stored: %s' % (text)
+      message = u'<b>Botdoc message stored:</b> %s' % (text)
    yield from bot.coro_send_message(event.conv,message)
