@@ -14,7 +14,7 @@ def botdoc(bot, event, *args):
    text = bot.user_memory_get('botdocmemory', 'botdoc')
    if text is None:
       message = u'There is no documentation for this HO bot! :(' % (event.user.full_name, name)
-   else
+   else:
       message = u'%s' % (text)
    yield from bot.coro_send_message(event.conv,message)
 
