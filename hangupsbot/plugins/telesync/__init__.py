@@ -1,16 +1,17 @@
 # A Sync plugin for Telegram and Hangouts
 
+import os, logging
+import io
 import asyncio
-import logging
-import os
-import random
-
-import aiohttp
 import hangups
+import plugins
+import aiohttp
 import telepot
 import telepot.async
-from commands import command
 from handlers import handler
+from commands import command
+import json
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,11 @@ class TelegramBot(telepot.async.Bot):
     @asyncio.coroutine
     def handle(self, msg):
         flavor = telepot.flavor(msg)
+        # if msg['migrate_to_chat_id']:
+        #     newID = msg['migrate_to_chat_id']
+        #     oldID = msg['migrate_from_chat_id']
+        #     groupIDChange(oldID, newID, self.ho_bot)
+
         if flavor == "normal":  # normal message
             content_type, chat_type, chat_id = telepot.glance2(msg)
             if content_type == 'text':
@@ -112,6 +118,7 @@ class TelegramBot(telepot.async.Bot):
                         yield from self.commands[cmd](self, chat_id, args)
                     else:
                         yield from self.sendMessage(chat_id, "Unknown command: {cmd}".format(cmd=cmd))
+
 
                 else:  # plain text message
                     yield from self.onMessageCallback(self, chat_id, msg)
@@ -147,6 +154,10 @@ def tg_util_get_group_name(msg):
     """
     title = msg['chat']['type']
     if title == 'group':
+        title = msg['chat']['title']
+    elif title == 'supergroup':
+        title = msg['chat']['title']
+    elif title == 'channel':
         title = msg['chat']['title']
     return title
 

@@ -80,6 +80,8 @@ class ConversationEvent(GenericEvent):
     def log(self):
         if logger.isEnabledFor(self.emit_log):
             logger.log(self.emit_log, 'eid/dt: {}/{}'.format(self.event_id, self.timestamp.astimezone(tz=None).strftime('%Y-%m-%d %H:%M:%S')))
-            logger.log(self.emit_log, 'cid/cn: {}/{}'.format(self.conv_id, self.bot.conversations.get_name(self.conv)))
-            logger.log(self.emit_log, 'c/g/un: {}/{}/{}'.format(self.user_id.chat_id, self.user_id.gaia_id, self.user.full_name))
-            logger.log(self.emit_log, 'len/tx: {}/{}'.format(len(self.text), self.text))
+            logger.log(self.emit_log,
+                       'cid/cn: {}/{}'.format(self.conv_id, self.bot.conversations.get_name(self.conv).encode('utf-8')))
+            logger.log(self.emit_log, 'c/g/un: {}/{}/{}'.format(self.user_id.chat_id, self.user_id.gaia_id,
+                                                                self.user.full_name.encode('utf-8')))
+            logger.log(self.emit_log, 'len/tx: {}/{}'.format(len(self.text.encode('utf-8')), self.text.encode('utf-8')))
