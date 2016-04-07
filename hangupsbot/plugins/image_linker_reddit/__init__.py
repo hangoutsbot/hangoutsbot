@@ -45,9 +45,7 @@ def _scan_for_triggers(bot, event, command):
     if len(image_links) > 0:
         for image_link in image_links:
             if "gfycat.com/" in image_link:
-                r = yield from aiohttp.request('get', image_link)
-                raw = yield from r.read()
-                image_link = re.search("<a href=\"(.*?)\">\\1</a>", str(raw, 'utf-8')).group(1)
+                image_link = image_link.replace('gfycat.com', 'giant.gfycat.com') + '.gif'
             filename = os.path.basename(image_link)
             r = yield from aiohttp.request('get', image_link)
             raw = yield from r.read()
