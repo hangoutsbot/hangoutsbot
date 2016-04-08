@@ -17,7 +17,7 @@ def _initialise(bot):
 def _handle_me_action(bot, event, command):
     # perform a simple check for a recognised pattern (/me draw...)
     #   do more complex checking later
-    if event.text.startswith('/me draw'):
+    if event.text.startswith('/me draw') or event.text.startswith(event.user.first_name + ' draw'):
         yield from command.run(bot, event, *["perform_drawing"])
 
 
@@ -144,7 +144,7 @@ def perform_drawing(bot, event, *args):
 
     draw_lists = _load_lottery_state(bot) # load in any existing lotteries
 
-    pattern = re.compile("/me draws?( +(a +|an +|from +)?([a-z0-9\-_]+))?$", re.IGNORECASE)
+    pattern = re.compile(".+ draws?( +(a +|an +|from +)?([a-z0-9\-_]+))?$", re.IGNORECASE)
     if pattern.match(event.text):
         listname = "default"
 

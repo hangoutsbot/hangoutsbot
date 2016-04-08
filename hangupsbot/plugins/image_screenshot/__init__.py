@@ -1,4 +1,4 @@
-import asyncio, io, logging, os, re, time
+import asyncio, io, logging, os, re, time, tempfile
 
 import selenium
 
@@ -103,31 +103,30 @@ def screenshot(bot, event, *args):
         if not re.match(r'^[a-zA-Z]+://', url):
             url = 'http://' + url
         filename = event.conv_id + "." + str(time.time()) +".png"
-        filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)), filename)
+        filepath = tempfile.NamedTemporaryFile(prefix=event.conv_id, suffix=".png", delete=False).name
         logger.debug("temporary screenshot file: {}".format(filepath))
 
         try:
             browser = webdriver.PhantomJS(desired_capabilities=dcap,service_log_path=os.path.devnull)
         except selenium.common.exceptions.WebDriverException as e:
             yield from bot.coro_send_message(event.conv, "<i>phantomjs could not be started - is it installed?</i>".format(e))
+            _externals["running"] = False
             return
-        
+
         try:
             loop = asyncio.get_event_loop()
-            image_data = yield from _screencap(browser, url, filename)
-
+            image_data = yield from _screencap(browser, url, filepath)
         except Exception as e:
             yield from bot.coro_send_message(event.conv_id, "<i>error getting screenshot</i>")
             logger.exception("screencap failed".format(url))
+            _externals["running"] = False
             return
             
         try:
             image_id = yield from bot._client.upload_image(image_data, filename=filename)
             yield from bot._client.sendchatmessage(event.conv.id_, None, image_id=image_id)
-
         except Exception as e:
             yield from bot.coro_send_message(event.conv_id, "<i>error uploading screenshot</i>")
             logger.exception("upload failed".format(url))
-
         finally:
             _externals["running"] = False
