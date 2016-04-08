@@ -29,10 +29,12 @@ def setweatherlocation(bot, event, *args):
     location = ''.join(args).strip()
     if not location:
         yield from bot.coro_send_message(event.conv_id, _('No location was specified, please specify a location.'))
+        return
     
     location = _lookup_address(location)
-    if not location:
+    if location is None:
         yield from bot.coro_send_message(event.conv_id, _('Unable to find the specified location.'))
+        return
     
     if bot.memory.exists(["conv_data", event.conv.id_]):
         bot.memory.set_by_path(["conv_data", event.conv.id_, "default_weather_location"], {'lat': location['lat'], 'lng': location['lng']})
@@ -98,7 +100,7 @@ def _lookup_address(location):
     Retrieve the coordinates of the location from googles geocode api.
     Limit of 2,000 requests a day
     """
-     google_map_url = 'https://maps.googleapis.com/maps/api/geocode/json'
+    google_map_url = 'https://maps.googleapis.com/maps/api/geocode/json'
     payload = {'address': location}
     resp = requests.get(google_map_url, params=payload)
     try:
@@ -111,6 +113,9 @@ def _lookup_address(location):
         }
     except (IndexError, KeyError):
         logger.error('unable to parse address return data: %d: %s', resp.status_code, resp.json())
+        return None
+    except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError, requests.exceptions.Timeout):
+        logger.error('unable to connect with maps.googleapis.com: %d - %s', resp.status_code, resp.text)
         return None
 
 def _lookup_weather(coords):
@@ -146,6 +151,9 @@ def _lookup_weather(coords):
     except ValueError as e:
         logger.error("Forecast Error: {}".format(e))
         current = dict()
+    except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError, requests.exceptions.Timeout):
+        logger.error('unable to connect with api.forecast.io: %d - %s', resp.status_code, resp.text)
+        return None
 
     return current
 
