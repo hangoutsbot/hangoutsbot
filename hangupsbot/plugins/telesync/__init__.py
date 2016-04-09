@@ -351,7 +351,7 @@ def tg_command_set_sync_ho(bot, chat_id, args):  # /setsyncho <hangout conv_id>
     ho2tg_dict = memory['ho2tg']
 
     if str(chat_id) in tg2ho_dict:
-        yield from bot.sendMessage(chat_id, "Sync target '{ho_conv_id}' already set{".format(ho_conv_id=str(params[0])))
+        yield from bot.sendMessage(chat_id, "Sync target '{ho_conv_id}' already set".format(ho_conv_id=str(params[0])))
 
     else:
         tg2ho_dict[str(chat_id)] = str(params[0])
@@ -360,7 +360,7 @@ def tg_command_set_sync_ho(bot, chat_id, args):  # /setsyncho <hangout conv_id>
         new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
         bot.ho_bot.memory.set_by_path(['telesync'], new_memory)
 
-        yield from bot.sendMessage(chat_id, "Sync target set to '{ho_conv_id}'".format(ho_conv_id=str(params[0])))
+        yield from bot.sendMessage(chat_id, "Sync target set to '{ho_conv_id}''".format(ho_conv_id=str(params[0])))
 
 
 @asyncio.coroutine
