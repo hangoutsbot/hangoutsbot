@@ -37,7 +37,7 @@ def _migrate_mention_config_to_memory(bot):
 
 def _handle_mention(bot, event, command):
     """handle @mention"""
-    occurrences = [word for word in event.text.split() if word.startswith('@')]
+    occurrences = [word for word in set(event.text.split()) if word.startswith('@')]
     if len(occurrences) > 0:
         for word in occurrences:
             # strip all special characters
