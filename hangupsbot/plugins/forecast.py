@@ -36,10 +36,12 @@ def setweatherlocation(bot, event, *args):
         yield from bot.coro_send_message(event.conv_id, _('Unable to find the specified location.'))
         return
     
-    if bot.memory.exists(["conv_data", event.conv.id_]):
-        bot.memory.set_by_path(["conv_data", event.conv.id_, "default_weather_location"], {'lat': location['lat'], 'lng': location['lng']})
-        bot.memory.save()
-        yield from bot.coro_send_message(event.conv_id, _('This hangouts default location has been set to {}.'.format(location)))
+    if not bot.memory.exists(["conv_data", event.conv.id_]):
+        bot.memory.set_by_path(['conv_data', event.conv.id_], {})
+
+    bot.memory.set_by_path(["conv_data", event.conv.id_, "default_weather_location"], {'lat': location['lat'], 'lng': location['lng']})
+    bot.memory.save()
+    yield from bot.coro_send_message(event.conv_id, _('This hangouts default location has been set to {}.'.format(location)))
 
 def weather(bot, event, *args):
     """Returns weather information from Forecast.io
