@@ -1,27 +1,55 @@
 import time
-
 import plugins
 
 
 def _initialise(bot):
     plugins.register_user_command(["tldr"])
+    bot.register_shared("plugin_tldr_shared", tldr_shared)
 
 
 def tldr(bot, event, *args):
+    message = tldr_base(bot, event.conv_id, list(args))
+    yield from bot.coro_send_message(event.conv_id, message)
+
+
+def tldr_shared(bot, args):
+    """
+    Shares tldr functionality with other plugins
+    :param bot: hangouts bot
+    :param args: a dictionary which holds arguments.
+    Must contain 'params' (tldr command parameters) and 'conv_id' (Hangouts conv_id)
+    :return:
+    """
+    if not isinstance(args, dict):
+        raise TypeError("args must be a dictionary")
+
+    if 'params' not in args:
+        raise KeyError("'params' key missing in args")
+
+    if 'conv_id' not in args:
+        raise KeyError("'conv_id' key missing in args")
+
+    params = args['params']
+    conv_id = args['conv_id']
+
+    return tldr_base(bot, conv_id, params)
+
+
+def tldr_base(bot, conv_id, parameters):
     """Adds a short message to a list saved for the conversation using:
     /bot tldr <message>
     All TLDRs can be retrieved by /bot tldr, single tldr with /bot tldr <number>
     All TLDRs can be deleted using /bot tldr clear, single tldr with /bot tldr clear <number>
     Single TLDRs can be edited using /bot tldr edit <number> <new_message>"""
-    parameters = list(args)
+    # parameters = list(args)
 
     if not bot.memory.exists(['tldr']):
         bot.memory.set_by_path(['tldr'], {})
 
-    if not bot.memory.exists(['tldr', event.conv_id]):
-        bot.memory.set_by_path(['tldr', event.conv_id], {})
+    if not bot.memory.exists(['tldr', conv_id]):
+        bot.memory.set_by_path(['tldr', conv_id], {})
 
-    conv_tldr = bot.memory.get_by_path(['tldr', event.conv_id])
+    conv_tldr = bot.memory.get_by_path(['tldr', conv_id])
 
     display = False
     if not parameters:
@@ -34,19 +62,17 @@ def tldr(bot, event, *args):
         html = []
         for num, timestamp in enumerate(sorted(conv_tldr, key=float)):
             if display is True or display == num:
-                html.append(_("{}. {} <b>{} ago</b>").format( str(num+1),
+                html.append(_("{}. {} <b>{} ago</b>").format(str(num + 1),
                                                              conv_tldr[timestamp],
-                                                             _time_ago(float(timestamp)) ))
+                                                             _time_ago(float(timestamp))))
 
         if len(html) == 0:
             html.append(_("TL;DR not found"))
         else:
             html.insert(0, _("<b>TL;DR ({} stored):</b>").format(len(conv_tldr)))
-        message = _("<br />".join(html))
+        message = _("\n".join(html))
 
-        yield from bot.coro_send_message(event.conv_id, message)
-
-        return
+        return message
 
     if parameters[0] == "clear":
         if len(parameters) == 2 and parameters[1].isdigit():
@@ -56,13 +82,13 @@ def tldr(bot, event, *args):
                 message = _("TL;DR #{} not found").format(parameters[1])
             else:
                 popped_tldr = conv_tldr.pop(sorted_keys[key_index])
-                bot.memory.set_by_path(['tldr', event.conv_id], conv_tldr)
+                bot.memory.set_by_path(['tldr', conv_id], conv_tldr)
                 message = _('TL;DR #{} removed - "{}"').format(parameters[1], popped_tldr)
         else:
-            bot.memory.set_by_path(['tldr', event.conv_id], {})
+            bot.memory.set_by_path(['tldr', conv_id], {})
             message = _("All TL;DRs cleared")
 
-        yield from bot.coro_send_message(event.conv_id, message)
+        return message
 
     elif parameters[0] == "edit":
         if len(parameters) > 2 and parameters[1].isdigit():
@@ -72,36 +98,35 @@ def tldr(bot, event, *args):
                 message = _("TL;DR #{} not found").format(parameters[1])
             else:
                 edited_tldr = conv_tldr[sorted_keys[key_index]]
-                conv_tldr[sorted_keys[key_index]]
                 tldr = ' '.join(parameters[2:len(parameters)])
                 conv_tldr[sorted_keys[key_index]] = tldr
-                bot.memory.set_by_path(['tldr', event.conv_id], conv_tldr)
+                bot.memory.set_by_path(['tldr', conv_id], conv_tldr)
                 message = _('TL;DR #{} edited - "{}" -> "{}"').format(parameters[1], edited_tldr, tldr)
         else:
             message = _('Unknown Command at "tldr edit"')
 
-        yield from bot.coro_send_message(event.conv_id, message)
+        return message
 
-    elif parameters[0]: ## need a better looking solution here
+    elif parameters[0]:  ## need a better looking solution here
         tldr = ' '.join(parameters)
         if tldr:
             # Add message to list
             conv_tldr[str(time.time())] = tldr
-            bot.memory.set_by_path(['tldr', event.conv_id], conv_tldr)
-            yield from bot.coro_send_message( event.conv_id,
-                                              _('<em>{}</em> added to TL;DR. Count: {}').format( tldr,
-                                                                                                 len(conv_tldr) ))
+            bot.memory.set_by_path(['tldr', conv_id], conv_tldr)
+            message = _('<em>{}</em> added to TL;DR. Count: {}').format(tldr, len(conv_tldr))
+
+            return message
 
     bot.memory.save()
 
 
 def _time_ago(timestamp):
     time_difference = time.time() - timestamp
-    if time_difference < 60: # seconds
+    if time_difference < 60:  # seconds
         return _("{}s").format(int(time_difference))
-    elif time_difference < 60*60: # minutes
-        return _("{}m").format(int(time_difference/60))
-    elif time_difference < 60*60*24: # hours
-        return _("{}h").format(int(time_difference/(60*60)))
+    elif time_difference < 60 * 60:  # minutes
+        return _("{}m").format(int(time_difference / 60))
+    elif time_difference < 60 * 60 * 24:  # hours
+        return _("{}h").format(int(time_difference / (60 * 60)))
     else:
-        return _("{}d").format(int(time_difference/(60*60*24)))
+        return _("{}d").format(int(time_difference / (60 * 60 * 24)))
