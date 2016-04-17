@@ -350,13 +350,17 @@ def tg_command_set_sync_ho(bot, chat_id, args):  # /setsyncho <hangout conv_id>
     tg2ho_dict = memory['tg2ho']
     ho2tg_dict = memory['ho2tg']
 
-    tg2ho_dict[str(chat_id)] = str(params[0])
-    ho2tg_dict[str(params[0])] = str(chat_id)
+    if str(chat_id) in tg2ho_dict:
+        yield from bot.sendMessage(chat_id, "Sync target '{ho_conv_id}' already set".format(ho_conv_id=str(params[0])))
 
-    new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
-    bot.ho_bot.memory.set_by_path(['telesync'], new_memory)
+    else:
+        tg2ho_dict[str(chat_id)] = str(params[0])
+        ho2tg_dict[str(params[0])] = str(chat_id)
 
-    yield from bot.sendMessage(chat_id, "Sync target set to {ho_conv_id}".format(ho_conv_id=str(params[0])))
+        new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
+        bot.ho_bot.memory.set_by_path(['telesync'], new_memory)
+
+        yield from bot.sendMessage(chat_id, "Sync target set to '{ho_conv_id}''".format(ho_conv_id=str(params[0])))
 
 
 @asyncio.coroutine
@@ -469,8 +473,6 @@ def _initialise(bot):
     if not bot.config.exists(['telesync']):
         bot.config.set_by_path(['telesync'], {'api_key': "PUT_YOUR_TELEGRAM_API_KEY_HERE",
                                               'enabled': True,
-                                              'ho2tg': {},
-                                              'tg2ho': {},
                                               'admins': [],
                                               'do_not_keep_photos': True})
 
@@ -524,10 +526,16 @@ def telesync(bot, event, *args):
 
     elif len(parameters) == 1:
         tg_chat_id = str(parameters[0])
-        tg2ho_dict[str(tg_chat_id)] = str(event.conv_id)
-        ho2tg_dict[str(event.conv_id)] = str(tg_chat_id)
-        yield from bot.coro_send_message(event.conv_id,
-                                         "Sync target set to {tg_conv_id}".format(tg_conv_id=str(tg_chat_id)))
+
+        if str(event.conv_id) in ho2tg_dict:
+            yield from bot.coro_send_message(event.conv_id,
+                                             "Sync target '{tg_conv_id}' already set".format(
+                                                 tg_conv_id=str(tg_chat_id)))
+        else:
+            tg2ho_dict[str(tg_chat_id)] = str(event.conv_id)
+            ho2tg_dict[str(event.conv_id)] = str(tg_chat_id)
+            yield from bot.coro_send_message(event.conv_id,
+                                             "Sync target set to {tg_conv_id}".format(tg_conv_id=str(tg_chat_id)))
 
     else:
         raise RuntimeError("plugins/telesync: it seems something really went wrong, you should not see this error")
