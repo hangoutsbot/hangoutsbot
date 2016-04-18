@@ -2,6 +2,8 @@ import hangups
 import goslate
 import logging
 
+from textblob import TextBlob
+
 import plugins
 
 logger = logging.getLogger(__name__)
@@ -24,13 +26,22 @@ def _translate_message(bot, broadcast_list, context):
             target_language = _get_room_language(bot, target_conversation_id)
             if origin_language != target_language:
                 logger.debug("translating {} to {}".format(origin_language, target_language))
-                translated = gs.translate(_autotranslate["event_text"], target_language)
-                if _autotranslate["event_text"] != translated:
+                translated = _autotranslate["event_text"]
+                try:
+                    en_blob = TextBlob(_autotranslate["event_text"])
+                    translated = "{0}".format(en_blob.translate(to=target_language))
+                    #translated = gs.translate(_autotranslate["event_text"], target_language
+                except Exception:
+                    logger.debug("Translation Api returned string unchanged")
+                else:
+                    pass
+                finally:
+                    if _autotranslate["event_text"] != translated:
                     # mutate the original response by reference
-                    response.extend([
-                        hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-                        hangups.ChatMessageSegment('(' + translated + ')')])
-
+                        response.extend([
+                            hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
+                            hangups.ChatMessageSegment('(' + translated + ')')])
+    
 
 def _get_room_language(bot, conversation_id, default="en"):
     syncroom_language = bot.conversation_memory_get(conversation_id, 'syncroom_language')

@@ -29,15 +29,19 @@ def setweatherlocation(bot, event, *args):
     location = ''.join(args).strip()
     if not location:
         yield from bot.coro_send_message(event.conv_id, _('No location was specified, please specify a location.'))
-
+        return
+    
     location = _lookup_address(location)
-    if not location:
+    if location is None:
         yield from bot.coro_send_message(event.conv_id, _('Unable to find the specified location.'))
+        return
+    
+    if not bot.memory.exists(["conv_data", event.conv.id_]):
+        bot.memory.set_by_path(['conv_data', event.conv.id_], {})
 
-    if bot.memory.exists(["conv_data", event.conv.id_]):
-        bot.memory.set_by_path(["conv_data", event.conv.id_, "default_weather_location"], {'lat': location['lat'], 'lng': location['lng']})
-        bot.memory.save()
-        yield from bot.coro_send_message(event.conv_id, _('This hangouts default location has been set to {}.'.format(location)))
+    bot.memory.set_by_path(["conv_data", event.conv.id_, "default_weather_location"], {'lat': location['lat'], 'lng': location['lng']})
+    bot.memory.save()
+    yield from bot.coro_send_message(event.conv_id, _('This hangouts default location has been set to {}.'.format(location)))
 
 def weather(bot, event, *args):
     """Returns weather information from Forecast.io
@@ -60,12 +64,12 @@ def forecast(bot, event, *args):
         yield from bot.coro_send_message(event.conv_id, _format_forecast_weather(weather))
     else:
         yield from bot.coro_send_message(event.conv_id, 'There was an error retrieving the weather, guess you need to look outside.')
-
+ 
 def _format_current_weather(weather):
     """
     Formats the current weather data for the user.
     """
-    weatherStrings = []
+    weatherStrings = []    
     if 'temperature' in weather:
         weatherStrings.append("It is currently: <b>{0}°{1}</b>".format(round(weather['temperature'],2),weather['units']['temperature']))
     if 'summary' in weather:
@@ -78,7 +82,7 @@ def _format_current_weather(weather):
         weatherStrings.append("Humidity: {0}%".format(weather['humidity']))
     if 'pressure' in weather:
         weatherStrings.append("Pressure: {0} {1}".format(round(weather['pressure'],2), weather['units']['pressure']))
-
+        
     return "<br/>".join(weatherStrings)
 
 def _format_forecast_weather(weather):
@@ -90,7 +94,7 @@ def _format_forecast_weather(weather):
         weatherStrings.append("<b>Next 24 Hours</b><br/>{}". format(weather['hourly']))
     if 'daily' in weather:
         weatherStrings.append("<b>Next 7 Days</b><br/>{}". format(weather['daily']))
-
+        
     return "<br/>".join(weatherStrings)
 
 def _lookup_address(location):
@@ -111,6 +115,9 @@ def _lookup_address(location):
         }
     except (IndexError, KeyError):
         logger.error('unable to parse address return data: %d: %s', resp.status_code, resp.json())
+        return None
+    except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError, requests.exceptions.Timeout):
+        logger.error('unable to connect with maps.googleapis.com: %d - %s', resp.status_code, resp.text)
         return None
 
 def _lookup_weather(coords):
@@ -137,27 +144,30 @@ def _lookup_weather(coords):
         }
         if current['units']['pressure'] == 'kPa':
             current['pressure'] = Decimal(current['pressure']/10)
-
+        
         if 'hourly' in j:
             current['hourly'] = j['hourly']['summary']
         if 'daily' in j:
             current['daily'] = j['daily']['summary']
-
+        
     except ValueError as e:
         logger.error("Forecast Error: {}".format(e))
         current = dict()
+    except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError, requests.exceptions.Timeout):
+        logger.error('unable to connect with api.forecast.io: %d - %s', resp.status_code, resp.text)
+        return None
 
     return current
 
 def _get_weather(bot,event,params):
-    """
+    """ 
     Checks memory for a default location set for the current hangout.
-    If one is not found and parameters were specified attempts to look up a location.
+    If one is not found and parameters were specified attempts to look up a location.    
     If it finds a location it then attempts to load the weather data
     """
     parameters = list(params)
     location = {}
-
+     
     if not parameters:
         if bot.memory.exists(["conv_data", event.conv.id_]):
             if(bot.memory.exists(["conv_data", event.conv.id_, "default_weather_location"])):
@@ -165,10 +175,10 @@ def _get_weather(bot,event,params):
     else:
         address = ''.join(parameters).strip()
         location = _lookup_address(address)
-
+    
     if location:
         return _lookup_weather(location)
-
+    
     return {}
 
 def _get_forcast_units(result):
@@ -235,5 +245,6 @@ def _get_wind_direction(degrees):
         directionText = "NW"
     elif degrees >= 320 and degrees < 355:
         directionText = "NNW"
-
+    
     return directionText
+    
