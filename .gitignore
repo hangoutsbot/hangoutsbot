@@ -11,6 +11,6 @@ aiohttp
 /scripts
 
 
-# telesync could keep photos, and probably we don't want that photos on git repo
+# Prevent telesync from saving photos
 *.jpg 
 
