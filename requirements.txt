@@ -19,4 +19,4 @@ spotipy
 slackclient >=0.16 # slackrtm (includes websockets)
 textblob
 python_dateutil # gitlab sink
-telepot >= 6.5 # telegram sync
+telepot >= 7.0 # telegram sync
