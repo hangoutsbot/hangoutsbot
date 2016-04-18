@@ -78,15 +78,15 @@ class TelegramBot(telepot.async.Bot):
 
     @staticmethod
     def on_user_join(bot, chat_id, msg):
-        print("New User: {name}".format(name=msg['left_chat_participant']['first_name']))
+        print("New User: {name}".format(name=msg['left_chat_member']['first_name']))
 
     @staticmethod
     def on_user_leave(bot, chat_id, msg):
-        print("{name} Left the gorup".format(name=msg['left_chat_participant']['first_name']))
+        print("{name} Left the gorup".format(name=msg['left_chat_member']['first_name']))
 
     @staticmethod
     def on_location_share(bot, chat_id, msg):
-        print("{name} shared a location".format(name=msg['left_chat_participant']['first_name']))
+        print("{name} shared a location".format(name=msg['left_chat_member']['first_name']))
 
     def set_on_message_callback(self, func):
         self.onMessageCallback = func
@@ -111,8 +111,8 @@ class TelegramBot(telepot.async.Bot):
     def handle(self, msg):
         flavor = telepot.flavor(msg)
 
-        if flavor == "normal":  # normal message
-            content_type, chat_type, chat_id = telepot.glance2(msg)
+        if flavor == "chat":  # chat message
+            content_type, chat_type, chat_id = telepot.glance(msg)
             if content_type == 'text':
                 if TelegramBot.is_command(msg):  # bot command
                     cmd, params = TelegramBot.parse_command(msg['text'])
@@ -129,21 +129,21 @@ class TelegramBot(telepot.async.Bot):
             elif content_type == 'location':
                 yield from self.onLocationShareCallback(self, chat_id, msg)
 
-            elif content_type == 'new_chat_participant':
+            elif content_type == 'new_chat_member':
                 yield from self.onUserJoinCallback(self, chat_id, msg)
 
-            elif content_type == 'left_chat_participant':
+            elif content_type == 'left_chat_member':
                 yield from self.onUserLeaveCallback(self, chat_id, msg)
 
             elif content_type == 'photo':
                 yield from self.onPhotoCallback(self, chat_id, msg)
 
         elif flavor == "inline_query":  # inline query e.g. "@gif cute panda"
-            query_id, from_id, query_string = telepot.glance2(msg, flavor=flavor)
+            query_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
             print("inline_query")
 
         elif flavor == "chosen_inline_result":
-            result_id, from_id, query_string = telepot.glance2(msg, flavor=flavor)
+            result_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
             print("chosen_inline_result")
 
         else:
@@ -249,7 +249,7 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
         if not os.path.exists(file_dir):
             os.makedirs(file_dir)
 
-        yield from tg_bot.downloadFile(photo_id, photo_path)
+        yield from tg_bot.download_file(photo_id, photo_path)
 
         logger.info("[TELESYNC] Uploading photo...")
         with open(photo_path, "rb") as photo_file:
@@ -269,7 +269,7 @@ def tg_on_user_join(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
     if str(tg_chat_id) in tg2ho_dict:
         text = "<b>{uname}</b> joined <b>{gname}</b>".format(
-            uname=tg_util_sync_get_user_name(msg, chat_action='new_chat_participant'),
+            uname=tg_util_sync_get_user_name(msg, chat_action='new_chat_member'),
             gname=tg_util_get_group_name(msg))
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
@@ -285,7 +285,7 @@ def tg_on_user_leave(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
     if str(tg_chat_id) in tg2ho_dict:
         text = "<b>{uname}</b> left <b>{gname}</b>".format(
-            uname=tg_util_sync_get_user_name(msg, chat_action='left_chat_participant'),
+            uname=tg_util_sync_get_user_name(msg, chat_action='left_chat_member'),
             gname=tg_util_get_group_name(msg))
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
@@ -501,7 +501,7 @@ def _initialise(bot):
         tg_bot.add_command("/tldr", tg_command_tldr)
 
         loop = asyncio.get_event_loop()
-        loop.create_task(tg_bot.messageLoop())
+        loop.create_task(tg_bot.message_loop())
 
 
 @command.register(admin=True)
