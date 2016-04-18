@@ -204,7 +204,8 @@ def tg_util_sync_get_user_name(msg, chat_action='from'):
     url = tg_util_create_telegram_me_link(username)
     return msg[chat_action]['first_name'] if username == "" else "<a href='{url}' >{uname}</a>".format(url=url,
                                                                                                        uname=
-                                                                                                       msg[chat_action][
+                                                                                                       msg[
+                                                                                                           chat_action][
                                                                                                            'first_name'])
 
 
@@ -239,8 +240,9 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
         # TODO: find a better way to handling file paths
         photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_id + ".jpg"
 
-        text = "Uploading photo from <b>{uname}</b> in <b>{gname}</b>...".format(uname=tg_util_sync_get_user_name(msg),
-                                                                                 gname=tg_util_get_group_name(msg))
+        text = "Uploading photo from <b>{uname}</b> in <b>{gname}</b>...".format(
+            uname=tg_util_sync_get_user_name(msg),
+            gname=tg_util_get_group_name(msg))
         yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
 
         file_dir = os.path.dirname(photo_path)
@@ -351,7 +353,8 @@ def tg_command_set_sync_ho(bot, chat_id, args):  # /setsyncho <hangout conv_id>
     ho2tg_dict = memory['ho2tg']
 
     if str(chat_id) in tg2ho_dict:
-        yield from bot.sendMessage(chat_id, "Sync target '{ho_conv_id}' already set".format(ho_conv_id=str(params[0])))
+        yield from bot.sendMessage(chat_id,
+                                   "Sync target '{ho_conv_id}' already set".format(ho_conv_id=str(params[0])))
 
     else:
         tg2ho_dict[str(chat_id)] = str(params[0])
@@ -584,10 +587,11 @@ def _on_hangouts_message(bot, event, command=""):
 
     if event.conv_id in ho2tg_dict:
         user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
-        text = "[{uname}]({user_gplus}) *({gname})*: {text}".format(uname=event.user.full_name,
-                                                                    user_gplus=user_gplus,
-                                                                    gname=event.conv.name, text=sync_text)
-        yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='Markdown',
+        text = '<a href="{user_gplus}">{uname}</a> <b>({gname})</b>: {text}'.format(uname=event.user.full_name,
+                                                                                    user_gplus=user_gplus,
+                                                                                    gname=event.conv.name,
+                                                                                    text=sync_text)
+        yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='html',
                                       disable_web_page_preview=True)
         if has_photo:
             photo_name = photo_url.rpartition('/')[-1]
@@ -616,9 +620,10 @@ def _on_hangouts_message(bot, event, command=""):
 
 
 def create_membership_change_message(user_name, user_gplus, group_name, membership_event="left"):
-    text = "[{uname}]({user_gplus}) {membership_event} *({gname})*".format(uname=user_name, user_gplus=user_gplus,
-                                                                           gname=group_name,
-                                                                           membership_event=membership_event)
+    text = '<a href="{user_gplus}">{uname}</a> {membership_event} <b>({gname})</b>'.format(uname=user_name,
+                                                                                           user_gplus=user_gplus,
+                                                                                           gname=group_name,
+                                                                                           membership_event=membership_event)
     return text
 
 
@@ -637,5 +642,5 @@ def _on_membership_change(bot, event, command=""):
     ho2tg_dict = bot.memory.get_by_path(['telesync'])['ho2tg']
 
     if event.conv_id in ho2tg_dict:
-        yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='Markdown',
+        yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='html',
                                       disable_web_page_preview=True)
