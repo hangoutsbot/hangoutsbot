@@ -1,12 +1,10 @@
-import asyncio, re, logging, json, random
+import asyncio, re, logging, json, random, aiohttp, io, os
 
 import hangups
 
 import plugins
 
-
 logger = logging.getLogger(__name__)
-
 
 def _initialise(bot):
     plugins.register_handler(_handle_autoreply, type="message")
@@ -40,6 +38,7 @@ def _handle_autoreply(bot, event, command):
         raise RuntimeError("unhandled event type")
 
     autoreplies_list = bot.get_config_suboption(event.conv_id, 'autoreplies')
+
     if autoreplies_list:
         for kwds, sentences in autoreplies_list:
 
@@ -94,7 +93,45 @@ def send_reply(bot, event, message):
             envelopes.append((target_conv, message.format(**values)))
 
     else:
-        envelopes.append((event.conv, message.format(**values)))
+        if " " in message:
+            """ignore anything with spaces"""
+            probable_image_link = False
+
+        message_lower = message.lower()
+        logger.info("link? {}".format(message_lower))
+
+        if re.match("^(https?://)?([a-z0-9.]*?\.)?imgur.com/", message_lower, re.IGNORECASE):
+            """imgur links can be supplied with/without protocol and extension"""
+            probable_image_link = True
+
+        elif message_lower.startswith(("http://", "https://")) and message_lower.endswith((".png", ".gif", ".gifv", ".jpg", ".jpeg")):
+            """other image links must have protocol and end with valid extension"""
+            probable_image_link = True
+        else:
+            probable_image_link = False
+
+        if probable_image_link:
+            if "imgur.com" in message:
+                """special imgur link handling"""
+                if not message.endswith((".jpg", ".gif", "gifv", "webm", "png")):
+                    message = message + ".gif"
+                message = "https://i.imgur.com/" + os.path.basename(message)
+
+            message = message.replace(".webm",".gif")
+            message = message.replace(".gifv",".gif")
+
+            logger.info("getting {}".format(message))
+
+            filename = os.path.basename(message)
+            r = yield from aiohttp.request('get', message)
+            raw = yield from r.read()
+            image_data = io.BytesIO(raw)
+
+            image_id = yield from bot._client.upload_image(image_data, filename=filename)
+
+            yield from bot.coro_send_message(event.conv.id_, None, image_id=image_id)
+        else:
+            envelopes.append((event.conv, message.format(**values)))
 
     for send in envelopes:
         yield from bot.coro_send_message(*send)
