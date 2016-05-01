@@ -15,6 +15,7 @@ def _initialise(bot):
 def _handle_autoreply(bot, event, command):
     config_autoreplies = bot.get_config_suboption(event.conv.id_, 'autoreplies_enabled')
     tagged_autoreplies = "autoreplies-enable" in bot.tags.useractive(event.user_id.chat_id, event.conv.id_)
+    config_global_autoreplies = bot.get_config_suboption(event.conv.id_, 'global_autoreplies_enabled')
 
     if not (config_autoreplies or tagged_autoreplies):
         return
@@ -37,7 +38,12 @@ def _handle_autoreply(bot, event, command):
     else:
         raise RuntimeError("unhandled event type")
 
-    autoreplies_list = bot.get_config_suboption(event.conv_id, 'autoreplies')
+    if config_global_autoreplies:
+        autoreplies_list1 = bot.get_config_suboption('global', 'autoreplies')
+        autoreplies_list2 = bot.get_config_suboption(event.conv_id, 'autoreplies')
+        autoreplies_list= tuple(autoreplies_list1) + tuple(autoreplies_list2)
+    else:
+        autoreplies_list = bot.get_config_suboption(event.conv_id, 'autoreplies')
 
     if autoreplies_list:
         for kwds, sentences in autoreplies_list:
