@@ -95,10 +95,15 @@ def ping(bot, event, *args):
 @command.register
 def c(bot, event, *args):
     
-    lastcommand = bot.user_memory_get(event.user.id_.chat_id, 'lastcommand')
-    yield from bot.coro_send_message(event.conv, '<b>Last command :<br>' + lastcommand , context={ "parser": True })
+    if bot.memory.exists(["user_data",event.user.id_.chat_id, 'lastcommand']):
+        lastcommand = bot.user_memory_get(event.user.id_.chat_id, 'lastcommand')
+        yield from bot.coro_send_message(event.conv, '<b>Last command :<br>' + lastcommand , context={ "parser": True })
+        yield from command.run(bot, event, *lastcommand.split())
+    else:
+        yield from bot.coro_send_message(event.conv, 'You have no previous command.'  , context={ "parser": True })    
 
-    yield from command.run(bot, event, *lastcommand.split())
+
+
 
 @command.register
 def optout(bot, event, *args):
