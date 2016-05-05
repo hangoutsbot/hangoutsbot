@@ -13,31 +13,22 @@ or not.
 
     "spawn": {
         "home": "/nonstandard/home/directory",
-        "commands": 
+        "commands":
             "motd": {
-                "command": ["/bin/cat", "/etc/motd"],
-                "home": "/another/home/directory"
+                "command": ["/bin/cat", "/etc/motd", "--"],
+                "allow_args": true
             },
             "fortune": {
                 "command": ["/usr/games/fortune"]
             },
+            "stock-info": {
+                "command": ["/home/portfolio/stoc-info", "--"]
+                "home": "/home/portfolio",
+                "allow_args": true
         }
     }
 
-Any arguments passed by the user are also passed to the program.
-However, those arguments are passed after a "--", so, for example:
-
-    /bot fortune dirty
-
-    would execute: ['/usr/games/fortune', '--',  'dirty']
-
-Do take care with security though.  While the shell is bypassed, so no
-file redirection or command chanining is allowed (e.g.  '/bot motd ;
-rm -rf /' will fail), there may be unintended, such as:
-
-    /bot motd /etc/passwd
-
-    would execute: ['/bin/cat', '/etc/motd', '--',  '/etc/passwd']
+Security notes:
 
 which will still send out your password file.  If you're worried about
 argument passing (and you should be), consider replacing '/bin/cat'
@@ -47,13 +38,35 @@ While some attempt at security has been made, it's not guaranteed or
 complete.  If you're running the bot as a privilged user, you get what
 you deserve when you get hacked.
 
-XXX are we initializing tags correctly?
+If `allow_args` has been set to true, any arguments passed in by the user
+are also passed to the program.  *Use this with caution*, and consider
+ending your commands with '--' to avoid allowing users to masqurade
+arguments as options, should that be an issue for you.
 
+The shell is bypassed, so no file redirection or command chanining is
+allowed (e.g. `/bot motd ; rm -rf /` will fail), if `allow_args` is true,
+you are passing unsanitised arguments off to a command.
+
+Even if, as in the `motd` example above, where the command has '--'
+as part of it, so that the user cannot pass in any additional switch
+based arguments, unintended consequences can occur:
+
+    /bot motd /etc/passwd
+
+would execute:
+
+    ['/bin/cat', '/etc/motd', '--',  '/etc/passwd']
+
+which will, of course, send back `/etc/passwd`.
+
+You're responsible for sanitizing any arguments passed on to the
+program, if `allow_args` is true.  Shell script wrappers may be
+your best friend.
 """
 
 import os
-import asyncio
 import logging
+import asyncio
 from asyncio.subprocess import PIPE
 
 import plugins
@@ -70,27 +83,31 @@ def _initialize(bot):
     cmds = config.get("commands")
 
     # override the load logic and register our commands directly
-    for cmd, info in cmds.items():
+    for cmd in cmds:
         command.register(_spawn, admin=True, final=True, name=cmd)
 
-    logger.info("spawn - {}".format(", ".join(map(lambda cmd: "*" + cmd, list(cmds)))))
+    logger.info("spawn - %s", ", ".join(['*' + cmd for cmd in cmds]))
     plugins.register_admin_command(list(cmds))
 
 
 def _spawn(bot, event, *args):
     """Execute a generic command"""
     config = bot.get_config_suboption(event.conv_id, "spawn")
+    cmd_config = config["commands"][event.command_name]
 
-    home_env = config["commands"][event.command_name].get("home", config.get("home"))
+    home_env = cmd_config.get("home", config.get("home"))
     if home_env:
         os.environ["HOME"] = home_env
 
-    executable = config["commands"][event.command_name].get("command")
+    executable = cmd_config.get("command")
     if not executable:
         yield from bot.coro_send_message(event.conv_id, "Not configured")
         return
 
-    executable = tuple(executable + ["--"] + list(args))
+    if cmd_config.get("allow_args"):
+        executable = executable + list(args)
+
+    executable = tuple(executable)
     logger.info("%s executing: %s", event.user.full_name, executable)
     proc = yield from asyncio.create_subprocess_exec(*executable, stdout=PIPE, stderr=PIPE)
 
