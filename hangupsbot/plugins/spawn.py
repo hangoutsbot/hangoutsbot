@@ -91,6 +91,7 @@ def _spawn(bot, event, *args):
         return
 
     executable = tuple(executable + ["--"] + list(args))
+    logger.info("%s executing: %s", event.user.full_name, executable)
     proc = yield from asyncio.create_subprocess_exec(*executable, stdout=PIPE, stderr=PIPE)
 
     (stdout_data, stderr_data) = yield from proc.communicate()
