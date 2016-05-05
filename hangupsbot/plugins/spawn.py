@@ -16,8 +16,7 @@ or not.
         "commands": 
             "motd": {
                 "command": ["/bin/cat", "/etc/motd"],
-                "home": "/another/home/directory",
-                "admin": true
+                "home": "/another/home/directory"
             },
             "fortune": {
                 "command": ["/usr/games/fortune"]
@@ -74,6 +73,7 @@ def _initialize(bot):
     for cmd, info in cmds.items():
         command.register(_spawn, admin=True, final=True, name=cmd)
 
+    logger.info("spawn - {}".format(", ".join(map(lambda cmd: "*" + cmd, list(cmds)))))
     plugins.register_admin_command(list(cmds))
 
 
