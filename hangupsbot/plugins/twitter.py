@@ -68,8 +68,7 @@ def _watch_twitter_link(bot, event, command):
   if not re.match("^https?://(www\.)?twitter.com/[a-zA-Z0-9_]{1,15}/status/[0-9]+$", event.text, re.IGNORECASE):
     return
 
-
-  if bot.memory.get_by_path(['twitter','key']) and bot.memory.get_by_path(['twitter','secret']):
+  try:
     key = bot.memory.get_by_path(['twitter', 'key'])
     secret = bot.memory.get_by_path(['twitter', 'secret'])
     tweet_id = re.match(r".+/(\d+)", event.text).group(1)
@@ -100,7 +99,7 @@ def _watch_twitter_link(bot, event, command):
       pass
 
     yield from bot.coro_send_message(event.conv, message)
-  else:
+  except:
     url = event.text.lower()
     try:
       response = urllib.request.urlopen(url)
@@ -109,9 +108,10 @@ def _watch_twitter_link(bot, event, command):
       logger.info(e.read())
       return
 
+    username = re.match(r".+twitter\.com/([a-zA-Z0-9_]+)/", url).group(1)
     body = response.read()
     soup = BeautifulSoup(body.decode("utf-8"), "lxml")
     twhandle = soup.title.text.split(" on Twitter: ")[0].strip()
     tweet = re.sub(r"#([a-zA-Z0-9]*)",r"<a href='https://twitter.com/hashtag/\1'>#\1</a>", soup.title.text.split(" on Twitter: ")[1].strip())
-    message = "<b><a href='{}'>@{}</a></b>: {}".format("https://twitter.com/{}".format(twhandle), twhandle, tweet)
+    message = "<b><a href='{}'>@{}</a> [{}]</b>: {}".format("https://twitter.com/{}".format(username), username, twhandle, tweet)
     yield from bot.coro_send_message(event.conv, message)
