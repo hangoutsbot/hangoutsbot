@@ -19,11 +19,11 @@ def prettydate(diff):
     elif s < 120:
         return '1 minute ago'
     elif s < 3600:
-        return '{} minutes ago'.format(s/60)
+        return '{} minutes ago'.format(round(s/60),1)
     elif s < 7200:
         return '1 hour ago'
     else:
-        return '{} hours ago'.format(s/3600)
+        return '{} hours ago'.format(round(s/3600),1)
 
 def _initialise(bot):
   plugins.register_admin_command(["twitterkey", "twittersecret", 'twitterconfig'])
@@ -84,6 +84,21 @@ def _watch_twitter_link(bot, event, command):
     twhandle = tweet['user']['screen_name']
     userurl = "https://twitter.com/intent/user?user_id={}".format(tweet['user']['id'])
     message = "<b><u><a href='{}'>@{}</a> ({})</u></b>: {} <i>{}</i>".format(userurl, twhandle, username, text, timeago)
+    try:
+      images = tweet['extended_entities']['media']
+      for image in images:
+        if image['type'] == 'photo':
+          imagelink = image['media_url']
+          filename = os.path.basename(imagelink)
+          r = yield from aiohttp.request('get',imagelink)
+          raw = yield from r.read()
+          image_data = io.BytesIO(raw)
+          image_id = yield from bot._client.upload_image(image_data, filename=filename)
+          yield from bot.coro_send_message(event.conv.id_, None, image_id=image_id)
+
+    except KeyError:
+      pass
+
     yield from bot.coro_send_message(event.conv, message)
   else:
     url = event.text.lower()
