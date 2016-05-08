@@ -4,25 +4,24 @@ Spawn arbitrary commands asynchronously (as the bot user)
 Stdout goes back to the main hangout
 Stderr goes back to a private 1:1
 
-We expect a "spawn" configuration dictionary in config.json.
-The dictionary can appear in two places.  It -must- appear
-at the main level, it -may- also appear at the per-conversation
-level, but any per-conversation structure may not override
-the name of the command or whether it is an admin command
-or not.
+We expect a "spawn" configuration dictionary in config.json.  The
+dictionary can appear in two places.  It -must- appear at the main
+level, it -may- also appear at the per-conversation level, but any
+per-conversation structure may not override the name of the command or
+whether it is an admin command or not.
 
     "spawn": {
         "home": "/nonstandard/home/directory",
         "commands":
-            "motd": {
-                "command": ["/bin/cat", "/etc/motd", "--"],
-                "allow_args": true
-            },
             "fortune": {
                 "command": ["/usr/games/fortune"]
             },
+            "motd": {    <---this is a deliberately unsecure example
+                "command": ["/bin/cat", "/etc/motd", "--"],
+                "allow_args": true
+            },
             "stock-info": {
-                "command": ["/home/portfolio/stoc-info", "--"]
+                "command": ["/home/portfolio/stock-info", "--"]
                 "home": "/home/portfolio",
                 "allow_args": true
         }
@@ -30,26 +29,22 @@ or not.
 
 Security notes:
 
-which will still send out your password file.  If you're worried about
-argument passing (and you should be), consider replacing '/bin/cat'
-above with a shell script wrapper that sanitizes or ignores arguments.
-
-While some attempt at security has been made, it's not guaranteed or
-complete.  If you're running the bot as a privilged user, you get what
-you deserve when you get hacked.
+While some attempt at security has been made, it's neither guaranteed or
+complete.  If you're running the bot as a privlieged user, you get what
+you deserve when you get hacked, and we will all laugh at you when you
+share your sad story.
 
 If `allow_args` has been set to true, any arguments passed in by the user
-are also passed to the program.  *Use this with caution*, and consider
+are also passed to the program.  *Use this with caution*, and also consider
 ending your commands with '--' to avoid allowing users to masqurade
-arguments as options, should that be an issue for you.
+arguments as options, should that be an issue for a particular command.
 
-The shell is bypassed, so no file redirection or command chanining is
-allowed (e.g. `/bot motd ; rm -rf /` will fail), if `allow_args` is true,
-you are passing unsanitised arguments off to a command.
-
-Even if, as in the `motd` example above, where the command has '--'
-as part of it, so that the user cannot pass in any additional switch
-based arguments, unintended consequences can occur:
+While the shell is bypassed, so no file redirection or command chanining
+is allowed (e.g. `/bot motd ; rm -rf /` will fail), if `allow_args` is
+true, you are passing unsanitised arguments off to a command.  Even if,
+as in the `motd` example above, where the command has '--' as part of it,
+so that the user cannot pass in any additional switch based arguments,
+unintended consequences can occur:
 
     /bot motd /etc/passwd
 
@@ -60,8 +55,8 @@ would execute:
 which will, of course, send back `/etc/passwd`.
 
 You're responsible for sanitizing any arguments passed on to the
-program, if `allow_args` is true.  Shell script wrappers may be
-your best friend.
+program, if `allow_args` is true. Writing your own small shell
+script to do so may be your best option.
 """
 
 import os
