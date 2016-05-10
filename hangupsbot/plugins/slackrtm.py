@@ -1190,7 +1190,7 @@ class SlackRTM(object):
 #                print('slackrtm: NO image in message: "%s"' % event.text)
             message = chatMessageEvent2SlackText(event.conv_event)
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
-            if '({})'.format(sync.hotag) in message:
+            if '({})'.format(sync.slacktag) in message:
                 # message originated in slack
                 return
             logger.debug("sending to channel %s: %s", sync.channelid, message.encode('utf-8'))
