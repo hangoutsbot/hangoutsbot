@@ -1162,6 +1162,7 @@ class SlackRTM(object):
                         response += msg.file_attachment
                 self.bot.send_html_to_conversation(sync.hangoutid, response)
 
+    @asyncio.coroutine
     def handle_ho_message(self, event):
         for sync in self.get_syncs(hangoutid=event.conv_id):
             fullname = event.user.full_name
@@ -1189,10 +1190,14 @@ class SlackRTM(object):
 #            else:
 #                print('slackrtm: NO image in message: "%s"' % event.text)
             message = chatMessageEvent2SlackText(event.conv_event)
-            message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             if '({})'.format(sync.slacktag) in message:
                 # message originated in slack
+                command = event.text.split(': ')[1]
+                event.text = command
+                logger.debug('attempting to execute %s', command)
+                yield from self.bot._handlers.handle_command(event)
                 return
+            message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             logger.debug("sending to channel %s: %s", sync.channelid, message.encode('utf-8'))
             self.api_call('chat.postMessage',
                           channel=sync.channelid,
@@ -1348,7 +1353,7 @@ def _initialise(bot):
 def _handle_slackout(bot, event, command):
     for slackrtm in _slackrtms:
         try:
-            slackrtm.handle_ho_message(event)
+            yield from slackrtm.handle_ho_message(event)
         except Exception as e:
             logger.exception('_handle_slackout threw: %s', str(e))
 
