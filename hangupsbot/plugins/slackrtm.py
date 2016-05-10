@@ -1334,7 +1334,7 @@ def _initialise(bot):
             threads.append(t)
     logger.info("%d sink thread(s) started", len(threads))
 
-    plugins.register_handler(_handle_slackout)
+    plugins.register_handler(_handle_slackout, type="allmessages")
     plugins.register_handler(_handle_membership_change, type="membership")
     plugins.register_handler(_handle_rename, type="rename")
 
