@@ -301,6 +301,8 @@ class SlackRTM(object):
         self.config = sink_config
         self.apikey = self.config['key']
         self.threadname = None
+        self.sending = False
+        self.lastimg = ''
 
         self.slack = SlackClient(self.apikey)
         if not self.slack.rtm_connect():
@@ -1157,14 +1159,28 @@ class SlackRTM(object):
                 if msg.file_attachment:
                     if sync.image_upload:
                         self.loop.call_soon_threadsafe(asyncio.async, self.upload_image(sync.hangoutid, msg.file_attachment))
+                        self.lastimg = os.path.basename(msg.file_attachment)
                     else:
                         # we should not upload the images, so we have to send the url instead
                         response += msg.file_attachment
+                self.sending = True
                 self.bot.send_html_to_conversation(sync.hangoutid, response)
 
     @asyncio.coroutine
     def handle_ho_message(self, event):
         for sync in self.get_syncs(hangoutid=event.conv_id):
+            if self.sending:
+                # this hangout message originated in slack
+                self.sending = False
+                command = event.text.split(': ')[1]
+                event.text = command
+                logger.debug('attempting to execute %s', command)
+                yield from self.bot._handlers.handle_command(event)
+                return
+            if self.lastimg and self.lastimg in event.text:
+                # already seen this image, skip
+                self.lastimg = ''
+                return
             fullname = event.user.full_name
             if sync.hotag:
                 fullname = '%s (%s)' % (fullname, sync.hotag)
@@ -1190,13 +1206,6 @@ class SlackRTM(object):
 #            else:
 #                print('slackrtm: NO image in message: "%s"' % event.text)
             message = chatMessageEvent2SlackText(event.conv_event)
-            if '({})'.format(sync.slacktag) in message:
-                # message originated in slack
-                command = event.text.split(': ')[1]
-                event.text = command
-                logger.debug('attempting to execute %s', command)
-                yield from self.bot._handlers.handle_command(event)
-                return
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             logger.debug("sending to channel %s: %s", sync.channelid, message.encode('utf-8'))
             self.api_call('chat.postMessage',
