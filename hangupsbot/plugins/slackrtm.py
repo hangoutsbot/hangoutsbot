@@ -1169,7 +1169,7 @@ class SlackRTM(object):
     @asyncio.coroutine
     def handle_ho_message(self, event):
         for sync in self.get_syncs(hangoutid=event.conv_id):
-            if self.sending:
+            if self.sending and ': ' in event.text:
                 # this hangout message originated in slack
                 self.sending -= 1
                 command = event.text.split(': ')[1]
