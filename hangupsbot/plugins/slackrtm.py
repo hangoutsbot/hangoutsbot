@@ -301,7 +301,7 @@ class SlackRTM(object):
         self.config = sink_config
         self.apikey = self.config['key']
         self.threadname = None
-        self.sending = False
+        self.sending = 0
         self.lastimg = ''
 
         self.slack = SlackClient(self.apikey)
@@ -1163,7 +1163,7 @@ class SlackRTM(object):
                     else:
                         # we should not upload the images, so we have to send the url instead
                         response += msg.file_attachment
-                self.sending = True
+                self.sending += 1
                 self.bot.send_html_to_conversation(sync.hangoutid, response)
 
     @asyncio.coroutine
@@ -1171,7 +1171,7 @@ class SlackRTM(object):
         for sync in self.get_syncs(hangoutid=event.conv_id):
             if self.sending:
                 # this hangout message originated in slack
-                self.sending = False
+                self.sending -= 1
                 command = event.text.split(': ')[1]
                 event.text = command
                 logger.debug('attempting to execute %s', command)
