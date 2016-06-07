@@ -1164,7 +1164,9 @@ class SlackRTM(object):
                         # we should not upload the images, so we have to send the url instead
                         response += msg.file_attachment
                 self.sending += 1
-                self.bot.send_html_to_conversation(sync.hangoutid, response)
+                self.loop.call_soon_threadsafe(asyncio.async,
+                    self.bot.coro_send_message(sync.hangoutid, response, context={'slack': True})
+                )
 
     @asyncio.coroutine
     def handle_ho_message(self, event):
