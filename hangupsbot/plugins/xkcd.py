@@ -23,7 +23,7 @@ def _watch_xkcd_link(bot, event, command):
 		return
 	
 	for regexp in regexps:
-		match = re.search(regexp, event.text)
+		match = re.search(regexp, event.text, flags=re.IGNORECASE)
 		if not match:
 			continue
 		
