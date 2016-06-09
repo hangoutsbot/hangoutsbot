@@ -1,4 +1,5 @@
 import plugins
+from hangups import ChatMessageSegment
 
 import aiohttp
 import asyncio
@@ -42,10 +43,16 @@ def _watch_xkcd_link(bot, event, command):
 			"parser": False,
 		}
 		
-		msg1 = 'xkcd #%s: %s' % (num, info["title"])
-		msg2 = '%s\n- https://xkcd.com/%s' % (info["alt"], num)
+		msg1 = [
+			ChatMessageSegment("xkcd #%s: " % num),
+			ChatMessageSegment(info["title"], is_bold=True),
+		]
+		msg2 = [
+			ChatMessageSegment(info["alt"]),
+			*ChatMessageSegment.from_str('<br/>- <i><a href="https://xkcd.com/%s">CC-BY-SA by xkcd</a></i>' % num)
+		]
 		if "link" in info and info["link"]:
-			msg2 += "\n* see also %s" % info["link"]
+			msg2.extend(ChatMessageSegment.from_str("<br/>* see also %s" % info["link"]))
 		
 		yield from bot.coro_send_message(event.conv.id_, msg1, context)
 		yield from bot.coro_send_message(event.conv.id_, msg2, context, image_id=image_id) # image appears above text, so order is [msg1, image, msg2]
