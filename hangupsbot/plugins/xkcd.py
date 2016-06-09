@@ -30,7 +30,7 @@ def _watch_xkcd_link(bot, event, command):
 		num = match.group(1)
 		request = yield from aiohttp.request('get', 'https://xkcd.com/%s/info.0.json' % num)
 		raw = yield from request.read()
-		info = json.loads(raw)
+		info = json.loads(raw.decode())
 		
 		filename = os.path.basename(info["img"])
 		request = yield from aiohttp.request('get', info["img"])
