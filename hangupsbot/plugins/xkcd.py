@@ -51,8 +51,7 @@ def _watch_xkcd_link(bot, event, command):
         ]
         msg2 = [
             ChatMessageSegment(info["alt"]),
-            *ChatMessageSegment.from_str('<br/>- <i><a href="https://xkcd.com/%s">CC-BY-SA by xkcd</a></i>' % num)
-        ]
+        ] + ChatMessageSegment.from_str('<br/>- <i><a href="https://xkcd.com/%s">CC-BY-SA by xkcd</a></i>' % num)
         if "link" in info and info["link"]:
             msg2.extend(ChatMessageSegment.from_str("<br/>* see also %s" % info["link"]))
         
