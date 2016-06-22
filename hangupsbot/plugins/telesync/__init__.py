@@ -78,7 +78,7 @@ class TelegramBot(telepot.async.Bot):
 
     @staticmethod
     def on_user_join(bot, chat_id, msg):
-        print("New User: {name}".format(name=msg['left_chat_member']['first_name']))
+        print("New User: {name}".format(name=msg['new_chat_member']['first_name']))
 
     @staticmethod
     def on_user_leave(bot, chat_id, msg):
@@ -86,7 +86,7 @@ class TelegramBot(telepot.async.Bot):
 
     @staticmethod
     def on_location_share(bot, chat_id, msg):
-        print("{name} shared a location".format(name=msg['left_chat_member']['first_name']))
+        print("{name} shared a location".format(name=msg['from']['first_name']))
 
     def set_on_message_callback(self, func):
         self.onMessageCallback = func
