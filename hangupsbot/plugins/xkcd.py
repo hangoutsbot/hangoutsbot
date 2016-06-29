@@ -23,6 +23,7 @@ regexps = (
     "(?:\s|^)xkcd\s+(?:#\s*)?([0-9]+)(?:\s|$)",
 )
 
+
 @asyncio.coroutine
 def xkcd(bot, event, *args):
     """
@@ -61,7 +62,7 @@ def _watch_xkcd_link(bot, event, command):
         return # only one match per message
 
 @asyncio.coroutine
-def _print_comic(bot, event, num=None):
+def _get_comic(bot, num=None):
     if num:
         num = int(num)
         url = 'https://xkcd.com/%d/info.0.json' % num
@@ -70,22 +71,27 @@ def _print_comic(bot, event, num=None):
         url = 'https://xkcd.com/info.0.json'
     
     if num in _cache:
-        info = _cache[num]
+        return _cache[num]
     else:
         request = yield from aiohttp.request('get', url)
         raw = yield from request.read()
         info = json.loads(raw.decode())
         
         if info['num'] in _cache:
-            info = _cache[info['num']]
-        else:
-            filename = os.path.basename(info["img"])
-            request = yield from aiohttp.request('get', info["img"])
-            raw = yield from request.read()
-            image_data = io.BytesIO(raw)
-            info['image_id'] = yield from bot._client.upload_image(image_data, filename=filename)
-            _cache[info['num']] = info
-    
+            # may happen when searching for the latest comic
+            return _cache[info['num']]
+        
+        filename = os.path.basename(info["img"])
+        request = yield from aiohttp.request('get', info["img"])
+        raw = yield from request.read()
+        image_data = io.BytesIO(raw)
+        info['image_id'] = yield from bot._client.upload_image(image_data, filename=filename)
+        _cache[info['num']] = info
+        return info
+
+@asyncio.coroutine
+def _print_comic(bot, event, num=None):
+    info = yield from _get_comic(bot, num)
     image_id = info['image_id']
     
     context = {
@@ -113,12 +119,17 @@ def _search_comic(bot, event, terms):
     }))
     raw = yield from request.read()
     values = [row.strip().split(" ")[0] for row in raw.decode().strip().split("\n")]
+    
     weight = float(values.pop(0))
     values.pop(0) # selection - ignore?
-    number = int(values.pop(0))
+    comics = [int(i) for i in values]
+    num = comics.pop(0)
     
-    msg = 'Most relevant xkcd: #%d (relevance: %.2f%%)\nOther relevant comics: %s' % (number, weight*100, ", ".join("#%s" % i for i in values))
+    msg = 'Most relevant xkcd: #%d (relevance: %.2f%%)\nOther relevant comics: %s' % (num, weight*100, ", ".join("#%d" % i for i in comics))
+    
+    # get info and upload image if necessary
+    yield from _get_comic(bot, num)
     
     yield from bot.coro_send_message(event.conv.id_, msg)
-    yield from _print_comic(bot, event, number)
+    yield from _print_comic(bot, event, num)
 
