@@ -9,6 +9,7 @@ import io
 import json
 import os.path
 import re
+import urllib.parse
 
 _cache = {}
 
@@ -24,13 +25,23 @@ regexps = (
 
 @asyncio.coroutine
 def xkcd(bot, event, *args):
-    """show latest xkcd comic"""
+    """
+/bot xkcd latest: show latest comic
+/bot xkcd current: same
+/bot xkcd clear: clear comic cache
+/bot xkcd search <query>: search for a comic
+"""
     
     if args == ("clear", ):
         _cache.clear()
+        return
     
-    if len(args):
-        # will be handled by the message handler
+    if len(args) and args[0] == "search":
+        yield from _search_comic(bot, event, args[1:])
+        return
+    
+    if len(args) and args != ("latest", ) and args != ("current", ):
+        # ignore
         return
     yield from _print_comic(bot, event)
 
@@ -49,6 +60,7 @@ def _watch_xkcd_link(bot, event, command):
         yield from _print_comic(bot, event, num)
         return # only one match per message
 
+@asyncio.coroutine
 def _print_comic(bot, event, num=None):
     if num:
         num = int(num)
@@ -92,4 +104,21 @@ def _print_comic(bot, event, num=None):
     
     yield from bot.coro_send_message(event.conv.id_, msg1, context)
     yield from bot.coro_send_message(event.conv.id_, msg2, context, image_id=image_id) # image appears above text, so order is [msg1, image, msg2]
+
+@asyncio.coroutine
+def _search_comic(bot, event, terms):
+    request = yield from aiohttp.request('get', "https://relevantxkcd.appspot.com/process?%s" % urllib.parse.urlencode({
+        "action": "xkcd",
+        "query": " ".join(terms),
+    }))
+    raw = yield from request.read()
+    values = [row.strip().split(" ")[0] for row in raw.decode().strip().split("\n")]
+    weight = float(values.pop(0))
+    values.pop(0) # selection - ignore?
+    number = int(values.pop(0))
+    
+    msg = 'Most relevant xkcd: #%d (relevance: %.2f%%)\nOther relevant comics: %s' % (number, weight*100, ", ".join("#%s" % i for i in values))
+    
+    yield from bot.coro_send_message(event.conv.id_, msg)
+    yield from _print_comic(bot, event, number)
 
