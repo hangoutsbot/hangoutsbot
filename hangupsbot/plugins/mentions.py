@@ -165,7 +165,7 @@ def mention(bot, event, *args):
                     if conv_1on1_initiator:
                         yield from bot.coro_send_message(
                             conv_1on1_initiator,
-                            _("You are not allowed to mention all usesrs in <b>{}</b>").format(
+                            _("You are not allowed to mention all users in <b>{}</b>").format(
                                 conversation_name))
                     if noisy_mention_test or bot.get_config_suboption(event.conv_id, 'mentionerrors'):
                         yield from bot.coro_send_message(
