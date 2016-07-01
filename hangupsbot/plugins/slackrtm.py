@@ -301,6 +301,8 @@ class SlackRTM(object):
         self.config = sink_config
         self.apikey = self.config['key']
         self.threadname = None
+        self.sending = 0
+        self.lastimg = ''
 
         self.slack = SlackClient(self.apikey)
         if not self.slack.rtm_connect():
@@ -1157,13 +1159,30 @@ class SlackRTM(object):
                 if msg.file_attachment:
                     if sync.image_upload:
                         self.loop.call_soon_threadsafe(asyncio.async, self.upload_image(sync.hangoutid, msg.file_attachment))
+                        self.lastimg = os.path.basename(msg.file_attachment)
                     else:
                         # we should not upload the images, so we have to send the url instead
                         response += msg.file_attachment
-                self.bot.send_html_to_conversation(sync.hangoutid, response)
+                self.sending += 1
+                self.loop.call_soon_threadsafe(asyncio.async,
+                    self.bot.coro_send_message(sync.hangoutid, response, context={'slack': True})
+                )
 
+    @asyncio.coroutine
     def handle_ho_message(self, event):
         for sync in self.get_syncs(hangoutid=event.conv_id):
+            if self.sending and ': ' in event.text:
+                # this hangout message originated in slack
+                self.sending -= 1
+                command = event.text.split(': ')[1]
+                event.text = command
+                logger.debug('attempting to execute %s', command)
+                yield from self.bot._handlers.handle_command(event)
+                return
+            if self.lastimg and self.lastimg in event.text:
+                # already seen this image, skip
+                self.lastimg = ''
+                return
             fullname = event.user.full_name
             if sync.hotag:
                 fullname = '%s (%s)' % (fullname, sync.hotag)
@@ -1334,7 +1353,7 @@ def _initialise(bot):
             threads.append(t)
     logger.info("%d sink thread(s) started", len(threads))
 
-    plugins.register_handler(_handle_slackout)
+    plugins.register_handler(_handle_slackout, type="allmessages")
     plugins.register_handler(_handle_membership_change, type="membership")
     plugins.register_handler(_handle_rename, type="rename")
 
@@ -1345,7 +1364,7 @@ def _initialise(bot):
 def _handle_slackout(bot, event, command):
     for slackrtm in _slackrtms:
         try:
-            slackrtm.handle_ho_message(event)
+            yield from slackrtm.handle_ho_message(event)
         except Exception as e:
             logger.exception('_handle_slackout threw: %s', str(e))
 

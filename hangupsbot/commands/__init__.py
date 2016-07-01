@@ -172,6 +172,7 @@ class CommandDispatcher(object):
         else:
             raise KeyError("command {} not found".format(command_name))
 
+        setattr(event, 'command_name', command_name)
         args = list(args[1:])
 
         try:
@@ -185,11 +186,11 @@ class CommandDispatcher(object):
                 "<b><pre>{0}</pre></b> <pre>{1}</pre>: <em><pre>{2}</pre></em>".format(
                     func.__name__, type(e).__name__, str(e)) )
 
-    def register(self, *args, admin=False, tags=None, final=False):
+    def register(self, *args, admin=False, tags=None, final=False, name=None):
         """Decorator for registering command"""
 
         def wrapper(func):
-            func_name = func.__name__
+            func_name = name or func.__name__
 
             if final:
                 # wrap command function in coroutine
