@@ -21,6 +21,8 @@ def _initialise():
 
 def _handle_keyword(bot, event, command):
     """handle keyword"""
+    if event.user.is_self:
+        return
 
     _populate_keywords(bot, event)
 
