@@ -4,6 +4,10 @@ import shlex
 from commands import command
 
 def _initialise(bot):
+    if '!!' in bot._handlers.bot_command:
+        print("ERROR: Bot is already using !! as a botalias, please disable that before using the lastcommand plugin")
+        return []
+
     plugins.register_handler(_handle_command, "message")
     plugins.register_admin_command(["lastcommand"])
 
@@ -20,6 +24,9 @@ def _handle_command(bot, event, command):
 
     if line_args[0].lower() in bot._handlers.bot_command and line_args[1].lower() != '!!':
         bot.user_memory_set(event.user.id_.chat_id, 'lastcommand', ' '.join(line_args[1:]))
+
+    if line_args[0].lower() == '!!':
+        yield from command.run(bot, event, *(['!!'] + line_args[1:]))
 
 def c(bot, event):
     if bot.memory.exists(["user_data", event.user.id_.chat_id, 'lastcommand']):
