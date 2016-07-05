@@ -20,7 +20,7 @@ def remindme(bot, event, dly, *args):
         yield from bot.coro_send_message(event.conv, _("Private reminder for <b>{}</b> in {}m").format(event.user.full_name, dly))
         conv_1on1 = yield from bot.get_1to1(event.user.id_.chat_id)
         yield from asyncio.sleep(delayTime)
-        yield from bot.coro_send_message(event.conv, _("<b>Reminder:</b> " + " ".join(str(x) for x in args)))
+        yield from bot.coro_send_message(conv_1on1, _("<b>Reminder:</b> " + " ".join(str(x) for x in args)))
     except ValueError:
         yield from bot.coro_send_message(event.conv, _("Error creating reminder, invalid delay"))
 

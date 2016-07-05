@@ -219,10 +219,11 @@ class Cleverbot:
         parsed = [
             item.split('\r') for item in self.resp.decode('utf-8').split('\r\r\r\r\r\r')[:-1]
         ]
+
         parsed_dict = {
             'answer': parsed[0][0],
             'conversation_id': parsed[0][1],
-            'conversation_log_id': parsed[0][2],
+            # 'conversation_log_id': parsed[0][2],
         }
         try:
             parsed_dict['unknown'] = parsed[1][-1]

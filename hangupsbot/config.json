@@ -29,8 +29,8 @@
   "plugins": [
     "default",
     "mentions",
+    "subscribe",
     "autoreply",
-    "cleverbot",
     "dnd",
     "starter",
     "remind"

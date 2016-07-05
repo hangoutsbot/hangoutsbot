@@ -16,7 +16,7 @@ Please see:
 
 ## Features
 * **Mentions** :
-  If somebody mentions you in a room, receive a private hangout from the bot with details onthe mention,
+  If somebody mentions you in a room, receive a private hangout from the bot with details on the mention,
   including context, room and person who mentioned you.
 * **Syncouts** :
   A syncout is two Hangout group chats that have their messages forwarded to each other, allowing seamless
