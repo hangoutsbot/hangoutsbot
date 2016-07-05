@@ -11,7 +11,8 @@ def _initialise(Handlers, bot=None):
     first, you can setup stuff, initialise variables and whatever else!
     """
     plugins.register_handler(_handle_command, "message")
-    plugins.register_admin_command(["lastcommand", "c"])
+    plugins.register_admin_command(["lastcommand"])
+    plugins.register_user_command(["c"])
 
     # above command is available to all users
     # Handlers.register_admin_command() if command(s) only available to admins
