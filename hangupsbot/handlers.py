@@ -61,8 +61,8 @@ class EventHandler:
         return _id
 
     def attach_reprocessor(self, callable, return_as_dict=False):
-        """reprocessor: map callable to a special hidden context link that can be added anywhere 
-        in a message. when the message is sent and subsequently received by the bot, it will be 
+        """reprocessor: map callable to a special hidden context link that can be added anywhere
+        in a message. when the message is sent and subsequently received by the bot, it will be
         passed to the callable, which can modify the event object by reference
         """
         _id = self.register_reprocessor(callable)
@@ -187,7 +187,7 @@ class EventHandler:
                 yield from self.bot.coro_send_message(event.conv, _('{}: Missing parameter(s)').format(
                     event.user.full_name))
             return
-        
+
         commands = command.get_available_commands(self.bot, event.user.id_.chat_id, event.conv_id)
 
         supplied_command = line_args[1].lower()
@@ -204,8 +204,6 @@ class EventHandler:
 
         # Run command
         results = yield from command.run(self.bot, event, *line_args[1:])
-        if not line_args[1].lower() == 'c' :
-            self.bot.user_memory_set(event.user.id_.chat_id, 'lastcommand', ' '.join(line_args[1:]))
 
         if "acknowledge" in dir(event):
             for id in event.acknowledge:
