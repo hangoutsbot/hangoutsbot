@@ -1,6 +1,7 @@
 import datetime, logging
 
 import hangups
+import hangups_constants
 
 import plugins
 
@@ -25,15 +26,15 @@ def on_typing_notification(bot, event, command):
     conv_title = bot.conversations.get_name(event.conv_id,
                                             fallback_string="? {}".format(event.conv_id))
 
-    if typing_status == hangups.schemas.TypingStatus.TYPING:
+    if typing_status == hangups_constants.TypingStatus.TYPING:
         logger.info("{} ({}) typing on {} ({})".format(
             user_full_name, user_chat_id, conv_title, event.conv_id))
 
-    elif typing_status == hangups.schemas.TypingStatus.PAUSED:
+    elif typing_status == hangups_constants.TypingStatus.PAUSED:
         logger.info("{} ({}) paused typing on {} ({})".format(
             user_full_name, user_chat_id, conv_title, event.conv_id))
 
-    elif typing_status == hangups.schemas.TypingStatus.STOPPED:
+    elif typing_status == hangups_constants.TypingStatus.STOPPED:
         logger.info("{} ({}) stopped typing on {} ({})".format(
             user_full_name, user_chat_id, conv_title, event.conv_id))
 

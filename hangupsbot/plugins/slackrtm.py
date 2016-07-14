@@ -51,6 +51,7 @@ import urllib.request
 
 import hangups
 import hangups.ui.utils
+import hangups_constants
 
 import plugins
 
@@ -81,11 +82,11 @@ def chatMessageEvent2SlackText(event):
 
     lines = ['']
     for segment in event.segments:
-        if segment.type_ == hangups.schemas.SegmentType.TEXT:
+        if segment.type_ == hangups_constants.SegmentType.TEXT:
             lines[-1] += renderTextSegment(segment)
-        elif segment.type_ == hangups.schemas.SegmentType.LINK:
+        elif segment.type_ == hangups_constants.SegmentType.LINK:
             lines[-1] += segment.text
-        elif segment.type_ == hangups.schemas.SegmentType.LINE_BREAK:
+        elif segment.type_ == hangups_constants.SegmentType.LINE_BREAK:
             lines.append('')
         else:
             logger.warning('Ignoring unknown chat message segment type: %s', segment.type_)

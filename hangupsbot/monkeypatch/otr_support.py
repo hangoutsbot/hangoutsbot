@@ -6,7 +6,7 @@ import json, random
 
 from hangups import exceptions
 from hangups.client import Client as class_hangups_client
-from hangups.schemas import OffTheRecordStatus
+from hangups_constants import OffTheRecordStatus
 
 
 logger = logging.getLogger(__name__)
