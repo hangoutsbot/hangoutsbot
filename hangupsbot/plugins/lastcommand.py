@@ -43,11 +43,13 @@ def lastcommand(bot, event, *args):
 		return
 
 	userid = args[0]
-	try:
-		lastcommand = bot.user_memory_get(userid, 'lastcommand')
-	except:
-		yield from bot.coro_send_message(event.conv, '<b>No last command.<br>', context={ "parser": True })
-	else:
-		yield from bot.coro_send_message(event.conv, '<b>Last command for ' + userid + ' :<br>' + lastcommand , context={ "parser": True })
-	finally:
-		pass
+	#try:
+    try:
+    	yield from bot.coro_send_message(event.conv,
+            '<b>Last command for ' +
+            userid +
+            ' :<br>' +
+            bot.user_memory_get(userid, 'lastcommand'),
+            context={"parser": True})
+	except TypeError as e:
+        yield from bot.coro_send_message(event.conv, '<b>No last command.<br>', context={ "parser": True })
