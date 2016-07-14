@@ -518,9 +518,11 @@ class HangupsBot(object):
 
         plugins.load(self, "monkeypatch.otr_support")
 
-        self._user_list = yield from hangups.user.build_user_list(self._client)
+        #self._user_list = yield from hangups.user.build_user_list(self._client)
 
-        self._conv_list = hangups.ConversationList(self._client, self._user_list)
+        self._user_list, self._conv_list = (
+            yield from hangups.build_user_conversation_list(self._client)
+        )
 
         self.conversations = yield from permamem.initialise_permanent_memory(self)
 
