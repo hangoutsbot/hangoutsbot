@@ -503,7 +503,7 @@ class HangupsBot(object):
         return self.messagecontext("unknown", 50, ["legacy"])
 
     @asyncio.coroutine
-    def _on_connect(self, initial_data):
+    def _on_connect(self):
         """handle connection/reconnection"""
 
         logger.debug("connected")
@@ -518,13 +518,9 @@ class HangupsBot(object):
 
         plugins.load(self, "monkeypatch.otr_support")
 
-        self._user_list = yield from hangups.user.build_user_list(self._client,
-                                                                  initial_data)
+        self._user_list = yield from hangups.user.build_user_list(self._client)
 
-        self._conv_list = hangups.ConversationList(self._client,
-                                                   initial_data.conversation_states,
-                                                   self._user_list,
-                                                   initial_data.sync_timestamp)
+        self._conv_list = hangups.ConversationList(self._client, self._user_list)
 
         self.conversations = yield from permamem.initialise_permanent_memory(self)
 
