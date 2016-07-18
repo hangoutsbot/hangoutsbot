@@ -33,6 +33,7 @@ class TelegramBot(telepot.async.Bot):
             self.onUserJoinCallback = TelegramBot.on_user_join
             self.onUserLeaveCallback = TelegramBot.on_user_leave
             self.onLocationShareCallback = TelegramBot.on_location_share
+            self.onSupergroupUpgradeCallback = TelegramBot.on_supoergroup_upgrade
             self.ho_bot = hangupsbot
         else:
             logger.info('telesync disabled in config.json')
@@ -88,6 +89,11 @@ class TelegramBot(telepot.async.Bot):
     def on_location_share(bot, chat_id, msg):
         print("{name} shared a location".format(name=msg['from']['first_name']))
 
+    @staticmethod
+    def on_supoergroup_upgrade(bot, msg):
+        print("Group {old_chat_id} upgraded to supergroup {new_chat_id}".format(old_chat_id=msg['chat']['id'],
+                                                                                new_chat_id=msg['migrate_to_chat_id']))
+
     def set_on_message_callback(self, func):
         self.onMessageCallback = func
 
@@ -103,51 +109,59 @@ class TelegramBot(telepot.async.Bot):
     def set_on_location_share_callback(self, func):
         self.onLocationShareCallback = func
 
+    def set_on_supoergroup_upgrade_callback(self, func):
+        self.onSupergroupUpgradeCallback = func
+
     def is_telegram_admin(self, user_id):
         tg_admins = self.ho_bot.config.get_by_path(['telesync'])['admins']
         return True if str(user_id) in tg_admins else False
 
     @asyncio.coroutine
     def handle(self, msg):
-        flavor = telepot.flavor(msg)
 
-        if flavor == "chat":  # chat message
-            content_type, chat_type, chat_id = telepot.glance(msg)
-            if content_type == 'text':
-                if TelegramBot.is_command(msg):  # bot command
-                    cmd, params = TelegramBot.parse_command(msg['text'])
-                    user_id = TelegramBot.get_user_id(msg)
-                    args = {'params': params, 'user_id': user_id, 'chat_type': chat_type}
-                    if cmd in self.commands:
-                        yield from self.commands[cmd](self, chat_id, args)
-                    else:
-                        yield from self.sendMessage(chat_id, "Unknown command: {cmd}".format(cmd=cmd))
-
-                else:  # plain text message
-                    yield from self.onMessageCallback(self, chat_id, msg)
-
-            elif content_type == 'location':
-                yield from self.onLocationShareCallback(self, chat_id, msg)
-
-            elif content_type == 'new_chat_member':
-                yield from self.onUserJoinCallback(self, chat_id, msg)
-
-            elif content_type == 'left_chat_member':
-                yield from self.onUserLeaveCallback(self, chat_id, msg)
-
-            elif content_type == 'photo':
-                yield from self.onPhotoCallback(self, chat_id, msg)
-
-        elif flavor == "inline_query":  # inline query e.g. "@gif cute panda"
-            query_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
-            print("inline_query")
-
-        elif flavor == "chosen_inline_result":
-            result_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
-            print("chosen_inline_result")
+        if 'migrate_to_chat_id' in msg:
+            yield from self.onSupergroupUpgradeCallback(self, msg)
 
         else:
-            raise telepot.BadFlavor(msg)
+            flavor = telepot.flavor(msg)
+
+            if flavor == "chat":  # chat message
+                content_type, chat_type, chat_id = telepot.glance(msg)
+                if content_type == 'text':
+                    if TelegramBot.is_command(msg):  # bot command
+                        cmd, params = TelegramBot.parse_command(msg['text'])
+                        user_id = TelegramBot.get_user_id(msg)
+                        args = {'params': params, 'user_id': user_id, 'chat_type': chat_type}
+                        if cmd in self.commands:
+                            yield from self.commands[cmd](self, chat_id, args)
+                        else:
+                            yield from self.sendMessage(chat_id, "Unknown command: {cmd}".format(cmd=cmd))
+
+                    else:  # plain text message
+                        yield from self.onMessageCallback(self, chat_id, msg)
+
+                elif content_type == 'location':
+                    yield from self.onLocationShareCallback(self, chat_id, msg)
+
+                elif content_type == 'new_chat_member':
+                    yield from self.onUserJoinCallback(self, chat_id, msg)
+
+                elif content_type == 'left_chat_member':
+                    yield from self.onUserLeaveCallback(self, chat_id, msg)
+
+                elif content_type == 'photo':
+                    yield from self.onPhotoCallback(self, chat_id, msg)
+
+            elif flavor == "inline_query":  # inline query e.g. "@gif cute panda"
+                query_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
+                print("inline_query")
+
+            elif flavor == "chosen_inline_result":
+                result_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
+                print("chosen_inline_result")
+
+            else:
+                raise telepot.BadFlavor(msg)
 
 
 def tg_util_get_group_name(msg):
@@ -313,6 +327,28 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
 
         logger.info("[TELESYNC] Telegram location forwarded: {msg} to: {ho_conv_id}".format(msg=maps_url,
                                                                                             ho_conv_id=ho_conv_id))
+
+
+@asyncio.coroutine
+def tg_on_supergroup_upgrade(bot, msg):
+    old_chat_id = str(msg['chat']['id'])
+    new_chat_id = str(msg['migrate_to_chat_id'])
+
+    memory = bot.ho_bot.memory.get_by_path(['telesync'])
+    tg2ho_dict = memory['tg2ho']
+    ho2tg_dict = memory['ho2tg']
+
+    if old_chat_id in tg2ho_dict:
+        ho_conv_id = tg2ho_dict[old_chat_id]
+        ho2tg_dict[ho_conv_id] = new_chat_id
+        tg2ho_dict[new_chat_id] = ho_conv_id
+        del tg2ho_dict[old_chat_id]
+
+        new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
+        bot.ho_bot.memory.set_by_path(['telesync'], new_memory)
+
+        logger.info("Telegram group {old_chat_id} upgraded to Supergroup {new_chat_id}".format(
+            old_chat_id=old_chat_id, new_chat_id=new_chat_id))
 
 
 @asyncio.coroutine
@@ -492,6 +528,7 @@ def _initialise(bot):
         tg_bot.set_on_user_join_callback(tg_on_user_join)
         tg_bot.set_on_user_leave_callback(tg_on_user_leave)
         tg_bot.set_on_location_share_callback(tg_on_location_share)
+        tg_bot.set_on_supoergroup_upgrade_callback(tg_on_supergroup_upgrade)
         tg_bot.add_command("/whoami", tg_command_whoami)
         tg_bot.add_command("/whereami", tg_command_whereami)
         tg_bot.add_command("/setsyncho", tg_command_set_sync_ho)
