@@ -584,16 +584,29 @@ def telesync(bot, event, *args):
     bot.memory.set_by_path(['telesync'], new_memory)
 
 
+@asyncio.coroutine
 def is_valid_image_link(url):
-    if ' ' in url:
-        return False
-
-    url = url.lower()
-    if url.startswith('http://') or url.startswith('https://'):
-        if url.endswith((".jpg", ".jpeg", ".gif", ".gifv", ".webm", ".png", ".mp4")):
-            return True
+    """
+    :param url:
+    :return: result, file_name
+    """
+    if ' ' not in url:
+        if url.startswith('http://') or url.startswith('https://'):
+            with aiohttp.ClientSession() as session:
+                resp = yield from session.get(url)
+                content_disp = resp.headers['CONTENT-DISPOSITION']
+                content_disp = content_disp.replace("\"", "").split("=")
+                resp.close()
+                file_ext = content_disp[2].split('.')[1].strip()
+                if file_ext in ("jpg", "jpeg", "gif", "gifv", "webm", "png", "mp4"):
+                    file_name = content_disp[1].split("?")[0].strip()
+                    return True, "{name}.{ext}".format(name=file_name, ext=file_ext)
+                else:
+                    return False, ""
+        else:
+            return False, ""
     else:
-        return False
+        return False, ""
 
 
 def get_photo_extension(file_name):
@@ -611,14 +624,14 @@ def _on_hangouts_message(bot, event, command=""):
     if event.text.startswith('/'):  # don't sync /bot commands
         return
 
-    has_photo = False
     sync_text = event.text
     photo_url = ""
 
-    if is_valid_image_link(sync_text):
+    has_photo, photo_file_name = yield from is_valid_image_link(sync_text)
+
+    if has_photo:
         photo_url = sync_text
         sync_text = "(shared an image)"
-        has_photo = True
 
     ho2tg_dict = bot.memory.get_by_path(['telesync'])['ho2tg']
 
@@ -631,10 +644,7 @@ def _on_hangouts_message(bot, event, command=""):
         yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='html',
                                       disable_web_page_preview=True)
         if has_photo:
-            photo_name = photo_url.rpartition('/')[-1]
-            photo_ext = get_photo_extension(photo_url)
-            photo_name = photo_name.replace(photo_ext, '-{rand}{ext}'.format(
-                rand=random.randint(1, 100000), ext=photo_ext))
+            photo_name = "{rand}-{file_name}".format(rand=random.randint(1, 100000), file_name=photo_file_name)
             photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_name
 
             file_dir = os.path.dirname(photo_path)
@@ -646,6 +656,7 @@ def _on_hangouts_message(bot, event, command=""):
                 raw_data = yield from resp.read()
                 with open(photo_path, "wb") as f:
                     f.write(raw_data)
+                    logger.info("plugins/telesync: file saved: {file}".format(file=photo_path))
 
                 if is_animated_photo(photo_path):
                     yield from tg_bot.sendDocument(ho2tg_dict[event.conv_id], open(photo_path, 'rb'))
