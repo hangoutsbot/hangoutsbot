@@ -48,6 +48,7 @@ import re
 import threading
 import time
 import urllib.request
+import mimetypes
 
 import hangups
 import hangups.ui.utils
@@ -566,6 +567,11 @@ class SlackRTM(object):
             request = urllib.request.Request(image)
             request.add_header("Authorization", "Bearer %s" % token)
             image_response = urllib.request.urlopen(request)
+            content_type = image_response.info().get_content_type()
+            filename_extension = mimetypes.guess_extension(content_type)
+            if filename[-(len(filename_extension)):] != filename_extension:
+                logger.info('No correct file extension found, appending "%s"' % filename_extension)
+                filename += filename_extension
             logger.info('uploading as %s', filename)
             image_id = yield from self.bot._client.upload_image(image_response, filename=filename)
             logger.info('sending HO message, image_id: %s', image_id)
