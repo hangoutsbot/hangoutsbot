@@ -135,7 +135,10 @@ class TelegramBot(telepot.async.Bot):
                         if cmd in self.commands:
                             yield from self.commands[cmd](self, chat_id, args)
                         else:
-                            yield from self.sendMessage(chat_id, "Unknown command: {cmd}".format(cmd=cmd))
+                            if self.config['be_quiet']:
+                                pass
+                            else:
+                                yield from self.sendMessage(chat_id, "Unknown command: {cmd}".format(cmd=cmd))
 
                     else:  # plain text message
                         yield from self.onMessageCallback(self, chat_id, msg)
@@ -513,10 +516,15 @@ def _initialise(bot):
         bot.config.set_by_path(['telesync'], {'api_key': "PUT_YOUR_TELEGRAM_API_KEY_HERE",
                                               'enabled': True,
                                               'admins': [],
-                                              'do_not_keep_photos': True})
+                                              'do_not_keep_photos': True,
+                                              'be_quiet': False})
+
+    bot.config.save()
 
     if not bot.memory.exists(['telesync']):
         bot.memory.set_by_path(['telesync'], {'ho2tg': {}, 'tg2ho': {}})
+
+    bot.memory.save()
 
     telesync_config = bot.config.get_by_path(['telesync'])
 
@@ -665,6 +673,7 @@ def _on_hangouts_message(bot, event, command=""):
 
             if tg_bot.ho_bot.config.get_by_path(['telesync'])['do_not_keep_photos']:
                 os.remove(photo_path)  # don't use unnecessary space on disk
+                logger.info("plugins/telesync: file removed: {file}".format(file=photo_path))
 
 
 def create_membership_change_message(user_name, user_gplus, group_name, membership_event="left"):
