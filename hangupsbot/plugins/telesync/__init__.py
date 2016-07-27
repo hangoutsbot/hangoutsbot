@@ -599,22 +599,24 @@ def is_valid_image_link(url):
     :return: result, file_name
     """
     if ' ' not in url:
-        if url.startswith('http://') or url.startswith('https://'):
-            with aiohttp.ClientSession() as session:
-                resp = yield from session.get(url)
-                content_disp = resp.headers['CONTENT-DISPOSITION']
-                content_disp = content_disp.replace("\"", "").split("=")
-                resp.close()
-                file_ext = content_disp[2].split('.')[1].strip()
-                if file_ext in ("jpg", "jpeg", "gif", "gifv", "webm", "png", "mp4"):
-                    file_name = content_disp[1].split("?")[0].strip()
-                    return True, "{name}.{ext}".format(name=file_name, ext=file_ext)
-                else:
-                    return False, ""
-        else:
-            return False, ""
-    else:
-        return False, ""
+        if url.startswith(("http://", "https://")):
+            if url.endswith((".jpg", ".jpeg", ".gif", ".gifv", ".webm", ".png", ".mp4")):
+                ext = url.split(".")[-1].strip()
+                file = url.split("/")[-1].strip().replace(".", "").replace("_", "-")
+                return True, "{name}.{ext}".format(name=file, ext=ext)
+            else:
+                with aiohttp.ClientSession() as session:
+                    resp = yield from session.get(url)
+                    headers = resp.headers
+                    resp.close()
+                    if "image" in headers['CONTENT-TYPE']:
+                        content_disp = headers['CONTENT-DISPOSITION']
+                        content_disp = content_disp.replace("\"", "").split("=")
+                        file_ext = content_disp[2].split('.')[1].strip()
+                        if file_ext in ("jpg", "jpeg", "gif", "gifv", "webm", "png", "mp4"):
+                            file_name = content_disp[1].split("?")[0].strip()
+                            return True, "{name}.{ext}".format(name=file_name, ext=file_ext)
+    return False, ""
 
 
 def get_photo_extension(file_name):
@@ -662,8 +664,10 @@ def _on_hangouts_message(bot, event, command=""):
             with aiohttp.ClientSession() as session:
                 resp = yield from session.get(photo_url)
                 raw_data = yield from resp.read()
+                resp.close()
                 with open(photo_path, "wb") as f:
                     f.write(raw_data)
+                    logger.info("plugins/telesync: photo url: {url}".format(url=photo_url))
                     logger.info("plugins/telesync: file saved: {file}".format(file=photo_path))
 
                 if is_animated_photo(photo_path):
