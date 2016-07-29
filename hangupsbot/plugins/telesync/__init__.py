@@ -634,7 +634,7 @@ def syncprofile(bot, event, *args):
             new_mem = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
             bot.memory.set_by_path(['profilesync'], new_mem)
             yield from bot.coro_send_message(event.conv_id, "Succsesfully set up profile sync.")
-            yield from bot.coro_send_message(event.conv_id, "Syncing ho: {} with tg: {}".format(event.user_id.chat_id, tg_id))
+            yield from bot.coro_send_message(event.conv_id, "Syncing ho: {} with tg: {}".format(event.user_id.chat_id, ho2tg_dict))
         else:
             yield from bot.coro_send_message(event.conv_id, "You have to execute following command from telegram first:")
             yield from bot.coro_send_message(event.conv_id, "/syncprofile")
