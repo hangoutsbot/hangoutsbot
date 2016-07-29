@@ -550,7 +550,11 @@ def _initialise(bot):
     if not bot.memory.exists(['telesync']):
         bot.memory.set_by_path(['telesync'], {'ho2tg': {}, 'tg2ho': {}})
 
+    if not bot.memory.exists(['profilesync']):
+        bot.memory.set_by_path(['profilesync'], {'ho2tg': {}, 'tg': {}})
+
     telesync_config = bot.config.get_by_path(['telesync'])
+
 
     if telesync_config['enabled']:
         global tg_bot
