@@ -227,7 +227,7 @@ def tg_util_sync_get_user_name(msg, chat_action='from'):
 @asyncio.coroutine
 def tg_on_message(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
-    tg2ho_profiles = tg_bot.bot.memory.get_by_path(['profilesync'])['tg2ho']
+    tg2ho_profiles = tg_bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho']
 
     user_text = ""
     if str(tg_chat_id) in tg2ho_dict:
