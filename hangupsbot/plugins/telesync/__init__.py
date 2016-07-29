@@ -514,7 +514,6 @@ def tg_command_tldr(bot, chat_id, args):
 
 @asyncio.coroutine
 def tg_command_sync_profile(bot, chat_id, args):
-    params = args['params']
 
     if 'private' != args['chat_type']:
         yield from bot.sendMessage(chat_id, "Comand must be run in private chat!")
@@ -527,7 +526,7 @@ def tg_command_sync_profile(bot, chat_id, args):
         return
 
     rndm = random.randint(0,9223372036854775807)
-    tg2ho_dict[str(user_id)] = rndm
+    tg2ho_dict[str(user_id)] = str(rndm)
     ho2tg_dict[str(rndm)] = str(user_id)
     new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
     print(new_memory)
@@ -535,6 +534,25 @@ def tg_command_sync_profile(bot, chat_id, args):
 
     yield from bot.sendMessage(chat_id, "Paste the following command in the private ho with me")
     yield from bot.sendMessage(chat_id, "/bot syncprofile {}".format(str(rndm)))
+
+@asyncio.coroutine
+def tg_command_unsync_profile(bot, chat_id, args):
+    if 'private' != args['chat_type']:
+        yield from bot.sendMessage(chat_id, "Comand must be run in private chat!")
+        return
+
+    tg2ho_dict = bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho']
+    ho2tg_dict = bot.ho_bot.memory.get_by_path(['profilesync'])['ho2tg']
+    text = ""
+    if args['user_id'] in tg2ho_dict:
+        ho_id = tg2ho_dict[str(args['user_id'])]
+        tg2ho_dict.remove(str(args['user_id']))
+        ho2tg_dict.remove(ho_id)
+        text = "Succsessfully removed sync of your profile."
+    else:
+        text = "There is no sync setup for your profile."
+
+    yield from bot.sendMessage(chat_id, text)
 
 # TELEGRAM DEFINITIONS END
 
@@ -576,6 +594,7 @@ def _initialise(bot):
         tg_bot.add_command("/removeadmin", tg_command_remove_bot_admin)
         tg_bot.add_command("/tldr", tg_command_tldr)
         tg_bot.add_command("/syncprofile", tg_command_sync_profile)
+        tg_bot.add_command("/unsyncprofile", tg_command_unsync_profile)
 
         loop = asyncio.get_event_loop()
         loop.create_task(tg_bot.message_loop())
