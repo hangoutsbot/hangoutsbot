@@ -601,6 +601,35 @@ def _initialise(bot):
         loop = asyncio.get_event_loop()
         loop.create_task(tg_bot.message_loop())
 
+@command.register
+def syncprofile(bot, event, *args):
+    """
+    /bot syncprofile <id> - syncs the g+ profile with the tg profile, id will be posted by bot on tg side
+    :param bot:
+    :param event:
+    :param args:
+    :return:
+    """
+    parameters = list(args)
+
+    ho2tg_dict = bot.memory.get_by_path(['profilesync'])['ho2tg']
+    tg2ho_dict = bot.memory.get_by_path(['profilesync'])['tg2ho']
+
+    if len(parameters) > 1:
+        yield from bot.coro_send_message(event.conv_id, "Too many arguments")
+    elif len(parameters) < 1:
+        yield from bot.coro_send_message(event.conv_id, "Too few arguments")
+    elif len(parameters) == 1:
+        if str(parameters[0]) in ho2tg_dict:
+            tg_id = ho2tg_dict[str(parameters[0])]
+            tg2ho_dict[tg_id] = str(event.conv_id)
+            del ho2tg_dict[str(parameters[0])]
+            ho2tg_dict[str(event.conv_id)] = tg_id
+        else:
+            yield from bot.coro_send_message(event.conv_id, "You have to execute following command from telegram first:")
+            yield from bot.coro_send_message(event.conv_id, "/syncprofile")
+
+
 
 @command.register(admin=True)
 def telesync(bot, event, *args):
