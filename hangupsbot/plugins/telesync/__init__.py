@@ -624,7 +624,7 @@ def syncprofile(bot, event, *args):
             tg_id = ho2tg_dict[str(parameters[0])]
             tg2ho_dict[tg_id] = str(event.conv_id)
             del ho2tg_dict[str(parameters[0])]
-            ho2tg_dict[str(event.conv_id)] = tg_id
+            ho2tg_dict[str(event.conv_id)] = str(tg_id)
             new_mem = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
             bot.memory.set_by_path(['profilesync'], new_mem)
             yield from bot.coro_send_message(event.conv_id, "Succsesfully set up profile sync.")
