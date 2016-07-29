@@ -551,7 +551,7 @@ def _initialise(bot):
         bot.memory.set_by_path(['telesync'], {'ho2tg': {}, 'tg2ho': {}})
 
     if not bot.memory.exists(['profilesync']):
-        bot.memory.set_by_path(['profilesync'], {'ho2tg': {}, 'tg': {}})
+        bot.memory.set_by_path(['profilesync'], {'ho2tg': {}, 'tg2ho': {}})
 
     telesync_config = bot.config.get_by_path(['telesync'])
 
