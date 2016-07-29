@@ -512,6 +512,27 @@ def tg_command_tldr(bot, chat_id, args):
             yield from bot.sendMessage(chat_id, "TLDR plugin is not active. KeyError: {e}".format(e=ke))
 
 
+@asyncio.coroutine
+def tg_command_sync_profile(bot, chat_id, args):
+    params = args['params']
+
+    if 'private' != args['chat_type']:
+        yield from bot.sendMessage(chat_id, "Comand must be run in private chat!")
+        return
+    tg2ho_dict = bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho']
+    ho2tg_dict = bot.ho_bot.memory.get_by_path(['profilesync'])['ho2tg']
+    user_id = args['user_id']
+    if str(user_id) in tg2ho_dict:
+        yield from bot.sendMessage(chat_id, "Your profile is currently synced, to change this run /unsyncprofile")
+        return
+
+    rndm = random.randint(9223372036854775807)
+    tg2ho_dict[str(user_id)] = rndm
+    ho2tg_dict[str(rndm)] = str(user_id)
+
+    yield from bot.sendMessage(chat_id, "Paste the following command in the private ho with me")
+    yield from bot.sendMessage(chat_id, "/bot syncprofile {}".format(str(rndm)))
+
 # TELEGRAM DEFINITIONS END
 
 # HANGOUTSBOT
@@ -547,6 +568,7 @@ def _initialise(bot):
         tg_bot.add_command("/addadmin", tg_command_add_bot_admin)
         tg_bot.add_command("/removeadmin", tg_command_remove_bot_admin)
         tg_bot.add_command("/tldr", tg_command_tldr)
+        tg_bot.add_command("/syncprofile", tg_command_sync_profile)
 
         loop = asyncio.get_event_loop()
         loop.create_task(tg_bot.message_loop())
