@@ -601,7 +601,7 @@ def _initialise(bot):
         loop = asyncio.get_event_loop()
         loop.create_task(tg_bot.message_loop())
 
-@command.register
+@command.register(admin=False)
 def syncprofile(bot, event, *args):
     """
     /bot syncprofile <id> - syncs the g+ profile with the tg profile, id will be posted by bot on tg side
