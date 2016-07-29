@@ -529,6 +529,8 @@ def tg_command_sync_profile(bot, chat_id, args):
     rndm = random.randint(0,9223372036854775807)
     tg2ho_dict[str(user_id)] = rndm
     ho2tg_dict[str(rndm)] = str(user_id)
+    new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
+    bot.ho_bot.memory.set_by_path(['profilesync'], new_memory)
 
     yield from bot.sendMessage(chat_id, "Paste the following command in the private ho with me")
     yield from bot.sendMessage(chat_id, "/bot syncprofile {}".format(str(rndm)))
