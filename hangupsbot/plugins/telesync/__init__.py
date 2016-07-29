@@ -628,7 +628,7 @@ def syncprofile(bot, event, *args):
             tg_id = ho2tg_dict[str(parameters[0])]
             user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
             user_text = '<a href="{user_gplus}">{uname}</a>'.format(uname=event.user.full_name, user_gplus=user_gplus)
-
+            tg2ho_dict[tg_id] = {'user_gplus': user_gplus, 'user_text': user_text}
             del ho2tg_dict[str(parameters[0])]
             ho2tg_dict[str(event.user_id.chat_id)] = str(tg_id)
             new_mem = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
