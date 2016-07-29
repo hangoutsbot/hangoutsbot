@@ -227,8 +227,12 @@ def tg_util_sync_get_user_name(msg, chat_action='from'):
 @asyncio.coroutine
 def tg_on_message(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
+    tg2ho_profiles = tg_bot.bot.memory.get_by_path(['profilesync'])['tg2ho']
 
     if str(tg_chat_id) in tg2ho_dict:
+        if msg['from']['user_id'] in tg2ho_profiles:
+            user_id = tg2ho_profiles[str(msg['from']['user_id'])]
+            user_name = tg_bot.ho_bot.memory.get_by_path()
         text = "<b>{uname}</b>: {text}".format(uname=tg_util_sync_get_user_name(msg),
                                                                 text=msg['text'])
 
@@ -622,7 +626,10 @@ def syncprofile(bot, event, *args):
     elif len(parameters) == 1:
         if str(parameters[0]) in ho2tg_dict:
             tg_id = ho2tg_dict[str(parameters[0])]
-            tg2ho_dict[tg_id] = str(event.user_id.chat_id)
+            user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
+            user_text = '<a href="{user_gplus}">{uname}</a>'.format(uname=event.user.full_name, user_gplus=user_gplus)
+            tg2ho_dict[tg_id] = {'user_id': str(event.user_id.chat_id), 'user_gplus': user_gplus, 'user_text': user_text }
+
             del ho2tg_dict[str(parameters[0])]
             ho2tg_dict[str(event.user_id.chat_id)] = str(tg_id)
             new_mem = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
