@@ -526,7 +526,7 @@ def tg_command_sync_profile(bot, chat_id, args):
         yield from bot.sendMessage(chat_id, "Your profile is currently synced, to change this run /unsyncprofile")
         return
 
-    rndm = random.randint(9223372036854775807)
+    rndm = random.randint(0,9223372036854775807)
     tg2ho_dict[str(user_id)] = rndm
     ho2tg_dict[str(rndm)] = str(user_id)
 
