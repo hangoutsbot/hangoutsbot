@@ -230,7 +230,7 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
     tg2ho_profiles = tg_bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho']
 
     user_text = ""
-    if str(tg_chat_id) in tg2ho_dict:
+    if str(msg['from']['id']) in tg2ho_dict:
         if msg['from']['id'] in tg2ho_profiles:
             user_text = tg_bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho']['user_text']
         else:
