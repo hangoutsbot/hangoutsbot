@@ -3,7 +3,8 @@ import appdirs, argparse, asyncio, gettext, logging, logging.config, os, shutil,
 
 import hangups
 
-from hangups.schemas import OffTheRecordStatus
+#from hangups.schemas import OffTheRecordStatus
+from hangups import hangouts_pb2
 
 import config
 import handlers
@@ -690,8 +691,7 @@ class HangupsBot(object):
             raise ValueError('could not identify conversation id')
 
         # parse message strings to segments
-
-        if message is None:
+        if message is None: 
             segments = []
         elif "parser" in context and context["parser"] is False and isinstance(message, str):
             segments = [hangups.ChatMessageSegment(message)]
@@ -716,9 +716,9 @@ class HangupsBot(object):
                     conversation_id))
 
         if context["history"]:
-            otr_status = OffTheRecordStatus.ON_THE_RECORD
+            otr_status = hangouts_pb2.OFF_THE_RECORD_STATUS_ON_THE_RECORD
         else:
-            otr_status = OffTheRecordStatus.OFF_THE_RECORD
+            otr_status = hangouts_pb2.OFF_THE_RECORD_STATUS_OFF_THE_RECORD
 
         broadcast_list = [(conversation_id, segments)]
 
