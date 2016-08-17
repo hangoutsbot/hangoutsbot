@@ -17,6 +17,8 @@ RestartSec=3
 ExecStart=/usr/local/hangoutsbot/hangupsbot/hangupsbot.py
 ExecRestart=/usr/local/hangoutsbot/hangupsbot/hangupsbot.py
 SyslogIdentifier=hangupsbot
+User=hangupsbot
+Group=hangupsbot
 
 [Install]
 WantedBy=multi-user.target
