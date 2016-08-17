@@ -12,11 +12,10 @@ Description=Hangouts Helper Bot
 After=network-online.target
 
 [Service]
+Restart=always
+RestartSec=3
 ExecStart=/usr/local/hangoutsbot/hangupsbot/hangupsbot.py
-User=hangupsbot
-Group=hangupsbot
-
-Restart=on-failure
+ExecRestart=/usr/local/hangoutsbot/hangupsbot/hangupsbot.py
 SyslogIdentifier=hangupsbot
 
 [Install]
