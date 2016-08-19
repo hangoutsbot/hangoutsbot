@@ -658,26 +658,26 @@ def _on_hangouts_message(bot, event, command=""):
             photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_name
 
             file_dir = os.path.dirname(photo_path)
-            if not os.path.exists(file_dir):
+            if not os.path.exists(file_dir) and not tg_bot.ho_bot.config.get_by_path(['telesync'])['do_not_keep_photos']:
                 os.makedirs(file_dir)
 
             with aiohttp.ClientSession() as session:
                 resp = yield from session.get(photo_url)
                 raw_data = yield from resp.read()
                 resp.close()
-                with open(photo_path, "wb") as f:
-                    f.write(raw_data)
-                    logger.info("plugins/telesync: photo url: {url}".format(url=photo_url))
-                    logger.info("plugins/telesync: file saved: {file}".format(file=photo_path))
+                logger.info("plugins/telesync: photo url: {url}".format(url=photo_url))
 
+                if not tg_bot.ho_bot.config.get_by_path(['telesync'])['do_not_keep_photos']:
+                    with open(photo_path, "wb") as f:
+                        f.write(raw_data)
+                        logger.info("plugins/telesync: file saved: {file}".format(file=photo_path))
+
+                f = io.BytesIO(raw_data)
                 if is_animated_photo(photo_path):
-                    yield from tg_bot.sendDocument(ho2tg_dict[event.conv_id], open(photo_path, 'rb'))
+                    yield from tg_bot.sendDocument(ho2tg_dict[event.conv_id], f)
                 else:
-                    yield from tg_bot.sendPhoto(ho2tg_dict[event.conv_id], open(photo_path, 'rb'))
+                    yield from tg_bot.sendPhoto(ho2tg_dict[event.conv_id], f)
 
-            if tg_bot.ho_bot.config.get_by_path(['telesync'])['do_not_keep_photos']:
-                os.remove(photo_path)  # don't use unnecessary space on disk
-                logger.info("plugins/telesync: file removed: {file}".format(file=photo_path))
 
 
 def create_membership_change_message(user_name, user_gplus, group_name, membership_event="left"):
