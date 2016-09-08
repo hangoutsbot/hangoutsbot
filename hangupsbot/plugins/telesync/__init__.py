@@ -235,7 +235,8 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
             user_text = tg_bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho'][str(msg['from']['id'] )]['user_text']
         else:
             user_text = "<b>{uname}</b>".format(uname=tg_util_sync_get_user_name(msg))
-        text = "{}: {}".format(user_text, msg['text'])
+
+        text = "<b>{}</b>: {}".format(user_text, msg['text'])
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
         yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
 
