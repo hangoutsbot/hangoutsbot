@@ -213,10 +213,13 @@ def tg_util_create_telegram_me_link(username, https=True):
 
 def tg_util_sync_get_user_name(msg, chat_action='from'):
     username = TelegramBot.get_username(msg, chat_action=chat_action)
+    if username == 'stitch': #TODO change to actual bot prename
+        text = msg[chat_action]['text'].split(':')
+        username = text[0]
     url = tg_util_create_telegram_me_link(username)
     return msg[chat_action]['first_name'] \
         if username == "" \
-        else "<a href='{url}' >{uname}</a>".format(url=url, uname= msg[chat_action]['first_name'])
+        else "<a href='{url}' >{uname}</a>".format(url=url, uname=msg[chat_action]['first_name'])
 
 
 def tg_util_is_reply(msg):
@@ -245,7 +248,7 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
                 r2_text = r2_text if len(r2_text) < 30 else r2_text[0:30] + "..."
             else:
                 r2_text = content_type
-            text = "| <b>{r2uname}</b>:\n| <i>{r2text}</i>\n{newtext}".format(r2uname=r2_user,
+            text = "| <i><b>{r2uname}</b></i>:\n| <i>{r2text}</i>\n{newtext}".format(r2uname=r2_user,
                                                                                  r2text=r2_text,
                                                                                  newtext=text)
 
