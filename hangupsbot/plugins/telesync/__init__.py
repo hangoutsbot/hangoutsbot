@@ -1,22 +1,24 @@
 # A Sync plugin for Telegram and Hangouts
-import re
-import os, logging
-import io
 import asyncio
-import hangups
-import plugins
+import logging
+import os
+import random
+
 import aiohttp
+import hangups
 import telepot
 import telepot.async
 import telepot.exception
-from handlers import handler
 from commands import command
-import random
+from handlers import handler
 
 logger = logging.getLogger(__name__)
 
 
 # TELEGRAM BOT
+
+
+
 
 class TelegramBot(telepot.async.Bot):
     def __init__(self, hangupsbot):
@@ -130,11 +132,7 @@ class TelegramBot(telepot.async.Bot):
                     args = {'params': params, 'user_id': user_id, 'chat_type': chat_type}
                     if cmd in self.commands:
                         yield from self.commands[cmd](self, chat_id, args)
-                    else:
-                        yield from self.onMessageCallback(self, chat_id, msg)
-
-                else:  # plain text message
-                    yield from self.onMessageCallback(self, chat_id, msg)
+                yield from self.onMessageCallback(self, chat_id, msg)
 
             elif content_type == 'location':
                 yield from self.onLocationShareCallback(self, chat_id, msg)
@@ -151,7 +149,6 @@ class TelegramBot(telepot.async.Bot):
             elif content_type == 'sticker':
                 yield from self.onStickerCallback(self, chat_id, msg)
                 # yield from self.onPhotoCallback(self, chat_id, msg)
-
 
         elif flavor == "inline_query":  # inline query e.g. "@gif cute panda"
             query_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
@@ -217,11 +214,13 @@ def tg_util_create_telegram_me_link(username, https=True):
 def tg_util_sync_get_user_name(msg, chat_action='from'):
     username = TelegramBot.get_username(msg, chat_action=chat_action)
     url = tg_util_create_telegram_me_link(username)
-    return msg[chat_action]['first_name'] if username == "" else "<a href='{url}' >{uname}</a>".format(url=url,
-                                                                                                       uname=
-                                                                                                       msg[
-                                                                                                           chat_action][
-                                                                                                           'first_name'])
+    return msg[chat_action]['first_name'] \
+        if username == "" \
+        else "<a href='{url}' >{uname}</a>".format(url=url, uname= msg[chat_action]['first_name'])
+
+
+def tg_util_is_reply(msg):
+    return 'reply_to_message' in msg
 
 
 @asyncio.coroutine
@@ -231,17 +230,30 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
 
     user_text = ""
     if str(tg_chat_id) in tg2ho_dict:
-        if str(msg['from']['id'] )in tg2ho_profiles:
-            user_text = tg_bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho'][str(msg['from']['id'] )]['user_text']
+        if str(msg['from']['id']) in tg2ho_profiles:
+            user_text = tg_bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho'][str(msg['from']['id'])]['user_text']
         else:
             user_text = "<b>{uname}</b>".format(uname=tg_util_sync_get_user_name(msg))
 
         text = "<b>{}</b>: {}".format(user_text, msg['text'])
+
+        if tg_util_is_reply(msg):
+            content_type, chat_type, chat_id = telepot.glance(msg['reply_to_message'])
+            r2_user = tg_util_sync_get_user_name(msg['reply_to_message'])
+            if content_type == 'test':
+                r2_text = msg['reply_to_message']['text']
+            else:
+                r2_text = content_type
+            text = "| <b>{r2uname}</b>:\n| <i>{r2text}...</i>\n{newtext}".format(r2uname=r2_user,
+                                                                                 r2text=r2_text[0:30],
+                                                                                 newtext=text)
+
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
         yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
 
         logger.info("[TELESYNC] Telegram message forwarded: {msg} to: {ho_conv_id}".format(msg=msg['text'],
                                                                                            ho_conv_id=ho_conv_id))
+
 
 @asyncio.coroutine
 def tg_on_sticker(tg_bot, tg_chat_id, msg):
@@ -274,7 +286,7 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
 
         logger.info("[TELESYNC] Upload succeed.")
 
-        #if tg_bot.ho_bot.config.get_by_path(['telesync'])['do_not_keep_photos']:
+        # if tg_bot.ho_bot.config.get_by_path(['telesync'])['do_not_keep_photos']:
         #    os.remove(photo_path)  # don't use unnecessary space on disk
 
 
@@ -519,7 +531,6 @@ def tg_command_tldr(bot, chat_id, args):
 
 @asyncio.coroutine
 def tg_command_sync_profile(bot, chat_id, args):
-
     if 'private' != args['chat_type']:
         yield from bot.sendMessage(chat_id, "Comand must be run in private chat!")
         return
@@ -530,7 +541,7 @@ def tg_command_sync_profile(bot, chat_id, args):
         yield from bot.sendMessage(chat_id, "Your profile is currently synced, to change this run /unsyncprofile")
         return
 
-    rndm = random.randint(0,9223372036854775807)
+    rndm = random.randint(0, 9223372036854775807)
     tg2ho_dict[str(user_id)] = str(rndm)
     ho2tg_dict[str(rndm)] = str(user_id)
     new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
@@ -539,6 +550,7 @@ def tg_command_sync_profile(bot, chat_id, args):
 
     yield from bot.sendMessage(chat_id, "Paste the following command in the private ho with me")
     yield from bot.sendMessage(chat_id, "/bot syncprofile {}".format(str(rndm)))
+
 
 @asyncio.coroutine
 def tg_command_unsync_profile(bot, chat_id, args):
@@ -560,6 +572,7 @@ def tg_command_unsync_profile(bot, chat_id, args):
         text = "There is no sync setup for your profile."
 
     yield from bot.sendMessage(chat_id, text)
+
 
 # TELEGRAM DEFINITIONS END
 
@@ -583,7 +596,6 @@ def _initialise(bot):
 
     telesync_config = bot.config.get_by_path(['telesync'])
 
-
     if telesync_config['enabled']:
         global tg_bot
         tg_bot = TelegramBot(bot)
@@ -605,6 +617,7 @@ def _initialise(bot):
 
         loop = asyncio.get_event_loop()
         loop.create_task(tg_bot.message_loop())
+
 
 @command.register(admin=False)
 def syncprofile(bot, event, *args):
@@ -635,11 +648,12 @@ def syncprofile(bot, event, *args):
             new_mem = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
             bot.memory.set_by_path(['profilesync'], new_mem)
             yield from bot.coro_send_message(event.conv_id, "Succsesfully set up profile sync.")
-            yield from bot.coro_send_message(event.conv_id, "Syncing ho: {} with tg: {}".format(event.user_id.chat_id, ho2tg_dict))
+            yield from bot.coro_send_message(event.conv_id,
+                                             "Syncing ho: {} with tg: {}".format(event.user_id.chat_id, ho2tg_dict))
         else:
-            yield from bot.coro_send_message(event.conv_id, "You have to execute following command from telegram first:")
+            yield from bot.coro_send_message(event.conv_id,
+                                             "You have to execute following command from telegram first:")
             yield from bot.coro_send_message(event.conv_id, "/syncprofile")
-
 
 
 @command.register(admin=True)
@@ -727,8 +741,8 @@ def _on_hangouts_message(bot, event, command=""):
     if event.conv_id in ho2tg_dict:
         user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
         text = '<a href="{user_gplus}">{uname}</a>: {text}'.format(uname=event.user.full_name,
-                                                                                    user_gplus=user_gplus,
-                                                                                    text=sync_text)
+                                                                   user_gplus=user_gplus,
+                                                                   text=sync_text)
         yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='html',
                                       disable_web_page_preview=True)
         if has_photo:
