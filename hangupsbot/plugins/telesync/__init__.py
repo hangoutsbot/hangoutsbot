@@ -240,13 +240,13 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
         if tg_util_is_reply(msg):
             content_type, chat_type, chat_id = telepot.glance(msg['reply_to_message'])
             if msg['from']['first_name'] == 'stitch':
-                text = msg['text'].split(':')
+                r_text = msg['text'].split(':')
                 r2_user = text[0]
             else:
                 r2_user = tg_util_sync_get_user_name(msg['reply_to_message'])
-                text = ['', msg['text']]
+                r_text = ['', msg['text']]
             if content_type == 'text':
-                r2_text = text[1]
+                r2_text = r_text[1]
                 r2_text = r2_text if len(r2_text) < 30 else r2_text[0:30] + "..."
             else:
                 r2_text = content_type
