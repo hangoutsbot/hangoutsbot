@@ -225,7 +225,6 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
     tg2ho_profiles = tg_bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho']
 
-    user_text = ""
     if str(tg_chat_id) in tg2ho_dict:
         if str(msg['from']['id']) in tg2ho_profiles:
             user_text = tg_bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho'][str(msg['from']['id'])]['user_text']
@@ -380,7 +379,20 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
 
         logger.info("[TELESYNC] Telegram location forwarded: {msg} to: {ho_conv_id}".format(msg=maps_url,
                                                                                             ho_conv_id=ho_conv_id))
+'''
+List of all implemented commands and there description. this can be used to enable the commands with BotFather
 
+whoami - prints the telegram user id
+whereami - prints the current chat id
+setsync - starts syncing the telegram chat with the specified hangout
+clearsync - stops syncing this channel with ho
+addbotadmin - adds an admin that can create syncs
+removebotadmin - removes an admin from sync bot
+tldr - stores a point in the tldr or prints tldr
+syncprofile - initializes profile syncronisation to g+
+unsyncprofile - stops sync of profile
+
+'''
 
 @asyncio.coroutine
 def tg_command_whoami(bot, chat_id, args):
