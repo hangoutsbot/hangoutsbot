@@ -6,4 +6,4 @@ COPY . /app
 
 RUN pip install -r requirements.txt
 
-ENTRYPOINT ["python", "/app/hangupsbot/hangupsbot.py"]
+CMD ["python", "/app/hangupsbot/hangupsbot.py"]
