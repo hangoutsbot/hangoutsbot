@@ -14,3 +14,6 @@ aiohttp
 # Prevent telesync from saving photos
 *.jpg 
 
+# Config
+config/*
+!config/.gitkeep
