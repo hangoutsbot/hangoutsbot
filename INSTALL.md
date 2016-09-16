@@ -6,7 +6,7 @@
 git clone <repository url>
 cd <repository name>
 docker build -t hangoutsbot/hangoutsbot .
-docker run -it -v $(pwd):/app hangoutsbot/hangoutsbot
+docker run -it -d -v $(pwd):/app -v $(pwd)/config:/root/.local/share/hangupsbot hangoutsbot/hangoutsbot
 ```
 
 **install python 3.4 from source**
