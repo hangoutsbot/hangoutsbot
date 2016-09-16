@@ -1,5 +1,14 @@
 # Preparing your Environment
 
+**Using docker**
+
+```
+git clone <repository url>
+cd <repository name>
+docker build -t hangoutsbot/hangoutsbot .
+docker run -it -v $(pwd):/app hangoutsbot/hangoutsbot
+```
+
 **install python 3.4 from source**
 ```
 wget https://www.python.org/ftp/python/3.4.2/Python-3.4.2.tgz
