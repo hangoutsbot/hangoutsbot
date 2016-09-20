@@ -236,7 +236,7 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
         if tg_bot.ho_bot.config.get_by_path(['telesync'])['sync_reply_to']:
             if tg_util_is_reply(msg):
                 content_type, chat_type, chat_id = telepot.glance(msg['reply_to_message'])
-                if msg['reply_to_message']['from']['first_name'].lower() in ['stitch', 'missiondaybot']:
+                if msg['reply_to_message']['from']['first_name'] in ['stitch', 'MissionDayBot']:
                     r_text = msg['reply_to_message']['text'].split(':')
                     r2_user = r_text[0]
                 else:
