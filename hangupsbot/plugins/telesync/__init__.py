@@ -1,4 +1,19 @@
 # A Sync plugin for Telegram and Hangouts
+
+"""
+List of all implemented commands and there description. this can be used to enable the commands with BotFather
+
+whoami - prints the telegram user id
+whereami - prints the current chat id
+setsync - starts syncing the telegram chat with the specified hangout
+clearsync - stops syncing this channel with ho
+addbotadmin - adds an admin that can create syncs
+removebotadmin - removes an admin from sync bot
+tldr - stores a point in the tldr or prints tldr
+syncprofile - initializes profile syncronisation to g+
+unsyncprofile - stops sync of profile
+"""
+
 import asyncio
 import logging
 import os
@@ -25,6 +40,8 @@ class TelegramBot(telepot.async.Bot):
                 super(TelegramBot, self).__init__(self.config['api_key'])
             except Exception as e:
                 raise telepot.TelegramError("Couldn't initialize telesync", 10)
+            if "bot_name" in self.config.get_by_path(["telesync"]):
+                self.name = self.config.get_by_path(["telesync"])["bot_name"]
 
             self.commands = {}
             self.onMessageCallback = TelegramBot.on_message
@@ -236,7 +253,7 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
         if tg_bot.ho_bot.config.get_by_path(['telesync'])['sync_reply_to']:
             if tg_util_is_reply(msg):
                 content_type, chat_type, chat_id = telepot.glance(msg['reply_to_message'])
-                if msg['reply_to_message']['from']['first_name'] in ['stitch', 'MissionDayBot']:
+                if msg['reply_to_message']['from']['first_name'].lower() == tg_bot.name:
                     r_text = msg['reply_to_message']['text'].split(':')
                     r2_user = r_text[0]
                 else:
@@ -380,20 +397,7 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
 
         logger.info("[TELESYNC] Telegram location forwarded: {msg} to: {ho_conv_id}".format(msg=maps_url,
                                                                                             ho_conv_id=ho_conv_id))
-'''
-List of all implemented commands and there description. this can be used to enable the commands with BotFather
 
-whoami - prints the telegram user id
-whereami - prints the current chat id
-setsync - starts syncing the telegram chat with the specified hangout
-clearsync - stops syncing this channel with ho
-addbotadmin - adds an admin that can create syncs
-removebotadmin - removes an admin from sync bot
-tldr - stores a point in the tldr or prints tldr
-syncprofile - initializes profile syncronisation to g+
-unsyncprofile - stops sync of profile
-
-'''
 
 @asyncio.coroutine
 def tg_command_whoami(bot, chat_id, args):
