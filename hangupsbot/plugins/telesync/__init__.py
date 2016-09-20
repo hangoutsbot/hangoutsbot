@@ -233,22 +233,23 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
 
         text = "<b>{}</b>: {}".format(user_text, msg['text'])
 
-        if tg_util_is_reply(msg):
-            content_type, chat_type, chat_id = telepot.glance(msg['reply_to_message'])
-            if msg['reply_to_message']['from']['first_name'] == 'stitch':
-                r_text = msg['reply_to_message']['text'].split(':')
-                r2_user = r_text[0]
-            else:
-                r2_user = tg_util_sync_get_user_name(msg['reply_to_message'])
-                r_text = ['', msg['reply_to_message']['text']]
-            if content_type == 'text':
-                r2_text = r_text[1]
-                r2_text = r2_text if len(r2_text) < 30 else r2_text[0:30] + "..."
-            else:
-                r2_text = content_type
-            text = "| <i><b>{r2uname}</b></i>:\n| <i>{r2text}</i>\n{newtext}".format(r2uname=r2_user,
-                                                                                     r2text=r2_text,
-                                                                                     newtext=text)
+        if tg_bot.ho_bot.config.get_by_path(['telesync'])['sync_reply_to']:
+            if tg_util_is_reply(msg):
+                content_type, chat_type, chat_id = telepot.glance(msg['reply_to_message'])
+                if msg['reply_to_message']['from']['first_name'] in ['stitch', 'missiondaybot']:
+                    r_text = msg['reply_to_message']['text'].split(':')
+                    r2_user = r_text[0]
+                else:
+                    r2_user = tg_util_sync_get_user_name(msg['reply_to_message'])
+                    r_text = ['', msg['reply_to_message']['text']]
+                if content_type == 'text':
+                    r2_text = r_text[1]
+                    r2_text = r2_text if len(r2_text) < 30 else r2_text[0:30] + "..."
+                else:
+                    r2_text = content_type
+                text = "| <i><b>{r2uname}</b></i>:\n| <i>{r2text}</i>\n{newtext}".format(r2uname=r2_user,
+                                                                                         r2text=r2_text,
+                                                                                         newtext=text)
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
         yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
@@ -288,8 +289,8 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
 
         logger.info("[TELESYNC] Upload succeed.")
 
-        # if tg_bot.ho_bot.config.get_by_path(['telesync'])['do_not_keep_photos']:
-        #    os.remove(photo_path)  # don't use unnecessary space on disk
+        if tg_bot.ho_bot.config.get_by_path(['telesync'])['do_not_keep_photos']:
+            os.remove(photo_path)  # don't use unnecessary space on disk
 
 
 @asyncio.coroutine
