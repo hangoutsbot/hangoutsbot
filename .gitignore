@@ -12,5 +12,6 @@ aiohttp
 
 
 # Prevent telesync from saving photos
-*.jpg 
+*.jpg
 
+venv

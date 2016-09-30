@@ -33,6 +33,7 @@ class TelegramBot(telepot.async.Bot):
             self.onUserJoinCallback = TelegramBot.on_user_join
             self.onUserLeaveCallback = TelegramBot.on_user_leave
             self.onLocationShareCallback = TelegramBot.on_location_share
+            self.onSupergroupUpgradeCallback = TelegramBot.on_supoergroup_upgrade
             self.ho_bot = hangupsbot
         else:
             logger.info('telesync disabled in config.json')
@@ -78,7 +79,7 @@ class TelegramBot(telepot.async.Bot):
 
     @staticmethod
     def on_user_join(bot, chat_id, msg):
-        print("New User: {name}".format(name=msg['left_chat_member']['first_name']))
+        print("New User: {name}".format(name=msg['new_chat_member']['first_name']))
 
     @staticmethod
     def on_user_leave(bot, chat_id, msg):
@@ -86,7 +87,12 @@ class TelegramBot(telepot.async.Bot):
 
     @staticmethod
     def on_location_share(bot, chat_id, msg):
-        print("{name} shared a location".format(name=msg['left_chat_member']['first_name']))
+        print("{name} shared a location".format(name=msg['from']['first_name']))
+
+    @staticmethod
+    def on_supoergroup_upgrade(bot, msg):
+        print("Group {old_chat_id} upgraded to supergroup {new_chat_id}".format(old_chat_id=msg['chat']['id'],
+                                                                                new_chat_id=msg['migrate_to_chat_id']))
 
     def set_on_message_callback(self, func):
         self.onMessageCallback = func
@@ -103,51 +109,62 @@ class TelegramBot(telepot.async.Bot):
     def set_on_location_share_callback(self, func):
         self.onLocationShareCallback = func
 
+    def set_on_supoergroup_upgrade_callback(self, func):
+        self.onSupergroupUpgradeCallback = func
+
     def is_telegram_admin(self, user_id):
         tg_admins = self.ho_bot.config.get_by_path(['telesync'])['admins']
         return True if str(user_id) in tg_admins else False
 
     @asyncio.coroutine
     def handle(self, msg):
-        flavor = telepot.flavor(msg)
 
-        if flavor == "chat":  # chat message
-            content_type, chat_type, chat_id = telepot.glance(msg)
-            if content_type == 'text':
-                if TelegramBot.is_command(msg):  # bot command
-                    cmd, params = TelegramBot.parse_command(msg['text'])
-                    user_id = TelegramBot.get_user_id(msg)
-                    args = {'params': params, 'user_id': user_id, 'chat_type': chat_type}
-                    if cmd in self.commands:
-                        yield from self.commands[cmd](self, chat_id, args)
-                    else:
-                        yield from self.sendMessage(chat_id, "Unknown command: {cmd}".format(cmd=cmd))
-
-                else:  # plain text message
-                    yield from self.onMessageCallback(self, chat_id, msg)
-
-            elif content_type == 'location':
-                yield from self.onLocationShareCallback(self, chat_id, msg)
-
-            elif content_type == 'new_chat_member':
-                yield from self.onUserJoinCallback(self, chat_id, msg)
-
-            elif content_type == 'left_chat_member':
-                yield from self.onUserLeaveCallback(self, chat_id, msg)
-
-            elif content_type == 'photo':
-                yield from self.onPhotoCallback(self, chat_id, msg)
-
-        elif flavor == "inline_query":  # inline query e.g. "@gif cute panda"
-            query_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
-            print("inline_query")
-
-        elif flavor == "chosen_inline_result":
-            result_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
-            print("chosen_inline_result")
+        if 'migrate_to_chat_id' in msg:
+            yield from self.onSupergroupUpgradeCallback(self, msg)
 
         else:
-            raise telepot.BadFlavor(msg)
+            flavor = telepot.flavor(msg)
+
+            if flavor == "chat":  # chat message
+                content_type, chat_type, chat_id = telepot.glance(msg)
+                if content_type == 'text':
+                    if TelegramBot.is_command(msg):  # bot command
+                        cmd, params = TelegramBot.parse_command(msg['text'])
+                        user_id = TelegramBot.get_user_id(msg)
+                        args = {'params': params, 'user_id': user_id, 'chat_type': chat_type}
+                        if cmd in self.commands:
+                            yield from self.commands[cmd](self, chat_id, args)
+                        else:
+                            if self.config['be_quiet']:
+                                pass
+                            else:
+                                yield from self.sendMessage(chat_id, "Unknown command: {cmd}".format(cmd=cmd))
+
+                    else:  # plain text message
+                        yield from self.onMessageCallback(self, chat_id, msg)
+
+                elif content_type == 'location':
+                    yield from self.onLocationShareCallback(self, chat_id, msg)
+
+                elif content_type == 'new_chat_member':
+                    yield from self.onUserJoinCallback(self, chat_id, msg)
+
+                elif content_type == 'left_chat_member':
+                    yield from self.onUserLeaveCallback(self, chat_id, msg)
+
+                elif content_type == 'photo':
+                    yield from self.onPhotoCallback(self, chat_id, msg)
+
+            elif flavor == "inline_query":  # inline query e.g. "@gif cute panda"
+                query_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
+                print("inline_query")
+
+            elif flavor == "chosen_inline_result":
+                result_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
+                print("chosen_inline_result")
+
+            else:
+                raise telepot.BadFlavor(msg)
 
 
 def tg_util_get_group_name(msg):
@@ -316,6 +333,28 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
 
 
 @asyncio.coroutine
+def tg_on_supergroup_upgrade(bot, msg):
+    old_chat_id = str(msg['chat']['id'])
+    new_chat_id = str(msg['migrate_to_chat_id'])
+
+    memory = bot.ho_bot.memory.get_by_path(['telesync'])
+    tg2ho_dict = memory['tg2ho']
+    ho2tg_dict = memory['ho2tg']
+
+    if old_chat_id in tg2ho_dict:
+        ho_conv_id = tg2ho_dict[old_chat_id]
+        ho2tg_dict[ho_conv_id] = new_chat_id
+        tg2ho_dict[new_chat_id] = ho_conv_id
+        del tg2ho_dict[old_chat_id]
+
+        new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
+        bot.ho_bot.memory.set_by_path(['telesync'], new_memory)
+
+        logger.info("Telegram group {old_chat_id} upgraded to Supergroup {new_chat_id}".format(
+            old_chat_id=old_chat_id, new_chat_id=new_chat_id))
+
+
+@asyncio.coroutine
 def tg_command_whoami(bot, chat_id, args):
     user_id = args['user_id']
     chat_type = args['chat_type']
@@ -477,10 +516,15 @@ def _initialise(bot):
         bot.config.set_by_path(['telesync'], {'api_key': "PUT_YOUR_TELEGRAM_API_KEY_HERE",
                                               'enabled': True,
                                               'admins': [],
-                                              'do_not_keep_photos': True})
+                                              'do_not_keep_photos': True,
+                                              'be_quiet': False})
+
+    bot.config.save()
 
     if not bot.memory.exists(['telesync']):
         bot.memory.set_by_path(['telesync'], {'ho2tg': {}, 'tg2ho': {}})
+
+    bot.memory.save()
 
     telesync_config = bot.config.get_by_path(['telesync'])
 
@@ -492,6 +536,7 @@ def _initialise(bot):
         tg_bot.set_on_user_join_callback(tg_on_user_join)
         tg_bot.set_on_user_leave_callback(tg_on_user_leave)
         tg_bot.set_on_location_share_callback(tg_on_location_share)
+        tg_bot.set_on_supoergroup_upgrade_callback(tg_on_supergroup_upgrade)
         tg_bot.add_command("/whoami", tg_command_whoami)
         tg_bot.add_command("/whereami", tg_command_whereami)
         tg_bot.add_command("/setsyncho", tg_command_set_sync_ho)
@@ -547,16 +592,31 @@ def telesync(bot, event, *args):
     bot.memory.set_by_path(['telesync'], new_memory)
 
 
+@asyncio.coroutine
 def is_valid_image_link(url):
-    if ' ' in url:
-        return False
-
-    url = url.lower()
-    if url.startswith('http://') or url.startswith('https://'):
-        if url.endswith((".jpg", ".jpeg", ".gif", ".gifv", ".webm", ".png", ".mp4")):
-            return True
-    else:
-        return False
+    """
+    :param url:
+    :return: result, file_name
+    """
+    if ' ' not in url:
+        if url.startswith(("http://", "https://")):
+            if url.endswith((".jpg", ".jpeg", ".gif", ".gifv", ".webm", ".png", ".mp4")):
+                ext = url.split(".")[-1].strip()
+                file = url.split("/")[-1].strip().replace(".", "").replace("_", "-")
+                return True, "{name}.{ext}".format(name=file, ext=ext)
+            else:
+                with aiohttp.ClientSession() as session:
+                    resp = yield from session.get(url)
+                    headers = resp.headers
+                    resp.close()
+                    if "image" in headers['CONTENT-TYPE']:
+                        content_disp = headers['CONTENT-DISPOSITION']
+                        content_disp = content_disp.replace("\"", "").split("=")
+                        file_ext = content_disp[2].split('.')[1].strip()
+                        if file_ext in ("jpg", "jpeg", "gif", "gifv", "webm", "png", "mp4"):
+                            file_name = content_disp[1].split("?")[0].strip()
+                            return True, "{name}.{ext}".format(name=file_name, ext=file_ext)
+    return False, ""
 
 
 def get_photo_extension(file_name):
@@ -574,14 +634,14 @@ def _on_hangouts_message(bot, event, command=""):
     if event.text.startswith('/'):  # don't sync /bot commands
         return
 
-    has_photo = False
     sync_text = event.text
     photo_url = ""
 
-    if is_valid_image_link(sync_text):
+    has_photo, photo_file_name = yield from is_valid_image_link(sync_text)
+
+    if has_photo:
         photo_url = sync_text
         sync_text = "(shared an image)"
-        has_photo = True
 
     ho2tg_dict = bot.memory.get_by_path(['telesync'])['ho2tg']
 
@@ -594,10 +654,7 @@ def _on_hangouts_message(bot, event, command=""):
         yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='html',
                                       disable_web_page_preview=True)
         if has_photo:
-            photo_name = photo_url.rpartition('/')[-1]
-            photo_ext = get_photo_extension(photo_url)
-            photo_name = photo_name.replace(photo_ext, '-{rand}{ext}'.format(
-                rand=random.randint(1, 100000), ext=photo_ext))
+            photo_name = "{rand}-{file_name}".format(rand=random.randint(1, 100000), file_name=photo_file_name)
             photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_name
 
             file_dir = os.path.dirname(photo_path)
@@ -607,8 +664,11 @@ def _on_hangouts_message(bot, event, command=""):
             with aiohttp.ClientSession() as session:
                 resp = yield from session.get(photo_url)
                 raw_data = yield from resp.read()
+                resp.close()
                 with open(photo_path, "wb") as f:
                     f.write(raw_data)
+                    logger.info("plugins/telesync: photo url: {url}".format(url=photo_url))
+                    logger.info("plugins/telesync: file saved: {file}".format(file=photo_path))
 
                 if is_animated_photo(photo_path):
                     yield from tg_bot.sendDocument(ho2tg_dict[event.conv_id], open(photo_path, 'rb'))
@@ -617,6 +677,7 @@ def _on_hangouts_message(bot, event, command=""):
 
             if tg_bot.ho_bot.config.get_by_path(['telesync'])['do_not_keep_photos']:
                 os.remove(photo_path)  # don't use unnecessary space on disk
+                logger.info("plugins/telesync: file removed: {file}".format(file=photo_path))
 
 
 def create_membership_change_message(user_name, user_gplus, group_name, membership_event="left"):
