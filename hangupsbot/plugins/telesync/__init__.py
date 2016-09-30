@@ -323,8 +323,8 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
 
         photo_id = photos[len(photos) - 1]['file_id']  # get photo id so we can download it
 
-        # TODO: find a better way to handling file paths
-        photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_id + ".jpg"
+        logger.info("Workingdirectory: {}".format(os.getcwd()))
+        photo_path = '~/.local/share/hangoutsbot/telesync/telesync_photos/' + photo_id + ".webp"
 
         text = "<b>{uname}</b>:".format(
             uname=tg_util_sync_get_user_name(msg))
