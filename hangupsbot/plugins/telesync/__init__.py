@@ -107,6 +107,9 @@ class TelegramBot(telepot.async.Bot):
     def set_on_photo_callback(self, func):
         self.onPhotoCallback = func
 
+    def set_on_sticker_callback(self, func):
+        self.onPhotoCallback = func
+
     def set_on_user_join_callback(self, func):
         self.onUserJoinCallback = func
 
