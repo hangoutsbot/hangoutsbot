@@ -771,7 +771,7 @@ def _on_hangouts_message(bot, event, command=""):
             photo_ext = get_photo_extension(photo_url)
             photo_name = photo_name.replace(photo_ext, '-{rand}{ext}'.format(
                 rand=random.randint(1, 100000), ext=photo_ext))
-            photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_name
+            photo_path = '~/.local/share/hangoutsbot/telesync/telesync_photos/' + photo_name
 
             file_dir = os.path.dirname(photo_path)
             if not os.path.exists(file_dir):
