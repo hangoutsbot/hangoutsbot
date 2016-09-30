@@ -40,8 +40,8 @@ class TelegramBot(telepot.async.Bot):
                 super(TelegramBot, self).__init__(self.config['api_key'])
             except Exception as e:
                 raise telepot.TelegramError("Couldn't initialize telesync", 10)
-            if "bot_name" in self.config.get_by_path(["telesync"]):
-                self.name = self.config.get_by_path(["telesync"])["bot_name"]
+            if "bot_name" in hangupsbot.config.get_by_path(["telesync"]):
+                self.name = hangupsbot.config.get_by_path(["telesync"])["bot_name"]
 
             self.commands = {}
             self.onMessageCallback = TelegramBot.on_message
