@@ -285,6 +285,7 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
         photo_id = msg['sticker']['file_id']
 
         # TODO: find a better way to handling file paths
+        logger.info("Workingdirectory: {}".format(os.getcwd()))
         photo_path = '~/.local/share/hangoutsbot/telesync/telesync_photos/' + photo_id + ".webp"
 
         text = "<b>{uname}</b> Sticker:".format(
