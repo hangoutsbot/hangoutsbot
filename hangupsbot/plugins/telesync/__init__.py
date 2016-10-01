@@ -128,7 +128,6 @@ class TelegramBot(telepot.async.Bot):
 
     @asyncio.coroutine
     def handle(self, msg):
-        flavor = telepot.flavor(msg)
 
         if 'migrate_to_chat_id' in msg:
             yield from self.onSupergroupUpgradeCallback(self, msg)
@@ -164,6 +163,9 @@ class TelegramBot(telepot.async.Bot):
                     yield from self.onUserLeaveCallback(self, chat_id, msg)
 
                 elif content_type == 'photo':
+                    yield from self.onPhotoCallback(self, chat_id, msg)
+
+                elif content_type == 'sticker':
                     yield from self.onPhotoCallback(self, chat_id, msg)
 
             elif flavor == "inline_query":  # inline query e.g. "@gif cute panda"
