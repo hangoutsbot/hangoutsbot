@@ -108,7 +108,7 @@ class TelegramBot(telepot.async.Bot):
         self.onPhotoCallback = func
 
     def set_on_sticker_callback(self, func):
-        self.onPhotoCallback = func
+        self.onStickerCallback = func
 
     def set_on_user_join_callback(self, func):
         self.onUserJoinCallback = func
@@ -166,7 +166,7 @@ class TelegramBot(telepot.async.Bot):
                     yield from self.onPhotoCallback(self, chat_id, msg)
 
                 elif content_type == 'sticker':
-                    yield from self.onPhotoCallback(self, chat_id, msg)
+                    yield from self.onStickerCallback(self, chat_id, msg)
 
             elif flavor == "inline_query":  # inline query e.g. "@gif cute panda"
                 query_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
