@@ -1,0 +1,37 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <value>
+          <list size="16">
+            <item index="0" class="java.lang.String" itemvalue="beautifulsoup4" />
+            <item index="1" class="java.lang.String" itemvalue="goslate" />
+            <item index="2" class="java.lang.String" itemvalue="emoji" />
+            <item index="3" class="java.lang.String" itemvalue="telepot" />
+            <item index="4" class="java.lang.String" itemvalue="spotipy" />
+            <item index="5" class="java.lang.String" itemvalue="slackclient" />
+            <item index="6" class="java.lang.String" itemvalue="selenium" />
+            <item index="7" class="java.lang.String" itemvalue="python_dateutil" />
+            <item index="8" class="java.lang.String" itemvalue="aiohttp" />
+            <item index="9" class="java.lang.String" itemvalue="pushbullet.py" />
+            <item index="10" class="java.lang.String" itemvalue="google-api-python-client" />
+            <item index="11" class="java.lang.String" itemvalue="wikipedia" />
+            <item index="12" class="java.lang.String" itemvalue="wolframalpha" />
+            <item index="13" class="java.lang.String" itemvalue="pyslack" />
+            <item index="14" class="java.lang.String" itemvalue="jsonrpclib-pelix" />
+            <item index="15" class="java.lang.String" itemvalue="textblob" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="hangupsbot.plugins.telesync.commands" />
+          <option value="hangupsbot.plugins.telesync.handlers" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
