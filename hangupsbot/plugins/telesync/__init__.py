@@ -1,15 +1,16 @@
 # A Sync plugin for Telegram and Hangouts
 
-import os, logging
 import asyncio
+import logging
+import os
+import random
 import aiohttp
 import hangups
 import telepot
 import telepot.async
 import telepot.exception
-from handlers import handler
 from commands import command
-import random
+from handlers import handler
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ class TelegramBot(telepot.async.Bot):
     def is_command(msg):
         if 'text' in msg:
             if msg['text'].startswith('/'):
-                if msg['text'].startswith('/me'):
+                if msg['text'].startswith('/me'):  # TODO find a way to make this optional via config
                     return False
                 return True
         return False
@@ -119,7 +120,7 @@ class TelegramBot(telepot.async.Bot):
     def set_on_location_share_callback(self, func):
         self.onLocationShareCallback = func
 
-    def set_on_supoergroup_upgrade_callback(self, func):
+    def set_on_supergroup_upgrade_callback(self, func):
         self.onSupergroupUpgradeCallback = func
 
     def is_telegram_admin(self, user_id):
@@ -237,10 +238,6 @@ def tg_util_sync_get_user_name(msg, chat_action='from'):
         else "<a href='{url}' >{uname}</a>".format(url=url, uname=msg[chat_action]['first_name'])
 
 
-def tg_util_is_reply(msg):
-    return 'reply_to_message' in msg
-
-
 @asyncio.coroutine
 def tg_on_message(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
@@ -252,10 +249,10 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
         else:
             user_text = "<b>{uname}</b>".format(uname=tg_util_sync_get_user_name(msg))
 
-        text = "<b>{}</b>: {}".format(user_text, msg['text'])
+        text = "<b>{uname}</b>: {text}".format(text=user_text, uname=msg['text'])
 
         if tg_bot.ho_bot.config.get_by_path(['telesync'])['sync_reply_to']:
-            if tg_util_is_reply(msg):
+            if 'reply_to_message' in msg:
                 content_type, chat_type, chat_id = telepot.glance(msg['reply_to_message'])
                 if msg['reply_to_message']['from']['first_name'].lower() == tg_bot.name:
                     r_text = msg['reply_to_message']['text'].split(':')
@@ -327,11 +324,9 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
 
         photo_id = photos[len(photos) - 1]['file_id']  # get photo id so we can download it
 
-        logger.info("Workingdirectory: {}".format(os.getcwd()))
         photo_path = '~/.local/share/hangoutsbot/telesync/telesync_photos/' + photo_id + ".webp"
 
-        text = "<b>{uname}</b>:".format(
-            uname=tg_util_sync_get_user_name(msg))
+        text = "<b>{uname}</b>Photo:".format(uname=tg_util_sync_get_user_name(msg))
         yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
 
         file_dir = os.path.dirname(photo_path)
@@ -393,9 +388,7 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
 
     if str(tg_chat_id) in tg2ho_dict:
-        text = "<b>{uname}</b> <b>({gname})</b>: {text}".format(uname=tg_util_sync_get_user_name(msg),
-                                                                gname=tg_util_get_group_name(msg),
-                                                                text=maps_url)
+        text = "<b>{uname}</b>: {text}".format(uname=tg_util_sync_get_user_name(msg), text=maps_url)
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
         yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
@@ -431,7 +424,8 @@ def tg_command_whoami(bot, chat_id, args):
     user_id = args['user_id']
     chat_type = args['chat_type']
     if 'private' == chat_type:
-        yield from bot.sendMessage(chat_id, "Your Telegram user id: {user_id}".format(user_id=user_id))
+        yield from bot.sendMessage(chat_id, "Your Telegram user id:")
+        yield from bot.sendMessage(chat_id, user_id)
     else:
         yield from bot.sendMessage(chat_id, "This command can only be used in private chats")
 
@@ -440,7 +434,8 @@ def tg_command_whoami(bot, chat_id, args):
 def tg_command_whereami(bot, chat_id, args):
     user_id = args['user_id']
     if bot.is_telegram_admin(user_id):
-        yield from bot.sendMessage(chat_id, "current group's id: '{chat_id}'".format(chat_id=chat_id))
+        yield from bot.sendMessage(chat_id, "current group's id:")
+        yield from bot.sendMessage(chat_id, chat_id)
     else:
         yield from bot.sendMessage(chat_id, "Only admins can do that")
 
@@ -632,9 +627,12 @@ def _initialise(bot):
     if not bot.config.exists(['telesync']):
         bot.config.set_by_path(['telesync'], {'api_key': "PUT_YOUR_TELEGRAM_API_KEY_HERE",
                                               'enabled': True,
+                                              'sync_sticker': True,
+                                              'sync_reply_to': True,
                                               'admins': [],
                                               'do_not_keep_photos': True,
-                                              'be_quiet': False})
+                                              'be_quiet': False,
+                                              'synced_bot_commands': []})
 
     bot.config.save()
 
@@ -651,11 +649,12 @@ def _initialise(bot):
         tg_bot = TelegramBot(bot)
         tg_bot.set_on_message_callback(tg_on_message)
         tg_bot.set_on_photo_callback(tg_on_photo)
-        tg_bot.set_on_sticker_callback(tg_on_sticker)
+        if telesync_config['sync_sticker'] != 'false':
+            tg_bot.set_on_sticker_callback(tg_on_sticker)
         tg_bot.set_on_user_join_callback(tg_on_user_join)
         tg_bot.set_on_user_leave_callback(tg_on_user_leave)
         tg_bot.set_on_location_share_callback(tg_on_location_share)
-        tg_bot.set_on_supoergroup_upgrade_callback(tg_on_supergroup_upgrade)
+        tg_bot.set_on_supergroup_upgrade_callback(tg_on_supergroup_upgrade)
         tg_bot.add_command("/whoami", tg_command_whoami)
         tg_bot.add_command("/whereami", tg_command_whereami)
         tg_bot.add_command("/setsyncho", tg_command_set_sync_ho)
@@ -790,7 +789,12 @@ def _on_hangouts_message(bot, event, command=""):
     global tg_bot
 
     if event.text.startswith('/'):
-        if not event.text.startswith('/me') and not event.text.startswith('/kat'):
+        if 'synced_bot_commands' not in tg_bot.ho_bot.config.get_by_path(['telesync']):
+            return
+
+        command = event.text.split(' ', 1)[0]
+        synced_commands = tg_bot.ho_bot.config.get_by_path(['telesync'])['synced_bot_commands']
+        if command not in synced_commands:
             return
 
     has_photo = False
@@ -815,7 +819,7 @@ def _on_hangouts_message(bot, event, command=""):
                                       disable_web_page_preview=True)
         if has_photo:
             photo_name = "{rand}-{file_name}".format(rand=random.randint(1, 100000), file_name=photo_file_name)
-            photo_path = '~/hangoutsbot/telesync/telesync_photos/' + photo_name
+            photo_path = '~/.local/share/hangoutsbot/telesync/telesync_photos/' + photo_name
 
             file_dir = os.path.dirname(photo_path)
             if not os.path.exists(file_dir):
