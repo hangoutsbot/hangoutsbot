@@ -41,7 +41,7 @@ def on_message(message):
     conv_config = _bot.config.get_by_path(["conversations"])
     for conv_id, config in conv_config.items():
         if config.get("discord_sync") == message.channel.id:
-            msg = "<b>{}</b>: {}".format(message.author.display_name, message.content)
+            msg = "<b>{}</b>: {}".format(message.author.display_name, message.clean_content)
             sending += 1
             yield from _bot.coro_send_message(conv_id, msg, context={'discord': True})
 
@@ -81,7 +81,10 @@ def _handle_hangout_message(bot, event):
 
 def dsync(bot, event, discord_channel=None):
     ''' Sync a hangout to a discord channel. Usage - "/bot dsync 123456789" Say "whereami" in the channel once the bot has been added to get the channel id" '''
-    bot.config.set_by_path(["conversations", event.conv_id, "discord_sync"], discord_channel)
+    try:
+      bot.config.set_by_path(["conversations", event.conv_id, "discord_sync"], discord_channel)
+    except KeyError:
+      bot.config.set_by_path(["conversations", event.conv_id], {"discord_sync": discord_channel})
     bot.config.save()
     msg = "Synced {} to {}".format(bot.conversations.get_name(event.conv), discord_channel)
     yield from bot.coro_send_message(event.conv_id, msg)
