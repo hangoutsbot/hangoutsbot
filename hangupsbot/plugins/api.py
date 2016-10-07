@@ -78,9 +78,23 @@ def _start_api(bot):
 
 class APIRequestHandler(AsyncRequestHandler):
     def addroutes(self, router):
+        router.add_route("OPTIONS", "/", self.adapter_do_OPTIONS)
         router.add_route("POST", "/", self.adapter_do_POST)
         router.add_route('GET', '/{api_key}/{id}/{message:.*?}', self.adapter_do_GET)
 
+
+    @asyncio.coroutine
+    def adapter_do_OPTIONS(self, request):
+        origin = request.headers["Origin"]
+
+        # TODO make allowed origins configureable?
+        if False and origin not in ():
+            raise HTTPForbidden()
+
+        return web.Response(headers={
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Headers": "content-type",
+        })
 
     @asyncio.coroutine
     def adapter_do_GET(self, request):
