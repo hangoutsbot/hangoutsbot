@@ -1,15 +1,67 @@
+import hangups
 import time
 import plugins
 
 
 def _initialise(bot):
     plugins.register_user_command(["tldr"])
+    plugins.register_admin_command(["tldrpm"])
     bot.register_shared("plugin_tldr_shared", tldr_shared)
 
 
+def tldrpm(bot, event, p_tldr_pm=None):
+    """<br/>/bot <i><b>tldrpm</b> <group/PM></i><br/>Defines whether the full tldr is echoed to a PM or into the main chat.<br/><br/>e.g. /bot tldrpm PM"""
+
+    # If no memory entry exists, create it.
+    if not bot.memory.exists(['conversations']):
+        bot.memory.set_by_path(['conversations'],{})
+    if not bot.memory.exists(['conversations',event.conv_id]):
+        bot.memory.set_by_path(['conversations',event.conv_id],{})
+
+    bot.memory.set_by_path(['conversations', event.conv_id, 'tldr_pm'], p_tldr_pm)
+    bot.memory.save()
+    
+    # If no tldr_pm setting specified, then the tldr_pm set for this hangout has been cleared.
+    if p_tldr_pm is None:
+        segments = [hangups.ChatMessageSegment('TLDR PM setting for this hangout has been cleared', is_bold=True)]
+    else:
+        # Get the current tldr_pm setting.
+        segments = [hangups.ChatMessageSegment('TLDR PM for this hangout is:', is_bold=True),
+                    hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
+                    hangups.ChatMessageSegment(p_tldr_pm)]
+    
+    yield from bot.coro_send_message(event.conv_id, segments)
+
+
 def tldr(bot, event, *args):
-    message = tldr_base(bot, event.conv_id, list(args))
-    yield from bot.coro_send_message(event.conv_id, message)
+
+    ## Retrieve the current tldr pm status for the hangout.
+    # If no memory entry exists, create it.
+    if not bot.memory.exists(['conversations']):
+        bot.memory.set_by_path(['conversations'],{})
+    if not bot.memory.exists(['conversations',event.conv_id]):
+        bot.memory.set_by_path(['conversations',event.conv_id],{})
+
+    # Check per conversation setting in memory first, then global from config.json.
+    # If nothing set, then set the bot default as False.
+
+    if not bot.memory.exists(['conversations',event.conv_id,'tldr_pm']):
+        if not bot.get_config_option('tldr_pm'):
+            bot.config.set_by_path(["tldr_pm"], 'group')
+            bot.config.save()
+    
+    if not bot.memory.exists(['conversations',event.conv_id,'tldr_pm']):
+        mem_tldr_pm = bot.get_config_option('tldr_pm')
+    else:
+        mem_tldr_pm = bot.memory.get_by_path(['conversations', event.conv_id, 'tldr_pm'])
+
+    message, display = tldr_base(bot, event.conv_id, list(args))
+    print (display)
+    print (mem_tldr_pm)
+    if display is True and mem_tldr_pm == 'PM':
+        yield from bot.coro_send_to_user_and_conversation(event.user.id_.chat_id, event.conv_id, message, ("<i>{}, I've sent you the info in a PM ;-)</i>").format(event.user.full_name))
+    else:
+        yield from bot.coro_send_message(event.conv_id, message)
 
 
 def tldr_shared(bot, args):
@@ -32,7 +84,9 @@ def tldr_shared(bot, args):
     params = args['params']
     conv_id = args['conv_id']
 
-    return tldr_base(bot, conv_id, params)
+    return_data, display = tldr_base(bot, conv_id, params)
+
+    return return_data
 
 
 def tldr_base(bot, conv_id, parameters):
@@ -43,9 +97,9 @@ def tldr_base(bot, conv_id, parameters):
     Single TLDRs can be edited using /bot tldr edit <number> <new_message>"""
     # parameters = list(args)
 
+    # If no memory entry exists, create it.
     if not bot.memory.exists(['tldr']):
         bot.memory.set_by_path(['tldr'], {})
-
     if not bot.memory.exists(['tldr', conv_id]):
         bot.memory.set_by_path(['tldr', conv_id], {})
 
@@ -68,11 +122,12 @@ def tldr_base(bot, conv_id, parameters):
 
         if len(html) == 0:
             html.append(_("TL;DR not found"))
+            display = False
         else:
             html.insert(0, _("<b>TL;DR ({} stored):</b>").format(len(conv_tldr)))
         message = _("\n".join(html))
 
-        return message
+        return message, display
 
     if parameters[0] == "clear":
         if len(parameters) == 2 and parameters[1].isdigit():
@@ -88,7 +143,7 @@ def tldr_base(bot, conv_id, parameters):
             bot.memory.set_by_path(['tldr', conv_id], {})
             message = _("All TL;DRs cleared")
 
-        return message
+        return message, display
 
     elif parameters[0] == "edit":
         if len(parameters) > 2 and parameters[1].isdigit():
@@ -105,7 +160,7 @@ def tldr_base(bot, conv_id, parameters):
         else:
             message = _('Unknown Command at "tldr edit"')
 
-        return message
+        return message, display
 
     elif parameters[0]:  ## need a better looking solution here
         tldr = ' '.join(parameters)
@@ -115,7 +170,7 @@ def tldr_base(bot, conv_id, parameters):
             bot.memory.set_by_path(['tldr', conv_id], conv_tldr)
             message = _('<em>{}</em> added to TL;DR. Count: {}').format(tldr, len(conv_tldr))
 
-            return message
+            return message, display
 
     bot.memory.save()
 
