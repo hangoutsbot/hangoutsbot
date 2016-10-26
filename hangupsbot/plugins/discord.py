@@ -49,6 +49,10 @@ def _initialise(bot):
     global _bot
     _bot = bot
     token = bot.get_config_option('discord_token')
+    if not token:
+        logger.error("discord_token not set")
+        return
+
     plugins.register_handler(_handle_hangout_message, type="allmessages")
     plugins.register_admin_command(['dsync'])
 
