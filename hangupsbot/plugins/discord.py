@@ -77,9 +77,12 @@ def _handle_hangout_message(bot, event):
                 logger.debug('attempting to execute %s', command)
                 yield from _bot._handlers.handle_command(event)
             else:
-                fullname = event.user.full_name
-                msg = "**{}**: {}".format(fullname, event.text)
-                yield from client.send_message(channel, msg)
+                if event.from_bot:
+                    yield from client.send_message(channel, event.text)
+                else:
+                    fullname = event.user.full_name
+                    msg = "**{}**: {}".format(fullname, event.text)
+                    yield from client.send_message(channel, msg)
         else:
             logger.debug('channel {} not found'.format(discord_channel))
 
