@@ -17,6 +17,8 @@ import plugins
 import discord
 import asyncio
 import logging
+import aiohttp
+import io
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,15 @@ def on_message(message):
             msg = "<b>{}</b>: {}".format(message.author.display_name, message.clean_content)
             sending += 1
             yield from _bot.coro_send_message(conv_id, msg, context={'discord': True})
+
+            for a in message.attachments:
+              r = yield from aiohttp.request('get', a['url'])
+              raw = yield from r.read()
+              image_data = io.BytesIO(raw)
+              logger.debug("uploading: {}".format(a['url']))
+              sending += 1
+              image_id = yield from _bot._client.upload_image(image_data, filename=a['filename'])
+              yield from _bot.coro_send_message(conv_id, None, image_id=image_id, context={'discord': True})
 
 def _initialise(bot):
     global _bot
