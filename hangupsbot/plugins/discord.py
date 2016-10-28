@@ -97,6 +97,15 @@ def _handle_hangout_message(bot, event, command):
                     yield from client.send_message(channel, event.text)
                 else:
                     fullname = event.user.full_name
+                    mentions = dict([(word.strip('@'),[]) for word in set(event.text.split()) if word.startswith('@')])
+                    for m in mentions:
+                      for member in client.get_all_members():
+                        permissions = channel.permissions_for(member)
+                        if permissions.read_messages and m.lower() in member.display_name.lower() and member.mention.startswith('<@!'):
+                          logger.debug("{} matches ({},{},{}) in {}".format(m, member.id, member.name, member.display_name, channel.name))
+                          mentions[m].append(member.mention)
+                      if len(mentions[m]) == 1:
+                        event.text = event.text.replace('@' + m, mentions[m][0])
                     msg = "**{}**: {}".format(fullname, event.text)
                     yield from client.send_message(channel, msg)
         else:
