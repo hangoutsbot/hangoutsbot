@@ -26,6 +26,8 @@ client = discord.Client()
 _bot = None
 sending = {}
 
+already_seen_discord_messages = []
+
 @client.event
 @asyncio.coroutine
 def on_ready():
@@ -36,6 +38,10 @@ def on_ready():
 def on_message(message):
     if message.author.bot:
         return
+    global already_seen_discord_messages
+    if message.id in already_seen_discord_messages:
+        return
+    already_seen_discord_messages.append(message.id)
     global sending
     if 'whereami' in message.content:
         yield from client.send_message(message.channel, message.channel.id)
