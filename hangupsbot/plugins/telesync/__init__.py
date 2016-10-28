@@ -238,9 +238,6 @@ def tg_util_sync_get_user_name(msg, chat_action='from'):
         else "<a href='{url}' >{uname}</a>".format(url=url, uname=msg[chat_action]['first_name'])
 
 
-def tg_util_send_message(bot, user_id, chat_id):
-
-
 @asyncio.coroutine
 def tg_on_message(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
@@ -820,7 +817,6 @@ def _on_hangouts_message(bot, event, command=""):
         yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='html',
                                       disable_web_page_preview=True)
         if has_photo:
-            logger.info(msg="################################\nhas_photo = True")
             photo_name = "{rand}-{file_name}".format(rand=random.randint(1, 100000), file_name=photo_file_name)
             photo_path = '~/.local/share/hangoutsbot/telesync/telesync_photos/' + photo_name
 
