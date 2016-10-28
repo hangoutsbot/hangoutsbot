@@ -41,11 +41,11 @@ def diceroll(bot, event, dice="1d6", *args):
         n = 1
     n = int(n)
     s = int(s)
-    if n < 1:
-        yield from bot.coro_send_message(event.conv, "number of dice must be 1 or more")
+    if not 1 <= n < 100:
+        yield from bot.coro_send_message(event.conv, "number of dice must be between 1 and 99")
         return
-    if s < 2:
-        yield from bot.coro_send_message(event.conv, "number of sides must be 2 or more")
+    if not 2 <= s < 10000:
+        yield from bot.coro_send_message(event.conv, "number of sides must be between 2 and 9999")
         return
     msg = _("<i>{} rolled ").format(event.user.full_name)
     total = 0
