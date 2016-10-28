@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 client = discord.Client()
 _bot = None
-sending = 0
+sending = {}
 
 @client.event
 @asyncio.coroutine
@@ -44,7 +44,9 @@ def on_message(message):
     for conv_id, config in conv_config.items():
         if config.get("discord_sync") == message.channel.id:
             msg = "<b>{}</b>: {}".format(message.author.display_name, message.clean_content)
-            sending += 1
+            if conv_id not in sending:
+              sending[conv_id] = 0
+            sending[conv_id] += 1
             yield from _bot.coro_send_message(conv_id, msg, context={'discord': True})
 
             for a in message.attachments:
@@ -52,7 +54,7 @@ def on_message(message):
               raw = yield from r.read()
               image_data = io.BytesIO(raw)
               logger.debug("uploading: {}".format(a['url']))
-              sending += 1
+              sending[conv_id] += 1
               image_id = yield from _bot._client.upload_image(image_data, filename=a['filename'])
               yield from _bot.coro_send_message(conv_id, None, image_id=image_id, context={'discord': True})
 
@@ -74,19 +76,22 @@ def _initialise(bot):
         # this isn't anything to worry about
         pass
 
-def _handle_hangout_message(bot, event):
+def _handle_hangout_message(bot, event, command):
     global sending
     discord_channel = bot.get_config_suboption(event.conv_id, "discord_sync")
     if discord_channel:
         channel = client.get_channel(discord_channel)
         if channel:
-            if sending and ':' in event.text:
+            if sending.get(event.conv_id) and ':' in event.text:
                 # this hangout message originated in discord
-                sending -= 1
-                command = event.text.split(':')[1].strip()
-                event.text = command
-                logger.debug('attempting to execute %s', command)
+                sending[event.conv_id] -= 1
+                bits = event.text.split(':')
+                event._external_source = bits[0] + '@discord'
+                msg = bits[1].strip()
+                event.text = msg
+                logger.debug('attempting to execute %s', msg)
                 yield from _bot._handlers.handle_command(event)
+                yield from plugins.mentions._handle_mention(bot, event, command)
             else:
                 if event.from_bot:
                     yield from client.send_message(channel, event.text)
