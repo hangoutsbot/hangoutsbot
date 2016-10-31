@@ -36,7 +36,7 @@ def on_ready():
 @client.event
 @asyncio.coroutine
 def on_message(message):
-    if message.author.bot:
+    if message.author == client.user:
         return
     global already_seen_discord_messages
     if message.id in already_seen_discord_messages:
