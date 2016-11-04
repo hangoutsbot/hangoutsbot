@@ -30,6 +30,7 @@ class TelegramBot(telepot.async.Bot):
             self.commands = {}
             self.onMessageCallback = TelegramBot.on_message
             self.onPhotoCallback = TelegramBot.on_photo
+            self.onStickerCallback = TelegramBot.on_sticker
             self.onUserJoinCallback = TelegramBot.on_user_join
             self.onUserLeaveCallback = TelegramBot.on_user_leave
             self.onLocationShareCallback = TelegramBot.on_location_share
@@ -78,6 +79,10 @@ class TelegramBot(telepot.async.Bot):
         print("[PIC]{uid} : {photo_id}".format(uid=msg['from']['id'], photo_id=msg['photo'][0]['file_id']))
 
     @staticmethod
+    def on_sticker(bot, chat_id, msg):
+        print("[STI]{uid} : {file_id}".format(uid=msg['from']['id'], file_id=msg['sticker']['file_id']))
+
+    @staticmethod
     def on_user_join(bot, chat_id, msg):
         print("New User: {name}".format(name=msg['new_chat_member']['first_name']))
 
@@ -99,6 +104,9 @@ class TelegramBot(telepot.async.Bot):
 
     def set_on_photo_callback(self, func):
         self.onPhotoCallback = func
+
+    def set_on_sticker_callback(self, func):
+        self.onStickerCallback = func
 
     def set_on_user_join_callback(self, func):
         self.onUserJoinCallback = func
@@ -154,6 +162,11 @@ class TelegramBot(telepot.async.Bot):
 
                 elif content_type == 'photo':
                     yield from self.onPhotoCallback(self, chat_id, msg)
+
+                elif content_type == 'sticker':
+                    if 'sync_sticker' in tg_bot.ho_bot.config.get_by_path(['telesync']):
+                        if tg_bot.ho_bot.config.get_by_path(['telesync'])['sync_sticker']:
+                            yield from self.onStickerCallback(self, chat_id, msg)
 
             elif flavor == "inline_query":  # inline query e.g. "@gif cute panda"
                 query_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
@@ -240,6 +253,42 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
 
         logger.info("[TELESYNC] Telegram message forwarded: {msg} to: {ho_conv_id}".format(msg=msg['text'],
                                                                                            ho_conv_id=ho_conv_id))
+
+
+@asyncio.coroutine
+def tg_on_sticker(tg_bot, tg_chat_id, msg):
+    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
+
+    if str(tg_chat_id) in tg2ho_dict:
+        ho_conv_id = tg2ho_dict[str(tg_chat_id)]
+
+        photo_id = msg['sticker']['file_id']
+
+        # TODO: find a better way to handling file paths
+        photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_id + ".jpg"
+
+        text = "Uploading sticker from <b>{uname}</b> in <b>{gname}</b>...".format(
+            uname=tg_util_sync_get_user_name(msg),
+            gname=tg_util_get_group_name(msg))
+        tg_bot.ho_bot.coro_send_message(conversation=ho_conv_id, message=text)
+
+        file_dir = os.path.dirname(photo_path)
+        if not os.path.exists(file_dir):
+            os.makedirs(file_dir)
+
+        yield from tg_bot.download_file(photo_id, photo_path)
+
+        logger.info("[TELESYNC] Uploading sticker {fid}".format(fid=photo_id))
+        with open(photo_path, "rb") as photo_file:
+            ho_photo_id = yield from tg_bot.ho_bot._client.upload_image(photo_file,
+                                                                        filename=os.path.basename(photo_path))
+
+        yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, '', image_id=ho_photo_id)
+
+        logger.info("[TELESYNC] Upload succeed.")
+
+        if tg_bot.ho_bot.config.get_by_path(['telesync'])['do_not_keep_photos']:
+            os.remove(photo_path)  # don't use unnecessary space on disk
 
 
 @asyncio.coroutine
@@ -533,6 +582,7 @@ def _initialise(bot):
         tg_bot = TelegramBot(bot)
         tg_bot.set_on_message_callback(tg_on_message)
         tg_bot.set_on_photo_callback(tg_on_photo)
+        tg_bot.set_on_sticker_callback(tg_on_sticker)
         tg_bot.set_on_user_join_callback(tg_on_user_join)
         tg_bot.set_on_user_leave_callback(tg_on_user_leave)
         tg_bot.set_on_location_share_callback(tg_on_location_share)
