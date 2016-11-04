@@ -217,22 +217,24 @@ def tg_util_create_telegram_me_link(username, https=True):
 
 
 def tg_util_sync_get_user_name(msg, chat_action='from'):
+    profile_dict = tg_bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho']
     username = TelegramBot.get_username(msg, chat_action=chat_action)
-    url = tg_util_create_telegram_me_link(username)
-    return msg[chat_action]['first_name'] if username == "" else "<a href='{url}' >{uname}</a>".format(url=url,
-                                                                                                       uname=
-                                                                                                       msg[
-                                                                                                           chat_action][
-                                                                                                           'first_name'])
+    logger.info("message from: {}".format(msg['from']['id']))
+    if str(msg['from']['id']) in profile_dict:
+        # logger.info("message from: {}".format(msg['from']['id']))
+        user_html= profile_dict[str(msg['from']['id'])]['user_text']
+    else:
+        url = tg_util_create_telegram_me_link(username)
+        user_html = "<a href='{url}' >{uname}</a>".format(url=url, uname=msg[chat_action]['first_name'])
+    return msg[chat_action]['first_name'] if username == "" else user_html
 
 
 @asyncio.coroutine
 def tg_on_message(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
-
     if str(tg_chat_id) in tg2ho_dict:
         text = "<b>{uname}</b> <b>({gname})</b>: {text}".format(uname=tg_util_sync_get_user_name(msg),
-                                                                gname=tg_util_get_group_name(msg),
+                                                                gname=tg_util_sync_get_user_name(msg),
                                                                 text=msg['text'])
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
@@ -504,6 +506,51 @@ def tg_command_tldr(bot, chat_id, args):
             yield from bot.sendMessage(chat_id, "TLDR plugin is not active. KeyError: {e}".format(e=ke))
 
 
+@asyncio.coroutine
+def tg_command_sync_profile(bot, chat_id, args):
+    if 'private' != args['chat_type']:
+        yield from bot.sendMessage(chat_id, "Comand must be run in private chat!")
+        return
+    tg2ho_dict = bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho']
+    ho2tg_dict = bot.ho_bot.memory.get_by_path(['profilesync'])['ho2tg']
+    user_id = args['user_id']
+    if str(user_id) in tg2ho_dict:
+        yield from bot.sendMessage(chat_id, "Your profile is currently synced, to change this run /unsyncprofile")
+        return
+
+    rndm = random.randint(0, 9223372036854775807)
+    tg2ho_dict[str(user_id)] = str(rndm)
+    ho2tg_dict[str(rndm)] = str(user_id)
+    new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
+    print(new_memory)
+    bot.ho_bot.memory.set_by_path(['profilesync'], new_memory)
+
+    yield from bot.sendMessage(chat_id, "Paste the following command in the private ho with me")
+    yield from bot.sendMessage(chat_id, "/bot syncprofile {}".format(str(rndm)))
+
+
+@asyncio.coroutine
+def tg_command_unsync_profile(bot, chat_id, args):
+    if 'private' != args['chat_type']:
+        yield from bot.sendMessage(chat_id, "Comand must be run in private chat!")
+        return
+
+    tg2ho_dict = bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho']
+    ho2tg_dict = bot.ho_bot.memory.get_by_path(['profilesync'])['ho2tg']
+    text = ""
+    if args['user_id'] in tg2ho_dict:
+        ho_id = tg2ho_dict[str(args['user_id'])]['ho_id']
+        del tg2ho_dict[str(args['user_id'])]
+        del ho2tg_dict[str(ho_id)]
+        new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
+        bot.ho_bot.memory.set_by_path(['profilesync'], new_memory)
+        text = "Succsessfully removed sync of your profile."
+    else:
+        text = "There is no sync setup for your profile."
+
+    yield from bot.sendMessage(chat_id, text)
+
+
 # TELEGRAM DEFINITIONS END
 
 # HANGOUTSBOT
@@ -524,7 +571,8 @@ def _initialise(bot):
     if not bot.memory.exists(['telesync']):
         bot.memory.set_by_path(['telesync'], {'ho2tg': {}, 'tg2ho': {}})
 
-    bot.memory.save()
+    if not bot.memory.exists(['profilesync']):
+        bot.memory.set_by_path(['profilesync'], {'ho2tg': {}, 'tg2ho': {}})
 
     telesync_config = bot.config.get_by_path(['telesync'])
 
@@ -544,9 +592,49 @@ def _initialise(bot):
         tg_bot.add_command("/addadmin", tg_command_add_bot_admin)
         tg_bot.add_command("/removeadmin", tg_command_remove_bot_admin)
         tg_bot.add_command("/tldr", tg_command_tldr)
+        tg_bot.add_command("/syncprofile", tg_command_sync_profile)
+        tg_bot.add_command("/unsyncprofile", tg_command_unsync_profile)
 
         loop = asyncio.get_event_loop()
         loop.create_task(tg_bot.message_loop())
+
+
+@command.register(admin=False)
+def syncprofile(bot, event, *args):
+    """
+    /bot syncprofile <id> - syncs the g+ profile with the tg profile, id will be posted by bot on tg side
+    :param bot:
+    :param event:
+    :param args:
+    :return:
+    """
+    parameters = list(args)
+
+    ho2tg_dict = bot.memory.get_by_path(['profilesync'])['ho2tg']
+    tg2ho_dict = bot.memory.get_by_path(['profilesync'])['tg2ho']
+
+    if len(parameters) > 1:
+        yield from bot.coro_send_message(event.conv_id, "Too many arguments")
+    elif len(parameters) < 1:
+        yield from bot.coro_send_message(event.conv_id, "Too few arguments")
+    elif len(parameters) == 1:
+        if str(parameters[0]) in ho2tg_dict:
+            tg_id = ho2tg_dict[str(parameters[0])]
+            user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
+            user_text = '<a href="{user_gplus}">{uname}</a>'.format(uname=event.user.full_name, user_gplus=user_gplus)
+            ho_id = parameters[0]
+            tg2ho_dict[tg_id] = {'user_gplus': user_gplus, 'user_text': user_text, 'ho_id': ho_id}
+            # del ho2tg_dict[str(parameters[0])]
+            ho2tg_dict[str(event.user_id.chat_id)] = str(tg_id)
+            new_mem = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
+            bot.memory.set_by_path(['profilesync'], new_mem)
+            yield from bot.coro_send_message(event.conv_id, "Succsesfully set up profile sync.")
+            yield from bot.coro_send_message(event.conv_id,
+                                             "Syncing ho: {} with tg: {}".format(event.user_id.chat_id, ho2tg_dict))
+        else:
+            yield from bot.coro_send_message(event.conv_id,
+                                             "You have to execute following command from telegram first:")
+            yield from bot.coro_send_message(event.conv_id, "/syncprofile")
 
 
 @command.register(admin=True)
