@@ -15,3 +15,5 @@ aiohttp
 *.jpg
 
 venv
+
+.idea/
