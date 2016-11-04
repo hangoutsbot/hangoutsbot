@@ -270,7 +270,7 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
         text = "Uploading sticker from <b>{uname}</b> in <b>{gname}</b>...".format(
             uname=tg_util_sync_get_user_name(msg),
             gname=tg_util_get_group_name(msg))
-        tg_bot.ho_bot.coro_send_message(conversation=ho_conv_id, message=text)
+        yield from tg_bot.ho_bot.coro_send_message(conversation=ho_conv_id, message=text)
 
         file_dir = os.path.dirname(photo_path)
         if not os.path.exists(file_dir):
