@@ -29,6 +29,8 @@ class TelegramBot(telepot.async.Bot):
             
             if "bot_name" in hangupsbot.config.get_by_path(["telesync"]):
                 self.name = hangupsbot.config.get_by_path(["telesync"])["bot_name"]
+            else:
+                self.name = "bot"
 
             self.commands = {}
             self.onMessageCallback = TelegramBot.on_message
@@ -241,12 +243,12 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
         if tg_bot.ho_bot.config.get_by_path(['telesync'])['sync_reply_to']:
             if 'reply_to_message' in msg:
                 content_type, chat_type, chat_id = telepot.glance(msg['reply_to_message'])
-                if msg['reply_to_message']['from']['first_name'].lower() == tg_bot.name:
+                if msg['reply_to_message']['from']['first_name'].lower() == tg_bot.name.lower():
                     r_text = msg['reply_to_message']['text'].split(':')
                     r2_user = r_text[0]
                 else:
-                    r2_user = tg_util_sync_get_user_name(msg['reply_to_message'])
                     r_text = ['', msg['reply_to_message']['text']]
+                    r2_user = tg_util_sync_get_user_name(msg['reply_to_message'])
                 if content_type == 'text':
                     r2_text = r_text[1]
                     r2_text = r2_text if len(r2_text) < 30 else r2_text[0:30] + "..."
