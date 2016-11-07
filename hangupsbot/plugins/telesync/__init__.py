@@ -26,6 +26,9 @@ class TelegramBot(telepot.async.Bot):
                 super(TelegramBot, self).__init__(self.config['api_key'])
             except Exception as e:
                 raise telepot.TelegramError("Couldn't initialize telesync", 10)
+            
+            if "bot_name" in hangupsbot.config.get_by_path(["telesync"]):
+                self.name = hangupsbot.config.get_by_path(["telesync"])["bot_name"]
 
             self.commands = {}
             self.onMessageCallback = TelegramBot.on_message
@@ -234,6 +237,24 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
         text = "<b>{uname}</b> <b>({gname})</b>: {text}".format(uname=tg_util_sync_get_user_name(msg),
                                                                 gname=tg_util_get_group_name(msg),
                                                                 text=msg['text'])
+
+        if tg_bot.ho_bot.config.get_by_path(['telesync'])['sync_reply_to']:
+            if 'reply_to_message' in msg:
+                content_type, chat_type, chat_id = telepot.glance(msg['reply_to_message'])
+                if msg['reply_to_message']['from']['first_name'].lower() == tg_bot.name:
+                    r_text = msg['reply_to_message']['text'].split(':')
+                    r2_user = r_text[0]
+                else:
+                    r2_user = tg_util_sync_get_user_name(msg['reply_to_message'])
+                    r_text = ['', msg['reply_to_message']['text']]
+                if content_type == 'text':
+                    r2_text = r_text[1]
+                    r2_text = r2_text if len(r2_text) < 30 else r2_text[0:30] + "..."
+                else:
+                    r2_text = content_type
+                text = "| <i><b>{r2uname}</b></i>:\n| <i>{r2text}</i>\n{newtext}".format(r2uname=r2_user,
+                                                                                         r2text=r2_text,
+                                                                                         newtext=text)
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
         yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
