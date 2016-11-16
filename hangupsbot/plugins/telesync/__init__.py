@@ -39,6 +39,15 @@ class TelegramBot(telepot.async.Bot):
         else:
             logger.info('telesync disabled in config.json')
 
+    @asyncio.coroutine
+    def set_bot_data(self):
+        _bot_data = yield from self.getMe()
+        setattr(self, 'name', _bot_data['first_name'])
+        setattr(self, 'username', _bot_data['username'])
+        setattr(self, 'id', _bot_data['id'])
+        logger.info('[TELESYNC]Telegram bot info: id: {bot_id}, name: {bot_name}, username: {bot_username}'.format(
+            bot_id=self.id, bot_name=self.name, bot_username=self.username))
+
     def add_command(self, cmd, func):
         self.commands[cmd] = func
 
@@ -235,7 +244,7 @@ def tg_util_sync_get_user_name(msg, chat_action='from'):
     logger.info("message from: {}".format(msg['from']['id']))
     if str(msg['from']['id']) in profile_dict:
         # logger.info("message from: {}".format(msg['from']['id']))
-        user_html= profile_dict[str(msg['from']['id'])]['user_text']
+        user_html = profile_dict[str(msg['from']['id'])]['user_text']
     else:
         url = tg_util_create_telegram_me_link(username)
         user_html = "<a href='{url}' >{uname}</a>".format(url=url, uname=msg[chat_action]['first_name'])
@@ -646,6 +655,9 @@ def _initialise(bot):
         tg_bot.add_command("/unsyncprofile", tg_command_unsync_profile)
 
         loop = asyncio.get_event_loop()
+        # set telegram bot's userid, name and username
+        loop.create_task(tg_bot.set_bot_data())
+        # run telegram bot
         loop.create_task(tg_bot.message_loop())
 
 
