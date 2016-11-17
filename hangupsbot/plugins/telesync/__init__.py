@@ -27,6 +27,22 @@ class TelegramBot(telepot.async.Bot):
             except Exception as e:
                 raise telepot.TelegramError("Couldn't initialize telesync", 10)
 
+            # Setup bot.id, bot.name and bot.username fields
+            orig_loop = asyncio.get_event_loop()
+            temp_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(temp_loop)
+            _bot_data = temp_loop.run_until_complete(self.getMe())
+            asyncio.set_event_loop(orig_loop)
+            if not temp_loop.is_closed():
+                temp_loop.close()
+
+            self.id = _bot_data['id']
+            self.name = _bot_data['first_name']
+            self.username = _bot_data['username']
+
+            logger.info('[TELESYNC]Telegram bot info: id: {bot_id}, name: {bot_name}, username: {bot_username}'.format(
+                bot_id=self.id, bot_name=self.name, bot_username=self.username))
+
             self.commands = {}
             self.onMessageCallback = TelegramBot.on_message
             self.onPhotoCallback = TelegramBot.on_photo
@@ -38,15 +54,6 @@ class TelegramBot(telepot.async.Bot):
             self.ho_bot = hangupsbot
         else:
             logger.info('telesync disabled in config.json')
-
-    @asyncio.coroutine
-    def set_bot_data(self):
-        _bot_data = yield from self.getMe()
-        setattr(self, 'name', _bot_data['first_name'])
-        setattr(self, 'username', _bot_data['username'])
-        setattr(self, 'id', _bot_data['id'])
-        logger.info('[TELESYNC]Telegram bot info: id: {bot_id}, name: {bot_name}, username: {bot_username}'.format(
-            bot_id=self.id, bot_name=self.name, bot_username=self.username))
 
     def add_command(self, cmd, func):
         self.commands[cmd] = func
@@ -609,6 +616,29 @@ def tg_command_unsync_profile(bot, chat_id, args):
     yield from bot.sendMessage(chat_id, text)
 
 
+@asyncio.coroutine
+def tg_command_get_me(bot, chat_id, args):
+    """
+    return Telegram Bot's id, name and username
+    :param bot: TelegramBot object
+    :param chat_id: chat id
+    :param args: other args
+    :return: None
+    """
+    user_id = args['user_id']
+    chat_type = args['chat_type']
+    if 'private' != chat_type:
+        yield from bot.sendMessage(chat_id, "Comand must be run in private chat!")
+        return
+
+    if bot.is_telegram_admin(user_id):
+        yield from bot.sendMessage(chat_id,
+                                   "id: {id}, name: {name}, username: @{username}".format(id=bot.id, name=bot.name,
+                                                                                          username=bot.username))
+    else:
+        yield from bot.sendMessage(chat_id, "Only admins can do that")
+
+
 # TELEGRAM DEFINITIONS END
 
 # HANGOUTSBOT
@@ -653,10 +683,9 @@ def _initialise(bot):
         tg_bot.add_command("/tldr", tg_command_tldr)
         tg_bot.add_command("/syncprofile", tg_command_sync_profile)
         tg_bot.add_command("/unsyncprofile", tg_command_unsync_profile)
+        tg_bot.add_command("/getme", tg_command_get_me)
 
         loop = asyncio.get_event_loop()
-        # set telegram bot's userid, name and username
-        loop.create_task(tg_bot.set_bot_data())
         # run telegram bot
         loop.create_task(tg_bot.message_loop())
 
