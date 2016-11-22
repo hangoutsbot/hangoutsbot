@@ -91,7 +91,7 @@ def _handle_hangout_message(bot, event, command):
             if sending.get(event.conv_id) and ':' in event.text:
                 # this hangout message originated in discord
                 sending[event.conv_id] -= 1
-                bits = event.text.split(':')
+                bits = event.text.split(':', 1)
                 event._external_source = bits[0] + '@discord'
                 msg = bits[1].strip()
                 event.text = msg
