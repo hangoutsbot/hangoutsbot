@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.5
 import appdirs, argparse, asyncio, gettext, logging, logging.config, os, shutil, signal, sys, time
 
 import hangups
