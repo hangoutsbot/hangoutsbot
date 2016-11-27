@@ -263,7 +263,7 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
     if str(tg_chat_id) in tg2ho_dict:
         text = "<b>{uname}</b> <b>({gname})</b>: {text}".format(uname=tg_util_sync_get_user_name(msg),
-                                                                gname=tg_util_sync_get_user_name(msg),
+                                                                gname=tg_util_get_group_name(msg),
                                                                 text=msg['text'])
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
