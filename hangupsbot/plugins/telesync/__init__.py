@@ -354,6 +354,10 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
 
 @asyncio.coroutine
 def tg_on_user_join(tg_bot, tg_chat_id, msg):
+    config_dict = tg_bot.ho_bot.config.get_by_path(['telesync'])
+    if 'sync_join_messages' not in config_dict or not config_dict['sync_join_messages']:
+        return
+
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
     if str(tg_chat_id) in tg2ho_dict:
         text = "<b>{uname}</b> joined <b>{gname}</b>".format(
@@ -370,6 +374,10 @@ def tg_on_user_join(tg_bot, tg_chat_id, msg):
 
 @asyncio.coroutine
 def tg_on_user_leave(tg_bot, tg_chat_id, msg):
+    config_dict = tg_bot.ho_bot.config.get_by_path(['telesync'])
+    if 'sync_join_messages' not in config_dict or not config_dict['sync_join_messages']:
+        return
+
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
     if str(tg_chat_id) in tg2ho_dict:
         text = "<b>{uname}</b> left <b>{gname}</b>".format(
@@ -662,6 +670,7 @@ def _initialise(bot):
                                               'do_not_keep_photos': True,
                                               'enable_sticker_sync' : True,
                                               'sync_chat_titles' : True,
+                                              'sync_join_messages' : True,
                                               'be_quiet': False})
 
     bot.config.save()
@@ -833,12 +842,12 @@ def _on_hangouts_message(bot, event, command=""):
         sync_text = "(shared an image)"
 
     ho2tg_dict = bot.memory.get_by_path(['telesync'])['ho2tg']
-    config = tg_bot.ho_bot.config.get_by_path(['telesync'])
+    config_dict = tg_bot.ho_bot.config.get_by_path(['telesync'])
 
     if event.conv_id in ho2tg_dict:
         user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
         chat_title = ""
-        if "sync_chat_titles" not in config or config["sync_chat_titles"]:
+        if "sync_chat_titles" not in config_dict or config_dict["sync_chat_titles"]:
             chat_title = ' <b>({gname})</b>'.format(gname=event.conv.name)
         text = '<a href="{user_gplus}">{uname}</a>{chat_title}: {text}'.format(uname=event.user.full_name,
                                                                                user_gplus=user_gplus,
@@ -868,7 +877,7 @@ def _on_hangouts_message(bot, event, command=""):
                 else:
                     yield from tg_bot.sendPhoto(ho2tg_dict[event.conv_id], open(photo_path, 'rb'))
 
-            if config['do_not_keep_photos']:
+            if config_dict['do_not_keep_photos']:
                 os.remove(photo_path)  # don't use unnecessary space on disk
                 logger.info("plugins/telesync: file removed: {file}".format(file=photo_path))
 
@@ -883,6 +892,10 @@ def create_membership_change_message(user_name, user_gplus, group_name, membersh
 
 @handler.register(priority=5, event=hangups.MembershipChangeEvent)
 def _on_membership_change(bot, event, command=""):
+    config_dict = tg_bot.ho_bot.config.get_by_path(['telesync'])
+    if 'sync_join_messages' not in config_dict or not config_dict['sync_join_messages']:
+        return
+
     # Generate list of added or removed users
     event_users = [event.conv.get_user(user_id) for user_id
                    in event.conv_event.participant_ids]
