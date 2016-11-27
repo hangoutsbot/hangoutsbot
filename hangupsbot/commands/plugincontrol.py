@@ -11,6 +11,21 @@ logger = logging.getLogger(__name__)
 
 def _initialise(bot): pass # prevents commands from being automatically added
 
+def function_name(fn):
+    try:
+        # standard function
+        return fn.__name__
+    except AttributeError:
+        try:
+            # lambda
+            return fn.func_name
+        except AttributeError:
+            try:
+                # functools.partial
+                return function_name(fn.func)
+            except AttributeError:
+                return '<unknown>'
+
 
 @command.register(admin=True)
 def plugininfo(bot, event, *args):
@@ -34,11 +49,11 @@ def plugininfo(bot, event, *args):
             """handlers"""
             if len(plugin["handlers"]) > 0:
                 lines.append("<b>handlers:</b>")
-                lines.append("<br />".join([ "... <b><pre>{}</pre></b> (<pre>{}</pre>, p={})".format(f[0].__name__, f[1], str(f[2])) for f in plugin["handlers"]]))
+                lines.append("<br />".join([ "... <b><pre>{}</pre></b> (<pre>{}</pre>, p={})".format(function_name(f[0]), f[1], str(f[2])) for f in plugin["handlers"]]))
 
             """shared"""
             if len(plugin["shared"]) > 0:
-                lines.append("<b>shared:</b> " + ", ".join([ "<pre>{}</pre>".format(f[1].__name__) for f in plugin["shared"]]))
+                lines.append("<b>shared:</b> " + ", ".join([ "<pre>{}</pre>".format(function_name(f[1])) for f in plugin["shared"]]))
 
             """threads"""
             if len(plugin["threads"]) > 0:
