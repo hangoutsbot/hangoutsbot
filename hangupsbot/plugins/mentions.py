@@ -303,11 +303,12 @@ def mention(bot, event, *args):
                         success = False
                         try:
                             pb = PushBullet(pushbullet_config["api"])
-                            push = pb.push_note(
-                                _("{} mentioned you in {}").format(
+                            push = pb.push_link(
+                                title=("{} mentioned you in {}").format(
                                         source_name,
                                         conversation_name),
-                                    event.text)
+                                    body=event.text,
+                                    url='https://hangouts.google.com/chat{}'.format(event.conv.id_))
                             if isinstance(push, tuple):
                                 # backward-compatibility for pushbullet library < 0.8.0
                                 success = push[0]
