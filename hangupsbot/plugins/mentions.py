@@ -308,7 +308,7 @@ def mention(bot, event, *args):
                                         source_name,
                                         conversation_name),
                                     body=event.text,
-                                    url='https://hangouts.google.com/chat{}'.format(event.conv.id_))
+                                    url='https://hangouts.google.com/chat/{}'.format(event.conv.id_))
                             if isinstance(push, tuple):
                                 # backward-compatibility for pushbullet library < 0.8.0
                                 success = push[0]
