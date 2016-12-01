@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def _initialise(bot):
-    plugins.register_admin_command(["addme", "addusers", "createconversation", "refresh", "kick", "addhere" ])
+    plugins.register_admin_command(["addme", "addusers", "createconversation", "refresh", "kick"])
 
 
 @asyncio.coroutine
@@ -65,21 +65,6 @@ def addusers(bot, event, *args):
         added = yield from _batch_add_users(bot, target_conv, list_add)
     logger.info("addusers: {} added to {}".format(added, target_conv))
 
-def addhere(bot, event, *args):
-    """adds user(s) into the current chat
-    Usage: /bot addhere
-    <user id(s)>"""
-    list_add = []
-    target_conv = event.conv_id
-
-    for parameter in args:
-        list_add.append(parameter)
-
-    list_add = list(set(list_add))
-    added = 0
-    if len(list_add) > 0:
-        added = yield from _batch_add_users(bot, target_conv, list_add)
-    logger.info("addhere: {} added to {}".format(added, target_conv))
 
 def addme(bot, event, *args):
     """add yourself into a chat
