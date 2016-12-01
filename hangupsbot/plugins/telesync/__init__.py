@@ -261,10 +261,14 @@ def tg_util_sync_get_user_name(msg, chat_action='from'):
 @asyncio.coroutine
 def tg_on_message(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
+    config = tg_bot.ho_bot.config.get_by_path(['telesync'])
     if str(tg_chat_id) in tg2ho_dict:
-        text = "<b>{uname}</b> <b>({gname})</b>: {text}".format(uname=tg_util_sync_get_user_name(msg),
-                                                                gname=tg_util_sync_get_user_name(msg),
-                                                                text=msg['text'])
+        chat_title = ""
+        if "sync_chat_titles" not in config or config["sync_chat_titles"]:
+            chat_title = ' <b>({gname})</b>'.format(gname=tg_util_get_group_name(msg))
+        text = "<b>{uname}</b>{chat_title}: {text}".format(uname=tg_util_sync_get_user_name(msg),
+                                                           chat_title=chat_title,
+                                                           text=msg['text'])
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
         yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
@@ -350,6 +354,10 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
 
 @asyncio.coroutine
 def tg_on_user_join(tg_bot, tg_chat_id, msg):
+    config_dict = tg_bot.ho_bot.config.get_by_path(['telesync'])
+    if 'sync_join_messages' not in config_dict or not config_dict['sync_join_messages']:
+        return
+
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
     if str(tg_chat_id) in tg2ho_dict:
         text = "<b>{uname}</b> joined <b>{gname}</b>".format(
@@ -366,6 +374,10 @@ def tg_on_user_join(tg_bot, tg_chat_id, msg):
 
 @asyncio.coroutine
 def tg_on_user_leave(tg_bot, tg_chat_id, msg):
+    config_dict = tg_bot.ho_bot.config.get_by_path(['telesync'])
+    if 'sync_join_messages' not in config_dict or not config_dict['sync_join_messages']:
+        return
+
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
     if str(tg_chat_id) in tg2ho_dict:
         text = "<b>{uname}</b> left <b>{gname}</b>".format(
@@ -386,11 +398,15 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
     maps_url = tg_util_create_gmaps_url(lat, long)
 
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
+    config = tg_bot.ho_bot.config.get_by_path(['telesync'])
 
     if str(tg_chat_id) in tg2ho_dict:
-        text = "<b>{uname}</b> <b>({gname})</b>: {text}".format(uname=tg_util_sync_get_user_name(msg),
-                                                                gname=tg_util_get_group_name(msg),
-                                                                text=maps_url)
+        chat_title = ""
+        if "sync_chat_titles" not in config or config["sync_chat_titles"]:
+            chat_title = ' <b>({gname})</b>'.format(gname=tg_util_get_group_name(msg))
+        text = "<b>{uname}</b>{chat_title}: {text}".format(uname=tg_util_sync_get_user_name(msg),
+                                                           chat_title=chat_title,
+                                                           text=maps_url)
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
         yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
@@ -652,6 +668,9 @@ def _initialise(bot):
                                               'enabled': True,
                                               'admins': [],
                                               'do_not_keep_photos': True,
+                                              'enable_sticker_sync' : True,
+                                              'sync_chat_titles' : True,
+                                              'sync_join_messages' : True,
                                               'be_quiet': False})
 
     bot.config.save()
@@ -823,13 +842,17 @@ def _on_hangouts_message(bot, event, command=""):
         sync_text = "(shared an image)"
 
     ho2tg_dict = bot.memory.get_by_path(['telesync'])['ho2tg']
+    config_dict = tg_bot.ho_bot.config.get_by_path(['telesync'])
 
     if event.conv_id in ho2tg_dict:
         user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
-        text = '<a href="{user_gplus}">{uname}</a> <b>({gname})</b>: {text}'.format(uname=event.user.full_name,
-                                                                                    user_gplus=user_gplus,
-                                                                                    gname=event.conv.name,
-                                                                                    text=sync_text)
+        chat_title = ""
+        if "sync_chat_titles" not in config_dict or config_dict["sync_chat_titles"]:
+            chat_title = ' <b>({gname})</b>'.format(gname=event.conv.name)
+        text = '<a href="{user_gplus}">{uname}</a>{chat_title}: {text}'.format(uname=event.user.full_name,
+                                                                               user_gplus=user_gplus,
+                                                                               chat_title=chat_title,
+                                                                               text=sync_text)
         yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='html',
                                       disable_web_page_preview=True)
         if has_photo:
@@ -837,26 +860,26 @@ def _on_hangouts_message(bot, event, command=""):
             photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_name
 
             file_dir = os.path.dirname(photo_path)
-            if not os.path.exists(file_dir) and not tg_bot.ho_bot.config.get_by_path(['telesync'])['do_not_keep_photos']:
+            if not os.path.exists(file_dir):
                 os.makedirs(file_dir)
 
             with aiohttp.ClientSession() as session:
                 resp = yield from session.get(photo_url)
                 raw_data = yield from resp.read()
                 resp.close()
-                logger.info("plugins/telesync: photo url: {url}".format(url=photo_url))
+                with open(photo_path, "wb") as f:
+                    f.write(raw_data)
+                    logger.info("plugins/telesync: photo url: {url}".format(url=photo_url))
+                    logger.info("plugins/telesync: file saved: {file}".format(file=photo_path))
 
-                if not tg_bot.ho_bot.config.get_by_path(['telesync'])['do_not_keep_photos']:
-                    with open(photo_path, "wb") as f:
-                        f.write(raw_data)
-                        logger.info("plugins/telesync: file saved: {file}".format(file=photo_path))
-
-                f = io.BytesIO(raw_data)
                 if is_animated_photo(photo_path):
-                    yield from tg_bot.sendDocument(ho2tg_dict[event.conv_id], f)
+                    yield from tg_bot.sendDocument(ho2tg_dict[event.conv_id], open(photo_path, 'rb'))
                 else:
-                    yield from tg_bot.sendPhoto(ho2tg_dict[event.conv_id], f)
+                    yield from tg_bot.sendPhoto(ho2tg_dict[event.conv_id], open(photo_path, 'rb'))
 
+            if config_dict['do_not_keep_photos']:
+                os.remove(photo_path)  # don't use unnecessary space on disk
+                logger.info("plugins/telesync: file removed: {file}".format(file=photo_path))
 
 
 def create_membership_change_message(user_name, user_gplus, group_name, membership_event="left"):
@@ -869,6 +892,10 @@ def create_membership_change_message(user_name, user_gplus, group_name, membersh
 
 @handler.register(priority=5, event=hangups.MembershipChangeEvent)
 def _on_membership_change(bot, event, command=""):
+    config_dict = tg_bot.ho_bot.config.get_by_path(['telesync'])
+    if 'sync_join_messages' not in config_dict or not config_dict['sync_join_messages']:
+        return
+
     # Generate list of added or removed users
     event_users = [event.conv.get_user(user_id) for user_id
                    in event.conv_event.participant_ids]
