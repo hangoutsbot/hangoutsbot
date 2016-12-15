@@ -5,7 +5,10 @@ To generate the client secrets file::
 
     $ python -m plugins.gcal client_id client_secret path/to/secrets.json
 
-Then set config key `gcal.secrets` to the path of the newly generated file.
+Config keys:
+
+    - `gcal.secrets`: path to the generated secrets file
+    - `gcal.id`: calendar ID (defaults to `primary`)
 """
 
 
@@ -13,6 +16,7 @@ from argparse import ArgumentParser
 from datetime import date, datetime
 from httplib2 import Http
 import logging
+import shlex
 
 from googleapiclient.discovery import build
 from oauth2client.client import OAuth2WebServerFlow
@@ -69,30 +73,57 @@ def pretty_date(d):
         else:
             return d.strftime("%d/%m/%Y") # 19/12/2016
 
+def cal_list():
+    resp = service.events().list(calendarId=config.get("id", "primary"),
+                                 timeMin=date.today().strftime(DATETIME)).execute()
+    if not resp["items"]:
+        return "No upcoming events."
+    msg = "Upcoming events:"
+    for item in resp["items"]:
+        if "dateTime" in item["start"]:
+            start = datetime.strptime(item["start"]["dateTime"], DATETIME)
+        elif "date" in item["start"]:
+            start = datetime.strptime(item["start"]["date"], DATE).date()
+        msg += "\n<b>{}</b> -- {}".format(item["summary"], pretty_date(start))
+        if "description" in item:
+            msg += "\n<i>{}</i>".format(item["description"])
+        if "location" in item:
+            msg += "\n{}".format(item["location"])
+    return msg
+
+def cal_add(what, when, where=None, desc=None):
+    data = {"summary": what, "start": {}}
+    try:
+        data["start"]["dateTime"] = datetime.strptime(when, "%d/%m/%Y %H:%M").strftime(DATETIME)
+    except ValueError:
+        try:
+            data["start"]["date"] = datetime.strptime(when, "%d/%m/%Y").strftime(DATE)
+        except ValueError:
+            return "Couldn't parse the date.  Make sure it's in `dd/mm/yyyy hh:mm` format."
+    data["end"] = data["start"]
+    if where:
+        data["location"] = where
+    if desc:
+        data["description"] = desc
+    service.events().insert(calendarId=config.get("id", "primary"), body=data).execute()
+    return "Added <b>{}</b> to the calendar.".format(data["summary"])
+
 def calendar(bot, event, *args):
+    args = shlex.split(event.text)[2:] # better handling of quotes
     msg = None
     if not args:
         args = ["list"]
     if args[0] == "help":
         msg = "Usage:\n" \
-              "- list events: `/bot calendar list`"
+              "- list events: `/bot calendar list`\n" \
+              "- add a new event: `/bot calendar add <what> <when> [where] [description]`"
     elif args[0] == "list":
-        resp = service.events().list(calendarId=config.get("id", "primary"),
-                                     timeMin=date.today().strftime(DATETIME)).execute()
-        if not resp["items"]:
-            msg = "No upcoming events."
+        msg = cal_list()
+    elif args[0] == "add":
+        if len(args) < 3:
+            msg = "Need to specify both what and when."
         else:
-            msg = "Upcoming events:"
-            for item in resp["items"]:
-                if "dateTime" in item["start"]:
-                    start = datetime.strptime(item["start"]["dateTime"], DATETIME)
-                elif "date" in item["start"]:
-                    start = datetime.strptime(item["start"]["date"], DATE).date()
-                msg += "\n<b>{}</b> -- {}".format(item["summary"], pretty_date(start))
-                if "description" in item:
-                    msg += "\n<i>{}</i>".format(item["description"])
-                if "location" in item:
-                    msg += "\n{}".format(item["location"])
+            msg = cal_add(*args[1:5])
     else:
         msg = "Unknown command, try `help` for a list."
     if msg:
