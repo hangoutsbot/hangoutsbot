@@ -96,6 +96,19 @@ def cal_list(cal):
             msg += "\n{}".format(item["location"])
     return msg
 
+def cal_show(cal, pos):
+    item = cache[cal][pos]
+    if "dateTime" in item["start"]:
+        start = datetime.strptime(item["start"]["dateTime"], DATETIME)
+    elif "date" in item["start"]:
+        start = datetime.strptime(item["start"]["date"], DATE).date()
+    msg = "<b>{}</b> -- {}".format(item["summary"], pretty_date(start))
+    if "description" in item:
+        msg += "\n<i>{}</i>".format(item["description"])
+    if "location" in item:
+        msg += "\n{}".format(item["location"])
+    return msg
+
 def cal_add(cal, what, when, where=None, desc=None):
     data = {"summary": what, "start": {}}
     try:
@@ -155,11 +168,24 @@ def calendar(bot, event, *args):
     if args[0] == "help":
         msg = "Usage:\n" \
               "- list events: `/bot calendar list`\n" \
+              "- show a single event: `/bot calendar show <pos>`\n" \
               "- add a new event: `/bot calendar add \"<what>\" \"<when>\" [at \"where\"] [\"description\"]`" \
               "- update an event: `/bot calendar update <pos> <title/date/place/description> \"<update>\" [...]`" \
               "- remove an event: `/bot calendar remove <pos>`"
     elif args[0] == "list":
         msg = cal_list(cal)
+    elif args[0] == "show":
+        if not cal in cache:
+            msg = "Need to refresh the list of events first, try `/bot calendar list`."
+        else:
+            try:
+                pos = int(args[1]) - 1
+            except ValueError:
+                msg = "Use the number given in the event list to remove events."
+            except IndexError:
+                msg = "Don't know about that event.  See `/bot calendar list` for current events."
+            else:
+                msg = cal_show(cal, pos)
     elif args[0] == "add":
         if len(args) < 3 or not args[1] or not args[2]:
             msg = "Need to specify both what and when."
