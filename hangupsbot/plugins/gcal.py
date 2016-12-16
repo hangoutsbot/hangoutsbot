@@ -52,9 +52,11 @@ def pretty_date(d):
             return "now"
         elif diff.days == 0:
             if diff.seconds < 60 * 60:
-                return "in {} minutes".format(diff.seconds // 60) # in 10 minutes
+                mins = diff.seconds // 60
+                return "in {} minute{}".format(mins, "" if mins == 1 else "s") # in 10 minutes
             else:
-                return "in {} hours".format(diff.seconds // (60 * 60)) # in 3 hours
+                hrs = diff.seconds // (60 * 60)
+                return "in {} hour{}".format(hrs, "" if hrs == 1 else "s") # in 3 hours
         elif diff.days == 1:
             return "tomorrow {}".format(d.strftime("%H:%M")) # tomorrow 11:30
         elif diff.days < 7:
@@ -75,16 +77,17 @@ def pretty_date(d):
 
 def cal_list():
     resp = service.events().list(calendarId=config.get("id", "primary"),
-                                 timeMin=date.today().strftime(DATETIME)).execute()
+                                 timeMin=date.today().strftime(DATETIME),
+                                 singleEvents=True, orderBy="startTime").execute()
     if not resp["items"]:
         return "No upcoming events."
     msg = "Upcoming events:"
-    for item in resp["items"]:
+    for pos, item in enumerate(resp["items"]):
         if "dateTime" in item["start"]:
             start = datetime.strptime(item["start"]["dateTime"], DATETIME)
         elif "date" in item["start"]:
             start = datetime.strptime(item["start"]["date"], DATE).date()
-        msg += "\n<b>{}</b> -- {}".format(item["summary"], pretty_date(start))
+        msg += "\n{}. <b>{}</b> -- {}".format(pos + 1, item["summary"], pretty_date(start))
         if "description" in item:
             msg += "\n<i>{}</i>".format(item["description"])
         if "location" in item:
