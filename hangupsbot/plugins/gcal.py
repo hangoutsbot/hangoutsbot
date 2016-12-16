@@ -31,6 +31,7 @@ DATETIME = "%Y-%m-%dT%H:%M:%SZ"
 logger = logging.getLogger(__name__)
 config = None
 service = None
+cache = None
 
 
 def _initialise(bot):
@@ -76,9 +77,11 @@ def pretty_date(d):
             return d.strftime("%d/%m/%Y") # 19/12/2016
 
 def cal_list():
+    global cache
     resp = service.events().list(calendarId=config.get("id", "primary"),
                                  timeMin=date.today().strftime(DATETIME),
                                  singleEvents=True, orderBy="startTime").execute()
+    cache = resp["items"]
     if not resp["items"]:
         return "No upcoming events."
     msg = "Upcoming events:"
@@ -111,6 +114,33 @@ def cal_add(what, when, where=None, desc=None):
     service.events().insert(calendarId=config.get("id", "primary"), body=data).execute()
     return "Added <b>{}</b> to the calendar.".format(data["summary"])
 
+def cal_edit(pos, what=None, when=None, where=None, desc=None):
+    data = {}
+    if what:
+        data["summary"] = what
+    if when:
+        try:
+            data["start"]["dateTime"] = datetime.strptime(when, "%d/%m/%Y %H:%M").strftime(DATETIME)
+        except ValueError:
+            try:
+                data["start"]["date"] = datetime.strptime(when, "%d/%m/%Y").strftime(DATE)
+            except ValueError:
+                return "Couldn't parse the date.  Make sure it's in `dd/mm/yyyy hh:mm` format."
+        data["end"] = data["start"]
+    if where is not None:
+        data["location"] = where
+    if desc is not None:
+        data["description"] = desc
+    service.events().patch(calendarId=config.get("id", "primary"),
+                           eventId=cache[pos]["id"], body=data).execute()
+    return "Updated <b>{}</b> on the calendar.".format(data.get("summary", cache.pop(pos)["summary"]))
+
+def cal_del(pos):
+    service.events().delete(calendarId=config.get("id", "primary"),
+                            eventId=cache[pos]["id"]).execute()
+    item = cache.pop(pos)
+    return "Removed <b>{}</b> from the calendar.".format(item["summary"])
+
 def calendar(bot, event, *args):
     args = shlex.split(event.text)[2:] # better handling of quotes
     msg = None
@@ -119,14 +149,62 @@ def calendar(bot, event, *args):
     if args[0] == "help":
         msg = "Usage:\n" \
               "- list events: `/bot calendar list`\n" \
-              "- add a new event: `/bot calendar add <what> <when> [where] [description]`"
+              "- add a new event: `/bot calendar add \"<what>\" \"<when>\" [at \"where\"] [\"description\"]`" \
+              "- update an event: `/bot calendar update <title/date/place/description> \"<update>\" [...]`" \
+              "- remove an event: `/bot calendar remove <pos>`"
     elif args[0] == "list":
         msg = cal_list()
     elif args[0] == "add":
-        if len(args) < 3:
+        if len(args) < 3 or not args[1] or not args[2]:
             msg = "Need to specify both what and when."
         else:
-            msg = cal_add(*args[1:5])
+            when = args[2]
+            what = args[1]
+            where = None
+            desc = None
+            if len(args) > 4 and args[3] == "at":
+                where = args[4]
+                if len(args) > 5:
+                    desc = args[5]
+            elif len(args) > 3:
+                desc = args[3]
+            msg = cal_add(what, when, where, desc)
+    elif args[0] == "update":
+        if not cache:
+            msg = "Need to refresh the list of events first, try `/bot calendar list`."
+        elif len(args) < 4:
+            msg = "Need to specify the event number, field to update, and the update itself."
+        else:
+            try:
+                pos = int(args[1]) - 1
+            except ValueError:
+                msg = "Use the number given in the event list to update events."
+            except IndexError:
+                msg = "Don't know about that event.  See `/bot calendar list` for current events."
+            else:
+                data = {}
+                try:
+                    for field, value in zip(args[2::2], args[3::2]):
+                        attr = {"title": "what",
+                                "date": "when",
+                                "place": "where",
+                                "description": "desc"}[field]
+                        data[attr] = value
+                except KeyError:
+                    msg = "You can update the `title`, `date`, `place` or `description` of the event."
+                msg = cal_edit(pos, **data)
+    elif args[0] == "remove":
+        if not cache:
+            msg = "Need to refresh the list of events first, try `/bot calendar list`."
+        else:
+            try:
+                pos = int(args[1]) - 1
+            except ValueError:
+                msg = "Use the number given in the event list to remove events."
+            except IndexError:
+                msg = "Don't know about that event.  See `/bot calendar list` for current events."
+            else:
+                msg = cal_del(pos)
     else:
         msg = "Unknown command, try `help` for a list."
     if msg:
