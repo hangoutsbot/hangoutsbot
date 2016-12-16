@@ -5,10 +5,10 @@ To generate the client secrets file::
 
     $ python -m plugins.gcal client_id client_secret path/to/secrets.json
 
-Config keys:
+Config keys (per-chat config goes under `conv_data.<conv_id>.gcal`):
 
-    - `gcal.secrets`: path to the generated secrets file
-    - `gcal.id`: calendar ID (defaults to `primary`)
+    - `gcal.secrets` [global]: path to the generated secrets file
+    - `gcal.id` [global, per-chat]: calendar ID (defaults to `primary`)
 """
 
 
@@ -31,7 +31,7 @@ DATETIME = "%Y-%m-%dT%H:%M:%SZ"
 logger = logging.getLogger(__name__)
 config = None
 service = None
-cache = None
+cache = {}
 
 
 def _initialise(bot):
@@ -76,12 +76,11 @@ def pretty_date(d):
         else:
             return d.strftime("%d/%m/%Y") # 19/12/2016
 
-def cal_list():
-    global cache
-    resp = service.events().list(calendarId=config.get("id", "primary"),
+def cal_list(cal):
+    resp = service.events().list(calendarId=cal,
                                  timeMin=date.today().strftime(DATETIME),
                                  singleEvents=True, orderBy="startTime").execute()
-    cache = resp["items"]
+    cache[cal] = resp["items"]
     if not resp["items"]:
         return "No upcoming events."
     msg = "Upcoming events:"
@@ -97,7 +96,7 @@ def cal_list():
             msg += "\n{}".format(item["location"])
     return msg
 
-def cal_add(what, when, where=None, desc=None):
+def cal_add(cal, what, when, where=None, desc=None):
     data = {"summary": what, "start": {}}
     try:
         data["start"]["dateTime"] = datetime.strptime(when, "%d/%m/%Y %H:%M").strftime(DATETIME)
@@ -111,10 +110,10 @@ def cal_add(what, when, where=None, desc=None):
         data["location"] = where
     if desc:
         data["description"] = desc
-    service.events().insert(calendarId=config.get("id", "primary"), body=data).execute()
+    service.events().insert(calendarId=cal, body=data).execute()
     return "Added <b>{}</b> to the calendar.".format(data["summary"])
 
-def cal_edit(pos, what=None, when=None, where=None, desc=None):
+def cal_edit(cal, pos, what=None, when=None, where=None, desc=None):
     data = {}
     if what:
         data["summary"] = what
@@ -131,18 +130,25 @@ def cal_edit(pos, what=None, when=None, where=None, desc=None):
         data["location"] = where
     if desc is not None:
         data["description"] = desc
-    service.events().patch(calendarId=config.get("id", "primary"),
-                           eventId=cache[pos]["id"], body=data).execute()
-    return "Updated <b>{}</b> on the calendar.".format(data.get("summary", cache.pop(pos)["summary"]))
+    service.events().patch(calendarId=cal, eventId=cache[cal][pos]["id"], body=data).execute()
+    return "Updated <b>{}</b> on the calendar.".format(data.get("summary", cache[cal].pop(pos)["summary"]))
 
-def cal_del(pos):
-    service.events().delete(calendarId=config.get("id", "primary"),
-                            eventId=cache[pos]["id"]).execute()
-    item = cache.pop(pos)
+def cal_del(cal, pos):
+    service.events().delete(calendarId=cal, eventId=cache[cal][pos]["id"]).execute()
+    item = cache[cal].pop(pos)
     return "Removed <b>{}</b> from the calendar.".format(item["summary"])
 
 def calendar(bot, event, *args):
     args = shlex.split(event.text)[2:] # better handling of quotes
+    cal = None
+    try:
+        ho_config = bot.memory.get_by_path(["conv_data", event.conv.id_, "gcal"])
+    except KeyError:
+        ho_config = {}
+        if not bot.memory.exists(["conv_data", event.conv.id_]):
+            bot.memory.set_by_path(["conv_data", event.conv.id_], {})
+        bot.memory.set_by_path(["conv_data", event.conv.id_, "gcal"], ho_config)
+    cal = ho_config.get("id", config.get("id", "primary"))
     msg = None
     if not args:
         args = ["list"]
@@ -150,10 +156,10 @@ def calendar(bot, event, *args):
         msg = "Usage:\n" \
               "- list events: `/bot calendar list`\n" \
               "- add a new event: `/bot calendar add \"<what>\" \"<when>\" [at \"where\"] [\"description\"]`" \
-              "- update an event: `/bot calendar update <title/date/place/description> \"<update>\" [...]`" \
+              "- update an event: `/bot calendar update <pos> <title/date/place/description> \"<update>\" [...]`" \
               "- remove an event: `/bot calendar remove <pos>`"
     elif args[0] == "list":
-        msg = cal_list()
+        msg = cal_list(cal)
     elif args[0] == "add":
         if len(args) < 3 or not args[1] or not args[2]:
             msg = "Need to specify both what and when."
@@ -168,9 +174,9 @@ def calendar(bot, event, *args):
                     desc = args[5]
             elif len(args) > 3:
                 desc = args[3]
-            msg = cal_add(what, when, where, desc)
+            msg = cal_add(cal, what, when, where, desc)
     elif args[0] == "update":
-        if not cache:
+        if not cal in cache:
             msg = "Need to refresh the list of events first, try `/bot calendar list`."
         elif len(args) < 4:
             msg = "Need to specify the event number, field to update, and the update itself."
@@ -192,9 +198,9 @@ def calendar(bot, event, *args):
                         data[attr] = value
                 except KeyError:
                     msg = "You can update the `title`, `date`, `place` or `description` of the event."
-                msg = cal_edit(pos, **data)
+                msg = cal_edit(cal, pos, **data)
     elif args[0] == "remove":
-        if not cache:
+        if not cal in cache:
             msg = "Need to refresh the list of events first, try `/bot calendar list`."
         else:
             try:
@@ -204,7 +210,7 @@ def calendar(bot, event, *args):
             except IndexError:
                 msg = "Don't know about that event.  See `/bot calendar list` for current events."
             else:
-                msg = cal_del(pos)
+                msg = cal_del(cal, pos)
     else:
         msg = "Unknown command, try `help` for a list."
     if msg:
