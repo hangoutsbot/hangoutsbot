@@ -34,7 +34,7 @@ def tldrecho(bot, event, p_tldr_echo=None):
 
 
 def tldr(bot, event, *args):
-    """<br/>/bot <i><b>tldr</b> <message></i><br/>Adds a short message to a list saved for the conversation.<br/>All TLDRs can be retrieved using: /bot <i><b>tldr</b></i>, single tldr using: /bot <i><b>tldr</b> <number></i><br/>All TLDR entries can be deleted using: /bot <i><b>tldr clear</b></i>, single tldr entries using: /bot <i><b>tldr clear</b> <number></i><br/>Single TLDRs can be edited using /bot <i><b>tldr edit</b> <number> <new message></i><br/>"""
+    """<br/>/bot <i><b>tldr</b> <message></i><br/>Adds a short message to a list saved for the conversation.<br/>/bot <i><b>tldr</b></i><br/>Retrieve all TLDR entries.<br/>/bot <i><b>tldr</b> <number></i><br/>Retrieve an individual TLDR entry.<br/>/bot <i><b>tldr clear all</b></i><br/>Clear all TLDR entries.<br/>/bot <i><b>tldr clear</b> <number></i><br/>Clear an individual TLDR entry.<br/>/bot <i><b>tldr edit</b> <number> <new message></i><br/>Edit an individual TLDR entry."""
 
     ## Retrieve the current tldr echo status for the hangout.
     # If no memory entry exists, create it.
@@ -47,7 +47,7 @@ def tldr(bot, event, *args):
     # If nothing set, then set the bot default as False.
 
     if not bot.memory.exists(['conversations',event.conv_id,'tldr_echo']):
-        if not bot.get_config_option('tldr_echo'):
+        if not bot.get_config_option('tldr_echo'):/ops 
             bot.config.set_by_path(["tldr_echo"], 'group')
             bot.config.save()
     
@@ -117,7 +117,7 @@ def tldr_base(bot, conv_id, parameters):
                                                              _time_ago(float(timestamp))))
 
         if len(html) == 0:
-            html.append(_("TL;DR not found"))
+            html.append(_("TL;DR not found."))
             display = False
         else:
             html.insert(0, _("<b>TL;DR ({} stored):</b>").format(len(conv_tldr)))
@@ -126,19 +126,21 @@ def tldr_base(bot, conv_id, parameters):
         return message, display
 
     if parameters[0] == "clear":
-        if len(parameters) == 2 and parameters[1].isdigit():
-            sorted_keys = sorted(list(conv_tldr.keys()), key=float)
-            key_index = int(parameters[1]) - 1
-            if key_index < 0 or key_index >= len(sorted_keys):
-                message = _("TL;DR #{} not found").format(parameters[1])
-            else:
-                popped_tldr = conv_tldr.pop(sorted_keys[key_index])
-                bot.memory.set_by_path(['tldr', conv_id], conv_tldr)
-                message = _('TL;DR #{} removed - "{}"').format(parameters[1], popped_tldr)
+        if len(parameters) == 2:
+            if  parameters[1].isdigit():
+                sorted_keys = sorted(list(conv_tldr.keys()), key=float)
+                key_index = int(parameters[1]) - 1
+                if key_index < 0 or key_index >= len(sorted_keys):
+                    message = _("TL;DR #{} not found").format(parameters[1])
+                else:
+                    popped_tldr = conv_tldr.pop(sorted_keys[key_index])
+                    bot.memory.set_by_path(['tldr', conv_id], conv_tldr)
+                    message = _('TL;DR #{} removed - "{}"').format(parameters[1], popped_tldr)
+            elif parameters[1] == "all":
+                bot.memory.set_by_path(['tldr', conv_id], {})
+                message = _("All TL;DRs cleared.")
         else:
-            bot.memory.set_by_path(['tldr', conv_id], {})
-            message = _("All TL;DRs cleared")
-
+            message = _("Nothing specified to clear.")
         return message, display
 
     elif parameters[0] == "edit":
@@ -154,7 +156,7 @@ def tldr_base(bot, conv_id, parameters):
                 bot.memory.set_by_path(['tldr', conv_id], conv_tldr)
                 message = _('TL;DR #{} edited - "{}" -> "{}"').format(parameters[1], edited_tldr, tldr)
         else:
-            message = _('Unknown Command at "tldr edit"')
+            message = _('Unknown Command at "tldr edit."')
 
         return message, display
 
@@ -164,7 +166,7 @@ def tldr_base(bot, conv_id, parameters):
             # Add message to list
             conv_tldr[str(time.time())] = tldr
             bot.memory.set_by_path(['tldr', conv_id], conv_tldr)
-            message = _('<em>{}</em> added to TL;DR. Count: {}').format(tldr, len(conv_tldr))
+            message = _('<em>{}</em> added to TL;DR. Count: {}.').format(tldr, len(conv_tldr))
 
             return message, display
 
