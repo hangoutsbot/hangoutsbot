@@ -47,7 +47,7 @@ def tldr(bot, event, *args):
     # If nothing set, then set the bot default as False.
 
     if not bot.memory.exists(['conversations',event.conv_id,'tldr_echo']):
-        if not bot.get_config_option('tldr_echo'):/ops 
+        if not bot.get_config_option('tldr_echo'):
             bot.config.set_by_path(["tldr_echo"], 'group')
             bot.config.save()
     
