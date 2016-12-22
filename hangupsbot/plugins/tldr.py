@@ -5,12 +5,12 @@ import plugins
 
 def _initialise(bot):
     plugins.register_user_command(["tldr"])
-    plugins.register_admin_command(["tldrpm"])
+    plugins.register_admin_command(["tldrecho"])
     bot.register_shared("plugin_tldr_shared", tldr_shared)
 
 
-def tldrpm(bot, event, p_tldr_pm=None):
-    """<br/>/bot <i><b>tldrpm</b> <group/PM></i><br/>Defines whether the full tldr is echoed to a PM or into the main chat.<br/><br/>e.g. /bot tldrpm PM"""
+def tldrecho(bot, event, p_tldr_echo=None):
+    """<br/>/bot <i><b>tldrecho</b> <group/PM></i><br/>Defines whether the full tldr is echoed to a PM or into the main chat.<br/><br/>e.g. /bot tldrecho PM"""
 
     # If no memory entry exists, create it.
     if not bot.memory.exists(['conversations']):
@@ -18,24 +18,25 @@ def tldrpm(bot, event, p_tldr_pm=None):
     if not bot.memory.exists(['conversations',event.conv_id]):
         bot.memory.set_by_path(['conversations',event.conv_id],{})
 
-    bot.memory.set_by_path(['conversations', event.conv_id, 'tldr_pm'], p_tldr_pm)
+    bot.memory.set_by_path(['conversations', event.conv_id, 'tldr_echo'], p_tldr_echo)
     bot.memory.save()
     
-    # If no tldr_pm setting specified, then the tldr_pm set for this hangout has been cleared.
-    if p_tldr_pm is None:
-        segments = [hangups.ChatMessageSegment('TLDR PM setting for this hangout has been cleared', is_bold=True)]
+    # If no tldr_echo setting specified, then the tldr_echo set for this hangout has been cleared.
+    if p_tldr_echo is None:
+        segments = [hangups.ChatMessageSegment('TLDR echo setting for this hangout has been cleared', is_bold=True)]
     else:
-        # Get the current tldr_pm setting.
-        segments = [hangups.ChatMessageSegment('TLDR PM for this hangout is:', is_bold=True),
+        # Get the current tldr_echo setting.
+        segments = [hangups.ChatMessageSegment('TLDR echo for this hangout is:', is_bold=True),
                     hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-                    hangups.ChatMessageSegment(p_tldr_pm)]
+                    hangups.ChatMessageSegment(p_tldr_echo)]
     
     yield from bot.coro_send_message(event.conv_id, segments)
 
 
 def tldr(bot, event, *args):
+    """<br/>/bot <i><b>tldr</b> <message></i><br/>Adds a short message to a list saved for the conversation.<br/>All TLDRs can be retrieved using: /bot <i><b>tldr</b></i>, single tldr using: /bot <i><b>tldr</b> <number></i><br/>All TLDR entries can be deleted using: /bot <i><b>tldr clear</b></i>, single tldr entries using: /bot <i><b>tldr clear</b> <number></i><br/>Single TLDRs can be edited using /bot <i><b>tldr edit</b> <number> <new message></i><br/>"""
 
-    ## Retrieve the current tldr pm status for the hangout.
+    ## Retrieve the current tldr echo status for the hangout.
     # If no memory entry exists, create it.
     if not bot.memory.exists(['conversations']):
         bot.memory.set_by_path(['conversations'],{})
@@ -45,20 +46,20 @@ def tldr(bot, event, *args):
     # Check per conversation setting in memory first, then global from config.json.
     # If nothing set, then set the bot default as False.
 
-    if not bot.memory.exists(['conversations',event.conv_id,'tldr_pm']):
-        if not bot.get_config_option('tldr_pm'):
-            bot.config.set_by_path(["tldr_pm"], 'group')
+    if not bot.memory.exists(['conversations',event.conv_id,'tldr_echo']):
+        if not bot.get_config_option('tldr_echo'):
+            bot.config.set_by_path(["tldr_echo"], 'group')
             bot.config.save()
     
-    if not bot.memory.exists(['conversations',event.conv_id,'tldr_pm']):
-        mem_tldr_pm = bot.get_config_option('tldr_pm')
+    if not bot.memory.exists(['conversations',event.conv_id,'tldr_echo']):
+        mem_tldr_echo = bot.get_config_option('tldr_echo')
     else:
-        mem_tldr_pm = bot.memory.get_by_path(['conversations', event.conv_id, 'tldr_pm'])
+        mem_tldr_echo = bot.memory.get_by_path(['conversations', event.conv_id, 'tldr_echo'])
 
     message, display = tldr_base(bot, event.conv_id, list(args))
     print (display)
-    print (mem_tldr_pm)
-    if display is True and mem_tldr_pm == 'PM':
+    print (mem_tldr_echo)
+    if display is True and mem_tldr_echo == 'PM':
         yield from bot.coro_send_to_user_and_conversation(event.user.id_.chat_id, event.conv_id, message, ("<i>{}, I've sent you the info in a PM ;-)</i>").format(event.user.full_name))
     else:
         yield from bot.coro_send_message(event.conv_id, message)
@@ -90,11 +91,6 @@ def tldr_shared(bot, args):
 
 
 def tldr_base(bot, conv_id, parameters):
-    """Adds a short message to a list saved for the conversation using:
-    /bot tldr <message>
-    All TLDRs can be retrieved by /bot tldr, single tldr with /bot tldr <number>
-    All TLDRs can be deleted using /bot tldr clear, single tldr with /bot tldr clear <number>
-    Single TLDRs can be edited using /bot tldr edit <number> <new_message>"""
     # parameters = list(args)
 
     # If no memory entry exists, create it.
