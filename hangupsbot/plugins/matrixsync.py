@@ -13,6 +13,9 @@ from requests.exceptions import MissingSchema
 from handlers import handler
 from commands import command
 import random
+import tempfile
+import struct
+import imghdr
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +98,7 @@ def mx_on_message(mx_chat_alias, msg, roomName, user, ho_bot, loop):
 def on_message(self, event):
     global ho_bot
     global loop
+    global matrixsync_config
     asyncio.set_event_loop(loop)
     local_loop = asyncio.get_event_loop()
     matrix_raw = matrix_bot.api
@@ -111,7 +115,8 @@ def on_message(self, event):
             user = user_obj.get_display_name()
             roomName = matrix_raw.get_room_name(self.room_id)['name']
             msg = event['content']['body']
-            mx_on_message(self.room_id, msg, roomName, user, ho_bot, local_loop)
+            if matrixsync_config['username'] not in user:
+                mx_on_message(self.room_id, msg, roomName, user, ho_bot, local_loop)
     else:
         ho_bot.logger.info(event['type'])
 
@@ -226,6 +231,40 @@ def is_valid_image_link(url):
                             return True, "{name}.{ext}".format(name=file_name, ext=file_ext)
     return False, ""
 
+def get_image_size(fname):
+    '''Determine the image type of fhandle and return its size.
+    from draco'''
+    with open(fname, 'rb') as fhandle:
+        head = fhandle.read(24)
+        if len(head) != 24:
+            return
+        if imghdr.what(fname) == 'png':
+            check = struct.unpack('>i', head[4:8])[0]
+            if check != 0x0d0a1a0a:
+                return
+            width, height = struct.unpack('>ii', head[16:24])
+        elif imghdr.what(fname) == 'gif':
+            width, height = struct.unpack('<HH', head[6:10])
+        elif imghdr.what(fname) == 'jpeg':
+            try:
+                fhandle.seek(0) # Read 0xff next
+                size = 2
+                ftype = 0
+                while not 0xc0 <= ftype <= 0xcf:
+                    fhandle.seek(size, 1)
+                    byte = fhandle.read(1)
+                    while ord(byte) == 0xff:
+                        byte = fhandle.read(1)
+                    ftype = ord(byte)
+                    size = struct.unpack('>H', fhandle.read(2))[0] - 2
+                # We are at a SOFn block
+                fhandle.seek(1, 1)  # Skip `precision' byte.
+                height, width = struct.unpack('>HH', fhandle.read(4))
+            except Exception: #IGNORE:W0703
+                return
+        else:
+            return
+        return width, height
     
 @handler.register(priority=5, event=hangups.ChatMessageEvent)
 def _on_hangouts_message(bot, event, command=""):
@@ -253,4 +292,14 @@ def _on_hangouts_message(bot, event, command=""):
 
         if has_photo:
             logger.info("plugins/matrixsync: photo url: {url}".format(url=photo_url))
-            matrix_bot.api.send_content(ho2mx_dict[event.conv_id], photo_url, photo_url.rsplit('/', 1)[-1], "m.image", None)
+            with aiohttp.ClientSession() as session:
+                resp = yield from session.get(photo_url)
+                raw_data = yield from resp.read()
+                filepath = tempfile.NamedTemporaryFile(delete=True).name
+                filename = filepath.split('/', filepath.count('/'))[-1]
+                with open(filepath, "wb") as f:
+                    f.write(raw_data)
+                width, height = get_image_size(filepath)
+                photo_mimetype = resp.headers['Content-Type']            
+                photo_size = os.path.getsize(filepath)
+                matrix_bot.api.send_content(ho2mx_dict[event.conv_id], photo_url, filename, "m.image", extra_information={"mimetype": photo_mimetype, "size": photo_size, "h": height, "w": width})
