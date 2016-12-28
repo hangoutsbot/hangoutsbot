@@ -16,6 +16,9 @@ import random
 import tempfile
 import struct
 import imghdr
+from collections import namedtuple
+from datetime import datetime
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +61,9 @@ def _initialise(bot):
                     
                     room = matrix_bot.join_room(room_id)
                     room.add_listener(on_message)
+                    room.add_listener(commands)
                     matrix_bot.start_listener_thread()
+                    logger.info(room.listeners)
                 
                 matrix_bot.add_invite_listener(autojoin)
             except MatrixRequestError as e:
@@ -102,6 +107,12 @@ def on_message(self, event):
     asyncio.set_event_loop(loop)
     local_loop = asyncio.get_event_loop()
     matrix_raw = matrix_bot.api
+    if not ho_bot.memory.exists(['user_data', event['sender']]):
+        user_obj = matrix_bot.get_user(event['sender'])
+        user = user_obj.get_display_name()
+        firstname = user.split(' ', 1)[0]
+        date = str(datetime.now()).replace('-','').replace(' ','').replace(':','').split(".")[0]
+        ho_bot.memory.set_by_path(['user_data', event['sender']], { "_hangups": { "chat_id": event['sender'], "emails": [], "first_name": firstname, "full_name": user, "gaia_id": event['sender'], "is_definitive": True, "is_self": False, "photo_url": "", "updated": date}})
     if event['type'] == "m.room.member":
         if event['membership'] == "join":
             user_obj = matrix_bot.get_user(event['sender'])
@@ -115,7 +126,8 @@ def on_message(self, event):
             user = user_obj.get_display_name()
             roomName = matrix_raw.get_room_name(self.room_id)['name']
             msg = event['content']['body']
-            if matrixsync_config['username'] not in user:
+            ho_bot.logger.info(user)
+            if matrixsync_config['username'].lower() not in user.lower():
                 mx_on_message(self.room_id, msg, roomName, user, ho_bot, local_loop)
     else:
         ho_bot.logger.info(event['type'])
@@ -124,30 +136,46 @@ def on_message(self, event):
 def commands(self, event):
     global matrix_bot
     global ho_bot
+    global loop
+    asyncio.set_event_loop(loop)
+    local_loop = asyncio.get_event_loop()
     if event['type'] == "m.room.message":
         if event['content']['msgtype'] == "m.text":
-            if event['content']['body'].startswith('/'):
-                if "hosync" in event['content']['body']:
-                    params = event['content']['body'].split('mango', 1)[1]
+            for botalias in ho_bot._handlers.bot_command:
+                if event['content']['body'].startswith(botalias.replace('/','!')):
+                    if "hosync" in event['content']['body']:
+                        params = event['content']['body'].split(botalias.replace('/','!'), 1)[1]
                     
-                    if len(params) != 1:
-                        matrix_bot.send_message(self.room_id, "Illegal or Missing arguments!!!", msgtype='m.text')
-                        return
+                        if len(params) != 1:
+                            matrix_bot.send_message(self.room_id, "Illegal or Missing arguments!!!", msgtype='m.text')
+                            return
 
-                    memory = ho_bot.memory.get_by_path(['matrixsync'])
-                    mx2ho_dict = memory['mx2ho']
-                    ho2mx_dict = memory['ho2mx']
+                        memory = ho_bot.memory.get_by_path(['matrixsync'])
+                        mx2ho_dict = memory['mx2ho']
+                        ho2mx_dict = memory['ho2mx']
 
-                    if str(self.room_id) in mx2ho_dict:
-                        matrix_bot.send_message(self.room_id, "Sync target '{mx_conv_id}' already set".format(mx_conv_id=str(params)), msgtype='m.text')
+                        if str(self.room_id) in mx2ho_dict:
+                            matrix_bot.send_message(self.room_id, "Sync target '{mx_conv_id}' already set".format(mx_conv_id=str(params)), msgtype='m.text')
+                        else:
+                            mx2ho_dict[str(chat_id)] = str(params)
+                            ho2mx_dict[str(params)] = str(chat_id)
+
+                            new_memory = {'mx2ho': mx2ho_dict, 'ho2mx': ho2mx_dict}
+                            ho_bot.memory.set_by_path(['matrixsync'], new_memory)
+
+                            matrix_bot.send_message(self.room_id, "Sync target set to '{mx_conv_id}''".format(mx_conv_id=str(params)), msgtype='m.text')
+                            self.add_listener(on_message)
+                            matrix_bot.start_listener_thread()
                     else:
-                        mx2ho_dict[str(chat_id)] = str(params)
-                        ho2mx_dict[str(params)] = str(chat_id)
-
-                        new_memory = {'mx2ho': mx2ho_dict, 'ho2mx': ho2mx_dict}
-                        ho_bot.memory.set_by_path(['matrixsync'], new_memory)
-
-                        matrix_bot.send_message(self.room_id, "Sync target set to '{mx_conv_id}''".format(mx_conv_id=str(params)), msgtype='m.text')
+                        UserID = namedtuple('UserID', ['chat_id'])
+                        memory = ho_bot.memory.get_by_path(['matrixsync'])
+                        mx2ho_dict = memory['mx2ho']
+                        self.conv_id = mx2ho_dict[self.room_id]
+                        self.user_id = UserID(chat_id=event['sender'])
+                        self.text = event['content']['body'].replace(botalias.replace('/','!'), "")
+                        ho_bot.logger.info("self: {}".format(self))
+                        asyncio.async(ho_bot._handlers.handle_command(self))
+                        ho_bot.logger.info("aftercommand")
         
 def autojoin(self, room_id, event):
     try:
@@ -203,6 +231,9 @@ def matrixsync(bot, event, *args):
 
     new_memory = {'ho2mx': ho2mx_dict, 'mx2ho': mx2ho_dict}
     bot.memory.set_by_path(['matrixsync'], new_memory)
+    room = matrix_bot.join_room(mx_chat_alias)
+    room.add_listener(on_message)
+    matrix_bot.start_listener_thread()
 
         
 @asyncio.coroutine
