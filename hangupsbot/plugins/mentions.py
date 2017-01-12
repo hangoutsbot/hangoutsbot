@@ -62,7 +62,14 @@ def mention(bot, event, *args):
     """alert a @mentioned user"""
 
     """allow mentions to be disabled via global or per-conversation config"""
-    config_mentions_enabled = False if (bot.get_config_suboption(event.conv.id_, 'mentions.enabled') is False or bot.memory.get_by_path(["convmem", event.conv_id, "mentions"]) is False) else True
+    # check for a per-conversation setting
+    conv_mention = True
+    try:
+      conv_mention = bot.memory.get_by_path(["convmem", event.conv_id, "mentions"])
+    except KeyError:
+      pass
+
+    config_mentions_enabled = False if (bot.get_config_suboption(event.conv.id_, 'mentions.enabled') is False or conv_mention is False) else True
     if not config_mentions_enabled:
         logger.info("mentions explicitly disabled by config for {}".format(event.conv_id))
         return
@@ -453,9 +460,10 @@ def mentions(bot, event, *args):
       else:
         yield from bot.coro_send_message(
           event.conv,
-          _("Unknown option to convmentions"))
+          _("Unknown option"))
+        return
 
-      logging.info("Disabling mentions for hangout {}".format(conv_id))
+      logging.info("Setting mentions to {} for hangout {}".format(value, conv_id))
       bot.memory.set_by_path(["convmem", conv_id, "mentions"], value)
       bot.memory.save()
 
