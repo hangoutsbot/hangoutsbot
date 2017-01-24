@@ -580,6 +580,14 @@ def tg_command_tldr(bot, chat_id, args):
             yield from bot.sendMessage(chat_id, text, parse_mode='HTML')
         except KeyError as ke:
             yield from bot.sendMessage(chat_id, "TLDR plugin is not active. KeyError: {e}".format(e=ke))
+    elif str(chat_id) not in tg2ho_dict:
+        ho_conv_id = str(chat_id)
+        tldr_args = {'params': params, 'conv_id': ho_conv_id}
+        try:
+            text = bot.ho_bot.call_shared("plugin_tldr_shared", bot.ho_bot, tldr_args)
+            yield from bot.sendMessage(chat_id, text, parse_mode='HTML')
+        except KeyError as ke:
+            yield from bot.sendMessage(chat_id, "TLDR plugin is not active. KeyError: {e}".format(e=ke))
 
 
 @asyncio.coroutine
