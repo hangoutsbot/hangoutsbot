@@ -330,10 +330,13 @@ def mention(bot, event, *args):
             if alert_via_1on1:
                 """send alert with 1on1 conversation"""
                 conv_1on1 = yield from bot.get_1to1(u.id_.chat_id)
+                message_string = "@mentioned you in"
+                if username_lower == "all":
+                    message_string = "mentioned ALL in"
                 if conv_1on1:
                     yield from bot.coro_send_message(
                         conv_1on1,
-                        _("<b>{}</b> @mentioned you in <i>{}</i>:<br />{}").format(
+                        _("<b>{}</b> " + message_string + " <i>{}</i>:<br />{}").format(
                             source_name,
                             conversation_name,
                             event.text)) # prevent internal parser from removing <tags>
