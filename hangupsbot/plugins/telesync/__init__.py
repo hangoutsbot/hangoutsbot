@@ -244,7 +244,8 @@ def tg_util_sync_get_user_name(msg, chat_action='from'):
     profile_dict = tg_bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho']
     username = TelegramBot.get_username(msg, chat_action=chat_action)
     logger.info("message from: {}".format(msg['from']['id']))
-    if str(msg['from']['id']) in profile_dict:
+    if str(msg['from']['id']) in profile_dict \
+            and "user_gplus" in profile_dict[str(msg['from']['id'])]:
         # logger.info("message from: {}".format(msg['from']['id']))
         user_html = profile_dict[str(msg['from']['id'])]['user_text']
     else:
