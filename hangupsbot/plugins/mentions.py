@@ -331,7 +331,7 @@ def mention(bot, event, *args):
                 conv_1on1 = yield from bot.get_1to1(u.id_.chat_id)
                 message_string = "@mentioned you in"
                 if username_lower == "all":
-                    message_string = "used @all in"
+                    message_string = "mentioned ALL in"
                 if conv_1on1:
                     yield from bot.coro_send_message(
                         conv_1on1,
