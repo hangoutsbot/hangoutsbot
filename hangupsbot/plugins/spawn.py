@@ -82,6 +82,7 @@ def _initialize(bot):
 
     # override the load logic and register our commands directly
     for cmd in cmds:
+        cmds[cmd]=cmds[cmd].pop(cmd.lower())
         command.register(_spawn, admin=True, final=True, name=cmd)
 
     logger.info("spawn - %s", ", ".join(['*' + cmd for cmd in cmds]))
@@ -91,7 +92,7 @@ def _initialize(bot):
 def _spawn(bot, event, *args):
     """Execute a generic command"""
     config = bot.get_config_suboption(event.conv_id, "spawn")
-    cmd_config = config["commands"][event.command_name]
+    cmd_config = config["commands"][event.command_name.lower()]
 
     home_env = cmd_config.get("home", config.get("home"))
     if home_env:
