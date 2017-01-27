@@ -72,17 +72,23 @@ from commands import command
 
 logger = logging.getLogger(__name__)
 
+"""translate dict keys to lowercase"""
+def toLower(mydict):
+    return dict((k.lower(),toLower(v) if hasattr(v,'keys') else v) for k,v in mydict.items())
+
+
 def _initialize(bot):
     bot.spawn_lock = asyncio.Lock()
     config = bot.get_config_option("spawn")
     if not config:
         return
 
+
     cmds = config.get("commands")
+    cmds = toLower(cmds)
 
     # override the load logic and register our commands directly
     for cmd in cmds:
-        cmds[cmd]=cmds[cmd].pop(cmd.lower())
         command.register(_spawn, admin=True, final=True, name=cmd)
 
     logger.info("spawn - %s", ", ".join(['*' + cmd for cmd in cmds]))
@@ -92,7 +98,10 @@ def _initialize(bot):
 def _spawn(bot, event, *args):
     """Execute a generic command"""
     config = bot.get_config_suboption(event.conv_id, "spawn")
-    cmd_config = config["commands"][event.command_name.lower()]
+
+    # translate spawn commands & event name to lower for standardized read
+    cmds = toLower(config["commands"])
+    cmd_config = cmds[event.command_name.lower()]
 
     home_env = cmd_config.get("home", config.get("home"))
     if home_env:
