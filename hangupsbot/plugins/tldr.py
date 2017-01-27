@@ -34,7 +34,7 @@ def tldrecho(bot, event, p_tldr_echo=None):
 
 
 def tldr(bot, event, *args):
-    """<br/>/bot <i><b>tldr</b> <message></i><br/>Adds a short message to a list saved for the conversation.<br/>/bot <i><b>tldr</b></i><br/>Retrieve all TLDR entries.<br/>/bot <i><b>tldr</b> <number></i><br/>Retrieve an individual TLDR entry.<br/>/bot <i><b>tldr clear all</b></i><br/>Clear all TLDR entries.<br/>/bot <i><b>tldr clear</b> <number></i><br/>Clear an individual TLDR entry.<br/>/bot <i><b>tldr edit</b> <number> <new message></i><br/>Edit an individual TLDR entry."""
+    """<br />[botalias] <i><b>tldr</b> [<id>]</i><br />Retrieve the stored tldr for the hangout. If <id> included, just retrieve the numbered entry.<br /><u>Usage</u><br />[botalias] <i><b>tldr</b> 2</i><br />[botalias] <i><b>tldr</b> <entry></i><br />Add an entry to the tldr<br /><u>Usage</u><br />[botalias] <i><b>tldr</b> The quick brown fox jumps over the lazy dog.</i><br />[botalias] <i><b>tldr edit</b> <id> <entry></i><br />Replace the specified tldr entry with the new entry.<br /><u>Usage</u><br />[botalias] <i><b>tldr edit</b> 2 Lorem ipsum dolor sit amet.</i><br />[botalias] <i><b>tldr clear</b> <id>/all</i><br />Clear the specified tldr entry, or clear it all.<br /><u>Usage</u><br />[botalias] <i><b>tldr clear</b> 2</i>"""
 
     ## Retrieve the current tldr echo status for the hangout.
     # If no memory entry exists, create it.
@@ -57,8 +57,7 @@ def tldr(bot, event, *args):
         mem_tldr_echo = bot.memory.get_by_path(['conversations', event.conv_id, 'tldr_echo'])
 
     message, display = tldr_base(bot, event.conv_id, list(args))
-    print (display)
-    print (mem_tldr_echo)
+
     if display is True and mem_tldr_echo == 'PM':
         yield from bot.coro_send_to_user_and_conversation(event.user.id_.chat_id, event.conv_id, message, ("<i>{}, I've sent you the info in a PM ;-)</i>").format(event.user.full_name))
     else:
@@ -125,22 +124,40 @@ def tldr_base(bot, conv_id, parameters):
 
         return message, display
 
+
+    conv_id_list = [conv_id]
+
+    # Check to see if sync is active 
+    syncouts = bot.get_config_option('sync_rooms')
+
+    # If yes, then find out if the current room is part of one.
+    # If it is, then add the rest of the rooms to the list of conversations to process
+    if syncouts:
+        for sync_room_list in syncouts:
+            if conv_id in sync_room_list:
+                for conv in sync_room_list:
+                    if not conv in conv_id_list:
+                        conv_id_list.append(conv)
+
+
     if parameters[0] == "clear":
-        if len(parameters) == 2:
-            if  parameters[1].isdigit():
-                sorted_keys = sorted(list(conv_tldr.keys()), key=float)
-                key_index = int(parameters[1]) - 1
-                if key_index < 0 or key_index >= len(sorted_keys):
-                    message = _("TL;DR #{} not found").format(parameters[1])
-                else:
-                    popped_tldr = conv_tldr.pop(sorted_keys[key_index])
-                    bot.memory.set_by_path(['tldr', conv_id], conv_tldr)
-                    message = _('TL;DR #{} removed - "{}"').format(parameters[1], popped_tldr)
-            elif parameters[1] == "all":
-                bot.memory.set_by_path(['tldr', conv_id], {})
-                message = _("All TL;DRs cleared.")
+        if len(parameters) == 2 and parameters[1].isdigit():
+            sorted_keys = sorted(list(conv_tldr.keys()), key=float)
+            key_index = int(parameters[1]) - 1
+            if key_index < 0 or key_index >= len(sorted_keys):
+                message = _("TL;DR #{} not found.").format(parameters[1])
+            else:
+                popped_tldr = conv_tldr.pop(sorted_keys[key_index])
+                for conv in conv_id_list:
+                    bot.memory.set_by_path(['tldr', conv], conv_tldr)
+                message = _('TL;DR #{} removed - "{}"').format(parameters[1], popped_tldr)
+        elif len(parameters) == 2 and parameters[1].lower() == "all":
+            for conv in conv_id_list:
+                bot.memory.set_by_path(['tldr', conv], {})
+            message = _("All TL;DRs cleared.")
         else:
             message = _("Nothing specified to clear.")
+
         return message, display
 
     elif parameters[0] == "edit":
@@ -148,12 +165,13 @@ def tldr_base(bot, conv_id, parameters):
             sorted_keys = sorted(list(conv_tldr.keys()), key=float)
             key_index = int(parameters[1]) - 1
             if key_index < 0 or key_index >= len(sorted_keys):
-                message = _("TL;DR #{} not found").format(parameters[1])
+                message = _("TL;DR #{} not found.").format(parameters[1])
             else:
                 edited_tldr = conv_tldr[sorted_keys[key_index]]
                 tldr = ' '.join(parameters[2:len(parameters)])
                 conv_tldr[sorted_keys[key_index]] = tldr
-                bot.memory.set_by_path(['tldr', conv_id], conv_tldr)
+                for conv in conv_id_list:
+                    bot.memory.set_by_path(['tldr', conv], conv_tldr)
                 message = _('TL;DR #{} edited - "{}" -> "{}"').format(parameters[1], edited_tldr, tldr)
         else:
             message = _('Unknown Command at "tldr edit."')
@@ -165,8 +183,9 @@ def tldr_base(bot, conv_id, parameters):
         if tldr:
             # Add message to list
             conv_tldr[str(time.time())] = tldr
-            bot.memory.set_by_path(['tldr', conv_id], conv_tldr)
-            message = _('<em>{}</em> added to TL;DR. Count: {}.').format(tldr, len(conv_tldr))
+            for conv in conv_id_list:
+                bot.memory.set_by_path(['tldr', conv], conv_tldr)
+            message = _('<em>{}</em> added to TL;DR. Count: {}').format(tldr, len(conv_tldr))
 
             return message, display
 
