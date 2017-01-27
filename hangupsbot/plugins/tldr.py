@@ -10,7 +10,7 @@ def _initialise(bot):
 
 
 def tldrecho(bot, event, p_tldr_echo=None):
-    """<br/>/bot <i><b>tldrecho</b> <group/PM></i><br/>Defines whether the full tldr is echoed to a PM or into the main chat.<br/><br/>e.g. /bot tldrecho PM"""
+    """<br/>[botalias] <i><b>tldrecho</b> <group/PM></i><br/>Defines whether the full tldr is echoed to a PM or into the main chat.<br /><u>Usage</u><br />[botalias] <i><b>tldrecho</b> PM</i>"""
 
     # If no memory entry exists, create it.
     if not bot.memory.exists(['conversations']):
