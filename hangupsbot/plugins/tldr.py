@@ -1,62 +1,71 @@
+import logging
 import time
 import plugins
 
+logger = logging.getLogger(__name__)
+
+tldr_echo_options = [
+    "PM",
+    "GROUP",
+    "GLOBAL"
+]
 
 def _initialise(bot):
     plugins.register_user_command(["tldr"])
     plugins.register_admin_command(["tldrecho"])
     bot.register_shared("plugin_tldr_shared", tldr_shared)
 
+    # Set the global option
+    if not bot.get_config_option('tldr_echo'):
+        bot.config.set_by_path(["tldr_echo"], 2) # tldr_echo_options[2] is "GROUP"
+        bot.config.save()
 
-def tldrecho(bot, event, p_tldr_echo=None):
-    """<br/>[botalias] <i><b>tldrecho</b> <group/PM></i><br/>Defines whether the full tldr is echoed to a PM or into the main chat.<br /><u>Usage</u><br />[botalias] <i><b>tldrecho</b> PM</i>"""
 
-    # If no memory entry exists, create it.
+def tldrecho(bot, event, *args):
+    """<br/>[botalias] <i><b>tldrecho</b></i><br/>Defines whether the full tldr is echoed to a PM or into the main chat.<br /><u>Usage</u><br />[botalias] <i><b>tldrecho</b></i>"""
+
+    # If no memory entry exists for the conversation, create it.
     if not bot.memory.exists(['conversations']):
         bot.memory.set_by_path(['conversations'],{})
     if not bot.memory.exists(['conversations',event.conv_id]):
         bot.memory.set_by_path(['conversations',event.conv_id],{})
 
-    bot.memory.set_by_path(['conversations', event.conv_id, 'tldr_echo'], p_tldr_echo)
-    bot.memory.save()
-    
-    # If no tldr_echo setting specified, then the tldr_echo set for this hangout has been cleared.
-    if p_tldr_echo is None:
-        message = '<b>TLDR echo setting for this hangout has been cleared.</b>'
+    if bot.memory.exists(['conversations', event.conv_id, 'tldr_echo']):
+        new_tldr = (bot.memory.get_by_path(['conversations', event.conv_id, 'tldr_echo']) + 1)%3
     else:
-        # echo the current tldr_echo setting.
-        message = '<b>TLDR echo setting for this hangout TLDR echo for this hangout is:</b><br />{}'.format(p_tldr_echo)
-    
+        # No path was found. Is this your first setup?
+        new_tldr = 0
+
+    # Toggle the tldr
+    bot.memory.set_by_path(['conversations', event.conv_id, 'tldr_echo'], new_tldr)
+    bot.memory.save()
+
+    # Echo the current tldr setting
+    message = '<b>TLDR echo setting for this hangout has been set to {0}.</b>'.format(tldr_echo_options[new_tldr])
+    logger.debug("{0} ({1}) has toggled the tldrecho in '{2}' to {3}".format(event.user.full_name, event.user.id_.chat_id, event.conv_id, tldr_echo_options[new_tldr]))
+
     yield from bot.coro_send_message(event.conv_id, message)
 
 
 def tldr(bot, event, *args):
     """<br />[botalias] <i><b>tldr</b> [<id>]</i><br />Retrieve the stored tldr for the hangout. If <id> included, just retrieve the numbered entry.<br /><u>Usage</u><br />[botalias] <i><b>tldr</b> 2</i><br />[botalias] <i><b>tldr</b> <entry></i><br />Add an entry to the tldr<br /><u>Usage</u><br />[botalias] <i><b>tldr</b> The quick brown fox jumps over the lazy dog.</i><br />[botalias] <i><b>tldr edit</b> <id> <entry></i><br />Replace the specified tldr entry with the new entry.<br /><u>Usage</u><br />[botalias] <i><b>tldr edit</b> 2 Lorem ipsum dolor sit amet.</i><br />[botalias] <i><b>tldr clear</b> <id>/all</i><br />Clear the specified tldr entry, or clear it all.<br /><u>Usage</u><br />[botalias] <i><b>tldr clear</b> 2</i>"""
 
-    ## Retrieve the current tldr echo status for the hangout.
-    # If no memory entry exists, create it.
+    # If no memory entry exists for the conversation, create it.
     if not bot.memory.exists(['conversations']):
         bot.memory.set_by_path(['conversations'],{})
     if not bot.memory.exists(['conversations',event.conv_id]):
         bot.memory.set_by_path(['conversations',event.conv_id],{})
 
-    # Check per conversation setting in memory first, then global from config.json.
-    # If nothing set, then set the bot default as False.
-
-    if not bot.memory.exists(['conversations',event.conv_id,'tldr_echo']):
-        if not bot.get_config_option('tldr_echo'):
-            bot.config.set_by_path(["tldr_echo"], 'group')
-            bot.config.save()
-    
-    if not bot.memory.exists(['conversations',event.conv_id,'tldr_echo']):
-        mem_tldr_echo = bot.get_config_option('tldr_echo')
+    # Retrieve the current tldr echo status for the hangout.
+    if bot.memory.exists(['conversations', event.conv_id, 'tldr_echo']):
+        tldr_echo = bot.memory.get_by_path(['conversations', event.conv_id, 'tldr_echo'])
     else:
-        mem_tldr_echo = bot.memory.get_by_path(['conversations', event.conv_id, 'tldr_echo'])
+        tldr_echo = bot.get_config_option("tldr_echo")
 
     message, display = tldr_base(bot, event.conv_id, list(args))
 
-    if display is True and mem_tldr_echo == 'PM':
-        yield from bot.coro_send_to_user_and_conversation(event.user.id_.chat_id, event.conv_id, message, ("<i>{}, I've sent you the info in a PM ;-)</i>").format(event.user.full_name))
+    if display is True and tldr_echo_options[tldr_echo] is 'PM':
+        yield from bot.coro_send_to_user_and_conversation(event.user.id_.chat_id, event.conv_id, message, ("<i>{}, I've sent you the info in a PM</i>").format(event.user.full_name))
     else:
         yield from bot.coro_send_message(event.conv_id, message)
 
@@ -124,7 +133,7 @@ def tldr_base(bot, conv_id, parameters):
 
     conv_id_list = [conv_id]
 
-    # Check to see if sync is active 
+    # Check to see if sync is active
     syncouts = bot.get_config_option('sync_rooms')
 
     # If yes, then find out if the current room is part of one.
