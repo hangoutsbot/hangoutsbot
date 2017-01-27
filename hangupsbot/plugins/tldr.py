@@ -1,4 +1,3 @@
-import hangups
 import time
 import plugins
 
@@ -23,14 +22,12 @@ def tldrecho(bot, event, p_tldr_echo=None):
     
     # If no tldr_echo setting specified, then the tldr_echo set for this hangout has been cleared.
     if p_tldr_echo is None:
-        segments = [hangups.ChatMessageSegment('TLDR echo setting for this hangout has been cleared', is_bold=True)]
+        message = '<b>TLDR echo setting for this hangout has been cleared.</b>'
     else:
-        # Get the current tldr_echo setting.
-        segments = [hangups.ChatMessageSegment('TLDR echo for this hangout is:', is_bold=True),
-                    hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-                    hangups.ChatMessageSegment(p_tldr_echo)]
+        # echo the current tldr_echo setting.
+        message = '<b>TLDR echo setting for this hangout TLDR echo for this hangout is:</b><br />{}'.format(p_tldr_echo)
     
-    yield from bot.coro_send_message(event.conv_id, segments)
+    yield from bot.coro_send_message(event.conv_id, message)
 
 
 def tldr(bot, event, *args):
