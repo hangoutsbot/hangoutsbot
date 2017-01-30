@@ -21,7 +21,8 @@ class Config(collections.MutableMapping):
 
     def _make_failsafe_backup(self):
         try:
-            json.load(open(self.filename))
+            with open(self.filename) as f:
+                json.load(f)
         except IOError:
             return False
         except ValueError:
@@ -42,7 +43,10 @@ class Config(collections.MutableMapping):
         while len(existing) > 0:
             try:
                 recovery_filename = existing.pop()
-                json.load(open(recovery_filename))
+                with open(recovery_filename) as f:
+                    # test the file is valid json
+                    json.load(f)
+
                 shutil.copy2(recovery_filename, self.filename)
                 self.load(recovery=True)
                 logger.info("recovery successful: {}".format(recovery_filename))
@@ -56,7 +60,8 @@ class Config(collections.MutableMapping):
     def load(self, recovery=False):
         """Load config from file"""
         try:
-            self.config = json.load(open(self.filename))
+            with open(self.filename) as f:
+                self.config = json.load(f)
             logger.info("{} read".format(self.filename))
 
         except IOError:
