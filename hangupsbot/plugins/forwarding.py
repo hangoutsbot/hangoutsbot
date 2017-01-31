@@ -28,7 +28,10 @@ def _handle_forwarding(bot, event, command):
 
             html_message = ""
             for segment in event.conv_event.segments:
-                html_message += segment.text
+                try:
+                    html_message += segment.text
+                except TypeError as e:
+                    html_message += '<br />'
 
             if not event.conv_event.attachments:
                 yield from bot.coro_send_message( _conv_id, 
