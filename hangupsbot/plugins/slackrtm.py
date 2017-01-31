@@ -1241,7 +1241,10 @@ class SlackRTM(object):
             # JOIN
             if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
                 invitee = u'<https://plus.google.com/%s/about|%s>' % (event.user_id.chat_id, event.user.full_name)
-                message = u'%s has added %s to %s' % (invitee, names, honame)
+                if invitee == names:
+                    message = u'%s has joined %s' % (invitee, honame)
+                else:
+                    message = u'%s has added %s to %s' % (invitee, names, honame)
             # LEAVE
             else:
                 message = u'%s has left _%s_' % (names, honame)
