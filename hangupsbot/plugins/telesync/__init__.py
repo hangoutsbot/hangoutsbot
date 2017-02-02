@@ -692,6 +692,7 @@ def _initialise(bot):
                                               'enable_sticker_sync' : True,
                                               'sync_chat_titles' : True,
                                               'sync_join_messages' : True,
+                                              'sync_reply_to' : True,
                                               'be_quiet': False})
 
     bot.config.save()
