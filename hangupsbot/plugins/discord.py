@@ -112,6 +112,7 @@ def _handle_hangout_message(bot, event, command):
                           mentions[m].add(member.id)
                       if len(mentions[m]) == 1:
                         event.text = event.text.replace('@' + m, '<@{}>'.format(mentions[m].pop()))
+                    event.text = event.text.replace('@all', '@everyone')
                     msg = "**{}**: {}".format(fullname, event.text)
                     yield from client.send_message(channel, msg)
         else:
