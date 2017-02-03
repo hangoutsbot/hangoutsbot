@@ -64,7 +64,7 @@ def tldr(bot, event, *args):
 
     message, display = tldr_base(bot, event.conv_id, list(args))
 
-    if display is True and tldr_echo_options[tldr_echo] is 'PM':
+    if display is True and tldr_echo is 'PM':
         yield from bot.coro_send_to_user_and_conversation(event.user.id_.chat_id, event.conv_id, message, ("<i>{}, I've sent you the info in a PM</i>").format(event.user.full_name))
     else:
         yield from bot.coro_send_message(event.conv_id, message)
