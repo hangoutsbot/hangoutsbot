@@ -103,7 +103,7 @@ def _handle_hangout_message(bot, event, command):
                     yield from client.send_message(channel, event.text)
                 else:
                     fullname = event.user.full_name
-                    mentions = dict([(word.strip('@'),set()) for word in set(event.text.split()) if word.startswith('@')])
+                    mentions = dict([(word.strip('@'),set()) for word in set(event.text.split()) if word.startswith('@') and word != '@all'])
                     for m in mentions:
                       for member in client.get_all_members():
                         permissions = channel.permissions_for(member)
