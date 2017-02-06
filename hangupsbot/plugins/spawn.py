@@ -65,6 +65,7 @@ the subprocess, along with additional helpers (see code below).
 import os
 import logging
 import asyncio
+from CaseInsensitiveDict import CaseInsensitiveDict
 from asyncio.subprocess import PIPE
 
 import plugins
@@ -72,13 +73,14 @@ from commands import command
 
 logger = logging.getLogger(__name__)
 
+
 def _initialize(bot):
     bot.spawn_lock = asyncio.Lock()
     config = bot.get_config_option("spawn")
     if not config:
         return
 
-    cmds = config.get("commands")
+    cmds = CaseInsensitiveDict(config.get("commands"))
 
     # override the load logic and register our commands directly
     for cmd in cmds:
@@ -91,7 +93,10 @@ def _initialize(bot):
 def _spawn(bot, event, *args):
     """Execute a generic command"""
     config = bot.get_config_suboption(event.conv_id, "spawn")
-    cmd_config = config["commands"][event.command_name]
+
+    # translate spawn commands & event name to lower for standardized read
+    cmds = CaseInsensitiveDict((config["commands"]))
+    cmd_config = CaseInsensitiveDict(cmds[event.command_name])
 
     home_env = cmd_config.get("home", config.get("home"))
     if home_env:
@@ -111,14 +116,14 @@ def _spawn(bot, event, *args):
     environment = {
         'HANGOUT_USER_CHATID': event.user_id.chat_id,
         'HANGOUT_USER_FULLNAME': event.user.full_name,
-        'HANGOUT_CONV_ID':  event.conv_id,
+        'HANGOUT_CONV_ID': event.conv_id,
         'HANGOUT_CONV_TAGS': ','.join(bot.tags.useractive(event.user_id.chat_id,
                                                           event.conv_id))
     }
     environment.update(dict(os.environ))
 
     proc = yield from asyncio.create_subprocess_exec(*executable, stdout=PIPE, stderr=PIPE,
-        env=environment)
+                                                     env=environment)
 
     (stdout_data, stderr_data) = yield from proc.communicate()
     stdout_str = stdout_data.decode().rstrip()
