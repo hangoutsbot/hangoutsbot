@@ -65,16 +65,13 @@ the subprocess, along with additional helpers (see code below).
 import os
 import logging
 import asyncio
+from CaseInsensitiveDict import CaseInsensitiveDict
 from asyncio.subprocess import PIPE
 
 import plugins
 from commands import command
 
 logger = logging.getLogger(__name__)
-
-"""translate dict keys to lowercase"""
-def toLower(mydict):
-    return dict((k.lower(),toLower(v) if hasattr(v,'keys') else v) for k,v in mydict.items())
 
 
 def _initialize(bot):
@@ -83,9 +80,7 @@ def _initialize(bot):
     if not config:
         return
 
-
-    cmds = config.get("commands")
-    cmds = toLower(cmds)
+    cmds = CaseInsensitiveDict(config.get("commands"))
 
     # override the load logic and register our commands directly
     for cmd in cmds:
@@ -100,8 +95,8 @@ def _spawn(bot, event, *args):
     config = bot.get_config_suboption(event.conv_id, "spawn")
 
     # translate spawn commands & event name to lower for standardized read
-    cmds = toLower(config["commands"])
-    cmd_config = cmds[event.command_name.lower()]
+    cmds = CaseInsensitiveDict((config["commands"]))
+    cmd_config = CaseInsensitiveDict(cmds[event.command_name])
 
     home_env = cmd_config.get("home", config.get("home"))
     if home_env:
@@ -121,14 +116,14 @@ def _spawn(bot, event, *args):
     environment = {
         'HANGOUT_USER_CHATID': event.user_id.chat_id,
         'HANGOUT_USER_FULLNAME': event.user.full_name,
-        'HANGOUT_CONV_ID':  event.conv_id,
+        'HANGOUT_CONV_ID': event.conv_id,
         'HANGOUT_CONV_TAGS': ','.join(bot.tags.useractive(event.user_id.chat_id,
                                                           event.conv_id))
     }
     environment.update(dict(os.environ))
 
     proc = yield from asyncio.create_subprocess_exec(*executable, stdout=PIPE, stderr=PIPE,
-        env=environment)
+                                                     env=environment)
 
     (stdout_data, stderr_data) = yield from proc.communicate()
     stdout_str = stdout_data.decode().rstrip()
