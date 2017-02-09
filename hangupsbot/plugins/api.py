@@ -87,13 +87,23 @@ class APIRequestHandler(AsyncRequestHandler):
     def adapter_do_OPTIONS(self, request):
         origin = request.headers["Origin"]
 
-        # TODO make allowed origins configureable?
-        if False and origin not in ():
+        allowed_origins = self._bot.get_config_option("api_origins")
+        if allowed_origins is None:
+            raise HTTPForbidden()
+
+        if "*" == allowed_origins or "*" in allowed_origins:
+            return web.Response(headers={
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Headers": "content-type",
+            })
+
+        if not origin in allowed_origins:
             raise HTTPForbidden()
 
         return web.Response(headers={
             "Access-Control-Allow-Origin": origin,
             "Access-Control-Allow-Headers": "content-type",
+            "Vary": "Origin",
         })
 
     @asyncio.coroutine
