@@ -67,8 +67,8 @@ import logging
 import asyncio
 from asyncio.subprocess import PIPE
 
-import plugins
 from commands import command
+import plugins
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +118,7 @@ def _spawn(bot, event, *args):
     environment.update(dict(os.environ))
 
     proc = yield from asyncio.create_subprocess_exec(*executable, stdout=PIPE, stderr=PIPE,
-        env=environment)
+                                                     env=environment)
 
     (stdout_data, stderr_data) = yield from proc.communicate()
     stdout_str = stdout_data.decode().rstrip()
