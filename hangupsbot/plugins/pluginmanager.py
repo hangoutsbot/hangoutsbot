@@ -18,12 +18,12 @@ def getplugins(bot, event, *args):
 
     html = """The following plugins are loaded:<br />"""
 
-    for plugin in loaded_plugins:
+    for plugin in sorted(loaded_plugins):
         html += "<b>{}</b><br />".format(plugin)
 
     html += """<br />Available plugins:<br />"""
 
-    for plugin in all_plugins:
+    for plugin in sorted(all_plugins):
         if plugin not in loaded_plugins:
             html += "<i>{}</i><br />".format(plugin)
 
@@ -42,13 +42,25 @@ def addplugin(bot, event, plugin, *args):
                 value.append(plugin)
                 bot.config.set_by_path(["plugins"], value)
                 bot.config.save()
-                yield from bot.coro_send_message(event.conv_id, "Plugin <i>{}</i> added".format(plugin))
+
+                # attempt to load the plugin
+                try:
+                    if plugins.load(bot, "plugins.{}".format(plugin)):
+                        message = "<b><pre>{}</pre>: loaded</b>".format("plugins.{}".format(plugin))
+                    else:
+                        message = "<b><pre>{}</pre>: failed</b>".format("plugins.{}".format(plugin))
+
+                except RuntimeError as e:
+                    message = "<b><pre>{}</pre>: <pre>{}</pre></b>".format(module_path, str(e))
+
             else:
-                yield from bot.coro_send_message(event.conv_id, "Error: Do <b>/bot config set plugins []</b> first")
+                message = "Error: Do <b>/bot config set plugins []</b> first"
         else:
-            yield from bot.coro_send_message(event.conv_id, "Not a valid plugin name")
+            message = "Not a valid plugin name"
     else:
-        yield from bot.coro_send_message(event.conv_id, "Plugin already loaded")
+        message = "Plugin already loaded"
+    yield from bot.coro_send_message(event.conv_id, message)
+
 
 def removeplugin(bot, event, plugin, *args):
     """Removes a plugin from the bot, REQUIRES REBOOT
@@ -57,12 +69,17 @@ def removeplugin(bot, event, plugin, *args):
     if isinstance(value, list):
         try:
             value.remove(plugin)
-        except ValueError:
-            yield from bot.coro_send_message(event.conv_id, "Plugin not loaded")
-            return
-        bot.config.set_by_path(["plugins"], value)
-        bot.config.save()
-        yield from bot.coro_send_message(event.conv_id, "Plugin <i>{}</i> removed".format(plugin))
-    else:
-        yield from bot.coro_send_message(event.conv_id, "Plugin config not set")
+            bot.config.set_by_path(["plugins"], value)
+            bot.config.save()
 
+            yield from plugins.unload(bot, "plugins.{}".format(plugin))
+            message = "<b><pre>{}</pre>: unloaded</b>".format("plugins.{}".format(plugin))
+        except ValueError:
+            message = "Plugin not loaded"
+        except (RuntimeError, KeyError) as e:
+            message = "<b><pre>{}</pre>: <pre>{}</pre></b>".format("plugins.{}".format(plugin), str(e))
+    else:
+        message = "Plugin config not set"
+
+
+    yield from bot.coro_send_message(event.conv_id, message)
