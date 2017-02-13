@@ -1,0 +1,29 @@
+# this assumes hangoutsbot has been git cloned into $HOME/hangoutsbot and will create
+# a hangoutsbot specific virtual installation envirionment in $HOME/env/hangoutbot to
+# install anything hangoutsbot requires in order to work
+#
+# cd $HOME
+# git clone <url-to-hangoutsbot.git>
+
+# create a virtual environment in $HOME/env/hangoutsbot just for hangouts
+# if the pyvenv command is not there, make sure you have installed
+# the python3-venv package and try again (use pyvenv-3.5 or 3.6 if not using 3.4)
+mkdir $HOME/env
+pyvenv-3.4 $HOME/env/hangoutsbot
+
+# activate the virutal environment (assuming you're running bash)
+# if using a csh-like shell, replace "." with "source" on the next line
+. $HOME/env/hangoutsbot/bin/activate
+
+# your command prompt should change to show your environment is set up inside the venv, if not
+# do not proceed until you debug that
+
+pip install -U pip                              # upgrade pip to current version
+pip install -r $HOME/hangoutsbot/requirements.txt # install requirements for hangouts
+
+# always run the bot explictly specifying the copy of python that is in the virtual environment
+# which will change everything to rely on just the stuff inside the venv, and not the standard
+# system libraries, or, always make sure "activate" has been sourced before running it
+$HOME/env/hangoutsbot/bin/python $HOME/hangoutsbot/hangupsbot/hangupsbot.py
+
+

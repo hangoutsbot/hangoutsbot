@@ -174,7 +174,7 @@ def _handle_incoming_message(bot, event, command):
 
                     for link in event.conv_event.attachments:
 
-                        filename = os.path.basename(link)
+                        filename = "{}.gif".format(os.path.basename(link))
                         r = yield from aiohttp.request('get', link)
                         raw = yield from r.read()
                         image_data = io.BytesIO(raw)
