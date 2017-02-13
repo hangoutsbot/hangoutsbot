@@ -45,6 +45,7 @@ def _screencap(browser, url, filename):
     # read the resulting file into a byte array
     file_resource = yield from _open_file(filename)
     file_data = yield from loop.run_in_executor(None, file_resource.read)
+    file_resource.close()
     image_data = yield from loop.run_in_executor(None, io.BytesIO, file_data)
     yield from loop.run_in_executor(None, os.remove, filename)
 

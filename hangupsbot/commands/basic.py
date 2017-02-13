@@ -40,6 +40,7 @@ def help(bot, event, cmd=None, *args):
                                 '<b><pre>{}</pre></b><br />').format( help_chat_id,
                                                                       help_conv_id ))
 
+        help_lines.append('[botalias] <i><b>help</b> <command></i><br/>Show more info about a command.<br />')
         if len(commands_nonadmin) > 0:
             help_lines.append(_('<b>User commands:</b>'))
             help_lines.append(', '.join(sorted(commands_nonadmin)))
@@ -62,6 +63,8 @@ def help(bot, event, cmd=None, *args):
             return
 
         help_lines.append("<b>{}</b>: {}".format(command_fn.__name__, command_fn.__doc__))
+        
+    help_lines = [lines.replace('[botalias]', bot._handlers.bot_command[0]) for lines in help_lines]
 
     yield from bot.coro_send_to_user_and_conversation(
         event.user.id_.chat_id,

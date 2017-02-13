@@ -57,6 +57,9 @@ which will, of course, send back `/etc/passwd`.
 You're responsible for sanitizing any arguments passed on to the
 program, if `allow_args` is true. Writing your own small shell
 script to do so may be your best option.
+
+The environment variables from this program are passed along to
+the subprocess, along with additional helpers (see code below).
 """
 
 import os
@@ -64,8 +67,8 @@ import logging
 import asyncio
 from asyncio.subprocess import PIPE
 
-import plugins
 from commands import command
+import plugins
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +91,7 @@ def _initialize(bot):
 def _spawn(bot, event, *args):
     """Execute a generic command"""
     config = bot.get_config_suboption(event.conv_id, "spawn")
-    cmd_config = config["commands"][event.command_name]
+    cmd_config = config["commands"][event.command_name.lower()]
 
     home_env = cmd_config.get("home", config.get("home"))
     if home_env:
@@ -104,7 +107,18 @@ def _spawn(bot, event, *args):
 
     executable = tuple(executable)
     logger.info("%s executing: %s", event.user.full_name, executable)
-    proc = yield from asyncio.create_subprocess_exec(*executable, stdout=PIPE, stderr=PIPE)
+
+    environment = {
+        'HANGOUT_USER_CHATID': event.user_id.chat_id,
+        'HANGOUT_USER_FULLNAME': event.user.full_name,
+        'HANGOUT_CONV_ID':  event.conv_id,
+        'HANGOUT_CONV_TAGS': ','.join(bot.tags.useractive(event.user_id.chat_id,
+                                                          event.conv_id))
+    }
+    environment.update(dict(os.environ))
+
+    proc = yield from asyncio.create_subprocess_exec(*executable, stdout=PIPE, stderr=PIPE,
+                                                     env=environment)
 
     (stdout_data, stderr_data) = yield from proc.communicate()
     stdout_str = stdout_data.decode().rstrip()

@@ -36,6 +36,7 @@ The basic syntax for running the bot (assuming you are in the root
 ```
 python3 hangupsbot/hangupsbot.py
 ```
+See https://github.com/tdryer/hangups/issues/260#issuecomment-246578670 for getting auth code
 
 If you are having problems starting the bot, appending a `-d` at the
   end will dump more details into the bot logs e.g. 
