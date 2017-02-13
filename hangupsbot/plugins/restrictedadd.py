@@ -54,8 +54,12 @@ def _check_if_admin_added_me(bot, event, command):
             # bot was part of the event
             initiator_user_id = event.user_id.chat_id
 
+            # check if botkeeper added, including self (ie, add by link)
             if initiator_user_id in _botkeeper_list(bot, event.conv_id):
                 logger.info("botkeeper added me to {}".format(event.conv_id))
+
+            elif initiator_user_id is bot.user_self()["chat_id"]:
+                logger.info("bot added self to {}".format(event.conv_id))
 
             else:
                 logger.warning("{} ({}) tried to add me to {}".format(
@@ -70,7 +74,7 @@ def _check_if_admin_added_me(bot, event, command):
 
 @asyncio.coroutine
 def _verify_botkeeper_presence(bot, event, command):
-    if not bot.get_config_option('strict_botkeeper_check'):
+    if not bot.get_config_suboption('strict_botkeeper_check'):
         return
 
     try:
