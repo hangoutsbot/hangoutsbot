@@ -1,4 +1,5 @@
-# Google recently announced depreciation of Hangouts API. This does not affect hangoutsbot in any way. What they are deprecating is the video hangouts interactions (games, overlays).
+# Note about Hangout API Depreciation
+Google recently announced depreciation of Hangouts API. This does not affect hangoutsbot in any way. What they are deprecating is the video hangouts interactions (games, overlays).
 
 # Introduction
 
