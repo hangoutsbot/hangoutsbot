@@ -74,7 +74,7 @@ def _check_if_admin_added_me(bot, event, command):
 
 @asyncio.coroutine
 def _verify_botkeeper_presence(bot, event, command):
-    if not bot.get_config_suboption('strict_botkeeper_check'):
+    if not bot.get_config_suboption(event.conv_id, 'strict_botkeeper_check'):
         return
 
     try:
