@@ -20,9 +20,9 @@ class Cleverbot:
     """
     Wrapper over the Cleverbot API.
     """
-    HOST = "www.cleverbot.com"
+    HOST = "www.boibot.com"
     PROTOCOL = "http://"
-    RESOURCE = "/webservicemin"
+    RESOURCE = "/webservicemin?uc=777&botapi=see%20www.cleverbot.com%2Fapis&t=18205"
     API_URL = PROTOCOL + HOST + RESOURCE
 
     headers = {

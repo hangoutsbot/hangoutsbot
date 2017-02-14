@@ -2,7 +2,7 @@
 git+https://github.com/tdryer/hangups.git
 appdirs
 asyncio
-aiohttp >= 0.21.2
+aiohttp>=1.0,<1.1
 jsonrpclib-pelix
 
 # PLUGIN DEPENDENCIES #
