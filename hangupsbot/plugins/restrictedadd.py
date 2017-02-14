@@ -19,7 +19,7 @@ _internal = __internal_vars()
 def _initialise(bot):
     plugins.register_handler(_check_if_admin_added_me, type="membership")
     plugins.register_handler(_verify_botkeeper_presence, type="message")
-    plugins.register_admin_command(["allowbotadd", "removebotadd", "addhocheckwhitelist"])
+    plugins.register_admin_command(["allowbotadd", "removebotadd", "botaddnotify"])
 
     if not bot.get_config_option('botkeeper_check_notify'):
         bot.config.set_by_path(['botkeeper_check_notify'], False)
@@ -59,29 +59,27 @@ def _check_if_admin_added_me(bot, event, command):
             # bot was part of the event
             initiator_user_id = event.user_id.chat_id
 
-            #if initiator_user_id != bot_id (i.e the bot account didn't join via link)
+            #If initiator_user_id != bot_id (i.e the bot account didn't join via link)
+            #If it did join via link _verfiy_botkeeper_presence() will catch it.
             if initiator_user_id != bot.user_self()["chat_id"]:
 
-                # check if botkeeper added, including self (ie, add by link)
+                # check if botkeeper added
                 if initiator_user_id in _botkeeper_list(bot, event.conv_id):
                     logger.info("botkeeper added me to {}".format(event.conv_id))
-
-                elif initiator_user_id is bot.user_self()["chat_id"]:
-                    logger.info("bot added self to {}".format(event.conv_id))
 
                 else:
                     logger.warning("{} ({}) tried to add me to {}".format(
                         initiator_user_id, event.user.full_name, event.conv_id))
 
                     notify = bot.config.get_option('botkeeper_check_notify')
-
+                    print(notify)
                     if notify is True:
                         yield from bot.coro_send_to_user_and_conversation(
                             _botkeeper_list(bot, event.conv_id)[0], event.conv_id,
                             _("<b>{}</b> ({}) tried to add me to<br/><b>{}</b><br />Run this command to enable me to stay next time:".format(event.user.full_name, initiator_user_id, bot.conversations.get_name(event.conv_id,fallback_string="? {}".format(event.conv_id)))), 
                             _("<i>{}, you need to be authorised to add me to another conversation. I'm leaving now...</i>").format(event.user.full_name))
 
-                        yield from bot.coro_send_to_user(_botkeeper_list(bot, event.conv_id)[0], ("{} addhocheckwhitelist {}").format(bot._handlers.bot_command[0],event.conv_id))
+                        yield from bot.coro_send_to_user(_botkeeper_list(bot, event.conv_id)[0], ("{} botaddnotify {}").format(bot._handlers.bot_command[0],event.conv_id))
 
                     else:
                         yield from bot.coro_send_message(
@@ -133,7 +131,7 @@ def _verify_botkeeper_presence(bot, event, command):
                 _("I was in this hangout without a keeper<br/><b>{}</b><br />Run this command to enable me to stay next time:".format(bot.conversations.get_name(event.conv_id,fallback_string="? {}".format(event.conv_id)))), 
                 _("<i>I can't be in here without a chaperone.<br />I'm leaving now...</i>"))
 
-            yield from bot.coro_send_to_user(_botkeeper_list(bot, event.conv_id)[0], ("{} addhocheckwhitelist {}").format(bot._handlers.bot_command[0],event.conv_id))
+            yield from bot.coro_send_to_user(_botkeeper_list(bot, event.conv_id)[0], ("{} botaddnotify {}").format(bot._handlers.bot_command[0],event.conv_id))
 
         else:
             yield from bot.coro_send_message(
@@ -190,14 +188,25 @@ def removebotadd(bot, event, user_id, *args):
 
 
 
-def addhocheckwhitelist(bot, event, conv_id):
-    """<br />[botalias] <i><b>addhocheckwhitelist</b> <conv_id></i><br />Whitelist a conversation to avoid botkeeper checks.<br /><u>Usage</u><br />[botalias] <i><b>addhocheckwhitelist</b> AbcdefGHIjklmNOPQRStuVWXyz</i>"""
-    if not bot.config.exists(['conversations']):
-        bot.config.set_by_path(['conversations'],{})
-    if not bot.config.exists(['conversations',conv_id]):
-        bot.config.set_by_path(['conversations',conv_id],{})
+def botaddnotify(bot, event, conv_id):
+    """<br />[botalias] <i><b>botaddnotify</b> <conv_id></i><br />Toggle whitelisting a conversation to avoid botkeeper checks.<br /><u>Usage</u><br />[botalias] <i><b>botaddnotify</b> AbcdefGHIjklmNOPQRStuVWXyz</i>"""
+    
+    if bot.config.exists(["conversations", convid, "strict_botkeeper_check"])
+        conv_settings = bot.config.get_by_path(['conversations', event.conv_id])
+        del conv_settings['strict_botkeeper_check'] # remove setting
 
-    bot.config.set_by_path(['conversations', conv_id, 'strict_botkeeper_check'], False)
-    bot.config.save()
+        bot.config.set_by_path(['conversations', event.conv_id], conv_settings)
+        bot.config.save()
 
-    yield from bot.coro_send_message(event.conv, ("<i>{}</i> has been whitelisted.").format(conv_id))
+        yield from bot.coro_send_message(event.conv, ("<i>{}</i> is no longer whitelisted.").format(conv_id))
+
+    else:
+        if not bot.config.exists(['conversations']):
+            bot.config.set_by_path(['conversations'],{})
+        if not bot.config.exists(['conversations',conv_id]):
+            bot.config.set_by_path(['conversations',conv_id],{})
+
+        bot.config.set_by_path(['conversations', conv_id, 'strict_botkeeper_check'], False)
+        bot.config.save()
+
+        yield from bot.coro_send_message(event.conv, ("<i>{}</i> has been whitelisted.").format(conv_id))
