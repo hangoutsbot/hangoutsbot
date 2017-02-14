@@ -941,9 +941,9 @@ def main():
     """Main entry point"""
     # Build default paths for files.
     dirs = appdirs.AppDirs('hangupsbot', 'hangupsbot')
-    default_log_path = os.path.join(dirs.user_data_dir, 'hangupsbot.log')
+    default_log_path = os.path.join(dirs.user_log_dir, 'hangupsbot.log')
     default_cookies_path = os.path.join(dirs.user_data_dir, 'cookies.json')
-    default_config_path = os.path.join(dirs.user_data_dir, 'config.json')
+    default_config_path = os.path.join(dirs.user_config_dir, 'config.json')
     default_memory_path = os.path.join(dirs.user_data_dir, 'memory.json')
 
     # Configure argument parser
