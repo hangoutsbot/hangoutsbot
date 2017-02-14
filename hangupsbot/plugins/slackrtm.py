@@ -1207,9 +1207,21 @@ class SlackRTM(object):
             if self.sending and ': ' in event.text:
                 # this hangout message originated in slack
                 self.sending -= 1
-                command = event.text.split(': ')[1]
+                usertag, command = event.text.split(': ', 1)
+                username = usertag.split(' ')[0]
                 event.text = command
-                logger.debug('attempting to execute %s', command)
+                # attempt to map the sender to a Hangouts user
+                idents = self.bot.user_memory_get(self.name, 'identities') or {'slack': {}, 'hangouts': {}}
+                if (username in idents['slack'] and
+                    idents['slack'][username] in idents['hangouts'] and
+                    idents['hangouts'][idents['slack'][username]] == username):
+                    user_id = idents['slack'][username]
+                    for user in event.conv.users:
+                        if user.id_.chat_id == user_id:
+                            event.user = user
+                            event.user_id = user.id_
+                            break
+                logger.debug('attempting to execute %s as %s', command, event.user_id.chat_id)
                 yield from self.bot._handlers.handle_command(event)
                 return
             if self.lastimg and self.lastimg in event.text:
