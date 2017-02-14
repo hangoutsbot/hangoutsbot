@@ -384,7 +384,7 @@ class conversation_memory:
             yield from self.get_users_from_query(_users_to_fetch)
 
         """store the conversation type: GROUP, ONE_TO_ONE"""
-        if conv._conversation.type_ == hangups_constants.ConversationType.GROUP:
+        if conv._conversation.type == hangups_constants.ConversationType.GROUP:
             memory["type"] = "GROUP"
         else:
             # conv._conversation.type_ == hangups_constants.ConversationType.STICKY_ONE_TO_ONE

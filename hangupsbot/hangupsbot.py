@@ -516,7 +516,7 @@ class HangupsBot(object):
         self._handlers = handlers.EventHandler(self)
         handlers.handler.set_bot(self) # shim for handler decorator
 
-        plugins.load(self, "monkeypatch.otr_support")
+        # plugins.load(self, "monkeypatch.otr_support")
 
         #self._user_list = yield from hangups.user.build_user_list(self._client)
 

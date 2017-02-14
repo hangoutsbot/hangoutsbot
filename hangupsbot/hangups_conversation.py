@@ -144,6 +144,7 @@ class HangupsConversation(hangups.conversation.Conversation):
     def users(self):
         return [ self.bot.get_hangups_user(part.id_.chat_id) for part in self._conversation.participant_data ]
 
+import inspect
 
 class FakeConversation(object):
     def __init__(self, _client, id_):
@@ -158,7 +159,25 @@ class FakeConversation(object):
             else:
                 serialised_segments = None
 
-            yield from self._client.sendchatmessage(
-                self.id_, serialised_segments,
-                image_id=image_id, otr_status=otr_status
+
+            print(segments)
+
+            request = hangups.hangouts_pb2.SendChatMessageRequest(
+                request_header=self._client.get_request_header(),
+                event_request_header=hangups.hangouts_pb2.EventRequestHeader(
+                    conversation_id=hangups.hangouts_pb2.ConversationId(
+                        id=self.id_
+                    ),
+                    client_generated_id=self._client.get_client_generated_id(),
+                ),
+                message_content=hangups.hangouts_pb2.MessageContent(
+                        segment=serialised_segments
+                ),
             )
+            yield from self._client.send_chat_message(request)
+
+
+            # yield from self._client.send_message(
+            #     self.id_, serialised_segments,
+            #     image_id=image_id, otr_status=otr_status
+            # )
