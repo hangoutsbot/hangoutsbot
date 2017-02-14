@@ -582,7 +582,7 @@ class SlackRTM(object):
             logger.exception('upload_image: %s(%s)', type(e), str(e))
 
     def handleCommands(self, msg):
-        cmdfmt = re.compile(r'^<@'+self.my_uid+r'>:?\s+(help|whereami|whoami|whois|admins|hangoutmembers|hangouts|listsyncs|syncto|disconnect|setsyncjoinmsgs|sethotag|setimageupload|setslacktag|showslackrealnames)', re.IGNORECASE)
+        cmdfmt = re.compile(r'^<@'+self.my_uid+r'>:?\s+(help|whereami|whoami|whois|admins|hangoutmembers|identify|hangouts|listsyncs|syncto|disconnect|setsyncjoinmsgs|sethotag|setimageupload|setslacktag|showslackrealnames)', re.IGNORECASE)
         match = cmdfmt.match(msg.text)
         if not match:
             return
@@ -596,6 +596,7 @@ class SlackRTM(object):
             message += u'<@%s> whois @username _tells you the user id of @username_\n' % self.my_uid
             message += u'<@%s> admins _lists the slack users with admin priveledges_\n' % self.my_uid
             message += u'<@%s> hangoutmembers _lists the users of the hangouts synced to this channel_\n' % self.my_uid
+            message += u'<@%s> identify [ID] _set your Hangouts identity to the given Google profile, or blank to unset_\n' % self.my_uid
             message += u'<@%s> hangouts _lists all connected hangouts (only available for admins, use in DM with me suggested)_\n' % self.my_uid
             message += u'<@%s> listsyncs _lists all runnging sync connections (only available for admins, use in DM with me suggested)_\n' % self.my_uid
             message += u'<@%s> syncto HangoutId [shortname] _starts syncing messages from current channel/group to specified Hangout, if shortname given, messages from the Hangout will be tagged with shortname instead of Hangout title (only available for admins)_\n' % self.my_uid
@@ -683,6 +684,32 @@ class SlackRTM(object):
                   text=message,
                   as_user=True,
                   link_names=True)
+
+        elif command == 'identify':
+            ident = None
+            if not len(args):
+                ident = ""
+                message = u'%s: your identity has been cleared' % (msg.username)
+            elif not re.match('^[0-9]{21}$', args[0]):
+                message = u'%s: identity should be a Google profile ID, try using `hangoutmembers` to find yours' % (msg.username)
+            else:
+                ident = args[0]
+                message = u'%s: your identity has been set to %s' % (msg.username, ident)
+            if ident is not None:
+                idents = self.bot.user_memory_get(self.name, 'identities') or {'slack': {}, 'hangouts': {}}
+                if ident:
+                    idents['slack'][msg.username] = ident
+                    if ident not in idents['hangouts'] or not idents['hangouts'][ident] == msg.username:
+                        message += ', now use the `slack_identify` command in Hangouts to confirm this change'
+                elif msg.username in idents['slack']:
+                    del idents['slack'][msg.username]
+                logger.info('storing Slack identity %s->%s', msg.username, ident)
+                self.bot.user_memory_set(self.name, 'identities', idents)
+            self.api_call('chat.postMessage',
+                          channel=msg.channel,
+                          text=message,
+                          as_user=True,
+                          link_names=True)
 
         else:
             # the remaining commands are for admins only
@@ -1366,6 +1393,7 @@ def _initialise(bot):
     plugins.register_handler(_handle_membership_change, type="membership")
     plugins.register_handler(_handle_rename, type="rename")
 
+    plugins.register_user_command(["slack_identify"])
     plugins.register_admin_command(["slack_help", "slacks", "slack_channels", "slack_listsyncs", "slack_syncto", "slack_disconnect", "slack_setsyncjoinmsgs", "slack_setimageupload", "slack_sethotag","slack_users", "slack_setslacktag", "slack_showslackrealnames"])
 
 
@@ -1396,6 +1424,39 @@ def _handle_rename(bot, event, command):
             slackrtm.handle_ho_rename(event)
         except Exception as e:
             logger.exception('_handle_rename threw: %s', str(e))
+
+
+def slack_identify(bot, event, *args):
+    """set your Slack identity
+
+usage: /bot slack_identify [team] [username]"""
+    if not args:
+        bot.send_message(event.conv, "You need to provide the Slack team name.")
+        return
+    team = args[0]
+    if team not in [slackrtm.name for slackrtm in _slackrtms]:
+        bot.send_message(event.conv, "That isn't a known Slack team name.")
+        return
+    ident = None
+    if not args[1:]:
+        ident = ""
+        msg = "Your identity has been cleared."
+    elif not re.match(r"^[a-z0-9][a-z0-9._-]*$", args[1]):
+        msg = "Identity should be a Slack username."
+    else:
+        ident = args[1]
+        msg = "Your identity has been set to %s." % ident
+    if ident is not None:
+        idents = bot.user_memory_get(team, "identities") or {"slack": {}, "hangouts": {}}
+        if ident:
+            idents["hangouts"][event.user_id.chat_id] = ident
+            if ident not in idents["slack"] or not idents["slack"][ident] == event.user_id.chat_id:
+                msg += "  Now use the 'identify' command in Slack to confirm this change."
+        elif event.user_id.chat_id in idents["hangouts"]:
+            del idents["hangouts"][event.user_id.chat_id]
+        logger.info("storing Hangouts identity %s->%s", event.user_id.chat_id, ident)
+        bot.user_memory_set(team, "identities", idents)
+    bot.send_message(event.conv, msg)
 
 
 def slacks(bot, event, *args):
