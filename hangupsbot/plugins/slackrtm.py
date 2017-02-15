@@ -54,6 +54,7 @@ import hangups
 import hangups.ui.utils
 
 import plugins
+from commands import command
 
 import emoji
 from websocket import WebSocketConnectionClosedException
@@ -1207,10 +1208,11 @@ class SlackRTM(object):
             if self.sending and ': ' in event.text:
                 # this hangout message originated in slack
                 self.sending -= 1
-                usertag, command = event.text.split(': ', 1)
+                usertag, msg = event.text.split(': ', 1)
                 username = usertag.split(' ')[0]
-                event.text = command
+                event.text = msg
                 # attempt to map the sender to a Hangouts user
+                match = False
                 idents = self.bot.user_memory_get(self.name, 'identities') or {'slack': {}, 'hangouts': {}}
                 if (username in idents['slack'] and
                     idents['slack'][username] in idents['hangouts'] and
@@ -1218,10 +1220,15 @@ class SlackRTM(object):
                     user_id = idents['slack'][username]
                     for user in event.conv.users:
                         if user.id_.chat_id == user_id:
+                            match = True
                             event.user = user
                             event.user_id = user.id_
                             break
-                logger.debug('attempting to execute %s as %s', command, event.user_id.chat_id)
+                    # only trigger mentions via Slack if identified
+                    if match and 'mentions' in self.bot.get_config_option('plugins'):
+                        logger.debug('running mention handler as %s', event.user_id.chat_id)
+                        yield from plugins.mentions._handle_mention(self.bot, event, command)
+                logger.debug('attempting to execute %s as %s', msg, event.user_id.chat_id)
                 yield from self.bot._handlers.handle_command(event)
                 return
             if self.lastimg and self.lastimg in event.text:
