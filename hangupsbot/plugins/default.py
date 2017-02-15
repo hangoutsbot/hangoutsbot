@@ -1,7 +1,5 @@
 import re, json, logging
 
-import hangups
-
 import plugins
 
 from utils import text_to_segments, simple_parse_to_segments, remove_accents
@@ -57,7 +55,7 @@ def broadcast(bot, event, *args):
         if subcmd == "info":
             """display broadcast data such as message and target rooms"""
 
-            conv_info = [ "<b><pre>{}</pre></b> ... <pre>{}</pre>".format(bot.conversations.get_name(convid), convid) 
+            conv_info = [ "<b><pre>{}</pre></b> ... <pre>{}</pre>".format(bot.conversations.get_name(convid), convid)
                           for convid in _internal["broadcast"]["conversations"] ]
 
             if not _internal["broadcast"]["message"]:
@@ -157,9 +155,7 @@ def user(bot, event, *args):
     search_lower = search.strip().lower()
     search_upper = search.strip().upper()
 
-    segments = [hangups.ChatMessageSegment(_('results for user named "{}":').format(search),
-                                           is_bold=True),
-                hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
+    html = '<b>results for user named "{}":</b>\n'.format(search)
 
     all_known_users = {}
     for chat_id in bot.memory["user_data"]:
@@ -178,17 +174,12 @@ def user(bot, event, *args):
             or search_upper in remove_accents(unspaced_upper) ):
 
             link = 'https://plus.google.com/u/0/{}/about'.format(u.id_.chat_id)
-            segments.append(hangups.ChatMessageSegment(u.full_name, hangups.SegmentType.LINK,
-                                                       link_target=link))
+            html += '{} ({})\n'.format(u.full_name, link)
             if u.emails:
-                segments.append(hangups.ChatMessageSegment(' ('))
-                segments.append(hangups.ChatMessageSegment(u.emails[0], hangups.SegmentType.LINK,
-                                                           link_target='mailto:{}'.format(u.emails[0])))
-                segments.append(hangups.ChatMessageSegment(')'))
-            segments.append(hangups.ChatMessageSegment(' ... {}'.format(u.id_.chat_id)))
-            segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+                html += ' ({})'.format(u.emails[0])
+            html += ' ... {}\n'.format(u.id_.chat_id)
 
-    yield from bot.coro_send_message(event.conv, segments)
+    yield from bot.coro_send_message(event.conv, html)
 
 
 def hangouts(bot, event, *args):
@@ -344,11 +335,10 @@ def config(bot, event, cmd=None, *args):
         value = _('Parameter does not exist!')
 
     config_path = ' '.join(k for k in ['config'] + config_args)
-    segments = [hangups.ChatMessageSegment('{}:'.format(config_path),
-                                           is_bold=True),
-                hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
-    segments.extend(text_to_segments(json.dumps(value, indent=2, sort_keys=True)))
-    yield from bot.coro_send_message(event.conv, segments)
+
+    html = config_path + "\n"
+    html += json.dumps(value, indent=2, sort_keys=True)
+    yield from bot.coro_send_message(event.conv, html)
 
 
 def whoami(bot, event, *args):
