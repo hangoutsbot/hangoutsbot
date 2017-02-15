@@ -279,7 +279,7 @@ class conversation_memory:
             "full_name": User.full_name,
             "first_name": User.first_name,
             "photo_url": User.photo_url,
-            "emails": User.emails,
+            "emails": list(User.emails),
             "is_self": User.is_self,
             "is_definitive": is_definitive }
 
