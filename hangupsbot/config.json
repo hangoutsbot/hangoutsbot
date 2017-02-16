@@ -1,6 +1,8 @@
 {
   "admins": [
   ],
+  "auto_alias_one_to_one": false,
+  "auto_alias_group": false,
   "autoreplies_enabled": true,
   "autoreplies": [
     [
