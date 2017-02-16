@@ -1,5 +1,4 @@
-import hangups,
-       hangups_constants
+import hangups, hangups_constants
 
 ChatMessageEvent = hangups.ChatMessageEvent
 MembershipChangeEvent = hangups.MembershipChangeEvent
