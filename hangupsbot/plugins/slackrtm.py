@@ -1224,10 +1224,14 @@ class SlackRTM(object):
                             event.user = user
                             event.user_id = user.id_
                             break
-                    # only trigger mentions via Slack if identified
-                    if match and 'mentions' in self.bot.get_config_option('plugins'):
-                        logger.debug('running mention handler as %s', event.user_id.chat_id)
-                        yield from plugins.mentions._handle_mention(self.bot, event, command)
+                    # only trigger other plugins via Slack if identified
+                    if match:
+                        if 'mentions' in self.bot.get_config_option('plugins'):
+                            logger.debug('running mention handler as %s', event.user_id.chat_id)
+                            yield from plugins.mentions._handle_mention(self.bot, event, command)
+                        if 'subscribe' in self.bot.get_config_option('plugins'):
+                            logger.debug('running subscribe handler as %s', event.user_id.chat_id)
+                            yield from plugins.subscribe._handle_keyword(self.bot, event, command)
                 logger.debug('attempting to execute %s as %s', msg, event.user_id.chat_id)
                 yield from self.bot._handlers.handle_command(event)
                 return
