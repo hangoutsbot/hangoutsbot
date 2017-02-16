@@ -3,6 +3,7 @@ import asyncio, importlib, inspect, logging, os, sys
 from inspect import getmembers, isfunction
 
 import handlers
+import hangups_shim
 
 from commands import command
 
@@ -330,6 +331,10 @@ def load(bot, module_path, module_name=None):
     except Exception as e:
         logger.exception("EXCEPTION during plugin import: {}".format(module_path))
         return
+
+    if hasattr(sys.modules[module_path], 'hangups'):
+        logger.info("{} has legacy hangups reference".format(module_name))
+        setattr(sys.modules[module_path], 'hangups', hangups_shim)
 
     public_functions = [o for o in getmembers(sys.modules[module_path], isfunction)]
 
