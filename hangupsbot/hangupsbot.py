@@ -605,6 +605,11 @@ class HangupsBot(object):
                 self._handlers.handle_chat_rename(event)
             ).add_done_callback(lambda future: future.result())
 
+        elif type(conv_event) is hangups.conversation_event.HangoutEvent:
+            asyncio.async(
+                self._handlers.handle_call(event)
+            ).add_done_callback(lambda future: future.result())
+
         elif type(conv_event) is hangups.conversation_event.ConversationEvent:
             if conv_event._event.hangout_event:
                 asyncio.async(
