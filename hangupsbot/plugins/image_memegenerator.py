@@ -43,8 +43,8 @@ def meme(bot, event, *args):
         if len(parameters) == 0:
             parameters.append("robot")
 
-        links = yield from _retrieve("http://memegenerator.net/memes/search?q=" + "+".join(parameters), ".item_medium_small > a", "href")
-        links = yield from _retrieve("http://memegenerator.net" + random.choice(links), ".item_medium_small > a", "href")
+        links = yield from _retrieve("https://memegenerator.net/memes/search?q=" + "+".join(parameters), ".item_medium_small > a", "href")
+        links = yield from _retrieve("https://memegenerator.net" + random.choice(links), ".item_medium_small > a", "href")
 
         instance_link = "http://memegenerator.net" + random.choice(links)
         links = yield from _retrieve(instance_link, ".instance_large > img", "src")
