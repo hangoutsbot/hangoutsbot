@@ -450,15 +450,15 @@ class HangupsBot(object):
                                         "To keep me quiet, reply with <b>{0} optout</b>.</i>").format(self._handlers.bot_command[0])
 
                     request = hangups.hangouts_pb2.CreateConversationRequest(
-                        request_header=self._client.get_request_header(),
-                        type=hangups.hangouts_pb2.CONVERSATION_TYPE_ONE_TO_ONE,
-                        client_generated_id=self._client.get_client_generated_id(),
-                        invitee_id=[hangups.hangouts_pb2.InviteeID(gaia_id=chat_id)]
-                        )
+                        request_header = self._client.get_request_header(),
+                        type = hangups.hangouts_pb2.CONVERSATION_TYPE_ONE_TO_ONE,
+                        client_generated_id = self._client.get_client_generated_id(),
+                        invitee_id = [ hangups.hangouts_pb2.InviteeID(gaia_id=chat_id) ])
 
                     response = yield from self._client.create_conversation(request)
 
                     new_conversation_id = response.conversation.conversation_id.id
+
                     yield from self.coro_send_message(new_conversation_id, introduction)
                     conversation = FakeConversation(self._client, new_conversation_id)
                 except Exception as e:
