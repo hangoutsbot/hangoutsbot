@@ -159,25 +159,17 @@ class FakeConversation(object):
             else:
                 serialised_segments = None
 
-
-            print(segments)
+            media_attachment = None
+            if image_id:
+                media_attachment = hangups.hangouts_pb2.ExistingMedia(
+                    photo = hangups.hangouts_pb2.Photo( photo_id = image_id ))
 
             request = hangups.hangouts_pb2.SendChatMessageRequest(
-                request_header=self._client.get_request_header(),
-                event_request_header=hangups.hangouts_pb2.EventRequestHeader(
-                    conversation_id=hangups.hangouts_pb2.ConversationId(
-                        id=self.id_
-                    ),
-                    client_generated_id=self._client.get_client_generated_id(),
-                ),
-                message_content=hangups.hangouts_pb2.MessageContent(
-                        segment=serialised_segments
-                ),
-            )
+                request_header = self._client.get_request_header(),
+                message_content = hangups.hangouts_pb2.MessageContent( segment=serialised_segments ),
+                existing_media = media_attachment,
+                event_request_header = hangups.hangouts_pb2.EventRequestHeader(
+                    conversation_id=hangups.hangouts_pb2.ConversationId( id=self.id_ ),
+                    client_generated_id=self._client.get_client_generated_id() ))
+
             yield from self._client.send_chat_message(request)
-
-
-            # yield from self._client.send_message(
-            #     self.id_, serialised_segments,
-            #     image_id=image_id, otr_status=otr_status
-            # )
