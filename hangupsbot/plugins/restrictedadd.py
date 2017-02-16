@@ -191,7 +191,7 @@ def removebotadd(bot, event, user_id, *args):
 def botaddnotify(bot, event, conv_id):
     """<br />[botalias] <i><b>botaddnotify</b> <conv_id></i><br />Toggle whitelisting a conversation to avoid botkeeper checks.<br /><u>Usage</u><br />[botalias] <i><b>botaddnotify</b> AbcdefGHIjklmNOPQRStuVWXyz</i>"""
     
-    if bot.config.exists(["conversations", convid, "strict_botkeeper_check"])
+    if bot.config.exists(["conversations", convid, "strict_botkeeper_check"]):
         conv_settings = bot.config.get_by_path(['conversations', event.conv_id])
         del conv_settings['strict_botkeeper_check'] # remove setting
 
