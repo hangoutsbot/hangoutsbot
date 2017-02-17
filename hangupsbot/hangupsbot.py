@@ -428,6 +428,10 @@ class HangupsBot(object):
                 logger.info("get_1on1: user {} has optout".format(chat_id))
                 return False
 
+        if chat_id == self.user_self()["chat_id"]:
+            logger.warning("1to1 conversations with myself are not supported", stack_info=True)
+            return False
+
         conversation = None
 
         if self.memory.exists(["user_data", chat_id, "1on1"]):
