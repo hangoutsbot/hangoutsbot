@@ -3,7 +3,6 @@ import time
 import plugins
 
 import hangups
-import hangups_constants
 
 
 def _initialise(bot):
@@ -11,7 +10,7 @@ def _initialise(bot):
 
 
 def on_hangout_call(bot, event, command):
-    if event.conv_event._event.hangout_event.event_type == hangups_constants.ClientHangoutEventType.END_HANGOUT:
+    if event.conv_event._event.hangout_event.event_type == hangups.schemas.ClientHangoutEventType.END_HANGOUT:
         lastcall = bot.conversation_memory_get(event.conv_id, "lastcall")
         if lastcall:
             lastcaller = lastcall["caller"]
