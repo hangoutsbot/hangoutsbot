@@ -3,8 +3,8 @@ import asyncio, logging, time
 from collections import namedtuple
 
 import hangups
-import hangups_constants
 
+import hangups_shim
 
 logger = logging.getLogger(__name__)
 
@@ -64,14 +64,14 @@ class HangupsConversation(hangups.conversation.Conversation):
         timestamp_now = int(time.time() * 1000000)
 
         if permamem_conv["history"]:
-            otr_status = hangups_constants.OffTheRecordStatus.ON_THE_RECORD
+            otr_status = hangups_shim.schemas.OffTheRecordStatus.ON_THE_RECORD
         else:
-            otr_status = hangups_constants.OffTheRecordStatus.OFF_THE_RECORD
+            otr_status = hangups_shim.schemas.OffTheRecordStatus.OFF_THE_RECORD
 
         if permamem_conv["type"] == "GROUP":
-            type_ = hangups_constants.ConversationType.GROUP
+            type_ = hangups_shim.schemas.ConversationType.GROUP
         else:
-            type_ = hangups_constants.ConversationType.STICKY_ONE_TO_ONE
+            type_ = hangups_shim.schemas.ConversationType.STICKY_ONE_TO_ONE
 
         current_participant = []
         participant_data = []
@@ -117,13 +117,13 @@ class HangupsConversation(hangups.conversation.Conversation):
                                                          invite_timestamp=timestamp_now,
                                                          inviter_id=hangups.user.UserID( chat_id=bot_user["chat_id"],
                                                                                          gaia_id=bot_user["chat_id"] ),
-                                                         notification_level=hangups_constants.ClientNotificationLevel.RING,
+                                                         notification_level=hangups_shim.schemas.ClientNotificationLevel.RING,
                                                          self_read_state=LatestRead( latest_read_timestamp=latest_read_timestamp,
                                                                                      participant_id=hangups.user.UserID( chat_id=bot_user["chat_id"],
                                                                                                                          gaia_id=bot_user["chat_id"] )),
                                                          sort_timestamp=sort_timestamp,
-                                                         status=hangups_constants.ClientConversationStatus.ACTIVE,
-                                                         view=hangups_constants.ClientConversationView.INBOX_VIEW )
+                                                         status=hangups_shim.schemas.ClientConversationStatus.ACTIVE,
+                                                         view=hangups_shim.schemas.ClientConversationView.INBOX_VIEW )
 
         self._conversation = ClientConversation( conversation_id=conversation_id,
                                                  current_participant=current_participant,

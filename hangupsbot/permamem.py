@@ -1,7 +1,8 @@
 import asyncio, datetime, logging, random, re
 
 import hangups
-import hangups_constants
+
+import hangups_shim
 
 bot = None
 
@@ -390,10 +391,10 @@ class conversation_memory:
             yield from self.get_users_from_query(_users_to_fetch)
 
         """store the conversation type: GROUP, ONE_TO_ONE"""
-        if conv._conversation.type == hangups_constants.ConversationType.GROUP:
+        if conv._conversation.type == hangups_shim.schemas.ConversationType.GROUP:
             memory["type"] = "GROUP"
         else:
-            # conv._conversation.type_ == hangups_constants.ConversationType.STICKY_ONE_TO_ONE
+            # conv._conversation.type_ == hangups_shim.schemas.ConversationType.STICKY_ONE_TO_ONE
             memory["type"] = "ONE_TO_ONE"
 
         """store the off_the_record state"""

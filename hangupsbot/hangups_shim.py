@@ -46,7 +46,20 @@ LegacySchema = {
     'SegmentType': {
         'TEXT': hangouts_pb2.SEGMENT_TYPE_TEXT,
         'LINE_BREAK': hangouts_pb2.SEGMENT_TYPE_LINE_BREAK,
-        'LINK': hangouts_pb2.SEGMENT_TYPE_LINK }}
+        'LINK': hangouts_pb2.SEGMENT_TYPE_LINK },
+    'ClientNotificationLevel' : {
+        'UNKNOWN': hangouts_pb2.NOTIFICATION_LEVEL_UNKNOWN,
+        'QUIET': hangouts_pb2.NOTIFICATION_LEVEL_QUIET,
+        'RING': hangouts_pb2.NOTIFICATION_LEVEL_RING },
+    'ClientConversationStatus' : {
+        'UNKNOWN': hangouts_pb2.CONVERSATION_STATUS_UNKNOWN,
+        'INVITED': hangouts_pb2.CONVERSATION_STATUS_INVITED,
+        'ACTIVE': hangouts_pb2.CONVERSATION_STATUS_ACTIVE,
+        'LEFT': hangouts_pb2.CONVERSATION_STATUS_LEFT },
+    'ClientConversationView' : {
+        'UNKNOWN': hangouts_pb2.CONVERSATION_VIEW_UNKNOWN,
+        'INBOX_VIEW': hangouts_pb2.CONVERSATION_VIEW_INBOX,
+        'ARCHIVED_VIEW': hangouts_pb2.CONVERSATION_VIEW_ARCHIVED }}
 
 schemas = namedtuplify(LegacySchema)
 
