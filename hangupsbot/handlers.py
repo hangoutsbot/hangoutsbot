@@ -221,17 +221,17 @@ class EventHandler:
 
     @asyncio.coroutine
     def handle_call(self, event):
-        """handle conversation name change"""
+        """handle incoming calls (voice/video)"""
         yield from self.run_pluggable_omnibus("call", self.bot, event, command)
 
     @asyncio.coroutine
     def handle_typing_notification(self, event):
-        """handle conversation name change"""
+        """handle changes in typing state"""
         yield from self.run_pluggable_omnibus("typing", self.bot, event, command)
 
     @asyncio.coroutine
     def handle_watermark_notification(self, event):
-        """handle conversation name change"""
+        """handle watermark updates"""
         yield from self.run_pluggable_omnibus("watermark", self.bot, event, command)
 
     @asyncio.coroutine
