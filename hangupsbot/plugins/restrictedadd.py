@@ -72,7 +72,7 @@ def _check_if_admin_added_me(bot, event, command):
                         initiator_user_id, event.user.full_name, event.conv_id))
 
                     notify = bot.config.get_option('botkeeper_check_notify')
-                    print(notify)
+
                     if notify is True:
                         yield from bot.coro_send_to_user_and_conversation(
                             _botkeeper_list(bot, event.conv_id)[0], event.conv_id,
