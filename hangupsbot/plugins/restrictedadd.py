@@ -88,6 +88,9 @@ def _check_if_admin_added_me(bot, event, command):
 
                     yield from _leave_the_chat_quietly(bot, event, command)
 
+            elif initiator_user_id == bot.user_self()["chat_id"]:
+                logger.info("bot added self to {}".format(event.conv_id))
+
 
 @asyncio.coroutine
 def _verify_botkeeper_presence(bot, event, command):
@@ -143,7 +146,7 @@ def _verify_botkeeper_presence(bot, event, command):
 
 @asyncio.coroutine
 def _leave_the_chat_quietly(bot, event, command):
-    yield from asyncio.sleep(1.0)
+    yield from asyncio.sleep(10.0)
     yield from command.run(bot, event, *["leave", "quietly"])
 
 
