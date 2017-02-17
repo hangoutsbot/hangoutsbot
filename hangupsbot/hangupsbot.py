@@ -558,19 +558,25 @@ class HangupsBot(object):
 
 
     def _on_status_changes(self, state_update):
-        if state_update.typing_notification is not None:
+        notification_type = state_update.WhichOneof('state_update')
+        if notification_type == 'typing_notification':
             asyncio.async(
                 self._handlers.handle_typing_notification(
                     TypingEvent(self, state_update.typing_notification)
                 )
             ).add_done_callback(lambda future: future.result())
-
-        if state_update.watermark_notification is not None:
+        elif notification_type == 'watermark_notification':
             asyncio.async(
                 self._handlers.handle_watermark_notification(
                     WatermarkEvent(self, state_update.watermark_notification)
                 )
             ).add_done_callback(lambda future: future.result())
+        elif notification_type == 'event_notification':
+            """
+            XXX: Unsupported State Updates (state_update):
+            re: https://github.com/tdryer/hangups/blob/9a27ecd0cbfd94acf8959e89c52ac3250c920a1f/hangups/hangouts.proto#L1034
+            """
+            pass
 
 
     @asyncio.coroutine
@@ -623,7 +629,7 @@ class HangupsBot(object):
             XXX: Unsupported Events:
             * OTREvent
             * GroupLinkSharingModificationEvent
-            see: https://github.com/tdryer/hangups/blob/master/hangups/conversation_event.py
+            re: https://github.com/tdryer/hangups/blob/master/hangups/conversation_event.py
             """
 
             logger.warning("_on_event(): unrecognised event type: {}".format(type(conv_event)))
