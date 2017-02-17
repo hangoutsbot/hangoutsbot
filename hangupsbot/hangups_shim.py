@@ -32,13 +32,17 @@ LegacySchema = {
         'END_HANGOUT': hangouts_pb2.HANGOUT_EVENT_TYPE_END },
     'OffTheRecordStatus': {
         'ON_THE_RECORD': hangouts_pb2.OFF_THE_RECORD_STATUS_ON_THE_RECORD,
-        'OFF_THE_RECORD': hangouts_pb2.OFF_THE_RECORD_STATUS_OFF_THE_RECORD},
+        'OFF_THE_RECORD': hangouts_pb2.OFF_THE_RECORD_STATUS_OFF_THE_RECORD,
+        'UNKNOWN': hangouts_pb2.OFF_THE_RECORD_STATUS_UNKNOWN },
     'TypingStatus': {
         'TYPING': hangouts_pb2.TYPING_TYPE_STARTED,
-        'PAUSED': hangouts_pb2.TYPING_TYPE_PAUSED },
+        'PAUSED': hangouts_pb2.TYPING_TYPE_PAUSED,
+        'STOPPED': hangouts_pb2.TYPING_TYPE_STOPPED,
+        'UNKNOWN': hangouts_pb2.TYPING_TYPE_UNKNOWN },
     'ConversationType': {
         'STICKY_ONE_TO_ONE': hangouts_pb2.CONVERSATION_TYPE_ONE_TO_ONE,
-        'GROUP': hangouts_pb2.CONVERSATION_TYPE_GROUP },
+        'GROUP': hangouts_pb2.CONVERSATION_TYPE_GROUP,
+        'UNKNOWN': hangouts_pb2.CONVERSATION_TYPE_UNKNOWN },
     'SegmentType': {
         'TEXT': hangouts_pb2.SEGMENT_TYPE_TEXT,
         'LINE_BREAK': hangouts_pb2.SEGMENT_TYPE_LINE_BREAK,
