@@ -3,7 +3,7 @@ import appdirs, argparse, asyncio, gettext, logging, logging.config, os, shutil,
 
 import hangups
 
-from hangups_constants import OffTheRecordStatus
+import hangups_shim
 
 import config
 import handlers
@@ -614,13 +614,14 @@ class HangupsBot(object):
                 self._handlers.handle_call(event)
             ).add_done_callback(lambda future: future.result())
 
-        elif type(conv_event) is hangups.conversation_event.ConversationEvent:
-            if conv_event._event.hangout_event:
-                asyncio.async(
-                    self._handlers.handle_call(event)
-                ).add_done_callback(lambda future: future.result())
-
         else:
+            """
+            XXX: Unsupported Events:
+            * OTREvent
+            * GroupLinkSharingModificationEvent
+            see: https://github.com/tdryer/hangups/blob/master/hangups/conversation_event.py
+            """
+
             logger.warning("_on_event(): unrecognised event type: {}".format(type(conv_event)))
 
 
@@ -732,9 +733,9 @@ class HangupsBot(object):
                     conversation_id))
 
         if context["history"]:
-            otr_status = OffTheRecordStatus.ON_THE_RECORD
+            otr_status = hangups_shim.schemas.OffTheRecordStatus.ON_THE_RECORD
         else:
-            otr_status = OffTheRecordStatus.OFF_THE_RECORD
+            otr_status = hangups_shim.schemas.OffTheRecordStatus.OFF_THE_RECORD
 
         broadcast_list = [(conversation_id, segments)]
 
