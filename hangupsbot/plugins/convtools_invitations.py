@@ -4,6 +4,8 @@ import hangups
 
 import plugins
 
+from commands import command
+
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +122,11 @@ def _new_group_conversation(bot, initiator_id):
     new_conversation_id = response['conversation']['id']['id']
     yield from bot.coro_send_message(new_conversation_id, _("<i>group created</i>"))
     yield from asyncio.sleep(1) # allow convmem to update
-    yield from bot._client.setchatname(new_conversation_id, _("GROUP: {}").format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
+    yield from command.run( bot,
+                            event,
+                            *[ "convrename",
+                               "id:" + new_conversation_id,
+                               _("GROUP: {}").format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M")) ])
     return new_conversation_id
 
 

@@ -193,10 +193,10 @@ def refresh(bot, event, *args):
             yield from _batch_add_users(bot, new_conversation_id, list_added)
             yield from bot.coro_send_message(new_conversation_id, _("<i>all users added</i><br />"))
             yield from asyncio.sleep(1)
-            yield from bot._client.setchatname(new_conversation_id, new_title)
+            yield from command.run(bot, event, *["convrename", "id:" + new_conversation_id, new_title])
 
             if renameold:
-                yield from bot._client.setchatname(source_conv, old_title)
+                yield from command.run(bot, event, *["convrename", "id:" + source_conv, old_title])
 
             if not quietly:
                 yield from bot.coro_send_message(source_conv, _("<i>group has been obsoleted</i>"))

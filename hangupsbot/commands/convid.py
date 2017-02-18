@@ -90,8 +90,18 @@ def convrename(bot, event, *args):
             posix_args[0] = "id:" + posix_args[0]
         convlist = bot.conversations.get(filter=posix_args[0])
         title = ' '.join(posix_args[1:])
+
         # only act on the first matching conversation
-        yield from bot._client.setchatname(list(convlist.keys())[0], title)
+
+        yield from bot._client.rename_conversation(
+            hangups.hangouts_pb2.RenameConversationRequest(
+                request_header = bot._client.get_request_header(),
+                new_name = title,
+                event_request_header = hangups.hangouts_pb2.EventRequestHeader(
+                    conversation_id = hangups.hangouts_pb2.ConversationId(
+                        id = list(convlist.keys())[0] ),
+                        client_generated_id = bot._client.get_client_generated_id() )))
+
     elif len(posix_args) == 1 and posix_args[0].startswith("id:"):
         """specialised error message for /bot rename (implied convid: <event.conv_id>)"""
         text = _("<em>missing title</em>")
