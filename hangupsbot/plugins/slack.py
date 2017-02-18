@@ -181,9 +181,16 @@ def _handle_slackout(bot, event, command):
 
                 if event.conv_id in convlist:
                     fullname = event.user.full_name
-                    response = yield from bot._client.getentitybyid([event.user_id.chat_id])
+
+                    _response = yield from bot._client.get_entity_by_id(
+                        hangups.hangouts_pb2.GetEntityByIdRequest(
+                            request_header = bot._client.get_request_header(),
+                            batch_lookup_spec = [
+                                hangups.hangouts_pb2.EntityLookupSpec(
+                                    gaia_id = event.user_id.chat_id )]))
+
                     try:
-                        photo_url = "http:" + response.entities[0].properties.photo_url
+                        photo_url = "http:" + _response.entity[0].properties.photo_url
                     except Exception as e:
                         logger.exception("FAILED to acquire photo_url for {}".format(fullname))
                         photo_url = None
