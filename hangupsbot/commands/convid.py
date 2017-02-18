@@ -100,7 +100,7 @@ def convrename(bot, event, *args):
                 event_request_header = hangups.hangouts_pb2.EventRequestHeader(
                     conversation_id = hangups.hangouts_pb2.ConversationId(
                         id = list(convlist.keys())[0] ),
-                        client_generated_id = bot._client.get_client_generated_id() )))
+                    client_generated_id = bot._client.get_client_generated_id() )))
 
     elif len(posix_args) == 1 and posix_args[0].startswith("id:"):
         """specialised error message for /bot rename (implied convid: <event.conv_id>)"""
@@ -172,7 +172,14 @@ def convleave(bot, event, *args):
                 yield from bot.coro_send_message(convid, _('I\'ll be back!'))
 
             try:
-                yield from bot._client.removeuser(convid)
+                yield from bot._client.remove_user(
+                    hangups.hangouts_pb2.RemoveUserRequest(
+                        request_header = bot._client.get_request_header(),
+                        event_request_header = hangups.hangouts_pb2.EventRequestHeader(
+                            conversation_id = hangups.hangouts_pb2.ConversationId(
+                                id = convid ),
+                            client_generated_id = bot._client.get_client_generated_id() )))
+
                 if convid in bot._conv_list._conv_dict:
                     # replicate hangups behaviour - remove conversation from internal dict
                     del bot._conv_list._conv_dict[convid]
