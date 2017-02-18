@@ -120,8 +120,12 @@ class watermark_updater:
         self._current_convid = conv_id
 
         try:
-            yield from self.bot._client.updatewatermark( self._current_convid, 
-                                                         datetime.datetime.fromtimestamp(time.time()))
+            yield from self.bot._client.update_watermark(
+                hangups.hangouts_pb2.UpdateWatermarkRequest(
+                    request_header = self.bot._client.get_request_header(),
+                    conversation_id = hangups.hangouts_pb2.ConversationId(
+                        id = self._current_convid ),
+                    last_read_timestamp = int(datetime.datetime.now().strftime("%s")) * 1000000 ))
 
             if self._critical_errors > 0:
                 self._critical_errors = self._critical_errors - 1
