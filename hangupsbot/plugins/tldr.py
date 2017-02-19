@@ -36,7 +36,7 @@ def tldrecho(bot, event, *args):
         # No path was found. Is this your first setup?
         new_tldr = 0
     
-    if new_tldr != 2:
+    if tldr_echo_options[new_tldr] is not "GLOBAL":
         # Update the tldr_echo setting
         bot.memory.set_by_path(['conversations', event.conv_id, 'tldr_echo'], new_tldr)
     else:
