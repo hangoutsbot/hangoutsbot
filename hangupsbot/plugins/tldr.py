@@ -16,7 +16,7 @@ def _initialise(bot):
     bot.register_shared("plugin_tldr_shared", tldr_shared)
 
     # Set the global option
-    if not bot.get_config_option('tldr_echo'):
+    if not bot.config.exists(['tldr_echo']):
         bot.config.set_by_path(["tldr_echo"], 1) # tldr_echo_options[1] is "GROUP"
         bot.config.save()
 
@@ -35,9 +35,16 @@ def tldrecho(bot, event, *args):
     else:
         # No path was found. Is this your first setup?
         new_tldr = 0
+    
+    if new_tldr != 2:
+        # Update the tldr_echo setting
+        bot.memory.set_by_path(['conversations', event.conv_id, 'tldr_echo'], new_tldr)
+    else:
+        # If setting is global then clear the conversation memory entry
+        conv_settings = bot.memory.get_by_path(['conversations', event.conv_id])
+        del conv_settings['tldr_echo'] # remove setting
+        bot.memory.set_by_path(['conversations', event.conv_id], conv_settings)
 
-    # Toggle the tldr
-    bot.memory.set_by_path(['conversations', event.conv_id, 'tldr_echo'], new_tldr)
     bot.memory.save()
 
     # Echo the current tldr setting
