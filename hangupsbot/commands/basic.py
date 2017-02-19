@@ -1,4 +1,4 @@
-import logging, sys, resource
+import logging, sys, re, resource
 
 import plugins
 
@@ -62,8 +62,17 @@ def help(bot, event, cmd=None, *args):
             yield from command.unknown_command(bot, event)
             return
 
-        help_lines.append("<b>{}</b>: {}".format(command_fn.__name__, command_fn.__doc__))
-        
+        """
+        XXX: the markdown parser is iffy on line-break processing
+        manually parse line-breaks: single break -> space; multiple breaks -> paragraph
+        """
+        _docstring = command_fn.__doc__.strip()
+        _docstring = re.sub(r"\n(?= *\S)", " ", _docstring) # turn single linebreak into space, preserves multiple linebreaks
+        _docstring = re.sub(r" +", " ", _docstring) # convert multiple consecutive spaces into single space
+        _docstring = re.sub(r" *\n+ *", "\n\n", _docstring) # convert consecutive linebreaks into double linebreak (pseudo-paragraph)
+
+        help_lines.append("<b>{}</b>: {}".format(command_fn.__name__, _docstring))
+
     help_lines = [lines.replace('[botalias]', bot._handlers.bot_command[0]) for lines in help_lines]
 
     yield from bot.coro_send_to_user_and_conversation(
