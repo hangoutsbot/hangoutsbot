@@ -38,12 +38,12 @@ def _initialise(bot):
     if "admins" in config_botalive:
         if config_botalive["admins"] < 60:
             config_botalive["admins"] = 60
-        plugins.start_asyncio_task(_periodic_watermark_queue_admins, watermarkUpdater, config_botalive["admins"])
+        plugins.start_asyncio_task(_periodic_watermark_update, watermarkUpdater, "admins")
 
     if "groups" in config_botalive:
         if config_botalive["groups"] < 60:
             config_botalive["groups"] = 60
-        plugins.start_asyncio_task(_periodic_watermark_queue_groups, watermarkUpdater, config_botalive["groups"])
+        plugins.start_asyncio_task(_periodic_watermark_update, watermarkUpdater, "groups")
 
     logger.info("timing {}".format(config_botalive))
 
@@ -66,9 +66,9 @@ def _log_message(bot, event, command):
     # not worth a dump to disk, skip bot.memory.save()
 
 @asyncio.coroutine
-def _periodic_watermark_queue_admins(bot, watermarkUpdater, config_admins):
+def _periodic_watermark_update(bot, watermarkUpdater, target):
     """
-    add conv_ids of 1on1s with bot admins to the queue
+    add conv_ids of 1on1s with bot admins or add group conv_ids to the queue
     to prevent the processor from being consumed entirely, we sleep until the next run or 5 sec
     """
 
@@ -76,37 +76,23 @@ def _periodic_watermark_queue_admins(bot, watermarkUpdater, config_admins):
 
     while True:
         timestamp = datetime.datetime.now().timestamp()
-        yield from asyncio.sleep(max(5, last_run - timestamp + config_admins))
+        yield from asyncio.sleep(max(5, last_run - timestamp + bot.config.get_by_path(["botalive", target])))
 
-        bot_admin_ids = bot.get_config_option('admins')
-        for admin in bot_admin_ids:
-            if bot.memory.exists(["user_data", admin, "1on1"]):
-                conv_id = bot.memory.get_by_path(["user_data", admin, "1on1"])
-                watermarkUpdater.add(conv_id)
-
-        last_run = datetime.datetime.now().timestamp()
-        yield from watermarkUpdater.start()
-
-@asyncio.coroutine
-def _periodic_watermark_queue_groups(bot, watermarkUpdater, config_groups):
-    """
-    add conv_ids of all groups to the queue
-    to prevent the processor from being consumed entirely, we sleep until the next run or 5 sec
-    """
-
-    last_run = datetime.datetime.now().timestamp()
-
-    while True:
-        timestamp = datetime.datetime.now().timestamp()
-        yield from asyncio.sleep(max(5, last_run - timestamp + config_groups))
-
-        for conv_id, conv_data in bot.conversations.get().items():
-            if conv_data["type"] == "GROUP" and bot.memory.exists(["conv_data", conv_id, "botalive"]):
-                if last_run < bot.memory.get_by_path(["conv_data", conv_id, "botalive"]):
+        if target == "admins":
+            bot_admin_ids = bot.get_config_option('admins')
+            for admin in bot_admin_ids:
+                if bot.memory.exists(["user_data", admin, "1on1"]):
+                    conv_id = bot.memory.get_by_path(["user_data", admin, "1on1"])
                     watermarkUpdater.add(conv_id)
+        else:
+            for conv_id, conv_data in bot.conversations.get().items():
+                if conv_data["type"] == "GROUP" and bot.memory.exists(["conv_data", conv_id, "botalive"]):
+                    if last_run < bot.memory.get_by_path(["conv_data", conv_id, "botalive"]):
+                        watermarkUpdater.add(conv_id)
 
         last_run = datetime.datetime.now().timestamp()
         yield from watermarkUpdater.start()
+
 
 class watermark_updater:
     """implement a queue to update the watermarks sequentially instead of all-at-once
