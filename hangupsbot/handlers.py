@@ -129,7 +129,6 @@ class EventHandler:
 
             for annotation in event.conv_event._event.chat_message.annotation:
                 if annotation.type == 1025:
-                    print('REPROCESSOR ANNOTATION {} {}'.format(annotation.type, annotation.value))
                     yield from self.run_reprocessor(annotation.value, event)
 
             if len(event.conv_event.segments) > 0:
