@@ -152,9 +152,19 @@ class FakeConversation(object):
         self.id_ = id_
 
     @asyncio.coroutine
-    def send_message(self, segments, image_id=None, otr_status=None):
+    def send_message(self, segments, image_id=None, otr_status=None, context=None):
         with (yield from asyncio.Lock()):
+            annotations = []
+
             if segments:
+                if "reprocessor" in context:
+                    annotations.append( hangups.hangouts_pb2.EventAnnotation(
+                        type = 1025,
+                        value = context["reprocessor"]["id"] ))
+
+                for seg in segments:
+                    print("SENDING type:[{}] text:[{}] link:[{}]".format(seg.type_, seg.text, seg.link_target))
+
                 serialised_segments = [seg.serialize() for seg in segments]
             else:
                 serialised_segments = None
@@ -168,6 +178,7 @@ class FakeConversation(object):
                 request_header = self._client.get_request_header(),
                 message_content = hangups.hangouts_pb2.MessageContent( segment=serialised_segments ),
                 existing_media = media_attachment,
+                annotation = annotations,
                 event_request_header = hangups.hangouts_pb2.EventRequestHeader(
                     conversation_id=hangups.hangouts_pb2.ConversationId( id=self.id_ ),
                     client_generated_id=self._client.get_client_generated_id() ))

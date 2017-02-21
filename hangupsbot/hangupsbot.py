@@ -773,7 +773,8 @@ class HangupsBot(object):
             try:
                 yield from _fc.send_message( response[1],
                                              image_id=image_id,
-                                             otr_status=otr_status )
+                                             otr_status=otr_status,
+                                             context=context )
             except hangups.NetworkError as e:
                 logger.exception("CORO_SEND_MESSAGE: error sending {}".format(response[0]))
 

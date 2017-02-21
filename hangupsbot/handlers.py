@@ -126,6 +126,12 @@ class EventHandler:
                 event.from_bot = False
 
             """reprocessor - process event with hidden context from handler.attach_reprocessor()"""
+
+            for annotation in event.conv_event._event.chat_message.annotation:
+                if annotation.type == 1025:
+                    print('REPROCESSOR ANNOTATION {} {}'.format(annotation.type, annotation.value))
+                    yield from self.run_reprocessor(annotation.value, event)
+
             if len(event.conv_event.segments) > 0:
                 for segment in event.conv_event.segments:
                     if segment.link_target:
