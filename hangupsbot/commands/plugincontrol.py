@@ -109,25 +109,6 @@ def plugininfo(bot, event, *args):
 
     yield from bot.coro_send_message(event.conv_id, message)
 
-@command.register(admin=True)
-def pluginall(bot, event, *args):
-    """list all plugins loaded by the bot, and all available plugins"""
-    all_plugins = plugins.retrieve_all_plugins()
-    loaded_plugins = plugins.get_configured_plugins(bot)
-
-    message = "The following plugins are loaded:<br />"
-
-    for plugin in sorted(loaded_plugins):
-        message += "<b>{}</b><br />".format(plugin)
-
-    message += "<br />Available plugins:<br />"
-
-    for plugin in sorted(all_plugins):
-        if plugin not in loaded_plugins:
-            message += "<i>{}</i><br />".format(plugin)
-
-    yield from bot.coro_send_message(event.conv_id, message)
-
 
 @command.register(admin=True)
 def pluginunload(bot, event, *args):
@@ -184,6 +165,26 @@ def pluginreload(bot, event, *args):
 
     else:
         message = "<b>module path required</b>"
+
+    yield from bot.coro_send_message(event.conv_id, message)
+
+
+@command.register(admin=True)
+def getplugins(bot, event, *args):
+    """list all plugins loaded by the bot, and all available plugins"""
+    all_plugins = plugins.retrieve_all_plugins()
+    loaded_plugins = plugins.get_configured_plugins(bot)
+
+    message = "The following plugins are loaded:<br />"
+
+    for plugin in sorted(loaded_plugins):
+        message += "<b>{}</b><br />".format(plugin)
+
+    message += "<br />Available plugins:<br />"
+
+    for plugin in sorted(all_plugins):
+        if plugin not in loaded_plugins:
+            message += "<i>{}</i><br />".format(plugin)
 
     yield from bot.coro_send_message(event.conv_id, message)
 
