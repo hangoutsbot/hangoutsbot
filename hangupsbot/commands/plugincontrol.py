@@ -26,17 +26,6 @@ def function_name(fn):
             except AttributeError:
                 return '<unknown>'
 
-def _get_module_path(path, return_full_module=True):
-    """return the module path in a str. This allows functionality to
-    load a plugin both from `plugins.default` format, as well as `plugins` format.
-    NOTE: this assumes that all plugins to load/unload are within the plugins folder"""
-
-    module_path = path.split(".")
-
-    if module_path[0] != "plugins":
-        module_path = ["plugins"] + module_path
-
-    return ".".join(module_path) if return_full_module else ".".join(module_path[1:])
 
 @command.register(admin=True)
 def plugininfo(bot, event, *args):
@@ -130,65 +119,47 @@ def pluginall(bot, event, *args):
 
 
 @command.register(admin=True)
-def pluginunload(bot, event, plugin, *args):
-    """unloads a plugin from the bot and removes it from the config"""
-    value = bot.config.get_by_path(["plugins"])
-    if isinstance(value, list):
-        try:
-            value.remove(_get_module_path(plugin, return_full_module=False))
-            bot.config.set_by_path(["plugins"], value)
-            bot.config.save()
-
-            yield from plugins.unload(bot, _get_module_path(plugin))
-            message = "<b><pre>{}</pre>: unloaded</b>".format(_get_module_path(plugin))
-        except ValueError:
-            message = "Plugin not loaded"
-        except (RuntimeError, KeyError) as e:
-            message = "<b><pre>{}</pre>: <pre>{}</pre></b>".format(_get_module_path(plugin), str(e))
-    else:
-        message = "Plugin config not set"
-
-
-    yield from bot.coro_send_message(event.conv_id, message)
-
-
-@command.register(admin=True)
-def pluginload(bot, event, plugin, *args):
-    """loads a plugin on the bot and adds it to the config"""
-    all_plugins = plugins.retrieve_all_plugins()
-    loaded_plugins = plugins.get_configured_plugins(bot)
-
-    if _get_module_path(plugin, return_full_module=False) not in loaded_plugins:
-        if _get_module_path(plugin, return_full_module=False) in all_plugins:
-            value = bot.config.get_by_path(["plugins"])
-            if isinstance(value, list):
-                value.append(_get_module_path(plugin, return_full_module=False))
-                bot.config.set_by_path(["plugins"], value)
-                bot.config.save()
-
-                # attempt to load the plugin
-                try:
-                    if plugins.load(bot, _get_module_path(plugin)):
-                        message = "<b><pre>{}</pre>: loaded</b>".format(_get_module_path(plugin))
-                    else:
-                        message = "<b><pre>{}</pre>: failed</b>".format(_get_module_path(plugin))
-
-                except RuntimeError as e:
-                    message = "<b><pre>{}</pre>: <pre>{}</pre></b>".format(module_path, str(e))
-
-            else:
-                message = "Error: Do <b>/bot config set plugins []</b> first"
-        else:
-            message = "Not a valid plugin name"
-    else:
-        message = "Plugin already loaded"
-    yield from bot.coro_send_message(event.conv_id, message)
-
-
-@command.register(admin=True)
-def pluginreload(bot, event, plugin, *args):
+def pluginunload(bot, event, *args):
     if args:
-        module_path = _get_module_path(plugin)
+        module_path = args[0]
+
+        try:
+            yield from plugins.unload(bot, module_path)
+            message = "<b><pre>{}</pre>: unloaded</b>".format(module_path)
+
+        except (RuntimeError, KeyError) as e:
+            message = "<b><pre>{}</pre>: <pre>{}</pre></b>".format(module_path, str(e))
+
+    else:
+        message = "<b>module path required</b>"
+
+    yield from bot.coro_send_message(event.conv_id, message)
+
+
+@command.register(admin=True)
+def pluginload(bot, event, *args):
+    if args:
+        module_path = args[0]
+
+        try:
+            if plugins.load(bot, module_path):
+                message = "<b><pre>{}</pre>: loaded</b>".format(module_path)
+            else:
+                message = "<b><pre>{}</pre>: failed</b>".format(module_path)
+
+        except RuntimeError as e:
+            message = "<b><pre>{}</pre>: <pre>{}</pre></b>".format(module_path, str(e))
+
+    else:
+        message = "<b>module path required</b>"
+
+    yield from bot.coro_send_message(event.conv_id, message)
+
+
+@command.register(admin=True)
+def pluginreload(bot, event, *args):
+    if args:
+        module_path = args[0]
 
         try:
             yield from plugins.unload(bot, module_path)
