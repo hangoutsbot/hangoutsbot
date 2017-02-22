@@ -26,17 +26,12 @@ def function_name(fn):
             except AttributeError:
                 return '<unknown>'
 
-def _get_module_path(path, return_full_module=True):
+def _get_module_path(path):
     """return the module path in a str. This allows functionality to
     load a plugin both from `plugins.default` format, as well as `plugins` format.
     NOTE: this assumes that all plugins to load/unload are within the plugins folder"""
-
     module_path = path.split(".")
-
-    if module_path[0] != "plugins":
-        module_path = ["plugins"] + module_path
-
-    return ".".join(module_path) if return_full_module else ".".join(module_path[1:])
+    return ".".join(module_path[1:]) if module_path[0] == "plugins" else ".".join(module_path)
 
 @command.register(admin=True)
 def plugininfo(bot, event, *args):
@@ -193,13 +188,17 @@ def getplugins(bot, event, *args):
 def removeplugin(bot, event, plugin, *args):
     """unloads a plugin from the bot and removes it from the config"""
     value = bot.config.get_by_path(["plugins"])
+
+    plugin_path = _get_module_path(plugin)
+    full_plugin_path = "plugins.{}".format(plugin_path)
+
     if isinstance(value, list):
         try:
-            value.remove(_get_module_path(plugin, return_full_module=False))
+            value.remove(plugin_path)
             bot.config.set_by_path(["plugins"], value)
             bot.config.save()
 
-            pluginunload(bot, event, _get_module_path(plugin))
+            pluginunload(bot, event, full_plugin_path)
             message = "Plugin successfully unloaded"
         except ValueError:
             message = "Plugin not loaded"
@@ -214,16 +213,20 @@ def addplugin(bot, event, plugin, *args):
     """loads a plugin on the bot and adds it to the config"""
     all_plugins = plugins.retrieve_all_plugins()
     loaded_plugins = plugins.get_configured_plugins(bot)
-    if _get_module_path(plugin, return_full_module=False) not in loaded_plugins:
-        if _get_module_path(plugin, return_full_module=False) in all_plugins:
+
+    plugin_path = _get_module_path(plugin)
+    full_plugin_path = "plugins.{}".format(plugin_path)
+
+    if plugin_path not in loaded_plugins:
+        if plugin_path in all_plugins:
             value = bot.config.get_by_path(["plugins"])
             if isinstance(value, list):
-                value.append(_get_module_path(plugin, return_full_module=False))
+                value.append(plugin_path)
                 bot.config.set_by_path(["plugins"], value)
                 bot.config.save()
 
                 # load the plugin
-                pluginload(bot, event, _get_module_path(plugin))
+                pluginload(bot, event, full_plugin_path)
                 message = "Plugin successfully loaded"
             else:
                 message = "Error: Do <b>/bot config set plugins []</b> first"
