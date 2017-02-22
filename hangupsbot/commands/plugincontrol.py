@@ -170,7 +170,7 @@ def pluginload(bot, event, *args):
 @command.register(admin=True)
 def pluginreload(bot, event, *args):
     if args:
-        module_path = _get_module_path(plugin)
+        module_path = args[0]
 
         try:
             yield from plugins.unload(bot, module_path)
