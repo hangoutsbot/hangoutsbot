@@ -36,6 +36,10 @@ def lookup(bot, event, *args):
         return
 
     spreadsheet_url = bot.get_config_suboption(event.conv_id, 'spreadsheet_url')
+    if "pubhtml" in spreadsheet_url:
+        spreadsheet_id = spreadsheet_url.split('/')[5]
+        spreadsheet_url = "https://docs.google.com/spreadsheets/d/{}".format(spreadsheet_id)
+        
     credentials = _read_credentials(bot.get_config_suboption(event.conv_id, 'spreadsheet_credentials_file'))
     
     gc = gspread.authorize(credentials)
