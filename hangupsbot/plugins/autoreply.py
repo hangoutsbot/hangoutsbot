@@ -117,7 +117,6 @@ def send_reply(bot, event, message):
 
         if probable_image_link:
             logger.info("getting {}".format(message))
-
             filename = os.path.basename(message)
             r = yield from aiohttp.request('get', message)
             raw = yield from r.read()

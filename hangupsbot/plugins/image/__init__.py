@@ -20,7 +20,6 @@ def _image_validate_link(message):
         probable_image_link = False
 
     message_lower = message.lower()
-    logger.info("link? {}".format(message_lower))
 
     if re.match("^(https?://)?([a-z0-9.]*?\.)?imgur.com/", message_lower, re.IGNORECASE):
         """imgur links can be supplied with/without protocol and extension"""
@@ -44,5 +43,7 @@ def _image_validate_link(message):
         """XXX: animations"""
         message = message.replace(".webm",".gif")
         message = message.replace(".gifv",".gif")
+
+        logger.info('{} seems to be an image link'.format(message))
 
     return message, probable_image_link

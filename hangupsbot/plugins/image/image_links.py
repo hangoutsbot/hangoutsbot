@@ -40,7 +40,6 @@ def _watch_image_link(bot, event, command):
 
     if probable_image_link:
         logger.info("getting {}".format(message))
-
         filename = os.path.basename(message)
         r = yield from aiohttp.request('get', message)
         raw = yield from r.read()
