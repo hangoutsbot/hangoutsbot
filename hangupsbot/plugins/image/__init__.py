@@ -1,13 +1,18 @@
 import re
 import logging
 
+import plugins
+
 logger = logging.getLogger(__name__)
 
 
-def imagelink(message):
+def _initialise():
+    plugins.register_shared('image_validate_link', _image_validate_link)
+
+
+def _image_validate_link(message):
     """ validates a image link """
 
-    """starts as false"""
     probable_image_link = False
 
     if " " in message:
@@ -29,10 +34,15 @@ def imagelink(message):
             probable_image_link = False
 
     if probable_image_link:
+
+        """imgur links"""
         if "imgur.com" in message:
-            """special imgur link handling"""
             if not message.endswith((".jpg", ".gif", "gifv", "webm", "png")):
                 message = message + ".gif"
             message = "https://i.imgur.com/" + os.path.basename(message)
+
+        """XXX: animations"""
+        message = message.replace(".webm",".gif")
+        message = message.replace(".gifv",".gif")
 
     return message, probable_image_link
