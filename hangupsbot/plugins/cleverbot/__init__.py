@@ -33,6 +33,8 @@ def _handle_incoming_message(bot, event, command):
 
 def _get_cw_for_chat(bot, event):
     segregate = bot.get_config_suboption(event.conv_id, "cleverbot_segregate")
+    if segregate == None:
+        segregate = True
     if segregate:
         index = event.conv_id
     else:
