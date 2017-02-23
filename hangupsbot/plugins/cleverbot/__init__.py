@@ -9,7 +9,7 @@ import plugins
 import logging
 
 logger = logging.getLogger(__name__)
-cw = None
+__cleverbots = dict()
 
 def _initialise(bot):
     plugins.register_handler(_handle_incoming_message, type="message")
@@ -31,18 +31,34 @@ def _handle_incoming_message(bot, event, command):
     if randrange(0, 101, 1) < float(percentage):
         yield from chat(bot, event)
 
+def _get_cw_for_chat(bot, event):
+    segregate = bot.get_config_suboption(event.conv_id, "cleverbot_segregate")
+    if segregate:
+        index = event.conv_id
+    else:
+        index = "shared"
+
+    if index in __cleverbots:
+        return __cleverbots[index]
+    else:
+        api_key = bot.get_config_suboption(event.conv_id, "cleverbot_api_key")
+        if not api_key:
+            return None
+        else:
+            cw = CleverWrap(api_key)
+            __cleverbots[index] = cw
+            logger.debug("created new cw for {}".format(index))
+            return cw
+
 def chat(bot, event, *args):
     """ Chat to Cleverbot. Usage: /bot chat hi cleverbot! """
+    cw = _get_cw_for_chat(bot, event)
     if not cw:
-        api_key = bot.get_config_option("cleverbot_api_key")
-        if not api_key:
-            response = "API key not defined: config.cleverbot_api_key"
-            logger.error(response)
-            yield from bot.coro_send_message(event.conv_id, response)
-            return
-        else:
-            global cw
-            cw = CleverWrap(api_key)
+        response = "API key not defined: config.cleverbot_api_key"
+        logger.error(response)
+        yield from bot.coro_send_message(event.conv_id, response)
+        return
+
     if args:
         input_text = " ".join(args)
     else:
@@ -55,6 +71,7 @@ def chat(bot, event, *args):
 
 def chatreset(bot, event, *args):
     """Tell cleverbot to forget things you've said in the past"""
+    cw = _get_cw_for_chat(bot, event)
     if cw:
         cw.reset()
     yield from bot.coro_send_message(event.conv_id, "reset")
