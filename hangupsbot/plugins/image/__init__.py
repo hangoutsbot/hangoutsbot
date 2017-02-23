@@ -1,20 +1,22 @@
-import asyncio, re, logging, json, random, aiohttp, io, os
+import re
+import logging
 
 logger = logging.getLogger(__name__)
-  
+
+
 def imagelink(message):
-    """ validates a image link """	
-    
+    """ validates a image link """
+
     """starts as false"""
     probable_image_link = False
-    
+
     if " " in message:
         """ignore anything with spaces"""
         probable_image_link = False
- 
+
     message_lower = message.lower()
     logger.info("link? {}".format(message_lower))
-     
+
     if re.match("^(https?://)?([a-z0-9.]*?\.)?imgur.com/", message_lower, re.IGNORECASE):
         """imgur links can be supplied with/without protocol and extension"""
         probable_image_link = True
@@ -32,5 +34,5 @@ def imagelink(message):
             if not message.endswith((".jpg", ".gif", "gifv", "webm", "png")):
                 message = message + ".gif"
             message = "https://i.imgur.com/" + os.path.basename(message)
- 
+
     return message, probable_image_link
