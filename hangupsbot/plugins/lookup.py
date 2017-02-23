@@ -2,6 +2,7 @@ import logging
 import plugins
 from oauth2client.service_account import ServiceAccountCredentials
 import gspread
+import re
 
 SCOPE = [
     'https://spreadsheets.google.com/feeds',
@@ -50,58 +51,48 @@ def lookup(bot, event, *args):
     else:
         sheet = sh.worksheet(bot.get_config_suboption(event.conv_id, 'spreadsheet_worksheet'))
     
-    keyword = ' '.join(args)
+    if args[0].startswith('<'):
+        counter_max = int(args[0][1:]) # Maximum rows displayed per query
+        keyword = ' '.join(args[1:])
+    else:
+        counter_max = 5
+        keyword = ' '.join(args)
+    search = re.compile(r'{}'.format(keyword), re.I)
     
     htmlmessage = _('Results for keyword <b>{}</b>:<br />'.format(keyword))
     logger.debug("{0} ({1}) has requested to lookup '{2}'".format(event.user.full_name, event.user.id_.chat_id, keyword))
     
-    header = sheet.row_values(1)
-    nheader = len(header)
-
-    while header and header[-1] is '':
-        header.pop()
-        
-    header_word_len = len(''.join(header))
-    
-    x = 1
-    header_string = '| '
-    header_word_len = (header_word_len + 2)
-    for identifier in header:
-        if x == 1:
-            pass
-        if x < nheader:
-            header_string += '{} | '.format(identifier)
-            header_word_len = (header_word_len + 3)
-        if x == header:
-            header_string += '{} |'.format(identifier)
-            header_word_len = (header_word_len + 2)
-    
-    found = sheet.findall(keyword)
+    found = sheet.findall(search)
     nfounds = len(found)
     
-    counter_max = 'temp'
-    htmlmessage += _('<br />{0} rows found. Only returning first {1}.'.format(nfounds, counter_max))
+    if nfounds == 1:
+        htmlmessage += _('<br />1 row found.')
+    if nfounds == 0:
+        htmlmessage += _('No match found')
+    if nfounds > counter_max:
+        htmlmessage += _('<br />{0} rows found. Only returning first {1}.').format(nfounds, counter_max)
+        if counter_max == 5:
+            htmlmessage += _('<br />Hint: Use <b>/bot lookup <{0} {1}</b> to view {0} rows').format(counter_max*2, keyword)
     #Currently not working as - is shorter than other chars in HO
     #htmlmessage += '<br />{0}'.format(_repeat_to_length('-', header_word_len))
-    htmlmessage += '<br />{0}'.format(header_string)
-    
-    for c in found:
+    for c in found[:counter_max]:
         foundrow = sheet.row_values(c.row)
         while foundrow and foundrow[-1] is '':
             foundrow.pop()
-            
+        
+        htmlmessage += _('<br />Row {}: ').format(c.row)
         y = 1
         found_string = '| '
         nfoundrow = len(foundrow)
         
         for identifier in foundrow:
-            if x == 1:
+            if y == 1:
                 pass
             if y < nfoundrow:
                 found_string += '{} | '.format(identifier)
             if y == nfoundrow:
                 found_string += '{} |'.format(identifier)
-                
+
         htmlmessage += '<br />{0}'.format(found_string)
     
     yield from bot.coro_send_message(event.conv, htmlmessage)
