@@ -10,40 +10,46 @@ def _initialise():
     plugins.register_shared('image_validate_link', _image_validate_link)
 
 
-def _image_validate_link(message):
-    """ validates a image link """
+def _image_validate_link(event_text, reject_googleusercontent=True):
+    """
+    validates and sanitises image link
+    returns ( string original text/sanitised link,
+              bool probably a link )
+    """
+
+    if " " in event_text:
+        """immediately reject anything with non url-encoded spaces (%20)"""
+        return event_text, False
 
     probable_image_link = False
 
-    if " " in message:
-        """ignore anything with spaces"""
-        probable_image_link = False
+    event_text_lower = event_text.lower()
 
-    message_lower = message.lower()
-
-    if re.match("^(https?://)?([a-z0-9.]*?\.)?imgur.com/", message_lower, re.IGNORECASE):
+    if re.match("^(https?://)?([a-z0-9.]*?\.)?imgur.com/", event_text_lower, re.IGNORECASE):
         """imgur links can be supplied with/without protocol and extension"""
         probable_image_link = True
 
-    else:
-        if message_lower.startswith(("http://", "https://")) and message_lower.endswith((".png", ".gif", ".gifv", ".jpg", ".jpeg")):
-            """other image links must have protocol and end with valid extension"""
-            probable_image_link = True
-        else:
-            probable_image_link = False
+    elif event_text_lower.startswith(("http://", "https://")) and event_text_lower.endswith((".png", ".gif", ".gifv", ".jpg", ".jpeg")):
+        """other image links must have protocol and end with valid extension"""
+        probable_image_link = True
+
+    if probable_image_link and reject_googleusercontent and ".googleusercontent." in event_text_lower:
+        """reject links posted by google to prevent endless attachment loop"""
+        logger.debug("rejected link {} with googleusercontent".format(event_text))
+        return event_text, False
 
     if probable_image_link:
 
-        """imgur links"""
-        if "imgur.com" in message:
-            if not message.endswith((".jpg", ".gif", "gifv", "webm", "png")):
-                message = message + ".gif"
-            message = "https://i.imgur.com/" + os.path.basename(message)
+        """special handler for imgur links"""
+        if "imgur.com" in event_text:
+            if not event_text.endswith((".jpg", ".gif", "gifv", "webm", "png")):
+                event_text = event_text + ".gif"
+            event_text = "https://i.imgur.com/" + os.path.basename(event_text)
 
-        """XXX: animations"""
-        message = message.replace(".webm",".gif")
-        message = message.replace(".gifv",".gif")
+            """XXX: animations - this code looks fragile"""
+            event_text = event_text.replace(".webm",".gif")
+            event_text = event_text.replace(".gifv",".gif")
 
-        logger.info('{} seems to be an image link'.format(message))
+        logger.info('{} seems to be a valid image link'.format(event_text))
 
-    return message, probable_image_link
+    return event_text, probable_image_link
