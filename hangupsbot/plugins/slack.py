@@ -28,6 +28,8 @@ import plugins
 from sinks import aiohttp_start
 from sinks.base_bot_request_handler import AsyncRequestHandler
 
+import hangups_shim
+
 
 logger = logging.getLogger(__name__)
 
@@ -95,14 +97,17 @@ class SlackAsyncListener(AsyncRequestHandler):
                 if "slackbot" not in str(payload["user_name"][0]):
                     text = self._remap_internal_slack_ids(text)
                     response = "<b>" + str(payload["user_name"][0]) + ":</b> " + unescape(text)
-                    response += self._bot.call_shared("reprocessor.attach_reprocessor", _slack_repeater_cleaner)
+
+                    reprocessor_context = self._bot._handlers.attach_reprocessor( _slack_repeater_cleaner,
+                                                                                  return_as_dict = True )
 
                     yield from self.send_data( conversation_id, 
                                                response, 
                                                context = { 'base': {
                                                                 'tags': ['slack', 'relay'], 
                                                                 'source': 'slack', 
-                                                                'importance': 50 }} )
+                                                                'importance': 50 },
+                                                           'reprocessor': reprocessor_context } )
 
     def _remap_internal_slack_ids(self, text):
         text = self._slack_label_users(text)
@@ -183,10 +188,10 @@ def _handle_slackout(bot, event, command):
                     fullname = event.user.full_name
 
                     _response = yield from bot._client.get_entity_by_id(
-                        hangups.hangouts_pb2.GetEntityByIdRequest(
+                        hangups_shim.hangouts_pb2.GetEntityByIdRequest(
                             request_header = bot._client.get_request_header(),
                             batch_lookup_spec = [
-                                hangups.hangouts_pb2.EntityLookupSpec(
+                                hangups_shim.hangouts_pb2.EntityLookupSpec(
                                     gaia_id = event.user_id.chat_id )]))
 
                     try:
