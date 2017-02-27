@@ -126,6 +126,6 @@ def _spawn(bot, event, *args):
 
     if len(stderr_str) > 0:
         yield from bot.coro_send_to_user_and_conversation(
-            event.user.id_.chat_id, event.conv_id, stderr_str, stdout_str)
-    else:
+            event.user.id_.chat_id, event.conv_id, stderr_str)
+    if len(stdout_str) > 0:
         yield from bot.coro_send_message(event.conv_id, stdout_str)
