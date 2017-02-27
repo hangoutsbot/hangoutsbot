@@ -131,6 +131,12 @@ def version(bot, event, *args):
     """get the version of the bot"""
     yield from bot.coro_send_message(event.conv, _("Bot Version: <b>{}</b>").format(__version__))
 
+    try:
+        from hangups import __version__ as __hangups_version__
+        yield from bot.coro_send_message(event.conv, _("Hangups Version: <b>{}</b>").format(__hangups_version__))
+    except ImportError:
+        pass
+
 
 @command.register(admin=True)
 def resourcememory(bot, event, *args):
