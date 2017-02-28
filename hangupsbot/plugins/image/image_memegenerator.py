@@ -1,6 +1,4 @@
-import aiohttp, asyncio, logging, os, random, urllib.request
-
-from bs4 import BeautifulSoup
+import aiohttp, logging, json, os, random, urllib.request
 
 import hangups
 
@@ -17,18 +15,6 @@ def _initialise(bot):
     plugins.register_user_command(["meme"])
 
 
-@asyncio.coroutine
-def _retrieve(url, css_selector, attribute):
-    logger.debug("_retrieve(): getting {}".format(url))
-    html_request = yield from aiohttp.request('get', url)
-    html = yield from html_request.read()
-    soup = BeautifulSoup(str(html, 'utf-8'), 'html.parser')
-    links = []
-    for link in soup.select(css_selector):
-        links.append(link.get(attribute))
-    return links
-
-
 def meme(bot, event, *args):
     """Searches for a meme related to <something>;
     grabs a random meme when none provided"""
@@ -43,21 +29,22 @@ def meme(bot, event, *args):
         if len(parameters) == 0:
             parameters.append("robot")
 
-        links = yield from _retrieve("http://memegenerator.net/memes/search?q=" + "+".join(parameters), ".item_medium_small > a", "href")
-        links = yield from _retrieve("http://memegenerator.net" + random.choice(links), ".item_medium_small > a", "href")
+        """public api: http://version1.api.memegenerator.net"""
+        url_api = 'http://version1.api.memegenerator.net/Instances_Search?q=' + "+".join(parameters) + '&pageIndex=0&pageSize=25'
 
-        instance_link = "http://memegenerator.net" + random.choice(links)
-        links = yield from _retrieve(instance_link, ".instance_large > img", "src")
+        api_request = yield from aiohttp.request('get', url_api)
+        json_results = yield from api_request.read()
+        results = json.loads(str(json_results, 'utf-8'))
 
-        if len(links) > 0:
-            jpg_link = links.pop()
+        if len(results['result']) > 0:
+            instanceImageUrl = random.choice(results['result'])['instanceImageUrl']
 
-            image_data = urllib.request.urlopen(jpg_link)
-            filename = os.path.basename(jpg_link)
-
-            legacy_segments = [hangups.ChatMessageSegment(instance_link, hangups.SegmentType.LINK, link_target=instance_link)]
-
-            logger.debug("uploading {} from {}".format(filename, jpg_link))
+            image_data = urllib.request.urlopen(instanceImageUrl)
+            filename = os.path.basename(instanceImageUrl)
+            legacy_segments = [hangups.ChatMessageSegment( instanceImageUrl,
+                                                           hangups.SegmentType.LINK,
+                                                           link_target = instanceImageUrl )]
+            logger.debug("uploading {} from {}".format(filename, instanceImageUrl))
             photo_id = yield from bot._client.upload_image(image_data, filename=filename)
 
             yield from bot.coro_send_message(event.conv.id_, legacy_segments, image_id=photo_id)
