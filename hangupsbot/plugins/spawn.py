@@ -12,6 +12,7 @@ whether it is an admin command or not.
 
     "spawn": {
         "home": "/nonstandard/home/directory",
+        "map_regex": "<regular expression to override standard if necessary>",
         "commands":
             "fortune": {
                 "command": ["/usr/games/fortune"]
@@ -23,7 +24,8 @@ whether it is an admin command or not.
             "stock-info": {
                 "command": ["/home/portfolio/stock-info", "--"]
                 "home": "/home/portfolio",
-                "allow_args": true
+                "allow_args": true,
+                "allow_location": true
         }
     }
 
