@@ -4,12 +4,28 @@ By Nick Young
 
 # Installation
 
-Create a discord bot at https://discordapp.com/developers/applications/me#top. Be sure to enable the "bot user" option.
-Grab the client id and insert it into this url https://discordapp.com/oauth2/authorize?client_id=CLIENT_ID&scope=bot&permissions=0 - then go to that url to add the bot to the server of your choice
-Add the token for the bot to your config with the command "/bot config set discord_token YOUR_TOKEN"
-Restart hangoutsbot
-Say "whereami" in a discord channel that the bot is in and it should respond with the channel id
-Say "/bot dsync CHANNEL_ID" in the hangout you want to sync
+Prerequisites:
+--------------
+Make sure to run pip3 install -r requirements.txt to ensure the Discord modules/dependencies are installed on the hangoutsbot server.
+
+Creating a Discord bot
+----------------------
+1.  Create a discord App at https://discordapp.com/developers/applications/me#top. 
+2.  Enable the "bot user" option - give it an appropriate name.
+3.  Take note of the client id on the bot, plus also the Bot token (have to click to reveal the token).  Do not get mixed up with the secret!
+4.  Insert the CLIENT ID into this url https://discordapp.com/oauth2/authorize?client_id=CLIENT_ID&scope=bot&permissions=0
+5.  Go to that url to add the bot to the server of your choice - the selection will be dependent upon *your* server access details.
+6.  Add the token for the bot to your config with the command /bot config set discord_token "YOUR_TOKEN" (note - you must include the "" around the token)
+7.  Restart hangoutsbot
+    (note: I had to go into the config.json for the hangout bot and paste it directly into there.  Something was not right via the bot command)
+	
+Linking the Hangout and Discord channels:
+-----------------------------------------
+8.  Join the bot to the channel ni discord you want to link to HO's.
+9.  Say "whereami" in a discord channel that the bot is in and it should respond with the channel id (formated like 123456789123456789)
+10. Say "/bot dsync CHANNEL_ID" in the hangout you want to sync to the discord channel.
+
+Repeat the last two steps for each discord channel/hangout channel you want to sync.
 
 '''
 
