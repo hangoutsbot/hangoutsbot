@@ -29,19 +29,20 @@ def _handle_keyword(bot, event, command):
     users_in_chat = event.conv.users
 
     """check if synced room, if so, append on the users"""
-    sync_room_list = bot.get_config_suboption(event.conv_id, 'sync_rooms')
-    if sync_room_list:
-        if event.conv_id in sync_room_list:
-            for syncedroom in sync_room_list:
-                if event.conv_id not in syncedroom:
-                    users_in_chat += bot.get_users_in_conversation(syncedroom)
-            users_in_chat = list(set(users_in_chat)) # make unique
+    syncouts = bot.get_config_suboption(event.conv_id, 'sync_rooms')
+    if syncouts:
+        for sync_room_list in syncouts:
+            if event.conv_id in sync_room_list:
+                for syncedroom in sync_room_list:
+                    if event.conv_id not in syncedroom:
+                        users_in_chat += bot.get_users_in_conversation(syncedroom)
+                users_in_chat = list(set(users_in_chat)) # make unique
 
     for user in users_in_chat:
         try:
             if _internal.keywords[user.id_.chat_id] and not user.id_.chat_id in event.user.id_.chat_id:
                 for phrase in _internal.keywords[user.id_.chat_id]:
-                    regexphrase = "(^| )" + phrase + "( |$)"
+                    regexphrase = "(^|\s)" + phrase + "(\s|$)"
                     if re.search(regexphrase, event.text, re.IGNORECASE):
                         yield from _send_notification(bot, event, phrase, user)
         except KeyError:
