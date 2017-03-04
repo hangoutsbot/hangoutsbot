@@ -191,12 +191,14 @@ def start_asyncio_task(coroutine_function, *args, **kwargs):
 """plugin loader"""
 
 
-def retrieve_all_plugins(plugin_path=None, must_start_with=False):
+def retrieve_all_plugins(plugin_path=None, must_start_with=False, allow_underscore=False):
     """recursively loads all plugins from the standard plugins path
-    * a plugin file or folder must not begin with . or _
-    * a subfolder containing a plugin must have an __init__.py file
-    * sub-plugin files (additional plugins inside a subfolder) must be prefixed with the 
-      plugin/folder name for it to be automatically loaded
+    * plugin file/folder name starting with . or __ will be ignored unconditionally
+    * plugin file/folder name starting with _ will be ignored, unless allow_underscore=True
+    * folders containing plugins must have at least an empty __init__.py file
+    * sub-plugin files (additional plugins inside a subfolder) must be prefixed with the
+      EXACT plugin/folder name for it to be retrieved, matching starting _ is optional
+      if allow_underscore=True
     """
 
     if not plugin_path:
@@ -210,11 +212,23 @@ def retrieve_all_plugins(plugin_path=None, must_start_with=False):
         full_path = os.path.join(plugin_path, node_name)
         module_names = [ os.path.splitext(node_name)[0] ] # node_name without .py extension
 
-        if node_name.startswith(("_", ".")):
+        if node_name.startswith(("__", ".")):
             continue
 
-        if must_start_with and not node_name.startswith(must_start_with):
+        if node_name.startswith("_") and not allow_underscore:
             continue
+
+        if must_start_with:
+            prefixes = [ must_start_with ]
+            if allow_underscore:
+                # allow: X/_X_Y _X/X_Y _X/_X_Y
+                # underscore optional when checking sub-plugin visibility
+                if must_start_with.startswith('_'):
+                    prefixes.append(must_start_with[1:])
+                else:
+                    prefixes.append('_' + must_start_with)
+            if not node_name.startswith(tuple(prefixes)):
+                continue
 
         if os.path.isfile(full_path):
             if not node_name.endswith(".py"):
@@ -223,7 +237,7 @@ def retrieve_all_plugins(plugin_path=None, must_start_with=False):
             if not os.path.isfile(os.path.join(full_path, "__init__.py")):
                 continue
 
-            for sm in retrieve_all_plugins(full_path, must_start_with=node_name):
+            for sm in retrieve_all_plugins(full_path, must_start_with=node_name, allow_underscore=allow_underscore):
                 module_names.append(module_names[0] + "." + sm)
 
         plugin_list.extend(module_names)
@@ -233,19 +247,18 @@ def retrieve_all_plugins(plugin_path=None, must_start_with=False):
 
 
 def get_configured_plugins(bot):
-    all_plugins = retrieve_all_plugins()
     config_plugins = bot.get_config_option('plugins')
 
     if config_plugins is None: # must be unset in config or null
         logger.info("plugins is not defined, using ALL")
-        plugin_list = all_plugins
+        plugin_list = retrieve_all_plugins()
 
     else:
         """perform fuzzy matching with actual retrieved plugins, e.g. "abc" matches "xyz.abc"
         if more than one match found, don't load plugin
         """
         plugins_included = []
-        plugins_excluded = all_plugins
+        plugins_excluded = retrieve_all_plugins(allow_underscore=True)
 
         plugin_name_ambiguous = []
         plugin_name_not_found = []
