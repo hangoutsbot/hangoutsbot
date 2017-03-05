@@ -42,52 +42,45 @@ def _handle_autoreply(bot, event, command):
     # get_config_suboption returns the convo specific autoreply settings. If none set, it returns the global settings.
     autoreplies_list = bot.get_config_suboption(event.conv_id, 'autoreplies')
 
-    # load any global settings as well
-    autoreplies_list_global = bot.get_config_option('autoreplies')
+    """tag a conversation with "autoreplies-merge" to merge per-conversation and global autoreplies
+    note: you must also define the appropriate autoreply keys for a specific conversation
+    (by default per-conversation autoreplies overrides global autoreplies settings)
 
-    # If the global settings loaded from get_config_suboption then we now have them twice and don't need them, so can be ignored.
-    if autoreplies_list_global and autoreplies_list_global is not autoreplies_list:
-        autoreplies_list_extend=[]
+    tag commands:
+    * /bot tagset conv <conv_id> autoreplies-merge
+    * /bot tagdel conv <conv_id> autoreplies-merge
+    """
+    if event.conv_id in bot.conversations.get("tag:autoreplies-merge"):
 
-        # If the two are different, then iterate through each of the triggers in the global list and if they
-        # match any of the triggers in the convo list then discard them.
-        # Any remaining at the end of the loop are added to the first list to form a consolidated list
-        # of per-convo and global triggers & replies, with per-convo taking precident.
+        # load any global settings as well
+        autoreplies_list_global = bot.get_config_option('autoreplies')
 
-        # Loop through list of global triggers e.g. ["hi","hello","hey"],["baf","BAF"].
-        for kwds_gbl, sentences_gbl in autoreplies_list_global:
+        # If the global settings loaded from get_config_suboption then we now have them twice and don't need them, so can be ignored.
+        if autoreplies_list_global and (set([ frozenset([
+                frozenset(x) if isinstance(x, list) else x,
+                frozenset(y) if isinstance(y, list) else y ]) for x, y in autoreplies_list_global ])
+                != set([ frozenset([ frozenset(x) if isinstance(x, list) else x,
+                         frozenset(y) if isinstance(y, list) else y ]) for x, y in autoreplies_list ])):
 
-            discard_me = 0
-            if isinstance(kwds_gbl, list):
-                # Loop through nested list of global triggers e.g. "hi","hello","hey".
-                for kw_gbl in kwds_gbl:
+            add_to_autoreplies = []
 
-                    # Loop through list of convo triggers e.g. ["hi"],["hey"].
-                    for kwds, sentences in autoreplies_list:
+            # If the two are different, then iterate through each of the triggers in the global list and if they
+            # match any of the triggers in the convo list then discard them.
+            # Any remaining at the end of the loop are added to the first list to form a consolidated list
+            # of per-convo and global triggers & replies, with per-convo taking precident.
 
-                        if isinstance(kwds, list):
-                            # Loop through nested list of convo triggers e.g. "hi".
-                            for kw in kwds:
-
-                                # If any match, stop searching this set.
-                                if kw == kw_gbl:
-                                    discard_me = 1
-                                    break
-
-                        if discard_me == 1:
-                            break
-
-                    if discard_me == 1:
+            # Loop through list of global triggers e.g. ["hi","hello","hey"],["baf","BAF"].
+            for kwds_gbl, sentences_gbl in autoreplies_list_global:
+                overlap = False
+                for kwds_lcl, sentences_lcl in autoreplies_list:
+                    if type(kwds_gbl) is type(kwds_lcl) is list and (set(kwds_gbl) & set(kwds_lcl)):
+                        overlap = True
                         break
+                if not overlap:
+                    add_to_autoreplies.extend( [[kwds_gbl, sentences_gbl]] )
 
-            # If there are no overlaps (i.e. no instance of global trigger in convo trigger list), add to the list.
-            if discard_me == 0:
-                autoreplies_list_extend.extend([kwds_gbl, sentences_gbl])
-                break
-
-        # Extend original list with non-disgarded entries.
-        if autoreplies_list_extend:
-            autoreplies_list.extend([autoreplies_list_extend])
+            # Extend original list with non-disgarded entries.
+            autoreplies_list.extend( add_to_autoreplies )
 
     if autoreplies_list:
         for kwds, sentences in autoreplies_list:
