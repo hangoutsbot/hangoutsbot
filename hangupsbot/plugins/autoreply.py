@@ -1,13 +1,13 @@
-import asyncio, re, logging, json, random
+import asyncio, re, logging, json, random, aiohttp, io, os
 
 import hangups
 
 import plugins
 
+from plugins._validate_image_links import imagelink
 
 logger = logging.getLogger(__name__)
-
-
+#modified version of the original autoreply allowing for images to be posted to the chat.
 def _initialise(bot):
     plugins.register_handler(_handle_autoreply, type="message")
     plugins.register_handler(_handle_autoreply, type="membership")
@@ -39,7 +39,56 @@ def _handle_autoreply(bot, event, command):
     else:
         raise RuntimeError("unhandled event type")
 
+    # get_config_suboption returns the convo specific autoreply settings. If none set, it returns the global settings.
     autoreplies_list = bot.get_config_suboption(event.conv_id, 'autoreplies')
+    
+    # load any global settings as well
+    autoreplies_list_global = bot.get_config_option('autoreplies')
+
+    # If the global settings loaded from get_config_suboption then we now have them twice and don't need them, so can be ignored.
+    if autoreplies_list_global and autoreplies_list_global is not autoreplies_list:
+        autoreplies_list_extend=[]
+
+        # If the two are different, then iterate through each of the triggers in the global list and if they
+        # match any of the triggers in the convo list then discard them.
+        # Any remaining at the end of the loop are added to the first list to form a consolidated list
+        # of per-convo and global triggers & replies, with per-convo taking precident.
+        
+        # Loop through list of global triggers e.g. ["hi","hello","hey"],["baf","BAF"].
+        for kwds_gbl, sentences_gbl in autoreplies_list_global:
+
+            discard_me = 0
+            if isinstance(kwds_gbl, list):
+                # Loop through nested list of global triggers e.g. "hi","hello","hey".
+                for kw_gbl in kwds_gbl:
+
+                    # Loop through list of convo triggers e.g. ["hi"],["hey"].
+                    for kwds, sentences in autoreplies_list:
+
+                        if isinstance(kwds, list):
+                            # Loop through nested list of convo triggers e.g. "hi".
+                            for kw in kwds:
+
+                                # If any match, stop searching this set.
+                                if kw == kw_gbl:
+                                    discard_me = 1
+                                    break
+
+                        if discard_me == 1:
+                            break
+
+                    if discard_me == 1:
+                        break
+
+            # If there are no overlaps (i.e. no instance of global trigger in convo trigger list), add to the list.
+            if discard_me == 0:
+                autoreplies_list_extend.extend([kwds_gbl, sentences_gbl])
+                break
+
+        # Extend original list with non-disgarded entries.
+        if autoreplies_list_extend:
+            autoreplies_list.extend([autoreplies_list_extend])
+
     if autoreplies_list:
         for kwds, sentences in autoreplies_list:
 
@@ -47,6 +96,14 @@ def _handle_autoreply(bot, event, command):
                 message = random.choice(sentences)
             else:
                 message = sentences
+
+            
+            # [MD] Added call to shared tldr functionality to permit posting the convo tldr in an 
+            #      autoreply if [tldr] is encountered in a message
+            if "[tldr]" in message:
+                args = {'conv_id': event.conv_id, 'params': ''}
+                tldrmsg = bot.call_shared("plugin_tldr_shared",bot,args)
+                message = message.replace("[tldr]", tldrmsg)
 
             if isinstance(kwds, list):
                 for kw in kwds:
@@ -94,7 +151,30 @@ def send_reply(bot, event, message):
             envelopes.append((target_conv, message.format(**values)))
 
     else:
-        envelopes.append((event.conv, message.format(**values)))
+        message, probable_image_link=imagelink(message)
+
+        if probable_image_link:
+            if "imgur.com" in message:
+                """special imgur link handling"""
+                if not message.endswith((".jpg", ".gif", "gifv", "webm", "png")):
+                    message = message + ".gif"
+                message = "https://i.imgur.com/" + os.path.basename(message)
+
+            message = message.replace(".webm",".gif")
+            message = message.replace(".gifv",".gif")
+
+            logger.info("getting {}".format(message))
+
+            filename = os.path.basename(message)
+            r = yield from aiohttp.request('get', message)
+            raw = yield from r.read()
+            image_data = io.BytesIO(raw)
+
+            image_id = yield from bot._client.upload_image(image_data, filename=filename)
+
+            yield from bot.coro_send_message(event.conv.id_, None, image_id=image_id)
+        else:
+            envelopes.append((event.conv, message.format(**values)))
 
     for send in envelopes:
         conv_target, message = send
