@@ -37,9 +37,6 @@ def image_validate_link(image_uri, reject_googleusercontent=True):
 
     image_uri_lower = image_uri.lower()
 
-    if not image_uri_lower.startswith(('https://', 'http://', '//')):
-        return False
-
     if re.match("^(https?://)?([a-z0-9.]*?\.)?imgur.com/", image_uri_lower, re.IGNORECASE):
         """imgur links can be supplied with/without protocol and extension"""
         probable_image_link = True
@@ -48,7 +45,7 @@ def image_validate_link(image_uri, reject_googleusercontent=True):
         """imgur links can be supplied with/without protocol and extension"""
         probable_image_link = True
 
-    elif image_uri_lower.startswith(("http://", "https://")) and image_uri_lower.endswith((".png", ".gif", ".gifv", ".jpg", ".jpeg")):
+    elif image_uri_lower.startswith(("http://", "https://", "//")) and image_uri_lower.endswith((".png", ".gif", ".gifv", ".jpg", ".jpeg")):
         """other image links must have protocol and end with valid extension"""
         probable_image_link = True
 
@@ -80,10 +77,18 @@ def image_validate_link(image_uri, reject_googleusercontent=True):
 
 @asyncio.coroutine
 def image_upload_single(image_uri):
-    logger.info("getting {}".format(image_uri))
+    logger.debug("getting {}".format(image_uri))
     filename = os.path.basename(image_uri)
-    r = yield from aiohttp.request('get', image_uri)
-    raw = yield from r.read()
+    try:
+        r = yield from aiohttp.request('get', image_uri)
+        content_type = r.headers['Content-Type']
+        if not content_type.startswith('image/'):
+            logger.warning("request did not return image, content-type={}".format(content_type))
+            return False
+        raw = yield from r.read()
+    except (aiohttp.errors.ClientError) as exc:
+        logger.warning("failed to get {} - {}".format(filename, exc))
+        return False
     image_data = io.BytesIO(raw)
     image_id = yield from image_upload_raw(image_data, filename=filename)
     return image_id
@@ -91,7 +96,11 @@ def image_upload_single(image_uri):
 
 @asyncio.coroutine
 def image_upload_raw(image_data, filename):
-    image_id = yield from _externals["bot"]._client.upload_image(image_data, filename=filename)
+    image_id = False
+    try:
+        image_id = yield from _externals["bot"]._client.upload_image(image_data, filename=filename)
+    except KeyError as exc:
+        logger.warning("_client.upload_image failed: {}".format(exc))
     return image_id
 
 

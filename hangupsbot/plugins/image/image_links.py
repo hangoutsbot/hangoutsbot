@@ -55,14 +55,11 @@ def image_validate_link(image_uri, reject_googleusercontent=True):
 
     image_uri_lower = image_uri.lower()
 
-    if not image_uri_lower.startswith(('https://', 'http://', '//')):
-        return False
-
     if re.match("^(https?://)?([a-z0-9.]*?\.)?imgur.com/", image_uri_lower, re.IGNORECASE):
         """imgur links can be supplied with/without protocol and extension"""
         probable_image_link = True
 
-    elif image_uri_lower.startswith(("http://", "https://")) and image_uri_lower.endswith((".png", ".gif", ".gifv", ".jpg", ".jpeg")):
+    elif image_uri_lower.startswith(("http://", "https://", "//")) and image_uri_lower.endswith((".png", ".gif", ".gifv", ".jpg", ".jpeg")):
         """other image links must have protocol and end with valid extension"""
         probable_image_link = True
 
