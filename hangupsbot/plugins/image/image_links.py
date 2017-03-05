@@ -1,8 +1,7 @@
 """
 Identify images, upload them to google plus, post in hangouts
 """
-
-import aiohttp, asyncio, io, logging, os, re
+import asyncio, logging, re
 
 import plugins
 
@@ -10,7 +9,7 @@ import plugins
 logger = logging.getLogger(__name__)
 
 
-def _initialise():
+def _initialise(bot):
     plugins.register_handler(_watch_image_link, type="message")
 
 
@@ -20,78 +19,90 @@ def _watch_image_link(bot, event, command):
     if event.user.is_self:
         return
 
-    message = event.text
+    text = event.text
 
-    try:
-        message, probable_image_link = bot.call_shared('image_validate_link', message)
-    except KeyError:
-        """
-        INCLUDE THE [image] PLUGIN IN YOUR CONFIGURATION
-        IN THE FUTURE, THIS WILL FAIL GRACEFULLY AND NOTHING WILL HAPPEN
-        DEVELOPERS+BOTMINS: CONSIDER YOURSELF WARNED
-        """
-        # return
+    if text.startswith(('https://', 'http://', '//')):
         try:
-            logger.warning('image plugin not loaded - attempting to directly import plugin')
-            from plugins.image import _image_validate_link as image_validate_link
-            message, probable_image_link = image_validate_link(message)
-        except ImportError:
-            logger.warning('image module is not available - using fallback')
-            message, probable_image_link = _fallback_image_validate_link(message)
+            image_id = yield from bot.call_shared('image_validate_and_upload_single', text)
+        except KeyError:
+            logger.warning("image plugin not loaded - using in-built fallback")
+            image_id = yield from image_validate_and_upload_single(text, bot)
 
-    if probable_image_link:
-        logger.info("getting {}".format(message))
-        filename = os.path.basename(message)
-        r = yield from aiohttp.request('get', message)
-        raw = yield from r.read()
-        image_data = io.BytesIO(raw)
-        image_id = yield from bot._client.upload_image(image_data, filename=filename)
-
-        yield from bot.coro_send_message(event.conv.id_, None, image_id=image_id)
+        if image_id:
+            yield from bot.coro_send_message(event.conv.id_, None, image_id=image_id)
 
 
-def _fallback_image_validate_link(event_text, reject_googleusercontent=True):
+"""FALLBACK CODE FOR IMAGE LINK VALIDATION AND UPLOAD
+* CODE IS DEPRECATED - DO NOT CHANGE OR ALTER
+* CODE MAY BE REMOVED AT ANY TIME
+* FOR FUTURE-PROOFING, INCLUDE [image] PLUGIN IN YOUR CONFIG.JSON
+"""
+
+import aiohttp, io, os, re
+
+def image_validate_link(image_uri, reject_googleusercontent=True):
     """
-    FALLBACK FOR BACKWARD-COMPATIBILITY
-    INCLUDE [image] PLUGIN IN YOUR CONFIGURATION
-    DO NOT RELY ON THIS AS A PRINCIPAL FUNCTION
-    DO NOT MODIFY THIS CODE
-    MAY BE REMOVED ON THE WHIM OF THE FRAMEWORK DEVELOPERS
+    validate and possibly mangle supplied image link
+    returns False, if not an image link
+            <string image uri>
     """
 
-    if " " in event_text:
+    if " " in image_uri:
         """immediately reject anything with non url-encoded spaces (%20)"""
-        return event_text, False
+        return False
 
     probable_image_link = False
 
-    event_text_lower = event_text.lower()
+    image_uri_lower = image_uri.lower()
 
-    if re.match("^(https?://)?([a-z0-9.]*?\.)?imgur.com/", event_text_lower, re.IGNORECASE):
+    if not image_uri_lower.startswith(('https://', 'http://', '//')):
+        return False
+
+    if re.match("^(https?://)?([a-z0-9.]*?\.)?imgur.com/", image_uri_lower, re.IGNORECASE):
         """imgur links can be supplied with/without protocol and extension"""
         probable_image_link = True
 
-    elif event_text_lower.startswith(("http://", "https://")) and event_text_lower.endswith((".png", ".gif", ".gifv", ".jpg", ".jpeg")):
+    elif image_uri_lower.startswith(("http://", "https://")) and image_uri_lower.endswith((".png", ".gif", ".gifv", ".jpg", ".jpeg")):
         """other image links must have protocol and end with valid extension"""
         probable_image_link = True
 
-    if probable_image_link and reject_googleusercontent and ".googleusercontent." in event_text_lower:
+    if probable_image_link and reject_googleusercontent and ".googleusercontent." in image_uri_lower:
         """reject links posted by google to prevent endless attachment loop"""
-        logger.debug("rejected link {} with googleusercontent".format(event_text))
-        return event_text, False
+        logger.debug("rejected link {} with googleusercontent".format(image_uri))
+        return False
 
     if probable_image_link:
 
         """special handler for imgur links"""
-        if "imgur.com" in event_text:
-            if not event_text.endswith((".jpg", ".gif", "gifv", "webm", "png")):
-                event_text = event_text + ".gif"
-            event_text = "https://i.imgur.com/" + os.path.basename(event_text)
+        if "imgur.com" in image_uri:
+            if not image_uri.endswith((".jpg", ".gif", "gifv", "webm", "png")):
+                image_uri = image_uri + ".gif"
+            image_uri = "https://i.imgur.com/" + os.path.basename(image_uri)
 
-            """XXX: animations - this code looks fragile"""
-            event_text = event_text.replace(".webm",".gif")
-            event_text = event_text.replace(".gifv",".gif")
+            """imgur wraps animations in player, force the actual image resource"""
+            image_uri = image_uri.replace(".webm",".gif")
+            image_uri = image_uri.replace(".gifv",".gif")
 
-        logger.info('{} seems to be a valid image link'.format(event_text))
+        logger.debug('{} seems to be a valid image link'.format(image_uri))
 
-    return event_text, probable_image_link
+        return image_uri
+
+    return False
+
+@asyncio.coroutine
+def image_upload_single(image_uri, bot):
+    logger.info("getting {}".format(image_uri))
+    filename = os.path.basename(image_uri)
+    r = yield from aiohttp.request('get', image_uri)
+    raw = yield from r.read()
+    image_data = io.BytesIO(raw)
+    image_id = yield from bot._client.upload_image(image_data, filename=filename)
+    return image_id
+
+@asyncio.coroutine
+def image_validate_and_upload_single(text, bot, reject_googleusercontent=True):
+    image_id = False
+    image_link = image_validate_link(text, reject_googleusercontent=reject_googleusercontent)
+    if image_link:
+        image_id = yield from image_upload_single(image_link, bot)
+    return image_id
