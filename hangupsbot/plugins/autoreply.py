@@ -113,6 +113,16 @@ def send_reply(bot, event, message):
                                    for user_id in event.conv_event.participant_ids ]
         values["participants_namelist"] = ", ".join([ u.full_name for u in values["participants"] ])
 
+    # tldr plugin integration: inject current conversation tldr text into auto-reply
+    if '{tldr}' in message:
+        args = {'conv_id': event.conv_id, 'params': ''}
+        try:
+            values["tldr"] = bot.call_shared("plugin_tldr_shared", bot, args)
+        except KeyError:
+            values["tldr"] = "**[TLDR UNAVAILABLE]**" # prevents exception
+            logger.warning("tldr plugin is not loaded")
+            pass
+
     envelopes = []
 
     if message.startswith(("ONE_TO_ONE:", "HOST_ONE_TO_ONE")):
