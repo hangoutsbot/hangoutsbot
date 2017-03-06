@@ -248,17 +248,21 @@ def quit(bot, event, *args):
 
 def config(bot, event, cmd=None, *args):
     """displays or modifies the configuration
-        Parameters: /bot config get [key] [subkey] [...]
-                    /bot config set [key] [subkey] [...] [value]
-                    /bot config append [key] [subkey] [...] [value]
-                    /bot config remove [key] [subkey] [...] [value]
-                    Use /bot config here [command] to override and display within group conversation"""
+
+       * /bot config get [key] [subkey] [...]
+       * /bot config set [key] [subkey] [...] [value]
+       * /bot config append [key] [subkey] [...] [value]
+       * /bot config remove [key] [subkey] [...] [value]
+
+       note: override and display within group conversation with /bot config here [command]"""
 
     # consume arguments and differentiate beginning of a json array or object
     tokens = list(args)
     parameters = []
     value = []
     state = "key"
+
+    # allow admin to override default output to 1-on-1
     chat_response_private = True
     if cmd == 'here':
         chat_response_private = False
