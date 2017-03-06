@@ -67,14 +67,14 @@ def help(bot, event, cmd=None, *args):
         """apply limited markdown-like formatting to command help"""
 
         # simple bullet lists
-        _docstring = re.sub(r'\n\s+\*\s', '\n<br />* ', _docstring)
+        _docstring = re.sub(r'\n +\* +', '\n* ', _docstring)
 
         # handle generic whitespace
         # manually parse line-breaks: single break -> space; multiple breaks -> paragraph
         # XXX: the markdown parser is iffy on line-break processing
-        _docstring = re.sub(r"\n(?= *\S)", " ", _docstring) # turn single linebreak into space, preserves multiple linebreaks
+        _docstring = re.sub(r"(?<!\n)\n(?= *[^ \t\n\r\f\v\*])", " ", _docstring) # turn standalone linebreaks into space, preserves multiple linebreaks
         _docstring = re.sub(r" +", " ", _docstring) # convert multiple consecutive spaces into single space
-        _docstring = re.sub(r" *\n+ *", "\n\n", _docstring) # convert consecutive linebreaks into double linebreak (pseudo-paragraph)
+        _docstring = re.sub(r" *\n\n+ *(?!\*)", "\n\n", _docstring) # convert consecutive linebreaks into double linebreak (pseudo-paragraph)
 
         # replace /bot with the first alias in the command handler
         # XXX: [botalias] is left a replacement token for backward compatibility, please avoid using it
