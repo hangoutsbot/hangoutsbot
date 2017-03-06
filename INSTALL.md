@@ -1,29 +1,22 @@
 # Preparing your Environment
 
-**install python 3.4 from source**
-```
-wget https://www.python.org/ftp/python/3.4.2/Python-3.4.2.tgz
-tar xvf Python-3.4.2.tgz
-cd Python-3.4.2
-./configure
-make
-make test
-sudo make install
-```
+. Clone the repository
+. Install dependencies or build the docker container
+. Run the program interactively for the first time
+. Set up the program to be run as a daemon
 
-**git clone the repository**
 ```
 git clone <repository url>
 ```
 
-**install dependencies**
+Install python 3.4.2 or newer (3.5 or newer suggested).  If using Debian/Ubuntu,
+`apt-get install python3` will work.
+
+Install the additional python modules that the bot needs:
 ```
+cd hangoutsbot
 pip3 install -r requirements.txt
 ```
-
-Note: `pip` may install an outdated version of hangups. You may have to 
-  install directly from [source](https://github.com/tdryer/hangups).
-  Related: https://github.com/nylonee/hangupsbot/issues/43#issuecomment-72794942
 
 # First-Run
 
@@ -97,3 +90,40 @@ For further information, please see the README file and wiki.
 * You can verify the location of your active `config.json` by sending
   the following command to the bot via hangouts: `/bot files` (with
   the **starter** plugin active)
+
+
+# Docker Usage
+
+The bot can be run inside a docker container if desired.
+You will need to create a directory outside the container to contain
+configuration and storage data, and if you are using sinks, you may
+need to change the ports we expose from the container (the defaults
+are 9000, 9001, and 9002):
+
+You will first need to build the image:
+
+```
+docker build -t hangoutsbot/hangoutsbot .
+```
+
+If you need to change ports add `--build-arg PORTS="new port list"`, for
+example:
+
+```
+docker build -t hangoutsbot/hangoutsbot --build-arg PORTS="9000 9001 9002 9003 9004" .
+```
+
+Then you can run the image, any arguments starting with a "-" will be passed after
+the image name will be passed on to the bot (e.g. `-d` for debug):
+
+To run interactively, and in debug mode:
+
+```
+docker run -it -v $HOME/hob-data-dir:/data hangoutsbot/hangoutsbot -d
+```
+
+To run detatched, as a daemon:
+
+```
+docker run -d -v $HOME/hob-data-dir:/data hangoutsbot/hangoutsbot
+```
