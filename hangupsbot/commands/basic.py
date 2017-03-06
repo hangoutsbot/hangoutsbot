@@ -62,18 +62,25 @@ def help(bot, event, cmd=None, *args):
             yield from command.unknown_command(bot, event)
             return
 
-        """
-        XXX: the markdown parser is iffy on line-break processing
-        manually parse line-breaks: single break -> space; multiple breaks -> paragraph
-        """
         _docstring = command_fn.__doc__.strip()
+
+        """apply limited markdown-like formatting to command help"""
+
+        # simple bullet lists
+        _docstring = re.sub(r'\n\s+\*\s', '\n<br />* ', _docstring)
+
+        # handle generic whitespace
+        # manually parse line-breaks: single break -> space; multiple breaks -> paragraph
+        # XXX: the markdown parser is iffy on line-break processing
         _docstring = re.sub(r"\n(?= *\S)", " ", _docstring) # turn single linebreak into space, preserves multiple linebreaks
         _docstring = re.sub(r" +", " ", _docstring) # convert multiple consecutive spaces into single space
         _docstring = re.sub(r" *\n+ *", "\n\n", _docstring) # convert consecutive linebreaks into double linebreak (pseudo-paragraph)
 
-        help_lines.append("<b>{}</b>: {}".format(command_fn.__name__, _docstring))
+        # replace /bot with the first alias in the command handler
+        # XXX: [botalias] is left a replacement token for backward compatibility, please avoid using it
+        _docstring = re.sub("(\/bot|\[botalias\])", bot._handlers.bot_command[0], _docstring)
 
-    help_lines = [lines.replace('[botalias]', bot._handlers.bot_command[0]) for lines in help_lines]
+        help_lines.append("<b>{}</b>: {}".format(command_fn.__name__, _docstring))
 
     yield from bot.coro_send_to_user_and_conversation(
         event.user.id_.chat_id,
