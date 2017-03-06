@@ -1,8 +1,8 @@
 # BOT DEPENDENCIES #
-git+https://github.com/hangoutsbot/hangups.git
+git+https://github.com/tdryer/hangups.git
 appdirs
 asyncio
-aiohttp>=1.0,<1.1
+aiohttp
 jsonrpclib-pelix
 
 # PLUGIN DEPENDENCIES #

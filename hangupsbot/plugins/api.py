@@ -147,14 +147,20 @@ class APIRequestHandler(AsyncRequestHandler):
         """reprocessor: allow message to be intepreted as a command"""
         reprocessor_context = self._bot._handlers.attach_reprocessor( handle_as_command,
                                                                       return_as_dict=True )
-        content = content + reprocessor_context["fragment"]
         reprocessor_id = reprocessor_context["id"]
 
         if id in self._bot.conversations.catalog:
-            results = yield from self._bot.coro_send_message(id, content)
+            results = yield from self._bot.coro_send_message(
+                id,
+                content,
+                context = { "reprocessor": reprocessor_context })
+
         else:
             # attempt to send to a user id
-            results = yield from self._bot.coro_send_to_user(id, content)
+            results = yield from self._bot.coro_send_to_user(
+                id,
+                content,
+                context = { "reprocessor": reprocessor_context })
 
         start_time = time.time()
         while time.time() - start_time < 3:

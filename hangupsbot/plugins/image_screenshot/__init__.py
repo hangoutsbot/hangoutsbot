@@ -125,7 +125,7 @@ def screenshot(bot, event, *args):
             
         try:
             image_id = yield from bot._client.upload_image(image_data, filename=filename)
-            yield from bot._client.sendchatmessage(event.conv.id_, None, image_id=image_id)
+            yield from bot.coro_send_message(event.conv.id_, None, image_id=image_id)
         except Exception as e:
             yield from bot.coro_send_message(event.conv_id, "<i>error uploading screenshot</i>")
             logger.exception("upload failed".format(url))

@@ -4,6 +4,7 @@ from collections import namedtuple
 
 import hangups
 
+import hangups_shim
 
 logger = logging.getLogger(__name__)
 
@@ -63,14 +64,14 @@ class HangupsConversation(hangups.conversation.Conversation):
         timestamp_now = int(time.time() * 1000000)
 
         if permamem_conv["history"]:
-            otr_status = hangups.schemas.OffTheRecordStatus.ON_THE_RECORD
+            otr_status = hangups_shim.schemas.OffTheRecordStatus.ON_THE_RECORD
         else:
-            otr_status = hangups.schemas.OffTheRecordStatus.OFF_THE_RECORD
+            otr_status = hangups_shim.schemas.OffTheRecordStatus.OFF_THE_RECORD
 
         if permamem_conv["type"] == "GROUP":
-            type_ = hangups.schemas.ConversationType.GROUP
+            type_ = hangups_shim.schemas.ConversationType.GROUP
         else:
-            type_ = hangups.schemas.ConversationType.STICKY_ONE_TO_ONE
+            type_ = hangups_shim.schemas.ConversationType.STICKY_ONE_TO_ONE
 
         current_participant = []
         participant_data = []
@@ -116,13 +117,13 @@ class HangupsConversation(hangups.conversation.Conversation):
                                                          invite_timestamp=timestamp_now,
                                                          inviter_id=hangups.user.UserID( chat_id=bot_user["chat_id"],
                                                                                          gaia_id=bot_user["chat_id"] ),
-                                                         notification_level=hangups.schemas.ClientNotificationLevel.RING,
+                                                         notification_level=hangups_shim.schemas.ClientNotificationLevel.RING,
                                                          self_read_state=LatestRead( latest_read_timestamp=latest_read_timestamp,
                                                                                      participant_id=hangups.user.UserID( chat_id=bot_user["chat_id"],
                                                                                                                          gaia_id=bot_user["chat_id"] )),
                                                          sort_timestamp=sort_timestamp,
-                                                         status=hangups.schemas.ClientConversationStatus.ACTIVE,
-                                                         view=hangups.schemas.ClientConversationView.INBOX_VIEW )
+                                                         status=hangups_shim.schemas.ClientConversationStatus.ACTIVE,
+                                                         view=hangups_shim.schemas.ClientConversationView.INBOX_VIEW )
 
         self._conversation = ClientConversation( conversation_id=conversation_id,
                                                  current_participant=current_participant,
@@ -143,6 +144,7 @@ class HangupsConversation(hangups.conversation.Conversation):
     def users(self):
         return [ self.bot.get_hangups_user(part.id_.chat_id) for part in self._conversation.participant_data ]
 
+import inspect
 
 class FakeConversation(object):
     def __init__(self, _client, id_):
@@ -150,14 +152,36 @@ class FakeConversation(object):
         self.id_ = id_
 
     @asyncio.coroutine
-    def send_message(self, segments, image_id=None, otr_status=None):
+    def send_message(self, segments, image_id=None, otr_status=None, context=None):
         with (yield from asyncio.Lock()):
+            annotations = []
+
             if segments:
+                if "reprocessor" in context:
+                    annotations.append( hangups.hangouts_pb2.EventAnnotation(
+                        type = 1025,
+                        value = context["reprocessor"]["id"] ))
+
+                # XXX:DEBUG
+                # for seg in segments:
+                #     print("SENDING type:[{}] text:[{}] link:[{}]".format(seg.type_, seg.text, seg.link_target))
+
                 serialised_segments = [seg.serialize() for seg in segments]
             else:
                 serialised_segments = None
 
-            yield from self._client.sendchatmessage(
-                self.id_, serialised_segments,
-                image_id=image_id, otr_status=otr_status
-            )
+            media_attachment = None
+            if image_id:
+                media_attachment = hangups.hangouts_pb2.ExistingMedia(
+                    photo = hangups.hangouts_pb2.Photo( photo_id = image_id ))
+
+            request = hangups.hangouts_pb2.SendChatMessageRequest(
+                request_header = self._client.get_request_header(),
+                message_content = hangups.hangouts_pb2.MessageContent( segment=serialised_segments ),
+                existing_media = media_attachment,
+                annotation = annotations,
+                event_request_header = hangups.hangouts_pb2.EventRequestHeader(
+                    conversation_id=hangups.hangouts_pb2.ConversationId( id=self.id_ ),
+                    client_generated_id=self._client.get_client_generated_id() ))
+
+            yield from self._client.send_chat_message(request)

@@ -126,6 +126,11 @@ class EventHandler:
                 event.from_bot = False
 
             """reprocessor - process event with hidden context from handler.attach_reprocessor()"""
+
+            for annotation in event.conv_event._event.chat_message.annotation:
+                if annotation.type == 1025:
+                    yield from self.run_reprocessor(annotation.value, event)
+
             if len(event.conv_event.segments) > 0:
                 for segment in event.conv_event.segments:
                     if segment.link_target:
@@ -224,17 +229,17 @@ class EventHandler:
 
     @asyncio.coroutine
     def handle_call(self, event):
-        """handle conversation name change"""
+        """handle incoming calls (voice/video)"""
         yield from self.run_pluggable_omnibus("call", self.bot, event, command)
 
     @asyncio.coroutine
     def handle_typing_notification(self, event):
-        """handle conversation name change"""
+        """handle changes in typing state"""
         yield from self.run_pluggable_omnibus("typing", self.bot, event, command)
 
     @asyncio.coroutine
     def handle_watermark_notification(self, event):
-        """handle conversation name change"""
+        """handle watermark updates"""
         yield from self.run_pluggable_omnibus("watermark", self.bot, event, command)
 
     @asyncio.coroutine
