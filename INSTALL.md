@@ -1,22 +1,45 @@
 # Preparing your Environment
 
-. Clone the repository
-. Install dependencies or build the docker container
-. Run the program interactively for the first time
-. Set up the program to be run as a daemon
+This section describes the most common way to prepare a system for Hangoutsbot and
+  get it up and running.
 
-```
-git clone <repository url>
-```
+**Docker Users:** See the the end of this file for the **Docker Usage** section.
 
-Install python 3.4.2 or newer (3.5 or newer suggested).  If using Debian/Ubuntu,
-`apt-get install python3` will work.
+1. Ensure that your system has Python 3.4.2 or newer - we recommend Python 3.5. It's
+   most likely already installed on your system if you are using a fairly new Linux 
+   distribution. The Python package manager `pip3` is also required and is usually 
+   shipped with whatever version of Python your system comes with.
+   * To check for the existence and versions of both the language and package manager,
+     you can run the following commands at your terminal:
+     * `python3 --version`
+     * `pip3 --version`
+   * For systems that don't have Python 3 pre-installed, it is usually available as a
+     package that you can install 
+       (e.g. `sudo apt-get install python3 python3-pip` on Debian/Ubuntu). 
+     We do not provide any further guidance for installation as this is beyond the
+     scope of the Hangoutsbot documentation and there are plenty of online resources
+     which can cover more use-cases and OSes than we can ;)
+2. Clone the repository:
 
-Install the additional python modules that the bot needs:
-```
-cd hangoutsbot
-pip3 install -r requirements.txt
-```
+   ```
+   git clone <repository url>
+   ```
+
+3. Install the Python module dependencies that Hangoutsbot requires:
+
+   ```
+   cd hangoutsbot
+   pip3 install -r requirements.txt
+   ```
+
+4. Run the program interactively for the first time - this topic is covered in the next
+   section, so please go through it carefully.
+5. Set up the bot to be run as a daemon/service so that it can run unattended and
+   survive system reboots. This is an opiniated topic with plenty of different
+   implementation methods. When you're ready, some scripts are available at the
+   following links:
+   * https://github.com/hangoutsbot/hangoutsbot/tree/master/examples
+   * https://github.com/hangoutsbot/hangoutsbot/issues/69
 
 # First-Run
 
@@ -59,9 +82,10 @@ This will be accomplished using the supplied **starter** plugin with
 
 1. Using a hangouts client and your actual gmail account, open a 
    hangout with the bot account.
-2. Send any message to the bot.
+2. Send any message to the bot from your own gmail account.
 3. On a browser, login into the bot's gmail account and ensure chat 
-   is activated. Accept the invite from your actual account.
+   is activated. Accept the invite (and message) from your own gmail
+   account.
 4. Back on your hangouts client, send the following message:
    `/bot iamspartacus`
 5. The bot should reply with "configuring first admin" or a similar
