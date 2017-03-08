@@ -7,151 +7,140 @@ import logging
 import plugins
 import random
 
+
 logger = logging.getLogger(__name__)
 
+_monitored = {}
+
 def _initialise(bot):
-    config_botalive = bot.get_config_option("botalive") or {}
-    if not config_botalive:
+    if not bot.get_config_option("botalive"):
         return
 
-    if not bot.memory.exists(["conv_data"]):
-        # should not come to this, but create it once as we need to store data for each conv in it
-        bot.memory.set_by_path(["conv_data"], {})
-        bot.memory.save()
+    plugins.start_asyncio_task(_tick)
 
-    # backwards compatibility
-    if isinstance(config_botalive, list):
-        _new_config = {}
-        if "admins" in config_botalive:
-            _new_config["admins"] = 900
-        if "groups" in config_botalive:
-            _new_config["groups"] = 10800
-        bot.config.set_by_path(["botalive"], _new_config)
-        bot.config.save()
-        config_botalive = _new_config
-
-    if "admins" not in config_botalive and "groups" not in config_botalive:
-        return
-
-    watermarkUpdater = watermark_updater(bot)
-
-    if "admins" in config_botalive:
-        if config_botalive["admins"] < 60:
-            config_botalive["admins"] = 60
-        plugins.start_asyncio_task(_periodic_watermark_update, watermarkUpdater, "admins")
-
-    if "groups" in config_botalive:
-        if config_botalive["groups"] < 60:
-            config_botalive["groups"] = 60
-        plugins.start_asyncio_task(_periodic_watermark_update, watermarkUpdater, "groups")
-
-    logger.info("timing {}".format(config_botalive))
-
-    watch_event_types = [
-        "message",
-        "membership",
-        "rename"
-        ]
+    # track events that can modify the watermark
+    watch_event_types = [ "message",
+                          "membership",
+                          "rename" ]
     for event_type in watch_event_types:
-        plugins.register_handler(_log_message, event_type)
+        plugins.register_handler(_conv_external_event, event_type)
 
-def _log_message(bot, event, command):
-    """log time to conv_data of event conv"""
 
-    conv_id = str(event.conv_id)
-    if not bot.memory.exists(["conv_data", conv_id]):
-        bot.memory.set_by_path(["conv_data", conv_id], {})
-        bot.memory.save()
-    bot.memory.set_by_path(["conv_data", conv_id, "botalive"], datetime.datetime.now().timestamp())
-    # not worth a dump to disk, skip bot.memory.save()
+def _conv_external_event(bot, event, command):
+    """detect non-bot user events indicating activity in a conversation that can advance the watermark"""
+
+    if event.user.is_self:
+        return
+
+    conv_id = event.conv_id
+
+    # only track events in conversations that were previously registered by _tick()
+    if conv_id in _monitored: # otherwise, this will track events in ALL conversations
+        _conv_monitor(bot, conv_id,
+            overrides={ 'last_external_event': datetime.datetime.now().timestamp() })
+
+
+def _conv_monitor(bot, conv_id, overrides={}):
+    """monitor conversation states in-memory
+    * conversation must already be in permamem
+    * supply optional overrides to change defaults/existing state"""
+
+    if conv_id in bot.memory["convmem"]:
+        if conv_id not in _monitored:
+            # initialise monitoring
+            _monitored[conv_id] = { 'errors': 0,
+                                    'interval_watermark': 3600,
+                                    'last_external_event': False,
+                                    'last_watermark': False }
+        for key, val in overrides.items():
+            _monitored[conv_id][key] = val
+
 
 @asyncio.coroutine
-def _periodic_watermark_update(bot, watermarkUpdater, target):
-    """
-    add conv_ids of 1on1s with bot admins or add group conv_ids to the queue
-    to prevent the processor from being consumed entirely, we sleep until the next run or 5 sec
-    """
+def _tick(bot):
+    """manage the list of conversation states and update watermarks sequentially:
+    * add/update conversation and watermark intervals dynamically
+    * update the watermarks for conversations that need them
 
-    last_run = datetime.datetime.now().timestamp()
+    devnote: wrapping loop sleeps for fixed period after everything completes,
+        randomness introduced by fuzzing pauses between conversation watermarks"""
 
     while True:
-        timestamp = datetime.datetime.now().timestamp()
-        yield from asyncio.sleep(max(5, last_run - timestamp + bot.config.get_by_path(["botalive", target])))
+        config_botalive = bot.get_config_option("botalive") or {}
 
-        if target == "admins":
-            bot_admin_ids = bot.get_config_option('admins')
-            for admin in bot_admin_ids:
+        # botalive.permafail = <number> of retries before permanently stopping
+        #   UNSET/FALSE for default of 5 retries
+        if "permafail" not in config_botalive:
+            config_botalive['permafail'] = 5
+
+        # botalive.maxfuzz = fuzz watermark update pauses between between 3 and <integer> seconds
+        #   UNSET/FALSE to disable fuzzing, pause = fixed 1 second
+        if "maxfuzz" not in config_botalive:
+            config_botalive['maxfuzz'] = 10
+        elif config_botalive["maxfuzz"] is not False and config_botalive["maxfuzz"] < 3:
+            config_botalive['maxfuzz'] = 3
+
+        # botalive.admins = minimum amount of <seconds> between watermark updates for admin 1-to-1s
+        #   UNSET/FALSE to disable watermarking for admin 1-to-1s
+        if "admins" in config_botalive:
+            if config_botalive["admins"] < 60:
+                config_botalive["admins"] = 60 # minimum: once per minute
+
+            # most efficient way to add admin one-to-ones
+            admins = bot.get_config_option('admins')
+            for admin in admins:
                 if bot.memory.exists(["user_data", admin, "1on1"]):
                     conv_id = bot.memory.get_by_path(["user_data", admin, "1on1"])
-                    watermarkUpdater.add(conv_id)
-        else:
-            for conv_id, conv_data in bot.conversations.get().items():
-                if conv_data["type"] == "GROUP" and bot.memory.exists(["conv_data", conv_id, "botalive"]):
-                    if last_run < bot.memory.get_by_path(["conv_data", conv_id, "botalive"]):
-                        watermarkUpdater.add(conv_id)
+                    _conv_monitor(bot, conv_id,
+                        overrides={ "interval_watermark": config_botalive["admins"] })
 
-        last_run = datetime.datetime.now().timestamp()
-        yield from watermarkUpdater.start()
+        # botalive.admins = minimum amount of <seconds> between watermark updates for groups
+        #   UNSET/FALSE to disable watermarking for groups
+        if "groups" in config_botalive:
+            if config_botalive["groups"] < 60:
+                config_botalive["groups"] = 60 # minimum: once per minute
+
+            # leverage in-built functionality to retrieve group conversations
+            for conv_id, conv_data in bot.conversations.get("type:group").items():
+                _conv_monitor(bot, conv_id,
+                    overrides={ "interval_watermark": config_botalive["groups"] })
+
+        for conv_id, conv_state in _monitored.items():
+            now = datetime.datetime.now().timestamp()
+
+            """devnote: separation of verbose logic for clarity - watermark IF:
+            * conversation not watermarked before (after bot restart), OR
+            * non-bot event moves the bot watermark behind, and configured interval has passed"""
+            do_watermark = ( conv_state['last_watermark'] is False
+                             or ( conv_state["last_external_event"] is not False
+                                  and conv_state["last_external_event"] > conv_state['last_watermark']
+                                  and conv_state['last_watermark'] + conv_state['interval_watermark'] < now ))
+
+            if do_watermark and conv_state['errors'] < config_botalive['permafail']:
+                try:
+                    logger.info("watermarking {}".format(conv_id))
+                    _timestamp = yield from _conv_watermark_now(bot, conv_id)
+                    _conv_monitor(bot, conv_id,
+                        overrides={ "errors": 0, "last_watermark": _timestamp })
+                    if config_botalive['maxfuzz']:
+                        pause = random.randint(3, config_botalive['maxfuzz'])
+                    else:
+                        pause = 1
+                    yield from asyncio.sleep(pause)
+                except:
+                    errors = conv_state["errors"] + 1
+                    _conv_monitor(bot, conv_id,
+                        overrides={ "errors": errors })
+                    logger.exception("failed to watermark {}".format(conv_id))
+
+        yield from asyncio.sleep(60)
 
 
-class watermark_updater:
-    """implement a queue to update the watermarks sequentially instead of all-at-once
+@asyncio.coroutine
+def _conv_watermark_now(bot, conv_id):
+    """watermarks the supplied conversation by its id, returns float timestamp
+    devnote: this is a direct-to-hangups call, and should remain separate for migration between library versions"""
 
-    usage:
-    .add("<conv id>") as many conversation ids as you want
-    .start() will start processing to queue
-
-    if a hangups exception is raised, log the exception and output to console
-    to prevent the processor from being consumed entirely and to not act too much as a bot,
-     we sleep 5-10sec after each watermark update"""
-
-    def __init__(self, bot):
-        self.bot = bot
-        self.running = False
-
-        self.queue = set()
-        self.failed = dict() # track errors
-        self.failed_permanent = set() # track conv_ids that failed 5 times
-
-    def add(self, conv_id):
-        if conv_id not in self.failed_permanent:
-            self.queue.add(conv_id)
-
-    def start(self):
-        if self.running or not len(self.queue):
-            return
-        self.running = True
-        yield from self.update_next_conversation()
-
-    @asyncio.coroutine
-    def update_next_conversation(self):
-        try:
-            conv_id = self.queue.pop()
-        except:
-            self.running = False
-            return
-
-        logger.info("watermarking {}".format(conv_id))
-
-        try:
-            yield from self.bot._client.updatewatermark(
-                conv_id,
-                datetime.datetime.now()
-                )
-            self.failed.pop(conv_id, None)
-
-        except:
-            self.failed[conv_id] = self.failed.get(conv_id, 0) + 1
-
-            if self.failed[conv_id] > 5:
-                self.failed_permanent.add(conv_id)
-                logger.error("critical error threshold reached for {}".format(conv_id))
-            else:
-                logger.exception("WATERMARK FAILED FOR {}".format(conv_id))
-
-                # is the bot still in the conv
-                if conv_id in self.bot.conversations.get():
-                    self.add(conv_id)
-
-        yield from asyncio.sleep(random.randint(5, 10))
-        yield from self.update_next_conversation()
+    now = datetime.datetime.now()
+    yield from bot._client.updatewatermark(conv_id, now)
+    return now.timestamp()
