@@ -2,10 +2,12 @@
 
 import asyncio
 import datetime
-import hangups
 import logging
 import plugins
+import pprint
 import random
+
+import hangups
 
 
 logger = logging.getLogger(__name__)
@@ -16,6 +18,8 @@ def _initialise(bot):
     if not bot.get_config_option("botalive"):
         return
 
+    plugins.register_admin_command(["dumpwatermarklogs"])
+
     plugins.start_asyncio_task(_tick)
 
     # track events that can modify the watermark
@@ -24,6 +28,15 @@ def _initialise(bot):
                           "rename" ]
     for event_type in watch_event_types:
         plugins.register_handler(_conv_external_event, event_type)
+
+
+def dumpwatermarklogs(bot, event, *args):
+    """dump the contents of the internal registers to log/console, useful for debugging"""
+
+    yield from bot.coro_send_message(event.conv, "<b>please see log/console</b>")
+
+    pp = pprint.PrettyPrinter(indent=2)
+    pp.pprint(_monitored)
 
 
 def _conv_external_event(bot, event, command):
@@ -48,7 +61,7 @@ def _conv_monitor(bot, conv_id, overrides={}):
     if conv_id in bot.memory["convmem"]:
         if conv_id not in _monitored:
             # initialise monitoring
-            _monitored[conv_id] = { 'errors': 0,
+            _monitored[conv_id] = { 'errors': [],
                                     'interval_watermark': 3600,
                                     'last_external_event': False,
                                     'last_watermark': False }
@@ -67,6 +80,10 @@ def _tick(bot):
 
     while True:
         config_botalive = bot.get_config_option("botalive") or {}
+
+        watermarked = []
+        failed = []
+        errors = {}
 
         # botalive.permafail = <number> of retries before permanently stopping
         #   UNSET/FALSE for default of 5 retries
@@ -116,22 +133,34 @@ def _tick(bot):
                                   and conv_state["last_external_event"] > conv_state['last_watermark']
                                   and conv_state['last_watermark'] + conv_state['interval_watermark'] < now ))
 
-            if do_watermark and conv_state['errors'] < config_botalive['permafail']:
+            if do_watermark and len(conv_state['errors']) < config_botalive['permafail']:
                 try:
-                    logger.info("watermarking {}".format(conv_id))
                     _timestamp = yield from _conv_watermark_now(bot, conv_id)
                     _conv_monitor(bot, conv_id,
-                        overrides={ "errors": 0, "last_watermark": _timestamp })
-                    if config_botalive['maxfuzz']:
-                        pause = random.randint(3, config_botalive['maxfuzz'])
-                    else:
-                        pause = 1
-                    yield from asyncio.sleep(pause)
-                except:
-                    errors = conv_state["errors"] + 1
+                        overrides={ "errors": [], "last_watermark": _timestamp })
+                    watermarked.append(conv_id)
+
+                except Exception as e:
+                    text_exception = str(e)
+                    conv_state["errors"].append(text_exception)
                     _conv_monitor(bot, conv_id,
-                        overrides={ "errors": errors })
-                    logger.exception("failed to watermark {}".format(conv_id))
+                        overrides={ "errors": conv_state["errors"] })
+                    failed.append(conv_id)
+                    if text_exception in errors:
+                        errors[text_exception].append(conv_id)
+                    else:
+                        errors[text_exception] =  [conv_id]
+
+                if config_botalive['maxfuzz']:
+                    pause = random.randint(3, config_botalive['maxfuzz'])
+                else:
+                    pause = 1
+                yield from asyncio.sleep(pause)
+
+        if watermarked or failed or errors:
+            logger.info("success: {}, failed: {}, unique errors: {}".format( len(watermarked),
+                                                                             len(failed),
+                                                                             list(errors.keys()) ))
 
         yield from asyncio.sleep(60)
 
