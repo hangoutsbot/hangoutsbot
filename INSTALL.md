@@ -1,29 +1,45 @@
 # Preparing your Environment
 
-**install python 3.4 from source**
-```
-wget https://www.python.org/ftp/python/3.4.2/Python-3.4.2.tgz
-tar xvf Python-3.4.2.tgz
-cd Python-3.4.2
-./configure
-make
-make test
-sudo make install
-```
+This section describes the most common way to prepare a system for Hangoutsbot and
+  get it up and running.
 
-**git clone the repository**
-```
-git clone <repository url>
-```
+**Docker Users:** See the the end of this file for the **Docker Usage** section.
 
-**install dependencies**
-```
-pip3 install -r requirements.txt
-```
+1. Ensure that your system has Python 3.4.2 or newer - we recommend Python 3.5. It's
+   most likely already installed on your system if you are using a fairly new Linux 
+   distribution. The Python package manager `pip3` is also required and is usually 
+   shipped with whatever version of Python your system comes with.
+   * To check for the existence and versions of both the language and package manager,
+     you can run the following commands at your terminal:
+     * `python3 --version`
+     * `pip3 --version`
+   * For systems that don't have Python 3 pre-installed, it is usually available as a
+     package that you can install 
+       (e.g. `sudo apt-get install python3 python3-pip` on Debian/Ubuntu). 
+     We do not provide any further guidance for installation as this is beyond the
+     scope of the Hangoutsbot documentation and there are plenty of online resources
+     which can cover more use-cases and OSes than we can ;)
+2. Clone the repository:
 
-Note: `pip` may install an outdated version of hangups. You may have to 
-  install directly from [source](https://github.com/tdryer/hangups).
-  Related: https://github.com/nylonee/hangupsbot/issues/43#issuecomment-72794942
+   ```
+   git clone <repository url>
+   ```
+
+3. Install the Python module dependencies that Hangoutsbot requires:
+
+   ```
+   cd hangoutsbot
+   pip3 install -r requirements.txt
+   ```
+
+4. Run the program interactively for the first time - this topic is covered in the next
+   section, so please go through it carefully.
+5. Set up the bot to be run as a daemon/service so that it can run unattended and
+   survive system reboots. This is an opiniated topic with plenty of different
+   implementation methods. When you're ready, some scripts are available at the
+   following links:
+   * https://github.com/hangoutsbot/hangoutsbot/tree/master/examples
+   * https://github.com/hangoutsbot/hangoutsbot/issues/69
 
 # First-Run
 
@@ -66,9 +82,10 @@ This will be accomplished using the supplied **starter** plugin with
 
 1. Using a hangouts client and your actual gmail account, open a 
    hangout with the bot account.
-2. Send any message to the bot.
+2. Send any message to the bot from your own gmail account.
 3. On a browser, login into the bot's gmail account and ensure chat 
-   is activated. Accept the invite from your actual account.
+   is activated. Accept the invite (and message) from your own gmail
+   account.
 4. Back on your hangouts client, send the following message:
    `/bot iamspartacus`
 5. The bot should reply with "configuring first admin" or a similar
@@ -97,3 +114,40 @@ For further information, please see the README file and wiki.
 * You can verify the location of your active `config.json` by sending
   the following command to the bot via hangouts: `/bot files` (with
   the **starter** plugin active)
+
+
+# Docker Usage
+
+The bot can be run inside a docker container if desired.
+You will need to create a directory outside the container to contain
+configuration and storage data, and if you are using sinks, you may
+need to change the ports we expose from the container (the defaults
+are 9000, 9001, and 9002):
+
+You will first need to build the image:
+
+```
+docker build -t hangoutsbot/hangoutsbot .
+```
+
+If you need to change ports add `--build-arg PORTS="new port list"`, for
+example:
+
+```
+docker build -t hangoutsbot/hangoutsbot --build-arg PORTS="9000 9001 9002 9003 9004" .
+```
+
+Then you can run the image, any arguments starting with a "-" will be passed after
+the image name will be passed on to the bot (e.g. `-d` for debug):
+
+To run interactively, and in debug mode:
+
+```
+docker run -it -v $HOME/hob-data-dir:/data hangoutsbot/hangoutsbot -d
+```
+
+To run detatched, as a daemon:
+
+```
+docker run -d -v $HOME/hob-data-dir:/data hangoutsbot/hangoutsbot
+```

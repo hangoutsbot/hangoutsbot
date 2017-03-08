@@ -263,7 +263,7 @@ def get_configured_plugins(bot):
         plugin_name_ambiguous = []
         plugin_name_not_found = []
 
-        for configured in config_plugins:
+        for item_no, configured in enumerate(config_plugins):
             dotconfigured = "." + configured
 
             matches = []
@@ -274,24 +274,29 @@ def get_configured_plugins(bot):
             num_matches = len(matches)
 
             if num_matches <= 0:
-                logger.debug("{} no match".format(configured))
-                plugin_name_not_found.append(configured)
+                logger.debug("{}:{} no match".format(item_no, configured))
+                plugin_name_not_found.append([ item_no, configured ])
             elif num_matches == 1:
-                logger.debug("{} matched to {}".format(configured, matches[0]))
+                logger.debug("{}:{} matched to {}".format(item_no, configured, matches[0]))
                 plugins_included.append(matches[0])
                 plugins_excluded.remove(matches[0])
             else:
-                logger.debug("{} ambiguous, matches {}".format(configured, matches))
-                plugin_name_ambiguous.append(configured)
+                logger.debug("{}:{} ambiguous, matches {}".format(item_no, configured, matches))
+                plugin_name_ambiguous.append([ item_no, configured ])
 
         if plugins_excluded:
+            # show plugins visible to the loader, but not actually initialised/loaded
             logger.info("excluded {}: {}".format(len(plugins_excluded), plugins_excluded))
 
         if plugin_name_ambiguous:
-            logger.warning("ambiguous plugin names: {}".format(plugin_name_ambiguous))
+            # include the index of item(s) in the plugins config key
+            logger.warning("ambiguous: {}".format([ "{}:{}".format(_num, _name)
+                                                    for _num, _name in plugin_name_ambiguous ]))
 
         if plugin_name_not_found:
-            logger.warning("plugin not found: {}".format(plugin_name_not_found))
+            # include the index of item(s) in the plugins config key
+            logger.warning("not found: {}".format([ "{}:{}".format(_num, _name)
+                                                    for _num, _name in plugin_name_not_found ]))
 
         plugin_list = plugins_included
 
