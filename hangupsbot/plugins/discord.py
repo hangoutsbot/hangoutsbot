@@ -35,6 +35,7 @@ import asyncio
 import logging
 import aiohttp
 import io
+import copy
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ def on_message(message):
     global sending
     if 'whereami' in message.content:
         yield from client.send_message(message.channel, message.channel.id)
-    logger.debug("message in discord channel {} - {}".format(message.channel.id, message.content))
+    logger.debug("message in discord channel {} - {}, {}".format(message.channel.id, message.system_content, message.type))
     conv_config = _bot.config.get_by_path(["conversations"])
     for conv_id, config in conv_config.items():
         if config.get("discord_sync") == message.channel.id:
@@ -108,18 +109,20 @@ def _handle_hangout_message(bot, event, command):
                 # this hangout message originated in discord
                 sending[event.conv_id] -= 1
                 bits = event.text.split(':', 1)
-                event._external_source = bits[0] + '@discord'
+                fake_event = copy.deepcopy(event)
+                fake_event._external_source = bits[0] + '@discord'
                 msg = bits[1].strip()
-                event.text = msg
+                fake_event.text = msg
                 logger.debug('attempting to execute %s', msg)
-                yield from _bot._handlers.handle_command(event)
-                yield from plugins.mentions._handle_mention(bot, event, command)
+                yield from _bot._handlers.handle_command(fake_event)
+                yield from plugins.mentions._handle_mention(bot, fake_event, command)
             else:
                 if event.from_bot:
                     yield from client.send_message(channel, event.text)
                 else:
                     fullname = event.user.full_name
                     mentions = dict([(word.strip('@'),set()) for word in set(event.text.split()) if word.startswith('@') and word != '@all'])
+                    msg = event.text
                     for m in mentions:
                       for member in client.get_all_members():
                         permissions = channel.permissions_for(member)
@@ -127,9 +130,9 @@ def _handle_hangout_message(bot, event, command):
                           logger.debug("{} matches ({},{},{}) in {}".format(m, member.id, member.name, member.display_name, channel.name))
                           mentions[m].add(member.id)
                       if len(mentions[m]) == 1:
-                        event.text = event.text.replace('@' + m, '<@{}>'.format(mentions[m].pop()))
-                    event.text = event.text.replace('@all', '@everyone')
-                    msg = "**{}**: {}".format(fullname, event.text)
+                        msg = msg.replace('@' + m, '<@{}>'.format(mentions[m].pop()))
+                    msg = msg.replace('@all', '@everyone')
+                    msg = "**{}**: {}".format(fullname, msg)
                     yield from client.send_message(channel, msg)
         else:
             logger.debug('channel {} not found'.format(discord_channel))
