@@ -109,7 +109,7 @@ def _handle_hangout_message(bot, event, command):
                 # this hangout message originated in discord
                 sending[event.conv_id] -= 1
                 bits = event.text.split(':', 1)
-                fake_event = copy.deepcopy(event)
+                fake_event = copy.copy(event)
                 fake_event._external_source = bits[0] + '@discord'
                 msg = bits[1].strip()
                 fake_event.text = msg
