@@ -128,24 +128,40 @@ def optout(bot, event, *args):
         optout = bot.memory.get_by_path(["user_data", chat_id, "optout"])
 
     target_conv = False
-    search_string = ' '.join(args).strip()
-    if search_string == 'all':
-        target_conv = "all"
-    else:
-        search_results = []
-        for conv_id, conv_data in bot.conversations.get("(text:{0})or({0})".format(search_string)).items():
-            if conv_data['type'] == 'GROUP':
-                search_results.append(conv_id)
-        num_of_results = len(search_results)
-        if num_of_results == 1:
-            target_conv = search_results[0]
+    if args:
+        search_string = ' '.join(args).strip()
+        if search_string == 'all':
+            target_conv = "all"
+        else:
+            search_results = []
+            if( search_string in bot.conversations.catalog
+                    and bot.conversations.catalog[search_string]['type'] == "GROUP" ):
+                # directly match convid of a group conv
+                target_conv = search_string
+            else:
+                # search for conversation title text, must return single group
+                for conv_id, conv_data in bot.conversations.get("text:{0}".format(search_string)).items():
+                    if conv_data['type'] == "GROUP":
+                        search_results.append(conv_id)
+                num_of_results = len(search_results)
+                if num_of_results == 1:
+                    target_conv = search_results[0]
+                else:
+                    yield from bot.coro_send_message(
+                        event.conv,
+                        _("<i>{}, search did not match a single group conversation</i>").format(event.user.full_name))
+                    return
 
     type_optout = type(optout)
 
     if type_optout is list:
         if not target_conv:
-            # user will receive list of opted-out conversations
-            pass
+            if not optout:
+                # force global optout
+                optout = True
+            else:
+                # user will receive list of opted-out conversations
+                pass
         elif target_conv.lower() == 'all':
             # convert list optout to bool optout
             optout = True
