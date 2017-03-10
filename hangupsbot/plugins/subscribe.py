@@ -17,9 +17,10 @@ _internal = __internal_vars()
 def _initialise():
     plugins.register_handler(_handle_keyword)
     plugins.register_user_command(["subscribe", "unsubscribe"])
+    plugins.register_admin_command(["testsubscribe"])
 
 
-def _handle_keyword(bot, event, command):
+def _handle_keyword(bot, event, command, include_event_user=False):
     """handle keyword"""
     if event.user.is_self:
         return
@@ -39,7 +40,8 @@ def _handle_keyword(bot, event, command):
 
     for user in users_in_chat:
         try:
-            if _internal.keywords[user.id_.chat_id] and not user.id_.chat_id in event.user.id_.chat_id:
+            if _internal.keywords[user.id_.chat_id] and ( not user.id_.chat_id in event.user.id_.chat_id
+                                                          or include_event_user ):
                 for phrase in _internal.keywords[user.id_.chat_id]:
                     regexphrase = "(^| )" + phrase + "( |$)"
                     if re.search(regexphrase, event.text, re.IGNORECASE):
@@ -78,7 +80,7 @@ def _send_notification(bot, event, phrase, user):
         source_name = event._external_source
 
     """send alert with 1on1 conversation"""
-    conv_1on1 = yield from bot.get_1to1(user.id_.chat_id)
+    conv_1on1 = yield from bot.get_1to1(user.id_.chat_id, context={ 'initiator_convid': event.conv_id })
     if conv_1on1:
         try:
             user_has_dnd = bot.call_shared("dnd.user_check", user.id_.chat_id)
@@ -174,3 +176,7 @@ def unsubscribe(bot, event, *args):
     # Save to file
     bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "keywords"], _internal.keywords[event.user.id_.chat_id])
     bot.memory.save()
+
+
+def testsubscribe(bot, event, *args):
+    yield from _handle_keyword(bot, event, False, include_event_user=True)
