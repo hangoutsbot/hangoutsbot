@@ -148,16 +148,9 @@ def _handle_incoming_message(bot, event, command):
 
             html_identity = '<b><a href="{}">{}</a></b><b>:</b> '.format(link, fullname)
 
-            source_message = ""
-            for segment in event.conv_event.segments:
-                try:
-                    source_message += segment.text
-                except TypeError as e:
-                    source_message += '<br />'
-
             for _conv_id in sync_room_list:
                 if not _conv_id == event.conv_id:
-                    html_message = source_message
+                    html_message = event.text
 
                     _context = {}
                     _context["explicit_relay"] = True
@@ -174,7 +167,7 @@ def _handle_incoming_message(bot, event, command):
 
                     for link in event.conv_event.attachments:
 
-                        filename = os.path.basename(link)
+                        filename = "{}.gif".format(os.path.basename(link))
                         r = yield from aiohttp.request('get', link)
                         raw = yield from r.read()
                         image_data = io.BytesIO(raw)

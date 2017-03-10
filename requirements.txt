@@ -2,7 +2,7 @@
 git+https://github.com/hangoutsbot/hangups.git
 appdirs
 asyncio
-aiohttp >= 0.21.2
+aiohttp>=1.0,<1.1
 jsonrpclib-pelix
 
 # PLUGIN DEPENDENCIES #
@@ -21,3 +21,4 @@ textblob
 python_dateutil # gitlab sink
 telepot == 7.1 # telegram sync, newer versions doesn't support Python3.4.1
 discord.py
+cleverwrap # cleverbot

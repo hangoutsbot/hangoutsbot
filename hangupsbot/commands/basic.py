@@ -1,4 +1,4 @@
-import logging, sys, resource
+import logging, sys, re, resource
 
 import plugins
 
@@ -40,6 +40,7 @@ def help(bot, event, cmd=None, *args):
                                 '<b><pre>{}</pre></b><br />').format( help_chat_id,
                                                                       help_conv_id ))
 
+        help_lines.append('[botalias] <i><b>help</b> <command></i><br/>Show more info about a command.<br />')
         if len(commands_nonadmin) > 0:
             help_lines.append(_('<b>User commands:</b>'))
             help_lines.append(', '.join(sorted(commands_nonadmin)))
@@ -61,7 +62,25 @@ def help(bot, event, cmd=None, *args):
             yield from command.unknown_command(bot, event)
             return
 
-        help_lines.append("<b>{}</b>: {}".format(command_fn.__name__, command_fn.__doc__))
+        _docstring = command_fn.__doc__.strip()
+
+        """apply limited markdown-like formatting to command help"""
+
+        # simple bullet lists
+        _docstring = re.sub(r'\n +\* +', '\n* ', _docstring)
+
+        # handle generic whitespace
+        # manually parse line-breaks: single break -> space; multiple breaks -> paragraph
+        # XXX: the markdown parser is iffy on line-break processing
+        _docstring = re.sub(r"(?<!\n)\n(?= *[^ \t\n\r\f\v\*])", " ", _docstring) # turn standalone linebreaks into space, preserves multiple linebreaks
+        _docstring = re.sub(r" +", " ", _docstring) # convert multiple consecutive spaces into single space
+        _docstring = re.sub(r" *\n\n+ *(?!\*)", "\n\n", _docstring) # convert consecutive linebreaks into double linebreak (pseudo-paragraph)
+
+        # replace /bot with the first alias in the command handler
+        # XXX: [botalias] is left a replacement token for backward compatibility, please avoid using it
+        _docstring = re.sub("(\/bot|\[botalias\])", bot._handlers.bot_command[0], _docstring)
+
+        help_lines.append("<b>{}</b>: {}".format(command_fn.__name__, _docstring))
 
     yield from bot.coro_send_to_user_and_conversation(
         event.user.id_.chat_id,

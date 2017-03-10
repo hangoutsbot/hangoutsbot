@@ -248,16 +248,29 @@ def quit(bot, event, *args):
 
 def config(bot, event, cmd=None, *args):
     """displays or modifies the configuration
-        Parameters: /bot config get [key] [subkey] [...]
-                    /bot config set [key] [subkey] [...] [value]
-                    /bot config append [key] [subkey] [...] [value]
-                    /bot config remove [key] [subkey] [...] [value]"""
+
+       * /bot config get [key] [subkey] [...]
+       * /bot config set [key] [subkey] [...] [value]
+       * /bot config append [key] [subkey] [...] [value]
+       * /bot config remove [key] [subkey] [...] [value]
+
+       note: override and display within group conversation with /bot config here [command]"""
 
     # consume arguments and differentiate beginning of a json array or object
     tokens = list(args)
     parameters = []
     value = []
     state = "key"
+
+    # allow admin to override default output to 1-on-1
+    chat_response_private = True
+    if cmd == 'here':
+        chat_response_private = False
+        if tokens:
+            cmd = tokens.pop(0)
+        else:
+            cmd = None
+
     for token in tokens:
         if token.startswith(("{", "[", '"', "'")):
             # apparent start of json array/object, consume into a single list item
@@ -348,7 +361,10 @@ def config(bot, event, cmd=None, *args):
                                            is_bold=True),
                 hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)]
     segments.extend(text_to_segments(json.dumps(value, indent=2, sort_keys=True)))
-    yield from bot.coro_send_message(event.conv, segments)
+    if chat_response_private:
+        yield from bot.coro_send_to_user(event.user.id_.chat_id, segments)
+    else:
+        yield from bot.coro_send_message(event.conv, segments)
 
 
 def whoami(bot, event, *args):
