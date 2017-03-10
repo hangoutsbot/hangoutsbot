@@ -9,7 +9,7 @@ import hangups_shim
 logger = logging.getLogger(__name__)
 
 
-ConversationID = namedtuple('conversation_id', ['id_'])
+ConversationID = namedtuple('conversation_id', ['id'])
 
 ClientConversation = namedtuple( 'client_conversation',
                                  [ 'conversation_id',
@@ -111,7 +111,7 @@ class HangupsConversation(hangups.conversation.Conversation):
             sort_timestamp = hangups_conv.self_conversation_state.sort_timestamp
             logger.debug("properties cloned from hangups conversation")
 
-        conversation_id = ConversationID(id_=conv_id)
+        conversation_id = ConversationID(id=conv_id)
 
         self_conversation_state = SelfConversationState( active_timestamp=timestamp_now,
                                                          invite_timestamp=timestamp_now,
