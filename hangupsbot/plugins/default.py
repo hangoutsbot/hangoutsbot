@@ -1,3 +1,4 @@
+import asyncio
 import re, json, logging
 
 import hangups
@@ -7,17 +8,24 @@ import plugins
 from utils import text_to_segments, simple_parse_to_segments, remove_accents
 from commands import command
 
-
 logger = logging.getLogger(__name__)
 
+_internal = {}  # non-persistent internal state independent of config.json/memory.json
 
-_internal = {} # non-persistent internal state independent of config.json/memory.json
+_internal["broadcast"] = {"message": "", "conversations": []}  # /bot broadcast
 
-_internal["broadcast"] = { "message": "", "conversations": [] } # /bot broadcast
 
 def _initialise(bot):
-    plugins.register_admin_command(["broadcast", "users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whereami"])
+    plugins.register_admin_command(
+        ["broadcast", "users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whereami",
+         "join_message", "join_message_enabled"])
     plugins.register_user_command(["echo", "whoami"])
+    plugins.register_handler(_send_notice_to_chat_when_added, type="membership")
+    if not bot.memory.exists(["join_message_enabled"]):
+        default_message = "This is a hangout bot<br>Commands available: /bot help"
+        bot.memory.set_by_path(["join_message"], default_message)
+        bot.memory.set_by_path(["join_message_enabled"], False)
+        bot.memory.save()
 
 
 def echo(bot, event, *args):
@@ -32,7 +40,7 @@ def echo(bot, event, *args):
                 convid = raw_arguments[2]
             else:
                 convid = event.conv_id
-                raw_arguments = [ _("<b>only admins can echo other conversations</b>") ]
+                raw_arguments = [_("<b>only admins can echo other conversations</b>")]
         else:
             # assumed /bot echo <text>
             convid = event.conv_id
@@ -47,6 +55,50 @@ def echo(bot, event, *args):
             _text = re.escape(_text)
 
         yield from command.run(bot, event, *["convecho", "id:" + convid, _text])
+
+
+@asyncio.coroutine
+def _send_notice_to_chat_when_added(bot, event, command):
+    bot_join_message_enabled = bot.memory.get("join_message_enabled")
+    if bot_join_message_enabled:
+        if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
+            message = bot.memory.get("join_message")
+            bot_id = bot.user_self()["chat_id"]
+            event_users = [user_id.chat_id for user_id
+                           in event.conv_event.participant_ids]
+            if bot_id in event_users:
+                yield from bot.coro_send_message(event.conv, message, context={"parser": True})
+
+
+def join_message(bot, event, *args):
+    """Changes the message that is set when added into a hangout
+
+usage: /bot join_message <message>"""
+    join_message_text = ' '.join(args)
+    bot.memory.set_by_path(["join_message"], join_message_text)
+    bot.memory.save()
+    yield from bot.coro_send_message(event.conv, _("Join Message has been set to: %s" % join_message_text))
+
+
+def join_message_enabled(bot, event, *args):
+    """Enable or disable the join message when adding the bot to a hangout
+
+usage: /bot join_message_enabled <true/false>"""
+    if len(args) != 1:
+        bot.send_message_segments(event.conv, [
+            hangups.ChatMessageSegment('ERROR: You must specify True or False', is_bold=True)])
+        return
+    enable = args[0]
+    if enable.lower() in ['true', 'on', 'y', 'yes']:
+        enabled = True
+        result = "Join Message enabled"
+    else:
+        enabled = False
+        result = "Join Message disabled"
+
+    bot.memory.set_by_path(["join_message_enabled"], enabled)
+    bot.memory.save()
+    yield from bot.coro_send_message(event.conv, result)
 
 
 def broadcast(bot, event, *args):
