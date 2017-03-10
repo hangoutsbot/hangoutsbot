@@ -114,21 +114,75 @@ def ping(bot, event, *args):
 
 @command.register
 def optout(bot, event, *args):
-    """toggle opt-out of bot PM"""
-    optout = False
+    """toggle opt-out of bot private messages globally or on a per-conversation basis:
+
+    * /bot optout - toggles global optout on/off, or displays per-conversation optouts
+    * /bot optout [name|convid] - toggles per-conversation optout (overrides global settings)
+    * /bot optout all - clears per-conversation opt-out and forces global optout"""
+
     chat_id = event.user.id_.chat_id
     bot.initialise_memory(chat_id, "user_data")
+
+    optout = False
     if bot.memory.exists(["user_data", chat_id, "optout"]):
         optout = bot.memory.get_by_path(["user_data", chat_id, "optout"])
-    optout = not optout
+
+    target_conv = False
+    search_string = ' '.join(args).strip()
+    if search_string == 'all':
+        target_conv = "all"
+    else:
+        search_results = []
+        for conv_id, conv_data in bot.conversations.get("(text:{0})or({0})".format(search_string)).items():
+            if conv_data['type'] == 'GROUP':
+                search_results.append(conv_id)
+        num_of_results = len(search_results)
+        if num_of_results == 1:
+            target_conv = search_results[0]
+
+    type_optout = type(optout)
+
+    if type_optout is list:
+        if not target_conv:
+            # user will receive list of opted-out conversations
+            pass
+        elif target_conv.lower() == 'all':
+            # convert list optout to bool optout
+            optout = True
+        elif target_conv in optout:
+            # remove existing conversation optout
+            optout.remove(target_conv)
+        elif target_conv in bot.conversations.catalog:
+            # optout from a specific conversation
+            optout.append(target_conv)
+            optout = list(set(optout))
+    elif type_optout is bool:
+        if not target_conv:
+            # toggle global optout
+            optout = not optout
+        elif target_conv.lower() == 'all':
+            # force global optout
+            optout = True
+        elif target_conv in bot.conversations.catalog:
+            # convert bool optout to list optout
+            optout = [ target_conv ]
+        else:
+            raise ValueError('no conversation was matched')
+    else:
+        raise TypeError('unrecognised {} for optout, value={}'.format(type_optout, optout))
 
     bot.memory.set_by_path(["user_data", chat_id, "optout"], optout)
     bot.memory.save()
 
-    if optout:
+    message = _('<i>{}, you <b>opted-in</b> for bot private messages</i>').format(event.user.full_name)
+
+    if isinstance(optout, bool) and optout:
         message = _('<i>{}, you <b>opted-out</b> from bot private messages</i>').format(event.user.full_name)
-    else:
-        message = _('<i>{}, you <b>opted-in</b> for bot private messages</i>').format(event.user.full_name)
+    elif isinstance(optout, list) and optout:
+        message = _('<i>{}, you are <b>opted-out</b> from the following conversations:\n{}</i>').format(
+            event.user.full_name,
+            "\n".join([ "* {}".format(bot.conversations.get_name(conv_id))
+                        for conv_id in optout ]))
 
     yield from bot.coro_send_message(event.conv, message)
 

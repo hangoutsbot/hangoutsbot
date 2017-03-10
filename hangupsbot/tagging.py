@@ -82,7 +82,9 @@ class tags:
         if type == "conv":
             index_type = "conv"
 
-            if id not in self.bot.conversations.catalog:
+            if( id not in self.bot.conversations.catalog and
+                  id not in (self.wildcard["group"], self.wildcard["one2one"]) ):
+
                 raise ValueError("conversation {} does not exist".format(id))
 
             tags = self.bot.conversation_memory_get(id, "tags")
@@ -227,6 +229,31 @@ class tags:
                     records_removed = records_removed + 1
 
         return records_removed
+
+
+    def convactive(self, conv_id):
+        """return active tags for conv_id, or generic GROUP, ONE_TO_ONE keys"""
+
+        active_tags = []
+        check_keys = []
+
+        if conv_id in self.bot.conversations.catalog:
+            check_keys.extend([ conv_id ])
+            # additional overrides based on type of conversation
+            conv_type = self.bot.conversations.catalog[conv_id]["type"]
+            if conv_type == "GROUP":
+                check_keys.extend([ self.wildcard["group"] ])
+            elif conv_type == "ONE_TO_ONE" :
+                check_keys.extend([ self.wildcard["one2one"] ])
+        else:
+            logger.warning("convactive: conversation {} does not exist".format(conv_id))
+
+        for _key in check_keys:
+            if _key in self.indices["conv-tags"]:
+                active_tags = self.indices["conv-tags"][_key]
+                break
+
+        return active_tags
 
 
     def useractive(self, chat_id, conv_id="*"):
