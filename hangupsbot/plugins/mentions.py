@@ -304,11 +304,9 @@ def mention(bot, event, *args):
                         try:
                             pb = PushBullet(pushbullet_config["api"])
                             push = pb.push_link(
-                                title=("{} mentioned you in {}").format(
-                                        source_name,
-                                        conversation_name),
+                                title = _("{} mentioned you in {}").format(source_name, conversation_name),
                                     body=event.text,
-                                    url='https://hangouts.google.com/chat/{}'.format(event.conv.id_))
+                                    url='https://hangouts.google.com/chat/{}'.format(event.conv.id_) )
                             if isinstance(push, tuple):
                                 # backward-compatibility for pushbullet library < 0.8.0
                                 success = push[0]
@@ -330,13 +328,15 @@ def mention(bot, event, *args):
             if alert_via_1on1:
                 """send alert with 1on1 conversation"""
                 conv_1on1 = yield from bot.get_1to1(u.id_.chat_id, context={ 'initiator_convid': event.conv_id })
-                message_string = "mentioned ALL in" if username_lower == "all" else "@mentioned you in"
+                if username_lower == "all":
+                    message_mentioned = _("<b>{}</b> @mentioned ALL in <i>{}</i>:<br />{}")
+                else:
+                    message_mentioned = _("<b>{}</b> @mentioned you in <i>{}</i>:<br />{}")
                 if conv_1on1:
                     yield from bot.coro_send_message(
                         conv_1on1,
-                        _("<b>{}</b> {} <i>{}</i>:<br />{}").format(
+                        message_mentioned.format(
                             source_name,
-                            message_string,
                             conversation_name,
                             event.text)) # prevent internal parser from removing <tags>
                     mention_chat_ids.append(u.id_.chat_id)
