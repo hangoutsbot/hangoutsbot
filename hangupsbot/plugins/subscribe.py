@@ -38,13 +38,14 @@ def _handle_keyword(bot, event, command, include_event_user=False):
                     users_in_chat += bot.get_users_in_conversation(syncedroom)
             users_in_chat = list(set(users_in_chat)) # make unique
 
+    event_text = re.sub(r"\s+", " ", event.text)
     for user in users_in_chat:
         try:
             if _internal.keywords[user.id_.chat_id] and ( not user.id_.chat_id in event.user.id_.chat_id
                                                           or include_event_user ):
                 for phrase in _internal.keywords[user.id_.chat_id]:
-                    regexphrase = "(^| )" + phrase + "( |$)"
-                    if re.search(regexphrase, event.text, re.IGNORECASE):
+                    regexphrase = r"(^|\b| )" + re.escape(phrase) + r"($|\b)"
+                    if re.search(regexphrase, event_text, re.IGNORECASE):
                         yield from _send_notification(bot, event, phrase, user)
         except KeyError:
             # User probably hasn't subscribed to anything
@@ -106,6 +107,7 @@ def subscribe(bot, event, *args):
     _populate_keywords(bot, event)
 
     keyword = ' '.join(args).strip().lower()
+    keyword = re.sub(r"\s+", " ", keyword)
 
     conv_1on1 = yield from bot.get_1to1(event.user.id_.chat_id)
     if not conv_1on1:
@@ -160,6 +162,7 @@ def unsubscribe(bot, event, *args):
     _populate_keywords(bot, event)
 
     keyword = ' '.join(args).strip().lower()
+    keyword = re.sub(r"\s+", " ", keyword)
 
     if not keyword:
         yield from bot.coro_send_message(
