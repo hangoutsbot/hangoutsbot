@@ -1,4 +1,6 @@
-import logging, sys, re, resource
+import logging
+import sys
+import re
 
 import plugins
 
@@ -7,6 +9,11 @@ from commands import command
 
 
 logger = logging.getLogger(__name__)
+
+try:
+    import resource
+except ImportError:
+    logger.warning("resource is unavailable on your system")
 
 
 def _initialise(bot): pass # prevents commands from being automatically added
@@ -212,6 +219,11 @@ def version(bot, event, *args):
 @command.register(admin=True)
 def resourcememory(bot, event, *args):
     """print basic information about memory usage with resource library"""
+
+    if "resource" not in sys.modules:
+        yield from bot.coro_send_message(event.conv,  "<i>resource module not available</i>")
+        return
+
     # http://fa.bianp.net/blog/2013/different-ways-to-get-memory-consumption-or-lessons-learned-from-memory_profiler/
     rusage_denom = 1024.
     if sys.platform == 'darwin':
