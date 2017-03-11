@@ -23,6 +23,9 @@ class EventHandler:
         self._prefix_reprocessor = "uuid://"
         self._reprocessors = {}
 
+        self._passthrus = {}
+        self._contexts = {}
+
         self.pluggables = { "allmessages": [],
                             "call": [],
                             "membership": [],
@@ -54,6 +57,16 @@ class EventHandler:
         self.pluggables[type].sort(key=lambda tup: tup[1])
 
         plugins.tracking.register_handler(function, type, priority)
+
+    def register_passthru(self, variable):
+        _id = str(uuid.uuid4())
+        self._passthrus[_id] = variable
+        return _id
+
+    def register_context(self, variable):
+        _id = str(uuid.uuid4())
+        self._contexts[_id] = variable
+        return _id
 
     def register_reprocessor(self, callable):
         _id = str(uuid.uuid4())
@@ -128,12 +141,20 @@ class EventHandler:
             """EventAnnotation - allows metadata to survive a trip to Google"""
 
             event.tags = []
+            event.passthru = {}
+            event.context = False
             for annotation in event.conv_event._event.chat_message.annotation:
                 if annotation.type == 1025:
                     # reprocessor - process event with hidden context from handler.attach_reprocessor()
                     yield from self.run_reprocessor(annotation.value, event)
                 elif annotation.type == 1026:
                     event.tags.append(annotation.value)
+                elif annotation.type == 1027:
+                    event.passthru = self._passthrus[annotation.value]
+                    del self._passthrus[annotation.value]
+                elif annotation.type == 1028:
+                    event.context = self._contexts[annotation.value]
+                    del self._contexts[annotation.value]
 
             if len(event.conv_event.segments) > 0:
                 for segment in event.conv_event.segments:

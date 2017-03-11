@@ -396,7 +396,7 @@ class HangupsBot(object):
 
         if self.memory.exists(["user_data", chat_id, "1on1"]):
             conversation_id = self.memory.get_by_path(["user_data", chat_id, "1on1"])
-            conversation = FakeConversation(self._client, conversation_id)
+            conversation = FakeConversation(self, conversation_id)
             logger.info(_("memory: {} is 1on1 with {}").format(conversation_id, chat_id))
         else:
             for c in self.list_conversations():
@@ -442,7 +442,7 @@ class HangupsBot(object):
 
         if self.memory.exists(["user_data", chat_id, "1on1"]):
             conversation_id = self.memory.get_by_path(["user_data", chat_id, "1on1"])
-            conversation = FakeConversation(self._client, conversation_id)
+            conversation = FakeConversation(self, conversation_id)
             logger.info("get_1on1: remembered {} for {}".format(conversation_id, chat_id))
         else:
             autocreate_1to1 = True if self.get_config_option('autocreate-1to1') is not False else False
@@ -470,7 +470,7 @@ class HangupsBot(object):
                     new_conversation_id = response.conversation.conversation_id.id
 
                     yield from self.coro_send_message(new_conversation_id, introduction)
-                    conversation = FakeConversation(self._client, new_conversation_id)
+                    conversation = FakeConversation(self, new_conversation_id)
                 except Exception as e:
                     logger.exception("GET_1TO1: failed to create 1-to-1 for user {}".format(chat_id))
             else:
@@ -774,7 +774,7 @@ class HangupsBot(object):
 
             # send messages using FakeConversation as a workaround
 
-            _fc = FakeConversation(self._client, response[0])
+            _fc = FakeConversation(self, response[0])
 
             try:
                 yield from _fc.send_message( response[1],

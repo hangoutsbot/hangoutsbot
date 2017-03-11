@@ -6,6 +6,7 @@ import hangups
 
 import hangups_shim
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -145,11 +146,11 @@ class HangupsConversation(hangups.conversation.Conversation):
     def users(self):
         return [ self.bot.get_hangups_user(part.id_.chat_id) for part in self._conversation.participant_data ]
 
-import inspect
 
 class FakeConversation(object):
-    def __init__(self, _client, id_):
-        self._client = _client
+    def __init__(self, bot, id_):
+        self.bot = bot
+        self._client = self.bot._client
         self.id_ = id_
 
     @asyncio.coroutine
@@ -163,12 +164,24 @@ class FakeConversation(object):
                         type = 1025,
                         value = context["reprocessor"]["id"] ))
 
+                # define explicit "tags" in context to send a simple list of strings
                 if "tags" in context:
                     tags = list(set(context["tags"]))
                     for tag in tags:
                         annotations.append( hangups.hangouts_pb2.EventAnnotation(
                             type = 1026,
                             value = tag ))
+
+                # define explicit "passthru" in context to "send" any type of variable
+                if "passthru" in context:
+                    annotations.append( hangups.hangouts_pb2.EventAnnotation(
+                        type = 1027,
+                        value = self.bot._handlers.register_passthru(context["passthru"]) ))
+
+                # implicitly "send" the entire context dictionary
+                annotations.append( hangups.hangouts_pb2.EventAnnotation(
+                    type = 1028,
+                    value = self.bot._handlers.register_context(context) ))
 
                 serialised_segments = [seg.serialize() for seg in segments]
             else:

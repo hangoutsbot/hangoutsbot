@@ -1,6 +1,13 @@
 import asyncio
+import logging
+import pprint
 
 import plugins
+
+
+logger = logging.getLogger(__name__)
+
+pp = pprint.PrettyPrinter(indent=2)
 
 
 def _initialise(bot):
@@ -14,10 +21,34 @@ def testcontext(bot, event, *args):
     yield from bot.coro_send_message(
         event.conv_id,
         "this message has tags: {}".format(tags),
-        context = { "tags": tags })
+        context = { "tags": tags,
+                    "passthru": { "random_variable" : "hello world!",
+                                  "some_dictionary" : { "var1" : "a",
+                                                        "var2" : "b" }}})
 
 
 @asyncio.coroutine
 def _handle_incoming_message(bot, event, command):
+    """BEWARE OF INFINITE MESSAGING LOOPS!
+
+    all bot messages have context, and if you send a message here
+    it will also have context, triggering this handler again"""
+
+    # output to log
     if event.tags:
-        yield from bot.coro_send_message(event.conv_id, "to Google and back!: {}".format(event.tags))
+        logger.info("tags received: {}".format(event.tags))
+    if event.passthru:
+        logger.info("passthru received: {}".format(event.passthru))
+    if event.context:
+        logger.info("context received: {}".format(event.context))
+
+    # output to stdout
+    if event.tags:
+        print("--- event.tags")
+        pp.pprint(event.tags)
+    if event.passthru:
+        print("--- event.passthru")
+        pp.pprint(event.passthru)
+    if event.context:
+        print("--- event.context")
+        pp.pprint(event.context)
