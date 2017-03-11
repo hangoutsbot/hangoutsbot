@@ -125,11 +125,15 @@ class EventHandler:
             else:
                 event.from_bot = False
 
-            """reprocessor - process event with hidden context from handler.attach_reprocessor()"""
+            """EventAnnotation - allows metadata to survive a trip to Google"""
 
+            event.tags = []
             for annotation in event.conv_event._event.chat_message.annotation:
                 if annotation.type == 1025:
+                    # reprocessor - process event with hidden context from handler.attach_reprocessor()
                     yield from self.run_reprocessor(annotation.value, event)
+                elif annotation.type == 1026:
+                    event.tags.append(annotation.value)
 
             if len(event.conv_event.segments) > 0:
                 for segment in event.conv_event.segments:

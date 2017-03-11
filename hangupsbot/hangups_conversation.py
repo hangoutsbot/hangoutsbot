@@ -163,9 +163,12 @@ class FakeConversation(object):
                         type = 1025,
                         value = context["reprocessor"]["id"] ))
 
-                # XXX:DEBUG
-                # for seg in segments:
-                #     print("SENDING type:[{}] text:[{}] link:[{}]".format(seg.type_, seg.text, seg.link_target))
+                if "tags" in context:
+                    tags = list(set(context["tags"]))
+                    for tag in tags:
+                        annotations.append( hangups.hangouts_pb2.EventAnnotation(
+                            type = 1026,
+                            value = tag ))
 
                 serialised_segments = [seg.serialize() for seg in segments]
             else:
