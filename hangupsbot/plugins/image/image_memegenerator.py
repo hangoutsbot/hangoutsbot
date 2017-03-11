@@ -45,7 +45,12 @@ def meme(bot, event, *args):
                                                            hangups.SegmentType.LINK,
                                                            link_target = instanceImageUrl )]
             logger.debug("uploading {} from {}".format(filename, instanceImageUrl))
-            photo_id = yield from bot._client.upload_image(image_data, filename=filename)
+
+            try:
+                photo_id = yield from bot.call_shared('image_upload_single', instanceImageUrl)
+            except KeyError:
+                logger.warning('image plugin not loaded - using legacy code')
+                photo_id = yield from bot._client.upload_image(image_data, filename=filename)
 
             yield from bot.coro_send_message(event.conv.id_, legacy_segments, image_id=photo_id)
 
