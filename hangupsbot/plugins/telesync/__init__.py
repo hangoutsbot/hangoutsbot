@@ -259,6 +259,11 @@ def tg_util_sync_get_user_name(msg, chat_action='from'):
     return msg[chat_action]['first_name'] if username == "" else user_html
 
 
+def _repeater_cleaner(bot, event, id):
+    event.from_bot = False
+    event._telesync_no_repeat = True
+
+
 @asyncio.coroutine
 def tg_on_message(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
@@ -293,10 +298,19 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
                                                                                              newtext=text)
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
-        yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
-
-        logger.info("[TELESYNC] Telegram message forwarded: {msg} to: {ho_conv_id}".format(msg=msg['text'],
-                                                                                           ho_conv_id=ho_conv_id))
+        yield from tg_bot.ho_bot.coro_send_message(
+            ho_conv_id, text,
+            context={
+                'base': {
+                    'tags': ['telegram', 'relay'],
+                    'source': 'telesync',
+                    'importance': 50
+                },
+                'repocessor': tg_bot.ho_bot.call_shared("reprocessor.attach_reprocessor",
+                    _repeater_cleaner, return_as_dict=True)
+                }
+            )
+        logger.debug("forwarded to %s: %s", ho_conv_id, msg['text'])
 
 
 @asyncio.coroutine
@@ -856,11 +870,15 @@ def is_animated_photo(file_name):
 
 
 @handler.register(priority=5, event=hangups.ChatMessageEvent)
-def _on_hangouts_message(bot, event, command=""):
-    global tg_bot
+def _on_hangouts_message(bot, event, command):
+    if event.text.startswith('/'):
+        return                              # don't allow HO to issue / commands to TG
 
-    if event.text.startswith('/'):  # don't sync /bot commands
-        return
+    if "_telesync_no_repeat" in dir(event) and event._telesync_no_repeat:
+        return                              # don't sync our stuff back to ourselves
+
+    config_dict = tg_bot.ho_bot.config.get_by_path(['telesync'])
+    ho2tg_dict = bot.memory.get_by_path(['telesync'])['ho2tg']
 
     sync_text = event.text
     photo_url = ""
@@ -870,9 +888,6 @@ def _on_hangouts_message(bot, event, command=""):
     if has_photo:
         photo_url = sync_text
         sync_text = "(shared an image)"
-
-    ho2tg_dict = bot.memory.get_by_path(['telesync'])['ho2tg']
-    config_dict = tg_bot.ho_bot.config.get_by_path(['telesync'])
 
     if event.conv_id in ho2tg_dict:
         user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
