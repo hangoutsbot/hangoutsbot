@@ -124,7 +124,11 @@ def screenshot(bot, event, *args):
             return
             
         try:
-            image_id = yield from bot._client.upload_image(image_data, filename=filename)
+            try:
+                image_id = yield from bot.call_shared('image_upload_raw', image_data, filename=filename)
+            except KeyError:
+                logger.warning('image plugin not loaded - using legacy code')
+                image_id = yield from bot._client.upload_image(image_data, filename=filename)
             yield from bot._client.sendchatmessage(event.conv.id_, None, image_id=image_id)
         except Exception as e:
             yield from bot.coro_send_message(event.conv_id, "<i>error uploading screenshot</i>")
