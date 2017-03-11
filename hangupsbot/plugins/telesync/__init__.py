@@ -854,7 +854,7 @@ def is_animated_photo(file_name):
 
 
 @handler.register(priority=5, event=hangups.ChatMessageEvent)
-def _on_hangouts_message(bot, event, command):
+def _on_hangouts_message(bot, event, command=""):
     if event.text.startswith('/'):
         return                              # don't allow HO to issue / commands to TG
 
