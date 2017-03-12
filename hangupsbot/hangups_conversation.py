@@ -164,23 +164,15 @@ class FakeConversation(object):
                         type = 1025,
                         value = context["reprocessor"]["id"] ))
 
-                # define explicit "tags" in context to send a simple list of strings
-                if "tags" in context:
-                    tags = list(set(context["tags"]))
-                    for tag in tags:
-                        annotations.append( hangups.hangouts_pb2.EventAnnotation(
-                            type = 1026,
-                            value = tag ))
-
                 # define explicit "passthru" in context to "send" any type of variable
                 if "passthru" in context:
                     annotations.append( hangups.hangouts_pb2.EventAnnotation(
-                        type = 1027,
+                        type = 1026,
                         value = self.bot._handlers.register_passthru(context["passthru"]) ))
 
-                # implicitly "send" the entire context dictionary
+                # always implicitly "send" the entire context dictionary
                 annotations.append( hangups.hangouts_pb2.EventAnnotation(
-                    type = 1028,
+                    type = 1027,
                     value = self.bot._handlers.register_context(context) ))
 
                 serialised_segments = [seg.serialize() for seg in segments]

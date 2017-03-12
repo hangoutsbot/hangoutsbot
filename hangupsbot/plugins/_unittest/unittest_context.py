@@ -20,7 +20,7 @@ def testcontext(bot, event, *args):
     tags = [ 'text', 'longer-text', 'text with symbols:!@#$%^&*(){}' ]
     yield from bot.coro_send_message(
         event.conv_id,
-        "this message has tags: {}".format(tags),
+        "this message has context - please see your console/log".format(tags),
         context = { "tags": tags,
                     "passthru": { "random_variable" : "hello world!",
                                   "some_dictionary" : { "var1" : "a",
@@ -35,17 +35,12 @@ def _handle_incoming_message(bot, event, command):
     it will also have context, triggering this handler again"""
 
     # output to log
-    if event.tags:
-        logger.info("tags received: {}".format(event.tags))
     if event.passthru:
         logger.info("passthru received: {}".format(event.passthru))
     if event.context:
         logger.info("context received: {}".format(event.context))
 
     # output to stdout
-    if event.tags:
-        print("--- event.tags")
-        pp.pprint(event.tags)
     if event.passthru:
         print("--- event.passthru")
         pp.pprint(event.passthru)

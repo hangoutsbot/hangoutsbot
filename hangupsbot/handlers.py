@@ -140,19 +140,16 @@ class EventHandler:
 
             """EventAnnotation - allows metadata to survive a trip to Google"""
 
-            event.tags = []
-            event.passthru = {}
+            event.passthru = False
             event.context = False
             for annotation in event.conv_event._event.chat_message.annotation:
                 if annotation.type == 1025:
                     # reprocessor - process event with hidden context from handler.attach_reprocessor()
                     yield from self.run_reprocessor(annotation.value, event)
                 elif annotation.type == 1026:
-                    event.tags.append(annotation.value)
-                elif annotation.type == 1027:
                     event.passthru = self._passthrus[annotation.value]
                     del self._passthrus[annotation.value]
-                elif annotation.type == 1028:
+                elif annotation.type == 1027:
                     event.context = self._contexts[annotation.value]
                     del self._contexts[annotation.value]
 
