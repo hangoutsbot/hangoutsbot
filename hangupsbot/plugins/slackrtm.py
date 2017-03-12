@@ -51,7 +51,6 @@ import urllib.request
 import mimetypes
 
 import hangups
-import hangups.ui.utils
 
 import plugins
 
@@ -345,7 +344,7 @@ class SlackRTM(object):
         self.hangoutids = {}
         self.hangoutnames = {}
         for c in self.bot.list_conversations():
-            name = hangups.ui.utils.get_conv_name(c, truncate=True)
+            name = self.bot.conversations.get_name(c, truncate=True)
             self.hangoutids[name] = c.id_
             self.hangoutnames[c.id_] = name
 
@@ -672,7 +671,7 @@ class SlackRTM(object):
                 for c in self.bot.list_conversations():
                     if c.id_ == sync.hangoutid:
                         conv = c
-                        hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
+                        hangoutname = self.bot.conversations.get_name(c, truncate=False)
                         break
                 message += '%s aka %s (%s):\n' % (hangoutname, sync.hotag if sync.hotag else 'untagged', sync.hangoutid)
                 for u in conv.users:
@@ -697,7 +696,7 @@ class SlackRTM(object):
             if command == 'hangouts':
                 message = '@%s: list of active hangouts:\n' % msg.username
                 for c in self.bot.list_conversations():
-                    message += '*%s:* _%s_\n' % (hangups.ui.utils.get_conv_name(c, truncate=True), c.id_)
+                    message += '*%s:* _%s_\n' % (self.bot.conversations.get_name(c, truncate=True), c.id_)
                 userID = self.get_slackDM(msg.user)
                 self.api_call('chat.postMessage',
                               channel=userID,
@@ -711,7 +710,7 @@ class SlackRTM(object):
                     hangoutname = 'unknown'
                     for c in self.bot.list_conversations():
                         if c.id_ == sync.hangoutid:
-                            hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
+                            hangoutname = self.bot.conversations.get_name(c, truncate=False)
                             break
                     channelname = 'unknown'
                     if sync.channelid.startswith('C'):
@@ -745,7 +744,7 @@ class SlackRTM(object):
                 hangoutname = None
                 for c in self.bot.list_conversations():
                     if c.id_ == hangoutid:
-                        hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
+                        hangoutname = self.bot.conversations.get_name(c, truncate=False)
                         break
                 if not hangoutname:
                     message += u'sorry, but I\'m not a member of a Hangout with Id %s' % hangoutid
@@ -778,7 +777,7 @@ class SlackRTM(object):
                 hangoutname = None
                 for c in self.bot.list_conversations():
                     if c.id_ == hangoutid:
-                        hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
+                        hangoutname = self.bot.conversations.get_name(c, truncate=False)
                         break
                 if not hangoutname:
                     message += u'sorry, but I\'m not a member of a Hangout with Id %s' % hangoutid
@@ -808,7 +807,7 @@ class SlackRTM(object):
                 enable = args[1]
                 for c in self.bot.list_conversations():
                     if c.id_ == hangoutid:
-                        hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
+                        hangoutname = self.bot.conversations.get_name(c, truncate=False)
                         break
                 if not hangoutname:
                     message += u'sorry, but I\'m not a member of a Hangout with Id %s' % hangoutid
@@ -848,7 +847,7 @@ class SlackRTM(object):
                 hotag = ' '.join(args[1:])
                 for c in self.bot.list_conversations():
                     if c.id_ == hangoutid:
-                        hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
+                        hangoutname = self.bot.conversations.get_name(c, truncate=False)
                         break
                 if not hangoutname:
                     message += u'sorry, but I\'m not a member of a Hangout with Id %s' % hangoutid
@@ -885,7 +884,7 @@ class SlackRTM(object):
                 upload = args[1]
                 for c in self.bot.list_conversations():
                     if c.id_ == hangoutid:
-                        hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
+                        hangoutname = self.bot.conversations.get_name(c, truncate=False)
                         break
                 if not hangoutname:
                     message += u'sorry, but I\'m not a member of a Hangout with Id %s' % hangoutid
@@ -925,7 +924,7 @@ class SlackRTM(object):
                 slacktag = ' '.join(args[1:])
                 for c in self.bot.list_conversations():
                     if c.id_ == hangoutid:
-                        hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
+                        hangoutname = self.bot.conversations.get_name(c, truncate=False)
                         break
                 if not hangoutname:
                     message += u'sorry, but I\'m not a member of a Hangout with Id %s' % hangoutid
@@ -962,7 +961,7 @@ class SlackRTM(object):
                 realnames = args[1]
                 for c in self.bot.list_conversations():
                     if c.id_ == hangoutid:
-                        hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
+                        hangoutname = self.bot.conversations.get_name(c, truncate=False)
                         break
                 if not hangoutname:
                     message += u'sorry, but I\'m not a member of a Hangout with Id %s' % hangoutid
@@ -1237,7 +1236,7 @@ class SlackRTM(object):
             if sync.hotag:
                 honame = sync.hotag
             else:
-                honame = hangups.ui.utils.get_conv_name(event.conv)
+                honame = self.bot.conversations.get_name(event.conv)
             # JOIN
             if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
                 invitee = u'<https://plus.google.com/%s/about|%s>' % (event.user_id.chat_id, event.user.full_name)
@@ -1257,7 +1256,7 @@ class SlackRTM(object):
                           link_names=True)
 
     def handle_ho_rename(self, event):
-        name = hangups.ui.utils.get_conv_name(event.conv, truncate=False)
+        name = self.bot.conversations.get_name(event.conv, truncate=False)
 
         for sync in self.get_syncs(hangoutid=event.conv_id):
             invitee = u'<https://plus.google.com/%s/about|%s>' % (event.user_id.chat_id, event.user.full_name)
@@ -1401,7 +1400,8 @@ def _handle_rename(bot, event, command):
 def slacks(bot, event, *args):
     """list all configured slack teams
 
-usage: /bot slacks"""
+       usage: /bot slacks"""
+
     segments = [
         hangups.ChatMessageSegment('Configured Slack teams:', is_bold=True),
         hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
@@ -1417,7 +1417,8 @@ usage: /bot slacks"""
 def slack_channels(bot, event, *args):
     """list all slack channels available in specified slack team
 
-usage: /bot slack_channels <teamname>"""
+    usage: /bot slack_channels <teamname>"""
+
     if len(args) != 1:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name to list channels of', is_bold=True)])
         return
@@ -1456,13 +1457,14 @@ def slack_users(bot, event, *args):
     """list all slack channels available in specified slack team
 
         usage: /bot slack_users <team> <channel>"""
+
     if len(args) >= 3:
         honame = ' '.join(args[2:])
     else:
         if len(args) != 2:
             bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name and a channel', is_bold=True)])
             return
-        honame = hangups.ui.utils.get_conv_name(event.conv)
+        honame = bot.conversations.get_name(event.conv)
 
     slackname = args[0]
     slackrtm = None
@@ -1495,7 +1497,8 @@ def slack_users(bot, event, *args):
 def slack_listsyncs(bot, event, *args):
     """list current conversations we are syncing
 
-usage: /bot slack_listsyncs"""
+    usage: /bot slack_listsyncs"""
+
     segments = [
         hangups.ChatMessageSegment('list of currently synced conversations:', is_bold=True),
         hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)
@@ -1505,7 +1508,7 @@ usage: /bot slack_listsyncs"""
             hangoutname = 'unknown'
             for c in bot.list_conversations():
                 if c.id_ == sync.hangoutid:
-                    hangoutname = hangups.ui.utils.get_conv_name(c, truncate=False)
+                    hangoutname = bot.conversations.get_name(c, truncate=False)
                     break
             segments.extend(
                 [
@@ -1531,14 +1534,15 @@ usage: /bot slack_listsyncs"""
 def slack_syncto(bot, event, *args):
     """start syncing the current hangout to a given slack team/channel
 
-usage: /bot slack_syncto <teamname> <channelid>"""
+    usage: /bot slack_syncto <teamname> <channelid>"""
+
     if len(args) >= 3:
         honame = ' '.join(args[2:])
     else:
         if len(args) != 2:
             bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name and a channel', is_bold=True)])
             return
-        honame = hangups.ui.utils.get_conv_name(event.conv)
+        honame = bot.conversations.get_name(event.conv)
 
     slackname = args[0]
     slackrtm = None
@@ -1567,7 +1571,8 @@ usage: /bot slack_syncto <teamname> <channelid>"""
 def slack_disconnect(bot, event, *args):
     """stop syncing the current hangout with given slack team and channel
 
-usage: /bot slack_disconnect <teamname> <channelid>"""
+    usage: /bot slack_disconnect <teamname> <channelid>"""
+
     if len(args) != 2:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name and a channel', is_bold=True)])
         return
@@ -1599,7 +1604,8 @@ usage: /bot slack_disconnect <teamname> <channelid>"""
 def slack_setsyncjoinmsgs(bot, event, *args):
     """enable or disable sending notifications any time someone joins/leaves/adds/invites/kicks
 
-usage: /bot slack_setsyncjoinmsgs <teamname> <channelid> {true|false}"""
+    usage: /bot slack_setsyncjoinmsgs <teamname> <channelid> {true|false}"""
+
     if len(args) != 3:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name, a channel and "true" or "false"', is_bold=True)])
         return
@@ -1638,10 +1644,10 @@ usage: /bot slack_setsyncjoinmsgs <teamname> <channelid> {true|false}"""
 
 
 def slack_setimageupload(bot, event, *args):
-    """enable/disable image upload between the synced conversations
-(default: enabled)
+    """enable/disable image upload between the synced conversations (default: enabled)
 
-usage: /bot slack_setimageupload <teamname> <channelid> {true|false}"""
+    usage: /bot slack_setimageupload <teamname> <channelid> {true|false}"""
+
     if len(args) != 3:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name, a channel and "true" or "false"', is_bold=True)])
         return
@@ -1681,9 +1687,10 @@ usage: /bot slack_setimageupload <teamname> <channelid> {true|false}"""
 
 def slack_sethotag(bot, event, *args):
     """sets the identity of current hangout when syncing this conversation
-(default: title of this hangout when sync was set up, use 'none' to disable tagging)
+    (default: title of this hangout when sync was set up, use 'none' to disable tagging)
 
-usage: /bot slack_hotag <teamname> <channelid> {<tag>|none}"""
+    usage: /bot slack_hotag <teamname> <channelid> {<tag>|none}"""
+
     if len(args) < 3:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name, a channel and a tag', is_bold=True)])
         return
@@ -1720,9 +1727,10 @@ usage: /bot slack_hotag <teamname> <channelid> {<tag>|none}"""
 
 def slack_setslacktag(bot, event, *args):
     """sets the identity of the specified slack conversation synced to the current hangout
-(default: name of the slack team, use 'none' to disable tagging)
+    (default: name of the slack team, use 'none' to disable tagging)
 
-usage: /bot slack_slacktag <teamname> <channelid> {<tag>|none}"""
+    usage: /bot slack_slacktag <teamname> <channelid> {<tag>|none}"""
+
     if len(args) < 3:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name, a channel and a tag', is_bold=True)])
         return
@@ -1761,9 +1769,10 @@ usage: /bot slack_slacktag <teamname> <channelid> {<tag>|none}"""
 
 def slack_showslackrealnames(bot, event, *args):
     """enable/disable display of realnames instead of usernames in messages synced from slack
-(default: disabled)
+    (default: disabled)
 
-usage: /bot slack_showslackrealnames <teamname> <channelid> {true|false}"""
+    usage: /bot slack_showslackrealnames <teamname> <channelid> {true|false}"""
+
     if len(args) != 3:
         bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name, a channel and "true" or "false"', is_bold=True)])
         return

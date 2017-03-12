@@ -22,7 +22,7 @@ def _initialise(bot):
 
 
 def tldrecho(bot, event, *args):
-    """<br/>[botalias] <i><b>tldrecho</b></i><br/>Defines whether the full tldr is echoed to a PM or into the main chat.<br /><u>Usage</u><br />[botalias] <i><b>tldrecho</b></i>"""
+    """defines whether the tldr is sent as a private message or into the main chat"""
 
     # If no memory entry exists for the conversation, create it.
     if not bot.memory.exists(['conversations']):
@@ -48,7 +48,13 @@ def tldrecho(bot, event, *args):
 
 
 def tldr(bot, event, *args):
-    """<br />[botalias] <i><b>tldr</b> [<id>]</i><br />Retrieve the stored tldr for the hangout. If <id> included, just retrieve the numbered entry.<br /><u>Usage</u><br />[botalias] <i><b>tldr</b> 2</i><br />---<br />[botalias] <i><b>tldr</b> <entry></i><br />Add an entry to the tldr<br /><u>Usage</u><br />[botalias] <i><b>tldr</b> The quick brown fox jumps over the lazy dog.</i><br />---<br />[botalias] <i><b>tldr edit</b> <id> <entry></i><br />Replace the specified tldr entry with the new entry.<br /><u>Usage</u><br />[botalias] <i><b>tldr edit</b> 2 Lorem ipsum dolor sit amet.</i><br />---<br />[botalias] <i><b>tldr clear</b> <id>/all</i><br />Clear the specified tldr entry, or clear it all.<br /><u>Usage</u><br />[botalias] <i><b>tldr clear</b> 2</i>"""
+    """read and manage tldr entries for a given conversation
+
+    * /bot tldr <number> - retrieve a specific numbered entry
+    * /bot tldr <text> - add <text> as an entry
+    * /bot tldr edit <number> <text> - replace the specified entry with the new <text>
+    * /bot tldr clear <number> - clear specified numbered entry
+    * /bot tldr clear all - clear all entries"""
 
     # If no memory entry exists for the conversation, create it.
     if not bot.memory.exists(['conversations']):

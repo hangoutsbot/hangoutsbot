@@ -44,16 +44,21 @@ def _scan_for_triggers(bot, event, command):
 
     if len(image_links) > 0:
         for image_link in image_links:
-            if "gfycat.com/" in image_link:
+            try:
+                image_id = yield from bot.call_shared('image_validate_and_upload_single', image_link)
+            except KeyError:
+                logger.warning('image plugin not loaded - using legacy code')
+                if re.match(r'^https?://gfycat.com', image_link):
+                    image_link = re.sub(r'^https?://gfycat.com/', 'https://thumbs.gfycat.com/', image_link) + '-size_restricted.gif'
+                elif "imgur.com" in image_link:
+                    image_link = image_link.replace(".gifv",".gif")
+                    image_link = image_link.replace(".webm",".gif")
+                filename = os.path.basename(image_link)
                 r = yield from aiohttp.request('get', image_link)
                 raw = yield from r.read()
-                image_link = re.search("href=\"(.*?)\">GIF</a>", str(raw, 'utf-8')).group(1)
-            filename = os.path.basename(image_link)
-            r = yield from aiohttp.request('get', image_link)
-            raw = yield from r.read()
-            image_data = io.BytesIO(raw)
-            logger.debug("uploading: {}".format(filename))
-            image_id = yield from bot._client.upload_image(image_data, filename=filename)
+                image_data = io.BytesIO(raw)
+                logger.debug("uploading: {}".format(filename))
+                image_id = yield from bot._client.upload_image(image_data, filename=filename)
             yield from bot.coro_send_message(event.conv.id_, None, image_id=image_id)
 
 
