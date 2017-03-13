@@ -25,9 +25,12 @@ def _initialise(bot):
     plugins.register_handler(_broadcast, type="sending")
     plugins.register_handler(_repeat, type="allmessages")
 
-    return []
+    #_register_chatbridge_behaviour('userlist', _syncout_users)
 
     plugins.register_admin_command(["syncusers"])
+
+    return []
+
     plugins.register_handler(_handle_syncrooms_membership_change, type="membership")
 
 
@@ -58,41 +61,54 @@ def _migrate_syncroom_v1(bot):
             logger.info("_migrate_syncroom_v1(): config-v2 = {}".format(_config2))
 
 
+@asyncio.coroutine
 def _broadcast(bot, broadcast_list, context):
-    """
-    RELAY:
-    * bot messages from other plugins
-    DO NOT RELAY:
-    * any messages already relayed by this plugin
-    """
     if not bot.get_config_option('syncing_enabled'):
-        return
-
-    syncouts = bot.get_config_option('sync_rooms') or []
-    syncout = False
-    for sync_room_list in syncouts:
-        if event.conv_id in sync_room_list:
-            syncout = sync_room_list
-            break
-    if not syncout:
         return
 
     destination_conv_id = broadcast_list[0][0]
     message = broadcast_list[0][1]
+    image_id = broadcast_list[0][2]
+
+    syncouts = bot.get_config_option('sync_rooms') or []
+    syncout = False
+    for sync_room_list in syncouts:
+        if destination_conv_id in sync_room_list:
+            syncout = sync_room_list
+            break
+    if not syncout:
+        return
 
     passthru = context["passthru"]
     if passthru and "sourceplugin" in passthru and passthru['sourceplugin'] == __name__:
         # no further processing required for messages being relayed by same plugin
         return
 
+    myself = bot.user_self()
+    chat_id = myself['chat_id']
+    fullname = myself['full_name']
+
+    if passthru and "sourceuser" in passthru:
+        if(isinstance(passthru["sourceuser"], str)):
+            pass
+        else:
+            fullname = passthru["sourceuser"].full_name
+            chat_id = passthru["sourceuser"].id_.chat_id
+            message = "{}: {}".format(fullname, message)
+
+    # for messages from other plugins, relay them
     for relay_id in syncout:
         if destination_conv_id != relay_id:
-            # for messages from other sources, relay them
             yield from bot.coro_send_message(
                 relay_id,
-                "POST-RELAYED: {}".format(message),
-                context = { "passthru": { "sourceplugin" : __name__,
-                                          "sourcegroup" : destination_conv_id }})
+                message,
+                image_id = image_id,
+                context = { "passthru": { "sourceplugin" : __name__ }})
+
+    if "norelay" not in passthru:
+        passthru["norelay"] = []
+
+    passthru["norelay"].append(__name__)
 
 
 @asyncio.coroutine
@@ -118,18 +134,37 @@ def _repeat(bot, event, command):
         return
 
     passthru = event.passthru
+
     if passthru and "sourceplugin" in passthru and passthru["sourceplugin"] == __name__:
         # don't repeat messages that originate from the same plugin
         return
 
+    if passthru and "norelay" in passthru and __name__ in passthru["norelay"]:
+        # prevent already relayed messages from triggering a re-relay
+        return
+
+    user = event.user
+    message = event.text
+    image_id = None
+
+    _passthru = { "sourceplugin" : __name__,
+                  "sourceuser": user,
+                  "originalcontent": { "message": event.text,
+                                       "image_id": None }}
+
+    if passthru and "originalcontent" in passthru and passthru["originalcontent"]:
+        message = passthru["originalcontent"]["message"]
+        image_id = passthru["originalcontent"]["image_id"]
+        _passthru["originalcontent"] = passthru["originalcontent"]
+
+    # relay messages to other rooms only
     for relay_id in syncout:
         if event.conv_id != relay_id:
-            # relay messages to other rooms only
             yield from bot.coro_send_message(
                 relay_id,
-                _format_source(bot, event.user_id.chat_id) + ": " + event.text,
-                context = { "passthru": { "sourceplugin" : __name__,
-                                          "sourcegroup" : event.conv_id }})
+                message = "{}: {}".format(event.user.full_name, message),
+                image_id = image_id,
+                context = { "passthru": _passthru })
 
 
 def _format_source(bot, user_id):
@@ -144,9 +179,44 @@ def _format_source(bot, user_id):
     except TypeError:
         fullname = event.user.full_name
 
-    html_identity = '<b><a href="{}">{}</a></b>'.format(link, fullname)
+    html_identity = '**{}**'.format(fullname)
 
     return html_identity
+
+
+def _register_chatbridge_behaviour(behaviour, object):
+    try:
+        chatbridge_behaviours = plugins.call_shared("chatbridge.behaviours")
+    except KeyError:
+        raise RuntimeException("handler does not seem to support chatbridge.behaviours")
+
+    if __name__ not in chatbridge_behaviours:
+        chatbridge_behaviours[__name__] = {}
+
+    chatbridge_behaviours[__name__][behaviour] = object
+
+
+def _syncout_users(bot, conv_id):
+    if not bot.get_config_option('syncing_enabled'):
+        return
+
+    syncouts = bot.get_config_option('sync_rooms') or []
+    syncout = False
+    for sync_room_list in syncouts:
+        if conv_id in sync_room_list:
+            syncout = sync_room_list
+            break
+    if not syncout:
+        return
+
+    # generate by rooms list and all (*) list
+    users = {"*" : {}}
+    for room_id in syncout:
+        users[room_id] = bot.get_users_in_conversation(room_id)
+        for user in users[room_id]:
+            users["*"][user.id_.chat_id] = user
+
+    return users
 
 
 @asyncio.coroutine
@@ -201,31 +271,63 @@ def _handle_syncrooms_membership_change(bot, event, command):
                 syncroom_name))
 
 
-def syncusers(bot, event, conversation_id=None, *args):
+def syncusers(bot, event, *args):
     """syncroom-aware users list.
     optional parameter conversation_id to get a list of users in other rooms. will include users
     in linked syncrooms. append "rooms" to segment user list by individual rooms.
     """
+    if not bot.get_config_option('syncing_enabled'):
+        return
+
     combined = True
 
-    if not conversation_id:
-        conversation_id = event.conv_id
-    elif conversation_id == "rooms":
-        # user specified /bot syncusers rooms
-        conversation_id = event.conv_id
-        combined = False
-
+    tokens = list(args)
     if "rooms" in args:
-        # user specified /bot syncusers [roomid] rooms
+        tokens.remove("rooms")
+        combined = False
+    if "rooms" in args:
+        tokens.remove("room")
         combined = False
 
-    syncouts = bot.get_config_option('sync_rooms')
+    if len(args) == 0:
+        filter_convs = [ event.conv_id ]
+    else:
+        filter_convs = tokens
 
-    if not syncouts:
-        return # Sync rooms not configured, returning
+    target_conv = filter_convs.pop(0)
+
+    user_lists = _syncout_users(bot, target_conv)
+    if not user_lists:
+        yield from bot.coro_send_message(event.conv_id, "no users were returned")
+        return
 
     _lines = []
 
+    for room_id in user_lists:
+        if combined and room_id != "*":
+            # list everything, only use wildcard
+            continue
+        elif not combined and room_id == "*":
+            # list room-by-room, skip wildcard
+            continue
+
+        if filter_convs and room_id not in filter_conv and room_id != target_conv:
+            # if >1 conv id provided, filter by only supplied conv ids
+            continue
+
+        if room_id == "*":
+            _lines.append("**all syncout rooms**")
+        else:
+            _lines.append("**{} ({})**".format( bot.conversations.get_name(room_id),
+                                                room_id ))
+
+        user_list = user_lists[room_id]
+        for chat_id in user_list:
+            _lines.append("* {}".format(user_list[chat_id].full_name))
+
+    yield from bot.coro_send_message(event.conv_id, "\n".join(_lines))
+
+    """
     # are we in a sync room?
     sync_room_list = None
     for _rooms in syncouts:
@@ -270,3 +372,4 @@ def syncusers(bot, event, conversation_id=None, *args):
     _lines.append(_("<b>Total Unique: {}</b>").format(len(unique_users)))
 
     yield from bot.coro_send_message(event.conv, '<br />'.join(_lines))
+    """
