@@ -166,6 +166,11 @@ class FakeConversation(object):
             segments = [hangups.ChatMessageSegment(message)]
         elif isinstance(message, str):
             segments = simple_parse_to_segments(message)
+            if "passthru" not in context:
+                context["passthru"] = {}
+            if "originalcontent" not in context["passthru"]:
+                context["passthru"]["originalcontent"] = { "message": message,
+                                                           "image_id": image_id }
         elif isinstance(message, list):
             segments = message
         else:
@@ -175,6 +180,24 @@ class FakeConversation(object):
             serialised_segments = [seg.serialize() for seg in segments]
         else:
             serialised_segments = None
+
+        """OffTheRecordStatus: determine history"""
+
+        if otr_status is None:
+            if "history" not in context:
+                context["history"] = True
+                try:
+                    context["history"] = self.bot.conversations.catalog[self.id_]["history"]
+
+                except KeyError:
+                    # rare scenario where a conversation was not refreshed
+                    # once the initial message goes through, convmem will be updated
+                    logger.warning("could not determine otr for {}".format(conversation_id))
+
+            if context["history"]:
+                otr_status = hangups_shim.schemas.OffTheRecordStatus.ON_THE_RECORD
+            else:
+                otr_status = hangups_shim.schemas.OffTheRecordStatus.OFF_THE_RECORD
 
         """ExistingMedia: attach previously uploaded media for display"""
 
@@ -213,4 +236,5 @@ class FakeConversation(object):
                     annotation = annotations,
                     event_request_header = hangups.hangouts_pb2.EventRequestHeader(
                         conversation_id=hangups.hangouts_pb2.ConversationId( id=self.id_ ),
-                        client_generated_id=self._client.get_client_generated_id() )))
+                        client_generated_id=self._client.get_client_generated_id(),
+                        expected_otr = otr_status )))

@@ -722,25 +722,7 @@ class HangupsBot(object):
         else:
             raise ValueError('could not identify conversation id')
 
-        # determine OTR status
-
-        if "history" not in context:
-            context["history"] = True
-            try:
-                context["history"] = self.conversations.catalog[conversation_id]["history"]
-
-            except KeyError:
-                # rare scenario where a conversation was not refreshed
-                # once the initial message goes through, convmem will be updated
-                logger.warning("CORO_SEND_MESSAGE(): could not determine otr for {}".format(
-                    conversation_id))
-
-        if context["history"]:
-            otr_status = hangups_shim.schemas.OffTheRecordStatus.ON_THE_RECORD
-        else:
-            otr_status = hangups_shim.schemas.OffTheRecordStatus.OFF_THE_RECORD
-
-        broadcast_list = [(conversation_id, message)]
+        broadcast_list = [(conversation_id, message, image_id)]
 
         # run any sending handlers
 
@@ -765,9 +747,8 @@ class HangupsBot(object):
 
             try:
                 yield from _fc.send_message( response[1],
-                                             image_id=image_id,
-                                             otr_status=otr_status,
-                                             context=context )
+                                             image_id = response[2],
+                                             context = context )
             except hangups.NetworkError as e:
                 logger.exception("CORO_SEND_MESSAGE: error sending {}".format(response[0]))
 
