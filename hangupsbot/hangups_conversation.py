@@ -6,6 +6,8 @@ import hangups
 
 import hangups_shim
 
+from utils import simple_parse_to_segments
+
 
 logger = logging.getLogger(__name__)
 
@@ -154,43 +156,61 @@ class FakeConversation(object):
         self.id_ = id_
 
     @asyncio.coroutine
-    def send_message(self, segments, image_id=None, otr_status=None, context=None):
+    def send_message(self, message, image_id=None, otr_status=None, context=None):
+
+        """ChatMessageSegment: parse message"""
+
+        if message is None:
+            segments = []
+        elif "parser" in context and context["parser"] is False and isinstance(message, str):
+            segments = [hangups.ChatMessageSegment(message)]
+        elif isinstance(message, str):
+            segments = simple_parse_to_segments(message)
+        elif isinstance(message, list):
+            segments = message
+        else:
+            raise TypeError("unknown message type supplied")
+
+        if segments:
+            serialised_segments = [seg.serialize() for seg in segments]
+        else:
+            serialised_segments = None
+
+        """ExistingMedia: attach previously uploaded media for display"""
+
+        media_attachment = None
+        if image_id:
+            media_attachment = hangups.hangouts_pb2.ExistingMedia(
+                photo = hangups.hangouts_pb2.Photo( photo_id = image_id ))
+
+        """EventAnnotation: combine with client-side storage to allow custom messaging context"""
+
+        annotations = []
+        if "reprocessor" in context:
+            annotations.append( hangups.hangouts_pb2.EventAnnotation(
+                type = 1025,
+                value = context["reprocessor"]["id"] ))
+
+        # define explicit "passthru" in context to "send" any type of variable
+        if "passthru" in context:
+            annotations.append( hangups.hangouts_pb2.EventAnnotation(
+                type = 1026,
+                value = self.bot._handlers.register_passthru(context["passthru"]) ))
+
+        # always implicitly "send" the entire context dictionary
+        annotations.append( hangups.hangouts_pb2.EventAnnotation(
+            type = 1027,
+            value = self.bot._handlers.register_context(context) ))
+
+        """send the message"""
+
         with (yield from asyncio.Lock()):
-            annotations = []
-
-            if segments:
-                if "reprocessor" in context:
-                    annotations.append( hangups.hangouts_pb2.EventAnnotation(
-                        type = 1025,
-                        value = context["reprocessor"]["id"] ))
-
-                # define explicit "passthru" in context to "send" any type of variable
-                if "passthru" in context:
-                    annotations.append( hangups.hangouts_pb2.EventAnnotation(
-                        type = 1026,
-                        value = self.bot._handlers.register_passthru(context["passthru"]) ))
-
-                # always implicitly "send" the entire context dictionary
-                annotations.append( hangups.hangouts_pb2.EventAnnotation(
-                    type = 1027,
-                    value = self.bot._handlers.register_context(context) ))
-
-                serialised_segments = [seg.serialize() for seg in segments]
-            else:
-                serialised_segments = None
-
-            media_attachment = None
-            if image_id:
-                media_attachment = hangups.hangouts_pb2.ExistingMedia(
-                    photo = hangups.hangouts_pb2.Photo( photo_id = image_id ))
-
-            request = hangups.hangouts_pb2.SendChatMessageRequest(
-                request_header = self._client.get_request_header(),
-                message_content = hangups.hangouts_pb2.MessageContent( segment=serialised_segments ),
-                existing_media = media_attachment,
-                annotation = annotations,
-                event_request_header = hangups.hangouts_pb2.EventRequestHeader(
-                    conversation_id=hangups.hangouts_pb2.ConversationId( id=self.id_ ),
-                    client_generated_id=self._client.get_client_generated_id() ))
-
-            yield from self._client.send_chat_message(request)
+            yield from self._client.send_chat_message(
+                hangups.hangouts_pb2.SendChatMessageRequest(
+                    request_header = self._client.get_request_header(),
+                    message_content = hangups.hangouts_pb2.MessageContent( segment=serialised_segments ),
+                    existing_media = media_attachment,
+                    annotation = annotations,
+                    event_request_header = hangups.hangouts_pb2.EventRequestHeader(
+                        conversation_id=hangups.hangouts_pb2.ConversationId( id=self.id_ ),
+                        client_generated_id=self._client.get_client_generated_id() )))

@@ -722,19 +722,6 @@ class HangupsBot(object):
         else:
             raise ValueError('could not identify conversation id')
 
-        # parse message strings to segments
-
-        if message is None:
-            segments = []
-        elif "parser" in context and context["parser"] is False and isinstance(message, str):
-            segments = [hangups.ChatMessageSegment(message)]
-        elif isinstance(message, str):
-            segments = simple_parse_to_segments(message)
-        elif isinstance(message, list):
-            segments = message
-        else:
-            raise TypeError("unknown message type supplied")
-
         # determine OTR status
 
         if "history" not in context:
@@ -753,7 +740,7 @@ class HangupsBot(object):
         else:
             otr_status = hangups_shim.schemas.OffTheRecordStatus.OFF_THE_RECORD
 
-        broadcast_list = [(conversation_id, segments)]
+        broadcast_list = [(conversation_id, message)]
 
         # run any sending handlers
 
