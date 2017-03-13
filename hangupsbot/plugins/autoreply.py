@@ -50,7 +50,10 @@ def _handle_autoreply(bot, event, command):
     * /bot tagset conv <conv_id> autoreplies-merge
     * /bot tagdel conv <conv_id> autoreplies-merge
     """
-    if event.conv_id in bot.conversations.get("tag:autoreplies-merge"):
+    tagged_autoreplies_merge = "autoreplies-merge" in bot.tags.convactive(event.conv_id)
+    config_autoreplies_merge = bot.get_config_option('autoreplies.merge') or False
+
+    if tagged_autoreplies_merge or config_autoreplies_merge:
 
         # load any global settings as well
         autoreplies_list_global = bot.get_config_option('autoreplies')
