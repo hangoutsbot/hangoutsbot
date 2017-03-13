@@ -39,6 +39,9 @@ class EventHandler:
                              self.attach_reprocessor,
                              forgiving=True )
 
+        bot.register_shared( 'chatbridge.behaviours',
+                             {},
+                             forgiving=True )
 
     def register_handler(self, function, type="message", priority=50):
         """registers extra event handlers"""

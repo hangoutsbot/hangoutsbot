@@ -709,6 +709,9 @@ class HangupsBot(object):
         if not context:
             context = {}
 
+        if "passthru" not in context:
+            context['passthru'] = {}
+
         if "base" not in context:
             # default legacy context
             context["base"] = self._messagecontext_legacy()
