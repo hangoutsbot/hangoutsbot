@@ -166,11 +166,6 @@ class FakeConversation(object):
             segments = [hangups.ChatMessageSegment(message)]
         elif isinstance(message, str):
             segments = simple_parse_to_segments(message)
-            if "passthru" not in context:
-                context["passthru"] = {}
-            if "originalcontent" not in context["passthru"]:
-                context["passthru"]["originalcontent"] = { "message": message,
-                                                           "image_id": image_id }
         elif isinstance(message, list):
             segments = message
         else:
@@ -180,6 +175,11 @@ class FakeConversation(object):
             serialised_segments = [seg.serialize() for seg in segments]
         else:
             serialised_segments = None
+
+        if "original_request" not in context["passthru"]:
+            context["passthru"]["original_request"] = { "message": message,
+                                                        "image_id": image_id,
+                                                        "segments": segments }
 
         """OffTheRecordStatus: determine history"""
 
