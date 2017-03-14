@@ -95,6 +95,13 @@ class SlackAsyncListener(AsyncRequestHandler):
                     original_message = unescape(text)
 
                     message = "{}: {}".format(user, original_message)
+                    passthru = {
+                        "original_request": {
+                            "message": message,
+                            "image_id": None,
+                            "segments": None,
+                            "user": "slack-legacy" },
+                        "norelay": [ __name__ ]}
 
                     yield from self.send_data(
                         conversation_id,
@@ -104,12 +111,7 @@ class SlackAsyncListener(AsyncRequestHandler):
                                 'tags': ['slack', 'relay'], 
                                 'source': 'slack', 
                                 'importance': 50 },
-                            "passthru": {
-                                "sourceplugin": __name__,
-                                "sourceuser": user,
-                                "originalcontent": {
-                                    "message": original_message,
-                                    "image_id": None }}})
+                            "passthru": passthru })
 
 
     def _remap_internal_slack_ids(self, text):
@@ -172,40 +174,53 @@ class SlackAsyncListener(AsyncRequestHandler):
 
 @asyncio.coroutine
 def _broadcast(bot, broadcast_list, context):
-    slack_sink = bot.get_config_option('slack')
-    if not isinstance(slack_sink, list):
-        return
-
-    destination_conv_id = broadcast_list[0][0]
+    target_conv_id = broadcast_list[0][0]
     message = broadcast_list[0][1]
     image_id = broadcast_list[0][2]
 
-    passthru = context["passthru"]
-    if passthru and "sourceplugin" in passthru and passthru['sourceplugin'] == __name__:
-        # no further processing required for messages being relayed by same plugin
+    slackChannelConfigs = bot.get_config_option('slack')
+    if not isinstance(slackChannelConfigs, list):
         return
 
-    chat_id = bot.user_self()['chat_id']
+    channelConfigs = []
+    for channelConfig in slackChannelConfigs:
+        if target_conv_id in channelConfig["synced_conversations"]:
+            channelConfigs.append(channelConfig)
+    if not channelConfigs:
+        return
 
-    if passthru and "sourceuser" in passthru:
-        if(isinstance(passthru["sourceuser"], str)):
-            pass
-        else:
-            chat_id = passthru["sourceuser"].id_.chat_id
-
-    if passthru and "originalcontent" in passthru and passthru["originalcontent"]:
-        if "message" in passthru["originalcontent"]:
-            message = passthru["originalcontent"]["message"]
-
-    # for messages from other plugins, relay them
-    for sinkConfig in slack_sink:
-        if destination_conv_id in sinkConfig["synced_conversations"]:
-            yield from _slack_send(bot, sinkConfig, message, chat_id)
+    passthru = context["passthru"]
 
     if "norelay" not in passthru:
         passthru["norelay"] = []
+    if __name__ in passthru["norelay"]:
+        # prevent message broadcast duplication
+        logger.info("NORELAY:_broadcast {}".format(passthru["norelay"]))
+        return
+    else:
+        # halt messaging handler from re-relaying
+        passthru["norelay"].append(__name__)
 
-    passthru["norelay"].append(__name__)
+    myself = bot.user_self()
+    chat_id = myself['chat_id']
+    fullname = myself['full_name']
+
+    # context preserves as much of the original request as possible
+    if "original_request" in passthru:
+        message = passthru["original_request"]["message"]
+        image_id = passthru["original_request"]["image_id"]
+        segments = passthru["original_request"]["segments"]
+        if "user" in passthru["original_request"]:
+            if(isinstance(passthru["original_request"]["user"], str)):
+                pass
+            else:
+                chat_id = passthru["original_request"]["user"].id_.chat_id
+                # message line formatting: leave it to slack
+
+    # for messages from other plugins, relay them
+    for config in channelConfigs:
+        logger.info("BROADCASTING: {} - {}".format(message, passthru))
+        yield from _slack_send(bot, config, message, chat_id)
 
 
 @asyncio.coroutine
@@ -213,31 +228,52 @@ def _repeat(bot, event, command):
     """formerly _handle_slackout
     forward messages to slack over webhook"""
 
-    slack_sink = bot.get_config_option('slack')
-    if not isinstance(slack_sink, list):
+    slackChannelConfigs = bot.get_config_option('slack')
+    if not isinstance(slackChannelConfigs, list):
         return
 
+    channelConfigs = []
+    for channelConfig in slackChannelConfigs:
+        if event.conv_id in channelConfig["synced_conversations"]:
+            channelConfigs.append(channelConfig)
+    if not channelConfigs:
+        return
+        
     passthru = event.passthru
 
-    if passthru and "sourceplugin" in passthru and passthru["sourceplugin"] == __name__:
-        # don't repeat messages that originate from the same plugin
+    if "norelay" not in passthru:
+        passthru["norelay"] = []
+    if __name__ in passthru["norelay"]:
+        # prevent message relay duplication
+        logger.info("NORELAY:_repeat {}".format(passthru["norelay"]))
         return
-
-    if passthru and "norelay" in passthru and __name__ in passthru["norelay"]:
-        # prevent already relayed messages from triggering a re-relay
-        return
+    else:
+        # halt sending handler from re-relaying
+        passthru["norelay"].append(__name__)
 
     user = event.user
     message = event.text
     image_id = None
 
-    if passthru and "originalcontent" in passthru and passthru["originalcontent"]:
-        message = passthru["originalcontent"]["message"]
-        image_id = passthru["originalcontent"]["image_id"]
+    if "original_request" in passthru:
+        message = passthru["original_request"]["message"]
+        image_id = passthru["original_request"]["image_id"]
+        segments = passthru["original_request"]["segments"]
+        # user is only assigned once, upon the initial event
+        if "user" in passthru["original_request"]:
+            user = passthru["original_request"]["user"]
+        else:
+            passthru["original_request"]["user"] = user
+    else:
+        # user raised an event
+        passthru["original_request"] = { "message": event.text,
+                                         "image_id": None, # XXX: should be attachments
+                                         "segments": event.conv_event.segments,
+                                         "user": event.user }
 
-    for sinkConfig in slack_sink:
-        if event.conv_id in sinkConfig["synced_conversations"]:
-            yield from _slack_send(bot, sinkConfig, message, user.id_.chat_id)
+    for config in channelConfigs:
+        logger.info("REPEATING: {} - {}".format(message, passthru))
+        yield from _slack_send(bot, config, message, user.id_.chat_id)
 
 
 @asyncio.coroutine

@@ -63,52 +63,60 @@ def _migrate_syncroom_v1(bot):
 
 @asyncio.coroutine
 def _broadcast(bot, broadcast_list, context):
-    if not bot.get_config_option('syncing_enabled'):
-        return
-
-    destination_conv_id = broadcast_list[0][0]
+    target_conv_id = broadcast_list[0][0]
     message = broadcast_list[0][1]
     image_id = broadcast_list[0][2]
+
+    if not bot.get_config_option('syncing_enabled'):
+        return
 
     syncouts = bot.get_config_option('sync_rooms') or []
     syncout = False
     for sync_room_list in syncouts:
-        if destination_conv_id in sync_room_list:
+        if target_conv_id in sync_room_list:
             syncout = sync_room_list
             break
     if not syncout:
         return
 
     passthru = context["passthru"]
-    if passthru and "sourceplugin" in passthru and passthru['sourceplugin'] == __name__:
-        # no further processing required for messages being relayed by same plugin
+
+    if "norelay" not in passthru:
+        passthru["norelay"] = []
+    if __name__ in passthru["norelay"]:
+        # prevent message broadcast duplication
+        logger.info("NORELAY:_broadcast {}".format(passthru["norelay"]))
         return
+    else:
+        # halt messaging handler from re-relaying
+        passthru["norelay"].append(__name__)
 
     myself = bot.user_self()
     chat_id = myself['chat_id']
     fullname = myself['full_name']
 
-    if passthru and "sourceuser" in passthru:
-        if(isinstance(passthru["sourceuser"], str)):
-            pass
-        else:
-            fullname = passthru["sourceuser"].full_name
-            chat_id = passthru["sourceuser"].id_.chat_id
-            message = "{}: {}".format(fullname, message)
+    if "original_request" in passthru:
+        message = passthru["original_request"]["message"]
+        image_id = passthru["original_request"]["image_id"]
+        segments = passthru["original_request"]["segments"]
+        if "user" in passthru["original_request"]:
+            if(isinstance(passthru["original_request"]["user"], str)):
+                pass
+            else:
+                chat_id = passthru["original_request"]["user"].id_.chat_id
+                # message line formatting: required since hangouts is limited
+                full_name = passthru["original_request"]["user"].full_name
+                message = "{}: {}".format(full_name, message)
 
     # for messages from other plugins, relay them
     for relay_id in syncout:
-        if destination_conv_id != relay_id:
+        if target_conv_id != relay_id:
+            logger.info("BROADCASTING: {} - {}".format(message, passthru))
             yield from bot.coro_send_message(
                 relay_id,
                 message,
                 image_id = image_id,
-                context = { "passthru": { "sourceplugin" : __name__ }})
-
-    if "norelay" not in passthru:
-        passthru["norelay"] = []
-
-    passthru["norelay"].append(__name__)
+                context = { "passthru": passthru })
 
 
 @asyncio.coroutine
@@ -121,6 +129,7 @@ def _repeat(bot, event, command):
     DO NOT RELAY:
     * bot-wrapped user messages relayed by this chatbridge
     """
+
     if not bot.get_config_option('syncing_enabled'):
         return
 
@@ -135,36 +144,45 @@ def _repeat(bot, event, command):
 
     passthru = event.passthru
 
-    if passthru and "sourceplugin" in passthru and passthru["sourceplugin"] == __name__:
-        # don't repeat messages that originate from the same plugin
+    if "norelay" not in passthru:
+        passthru["norelay"] = []
+    if __name__ in passthru["norelay"]:
+        # prevent message relay duplication
+        logger.info("NORELAY:_repeat {}".format(passthru["norelay"]))
         return
-
-    if passthru and "norelay" in passthru and __name__ in passthru["norelay"]:
-        # prevent already relayed messages from triggering a re-relay
-        return
+    else:
+        # halt sending handler from re-relaying
+        passthru["norelay"].append(__name__)
 
     user = event.user
     message = event.text
     image_id = None
 
-    _passthru = { "sourceplugin" : __name__,
-                  "sourceuser": user,
-                  "originalcontent": { "message": event.text,
-                                       "image_id": None }}
-
-    if passthru and "originalcontent" in passthru and passthru["originalcontent"]:
-        message = passthru["originalcontent"]["message"]
-        image_id = passthru["originalcontent"]["image_id"]
-        _passthru["originalcontent"] = passthru["originalcontent"]
+    if "original_request" in passthru:
+        message = passthru["original_request"]["message"]
+        image_id = passthru["original_request"]["image_id"]
+        segments = passthru["original_request"]["segments"]
+        # user is only assigned once, upon the initial event
+        if "user" in passthru["original_request"]:
+            user = passthru["original_request"]["user"]
+        else:
+            passthru["original_request"]["user"] = user
+    else:
+        # user raised an event
+        passthru["original_request"] = { "message": event.text,
+                                         "image_id": None, # XXX: should be attachments
+                                         "segments": event.conv_event.segments,
+                                         "user": event.user }
 
     # relay messages to other rooms only
     for relay_id in syncout:
         if event.conv_id != relay_id:
+            logger.info("REPEATING: {} - {}".format(message, passthru))
             yield from bot.coro_send_message(
                 relay_id,
                 message = "{}: {}".format(event.user.full_name, message),
                 image_id = image_id,
-                context = { "passthru": _passthru })
+                context = { "passthru": passthru })
 
 
 def _format_source(bot, user_id):
