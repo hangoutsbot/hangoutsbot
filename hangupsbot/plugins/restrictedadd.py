@@ -60,7 +60,7 @@ def _check_if_admin_added_me(bot, event, command):
             elif initiator_user_id == bot.user_self()["chat_id"]:
                 logger.info("bot added self to {}".format(event.conv_id))
 
-            elif event.conv_id in self.bot.conversations.get("tag:restrictedadd-whitelist"):
+            elif event.conv_id in bot.conversations.get("tag:restrictedadd-whitelist"):
                 logger.info("bot added to whitelisted {}".format(event.conv_id))
 
             else:
@@ -79,7 +79,7 @@ def _verify_botkeeper_presence(bot, event, command):
     if not bot.get_config_suboption(event.conv_id, 'strict_botkeeper_check'):
         return
 
-    if event.conv_id in self.bot.conversations.get("tag:restrictedadd-whitelist"):
+    if event.conv_id in bot.conversations.get("tag:restrictedadd-whitelist"):
         return
 
     try:
