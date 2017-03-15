@@ -1,943 +1,706 @@
-# A Sync plugin for Telegram and Hangouts
+"""Sync plugin for the Hangoutsbot with Telegram"""
 
-import os, logging
-import io
 import asyncio
-import hangups
-import plugins
-import aiohttp
-import telepot
-import telepot.async
-import telepot.exception
-from handlers import handler
-from commands import command
+import contextlib
+import io
+import logging
+import os
 import random
+import urllib.request
+import hangups
+import hangups_event
+import plugins
+from .telegrambot import TelegramBot, util_html_bold
 
 logger = logging.getLogger(__name__)
 
-
-# TELEGRAM BOT
-
-class TelegramBot(telepot.async.Bot):
-    def __init__(self, hangupsbot):
-        self.config = hangupsbot.config.get_by_path(['telesync'])
-        if self.config['enabled']:
-            try:
-                super(TelegramBot, self).__init__(self.config['api_key'])
-            except Exception as e:
-                raise telepot.TelegramError("Couldn't initialize telesync", 10)
-
-            if "bot_name" in hangupsbot.config.get_by_path(["telesync"]):
-                self.name = hangupsbot.config.get_by_path(["telesync"])["bot_name"]
-            else:
-                self.name = "bot"
-
-            self.commands = {}
-            self.onMessageCallback = TelegramBot.on_message
-            self.onPhotoCallback = TelegramBot.on_photo
-            self.onStickerCallback = TelegramBot.on_sticker
-            self.onUserJoinCallback = TelegramBot.on_user_join
-            self.onUserLeaveCallback = TelegramBot.on_user_leave
-            self.onLocationShareCallback = TelegramBot.on_location_share
-            self.onSupergroupUpgradeCallback = TelegramBot.on_supoergroup_upgrade
-            self.ho_bot = hangupsbot
-        else:
-            logger.info('telesync disabled in config.json')
-
-    @asyncio.coroutine
-    def setup_bot_info(self):
-        """Setup bot.id, bot.name and bot.username fields"""
-        _bot_data = yield from self.getMe()
-        self.id = _bot_data['id']
-        self.name = _bot_data['first_name']
-        self.username = _bot_data['username']
-        logger.info('[TELESYNC]Telegram bot info: id: {bot_id}, name: {bot_name}, username: {bot_username}'.format(
-            bot_id=self.id, bot_name=self.name, bot_username=self.username))
-
-
-    def add_command(self, cmd, func):
-        self.commands[cmd] = func
-
-    def remove_command(self, cmd):
-        if cmd in self.commands:
-            del self.commands[cmd]
-
-    @staticmethod
-    def is_command(msg):
-        if 'text' in msg:
-            if msg['text'].startswith('/'):
-                return True
-        return False
-
-    @staticmethod
-    def parse_command(cmd):
-        txt_split = cmd.split()
-        return txt_split[0].split("@")[0], txt_split[1:]
-
-    @staticmethod
-    def get_user_id(msg):
-        if 'from' in msg:
-            return str(msg['from']['id'])
-        return ""
-
-    @staticmethod
-    def get_username(msg, chat_action='from'):
-        if 'username' in msg[chat_action]:
-            return str(msg[chat_action]['username'])
-        return ""
-
-    @staticmethod
-    def on_message(bot, chat_id, msg):
-        print("[MSG] {uid} : {txt}".format(uid=msg['from']['id'], txt=msg['text']))
-
-    @staticmethod
-    def on_photo(bot, chat_id, msg):
-        print("[PIC]{uid} : {photo_id}".format(uid=msg['from']['id'], photo_id=msg['photo'][0]['file_id']))
-
-    @staticmethod
-    def on_sticker(bot, chat_id, msg):
-        print("[STI]{uid} : {file_id}".format(uid=msg['from']['id'], file_id=msg['sticker']['file_id']))
-
-    @staticmethod
-    def on_user_join(bot, chat_id, msg):
-        print("New User: {name}".format(name=msg['new_chat_member']['first_name']))
-
-    @staticmethod
-    def on_user_leave(bot, chat_id, msg):
-        print("{name} Left the gorup".format(name=msg['left_chat_member']['first_name']))
-
-    @staticmethod
-    def on_location_share(bot, chat_id, msg):
-        print("{name} shared a location".format(name=msg['from']['first_name']))
-
-    @staticmethod
-    def on_supoergroup_upgrade(bot, msg):
-        print("Group {old_chat_id} upgraded to supergroup {new_chat_id}".format(old_chat_id=msg['chat']['id'],
-                                                                                new_chat_id=msg['migrate_to_chat_id']))
-
-    def set_on_message_callback(self, func):
-        self.onMessageCallback = func
-
-    def set_on_photo_callback(self, func):
-        self.onPhotoCallback = func
-
-    def set_on_sticker_callback(self, func):
-        self.onStickerCallback = func
-
-    def set_on_user_join_callback(self, func):
-        self.onUserJoinCallback = func
-
-    def set_on_user_leave_callback(self, func):
-        self.onUserLeaveCallback = func
-
-    def set_on_location_share_callback(self, func):
-        self.onLocationShareCallback = func
-
-    def set_on_supoergroup_upgrade_callback(self, func):
-        self.onSupergroupUpgradeCallback = func
-
-    def is_telegram_admin(self, user_id):
-        tg_admins = self.ho_bot.config.get_by_path(['telesync'])['admins']
-        return True if str(user_id) in tg_admins else False
-
-    @asyncio.coroutine
-    def handle(self, msg):
-
-        if 'migrate_to_chat_id' in msg:
-            yield from self.onSupergroupUpgradeCallback(self, msg)
-
-        else:
-            flavor = telepot.flavor(msg)
-
-            if flavor == "chat":  # chat message
-                content_type, chat_type, chat_id = telepot.glance(msg)
-                if content_type == 'text':
-                    if TelegramBot.is_command(msg):  # bot command
-                        cmd, params = TelegramBot.parse_command(msg['text'])
-                        user_id = TelegramBot.get_user_id(msg)
-                        args = {'params': params, 'user_id': user_id, 'chat_type': chat_type}
-                        if cmd in self.commands:
-                            yield from self.commands[cmd](self, chat_id, args)
-                        else:
-                            if self.config['be_quiet']:
-                                pass
-                            else:
-                                yield from self.sendMessage(chat_id, "Unknown command: {cmd}".format(cmd=cmd))
-
-                    else:  # plain text message
-                        yield from self.onMessageCallback(self, chat_id, msg)
-
-                elif content_type == 'location':
-                    yield from self.onLocationShareCallback(self, chat_id, msg)
-
-                elif content_type == 'new_chat_member':
-                    yield from self.onUserJoinCallback(self, chat_id, msg)
-
-                elif content_type == 'left_chat_member':
-                    yield from self.onUserLeaveCallback(self, chat_id, msg)
-
-                elif content_type == 'photo':
-                    yield from self.onPhotoCallback(self, chat_id, msg)
-
-                elif content_type == 'sticker':
-                    if 'enable_sticker_sync' in tg_bot.ho_bot.config.get_by_path(['telesync']):
-                        if tg_bot.ho_bot.config.get_by_path(['telesync'])['enable_sticker_sync']:
-                            yield from self.onStickerCallback(self, chat_id, msg)
-
-            elif flavor == "inline_query":  # inline query e.g. "@gif cute panda"
-                query_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
-                print("inline_query")
-
-            elif flavor == "chosen_inline_result":
-                result_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
-                print("chosen_inline_result")
-
-            else:
-                raise telepot.BadFlavor(msg)
-
-
-def tg_util_get_group_name(msg):
-    """
-    :param msg: msg object from telepot
-    :return: if msg sent to a group, will return Groups name, return msg type otherwise
-    """
-    title = msg['chat']['type']
-    # if title == 'group' or title == 'supergroup':
-    if title in ['group', 'supergroup']:
-        title = msg['chat']['title']
-    return title
-
-
-def tg_util_get_photo_caption(msg):
-    caption = ""
-    if 'caption' in msg:
-        caption = msg['caption']
-
-    return caption
-
-
-def tg_util_get_photo_list(msg):
-    photos = []
-    if 'photo' in msg:
-        photos = msg['photo']
-        photos = sorted(photos, key=lambda k: k['width'])
-
-    return photos
-
-
-def tg_util_location_share_get_lat_long(msg):
-    lat = ""
-    long = ""
-    if 'location' in msg:
-        loc = msg['location']
-        lat = loc['latitude']
-        long = loc['longitude']
-
-    return lat, long
-
-
-def tg_util_create_gmaps_url(lat, long, https=True):
-    return "{https}://maps.google.com/maps?q={lat},{long}".format(https='https' if https else 'http', lat=lat,
-                                                                  long=long)
-
-
-def tg_util_create_telegram_me_link(username, https=True):
-    return "{https}://telegram.me/{username}".format(https='https' if https else 'http', username=username)
-
-
-def tg_util_sync_get_user_name(msg, chat_action='from'):
-    profile_dict = tg_bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho']
-    username = TelegramBot.get_username(msg, chat_action=chat_action)
-    logger.info("message from: {}".format(msg['from']['id']))
-    if str(msg['from']['id']) in profile_dict \
-            and "user_gplus" in profile_dict[str(msg['from']['id'])]:
-        # logger.info("message from: {}".format(msg['from']['id']))
-        user_html = profile_dict[str(msg['from']['id'])]['user_text']
-    else:
-        url = tg_util_create_telegram_me_link(username)
-        user_html = "<a href='{url}' >{uname}</a>".format(url=url, uname=msg[chat_action]['first_name'])
-    return msg[chat_action]['first_name'] if username == "" else user_html
-
-
-@asyncio.coroutine
-def tg_on_message(tg_bot, tg_chat_id, msg):
-    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
-    config = tg_bot.ho_bot.config.get_by_path(['telesync'])
-    if str(tg_chat_id) in tg2ho_dict:
-        chat_title = ""
-        if "sync_chat_titles" not in config or config["sync_chat_titles"]:
-            chat_title = ' <b>({gname})</b>'.format(gname=tg_util_get_group_name(msg))
-        text = "<b>{uname}</b>{chat_title}: {text}".format(uname=tg_util_sync_get_user_name(msg),
-                                                           chat_title=chat_title,
-                                                           text=msg['text'])
-
-        if 'sync_reply_to' in config:
-            if config['sync_reply_to']:
-                if 'reply_to_message' in msg:
-                    content_type, chat_type, chat_id = telepot.glance(msg['reply_to_message'])
-                    if msg['reply_to_message']['from']['first_name'].lower() == tg_bot.name.lower():
-                        r_text = msg['reply_to_message']['text'].split(':') if 'text' in msg[
-                            'reply_to_message'] else content_type
-                        r2_user = r_text[0]
-                    else:
-                        r_text = ['', msg['reply_to_message']['text']] if 'text' in msg[
-                            'reply_to_message'] else content_type
-                        r2_user = tg_util_sync_get_user_name(msg['reply_to_message'])
-                    if content_type == 'text':
-                        r2_text = r_text[1]
-                        r2_text = r2_text if len(r2_text) < 30 else r2_text[0:30] + "..."
-                    else:
-                        r2_text = content_type
-                    text = "| <i><b>{r2uname}</b></i>:\n| <i>{r2text}</i>\n{newtext}".format(r2uname=r2_user,
-                                                                                             r2text=r2_text,
-                                                                                             newtext=text)
-
-        ho_conv_id = tg2ho_dict[str(tg_chat_id)]
-        yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
-
-        logger.info("[TELESYNC] Telegram message forwarded: {msg} to: {ho_conv_id}".format(msg=msg['text'],
-                                                                                           ho_conv_id=ho_conv_id))
-
-
-@asyncio.coroutine
-def tg_on_sticker(tg_bot, tg_chat_id, msg):
-    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
-
-    if str(tg_chat_id) in tg2ho_dict:
-        ho_conv_id = tg2ho_dict[str(tg_chat_id)]
-
-        photo_id = msg['sticker']['file_id']
-
-        # TODO: find a better way to handling file paths
-        photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_id + ".jpg"
-
-        text = "Uploading sticker from <b>{uname}</b> in <b>{gname}</b>...".format(
-            uname=tg_util_sync_get_user_name(msg),
-            gname=tg_util_get_group_name(msg))
-        yield from tg_bot.ho_bot.coro_send_message(conversation=ho_conv_id, message=text)
-
-        file_dir = os.path.dirname(photo_path)
-        if not os.path.exists(file_dir):
-            os.makedirs(file_dir)
-
-        yield from tg_bot.download_file(photo_id, photo_path)
-
-        logger.info("[TELESYNC] Uploading sticker {fid}".format(fid=photo_id))
-        with open(photo_path, "rb") as photo_file:
-            ho_photo_id = yield from tg_bot.ho_bot._client.upload_image(photo_file,
-                                                                        filename=os.path.basename(photo_path))
-
-        yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, '', image_id=ho_photo_id)
-
-        logger.info("[TELESYNC] Upload succeed.")
-
-        if tg_bot.ho_bot.config.get_by_path(['telesync'])['do_not_keep_photos']:
-            os.remove(photo_path)  # don't use unnecessary space on disk
-
-
-@asyncio.coroutine
-def tg_on_photo(tg_bot, tg_chat_id, msg):
-    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
-
-    if str(tg_chat_id) in tg2ho_dict:
-        ho_conv_id = tg2ho_dict[str(tg_chat_id)]
-
-        photos = tg_util_get_photo_list(msg)
-        photo_caption = tg_util_get_photo_caption(msg)
-
-        photo_id = photos[len(photos) - 1]['file_id']  # get photo id so we can download it
-
-        # TODO: find a better way to handling file paths
-        photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_id + ".jpg"
-
-        text = "Uploading photo from <b>{uname}</b> in <b>{gname}</b>...".format(
-            uname=tg_util_sync_get_user_name(msg),
-            gname=tg_util_get_group_name(msg))
-        yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
-
-        file_dir = os.path.dirname(photo_path)
-        if not os.path.exists(file_dir):
-            os.makedirs(file_dir)
-
-        yield from tg_bot.download_file(photo_id, photo_path)
-
-        logger.info("[TELESYNC] Uploading photo...")
-        with open(photo_path, "rb") as photo_file:
-            ho_photo_id = yield from tg_bot.ho_bot._client.upload_image(photo_file,
-                                                                        filename=os.path.basename(photo_path))
-
-        yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, photo_caption, image_id=ho_photo_id)
-
-        logger.info("[TELESYNC] Upload succeed.")
-
-        if tg_bot.ho_bot.config.get_by_path(['telesync'])['do_not_keep_photos']:
-            os.remove(photo_path)  # don't use unnecessary space on disk
-
-
-@asyncio.coroutine
-def tg_on_user_join(tg_bot, tg_chat_id, msg):
-    config_dict = tg_bot.ho_bot.config.get_by_path(['telesync'])
-    if 'sync_join_messages' not in config_dict or not config_dict['sync_join_messages']:
-        return
-
-    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
-    if str(tg_chat_id) in tg2ho_dict:
-        text = "<b>{uname}</b> joined <b>{gname}</b>".format(
-            uname=tg_util_sync_get_user_name(msg, chat_action='new_chat_member'),
-            gname=tg_util_get_group_name(msg))
-
-        ho_conv_id = tg2ho_dict[str(tg_chat_id)]
-        yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
-
-        # yield from tg_bot.sendMessage(tg_chat_id, text)
-
-        logger.info("[TELESYNC] {text}".format(text=text))
-
-
-@asyncio.coroutine
-def tg_on_user_leave(tg_bot, tg_chat_id, msg):
-    config_dict = tg_bot.ho_bot.config.get_by_path(['telesync'])
-    if 'sync_join_messages' not in config_dict or not config_dict['sync_join_messages']:
-        return
-
-    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
-    if str(tg_chat_id) in tg2ho_dict:
-        text = "<b>{uname}</b> left <b>{gname}</b>".format(
-            uname=tg_util_sync_get_user_name(msg, chat_action='left_chat_member'),
-            gname=tg_util_get_group_name(msg))
-
-        ho_conv_id = tg2ho_dict[str(tg_chat_id)]
-        yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
-
-        # yield from tg_bot.sendMessage(tg_chat_id, text)
-
-        logger.info("[TELESYNC] {text}".format(text=text))
-
-
-@asyncio.coroutine
-def tg_on_location_share(tg_bot, tg_chat_id, msg):
-    lat, long = tg_util_location_share_get_lat_long(msg)
-    maps_url = tg_util_create_gmaps_url(lat, long)
-
-    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
-    config = tg_bot.ho_bot.config.get_by_path(['telesync'])
-
-    if str(tg_chat_id) in tg2ho_dict:
-        chat_title = ""
-        if "sync_chat_titles" not in config or config["sync_chat_titles"]:
-            chat_title = ' <b>({gname})</b>'.format(gname=tg_util_get_group_name(msg))
-        text = "<b>{uname}</b>{chat_title}: {text}".format(uname=tg_util_sync_get_user_name(msg),
-                                                           chat_title=chat_title,
-                                                           text=maps_url)
-
-        ho_conv_id = tg2ho_dict[str(tg_chat_id)]
-        yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
-
-        logger.info("[TELESYNC] Telegram location forwarded: {msg} to: {ho_conv_id}".format(msg=maps_url,
-                                                                                            ho_conv_id=ho_conv_id))
-
-
-@asyncio.coroutine
-def tg_on_supergroup_upgrade(bot, msg):
-    old_chat_id = str(msg['chat']['id'])
-    new_chat_id = str(msg['migrate_to_chat_id'])
-
-    memory = bot.ho_bot.memory.get_by_path(['telesync'])
-    tg2ho_dict = memory['tg2ho']
-    ho2tg_dict = memory['ho2tg']
-
-    if old_chat_id in tg2ho_dict:
-        ho_conv_id = tg2ho_dict[old_chat_id]
-        ho2tg_dict[ho_conv_id] = new_chat_id
-        tg2ho_dict[new_chat_id] = ho_conv_id
-        del tg2ho_dict[old_chat_id]
-
-        new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
-        bot.ho_bot.memory.set_by_path(['telesync'], new_memory)
-
-        logger.info("Telegram group {old_chat_id} upgraded to Supergroup {new_chat_id}".format(
-            old_chat_id=old_chat_id, new_chat_id=new_chat_id))
-
-
-@asyncio.coroutine
-def tg_command_whoami(bot, chat_id, args):
-    user_id = args['user_id']
-    chat_type = args['chat_type']
-    if 'private' == chat_type:
-        yield from bot.sendMessage(chat_id, "Your Telegram user id: {user_id}".format(user_id=user_id))
-    else:
-        yield from bot.sendMessage(chat_id, "This command can only be used in private chats")
-
-
-@asyncio.coroutine
-def tg_command_whereami(bot, chat_id, args):
-    user_id = args['user_id']
-    if bot.is_telegram_admin(user_id):
-        yield from bot.sendMessage(chat_id, "current group's id: '{chat_id}'".format(chat_id=chat_id))
-    else:
-        yield from bot.sendMessage(chat_id, "Only admins can do that")
-
-
-@asyncio.coroutine
-def tg_command_set_sync_ho(bot, chat_id, args):  # /setsyncho <hangout conv_id>
-
-    user_id = args['user_id']
-    params = args['params']
-
-    if not bot.is_telegram_admin(user_id):
-        yield from bot.sendMessage(chat_id, "Only admins can do that")
-        return
-
-    if len(params) != 1:
-        yield from bot.sendMessage(chat_id, "Illegal or Missing arguments!!!")
-        return
-
-    memory = bot.ho_bot.memory.get_by_path(['telesync'])
-    tg2ho_dict = memory['tg2ho']
-    ho2tg_dict = memory['ho2tg']
-
-    if str(chat_id) in tg2ho_dict:
-        yield from bot.sendMessage(chat_id,
-                                   "Sync target '{ho_conv_id}' already set".format(ho_conv_id=str(params[0])))
-
-    else:
-        tg2ho_dict[str(chat_id)] = str(params[0])
-        ho2tg_dict[str(params[0])] = str(chat_id)
-
-        new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
-        bot.ho_bot.memory.set_by_path(['telesync'], new_memory)
-
-        yield from bot.sendMessage(chat_id, "Sync target set to '{ho_conv_id}''".format(ho_conv_id=str(params[0])))
-
-
-@asyncio.coroutine
-def tg_command_clear_sync_ho(bot, chat_id, args):
-    user_id = args['user_id']
-    if not bot.is_telegram_admin(user_id):
-        yield from bot.sendMessage(chat_id, "Only admins can do that")
-        return
-    memory = bot.ho_bot.memory.get_by_path(['telesync'])
-    tg2ho_dict = memory['tg2ho']
-    ho2tg_dict = memory['ho2tg']
-
-    if str(chat_id) in tg2ho_dict:
-        ho_conv_id = tg2ho_dict[str(chat_id)]
-        del tg2ho_dict[str(chat_id)]
-        del ho2tg_dict[ho_conv_id]
-
-    new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
-    bot.ho_bot.memory.set_by_path(['telesync'], new_memory)
-
-    yield from bot.sendMessage(chat_id, "Sync target cleared")
-
-
-@asyncio.coroutine
-def tg_command_add_bot_admin(bot, chat_id, args):
-    user_id = args['user_id']
-    params = args['params']
-    chat_type = args['chat_type']
-
-    if 'private' != chat_type:
-        yield from bot.sendMessage(chat_id, "This command must be invoked in private chat")
-        return
-
-    if not bot.is_telegram_admin(user_id):
-        yield from bot.sendMessage(chat_id, "Only admins can do that")
-        return
-
-    if len(params) != 1:
-        yield from bot.sendMessage(chat_id, "Illegal or Missing arguments!!!")
-        return
-
-    text = ""
-
-    tg_conf = bot.ho_bot.config.get_by_path(['telesync'])
-    if str(params[0]) not in tg_conf['admins']:
-        tg_conf['admins'].append(str(params[0]))
-        bot.ho_bot.config.set_by_path(['telesync'], tg_conf)
-        text = "User added to admins"
-    else:
-        text = "User is already an admin"
-
-    yield from bot.sendMessage(chat_id, text)
-
-
-@asyncio.coroutine
-def tg_command_remove_bot_admin(bot, chat_id, args):
-    user_id = args['user_id']
-    params = args['params']
-    chat_type = args['chat_type']
-
-    if 'private' != chat_type:
-        yield from bot.sendMessage(chat_id, "This command must be invoked in private chat")
-        return
-
-    if not bot.is_telegram_admin(user_id):
-        yield from bot.sendMessage(chat_id, "Only admins can do that")
-        return
-
-    if len(params) != 1:
-        yield from bot.sendMessage(chat_id, "Illegal or Missing arguments!!!")
-        return
-
-    target_user = str(params[0])
-
-    text = ""
-    tg_conf = bot.ho_bot.config.get_by_path(['telesync'])
-    if target_user in tg_conf['admins']:
-        tg_conf['admins'].remove(target_user)
-        bot.ho_bot.config.set_by_path(['telesync'], tg_conf)
-        text = "User removed from admins"
-    else:
-        text = "User is not an admin"
-
-    yield from bot.sendMessage(chat_id, text)
-
-
-@asyncio.coroutine
-def tg_command_tldr(bot, chat_id, args):
-    params = args['params']
-
-    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
-    if str(chat_id) in tg2ho_dict:
-        ho_conv_id = tg2ho_dict[str(chat_id)]
-        tldr_args = {'params': params, 'conv_id': ho_conv_id}
-        try:
-            text = bot.ho_bot.call_shared("plugin_tldr_shared", bot.ho_bot, tldr_args)
-            yield from bot.sendMessage(chat_id, text, parse_mode='HTML')
-        except KeyError as ke:
-            yield from bot.sendMessage(chat_id, "TLDR plugin is not active. KeyError: {e}".format(e=ke))
-    elif str(chat_id) not in tg2ho_dict:
-        ho_conv_id = str(chat_id)
-        tldr_args = {'params': params, 'conv_id': ho_conv_id}
-        try:
-            text = bot.ho_bot.call_shared("plugin_tldr_shared", bot.ho_bot, tldr_args)
-            yield from bot.sendMessage(chat_id, text, parse_mode='HTML')
-        except KeyError as ke:
-            yield from bot.sendMessage(chat_id, "TLDR plugin is not active. KeyError: {e}".format(e=ke))
-
-
-@asyncio.coroutine
-def tg_command_sync_profile(bot, chat_id, args):
-    if 'private' != args['chat_type']:
-        yield from bot.sendMessage(chat_id, "Comand must be run in private chat!")
-        return
-    tg2ho_dict = bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho']
-    ho2tg_dict = bot.ho_bot.memory.get_by_path(['profilesync'])['ho2tg']
-    user_id = args['user_id']
-    if str(user_id) in tg2ho_dict:
-        yield from bot.sendMessage(chat_id, "Your profile is currently synced, to change this run /unsyncprofile")
-        return
-
-    rndm = random.randint(0, 9223372036854775807)
-    tg2ho_dict[str(user_id)] = str(rndm)
-    ho2tg_dict[str(rndm)] = str(user_id)
-    new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
-    print(new_memory)
-    bot.ho_bot.memory.set_by_path(['profilesync'], new_memory)
-
-    yield from bot.sendMessage(chat_id, "Paste the following command in the private ho with me")
-    yield from bot.sendMessage(chat_id, "/bot syncprofile {}".format(str(rndm)))
-
-
-@asyncio.coroutine
-def tg_command_unsync_profile(bot, chat_id, args):
-    if 'private' != args['chat_type']:
-        yield from bot.sendMessage(chat_id, "Comand must be run in private chat!")
-        return
-
-    tg2ho_dict = bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho']
-    ho2tg_dict = bot.ho_bot.memory.get_by_path(['profilesync'])['ho2tg']
-    text = ""
-    if args['user_id'] in tg2ho_dict:
-        ho_id = tg2ho_dict[str(args['user_id'])]['ho_id']
-        del tg2ho_dict[str(args['user_id'])]
-        del ho2tg_dict[str(ho_id)]
-        new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
-        bot.ho_bot.memory.set_by_path(['profilesync'], new_memory)
-        text = "Succsessfully removed sync of your profile."
-    else:
-        text = "There is no sync setup for your profile."
-
-    yield from bot.sendMessage(chat_id, text)
-
-
-@asyncio.coroutine
-def tg_command_get_me(bot, chat_id, args):
-    """
-    return Telegram Bot's id, name and username
-    :param bot: TelegramBot object
-    :param chat_id: chat id
-    :param args: other args
-    :return: None
-    """
-    user_id = args['user_id']
-    chat_type = args['chat_type']
-    if 'private' != chat_type:
-        yield from bot.sendMessage(chat_id, "Comand must be run in private chat!")
-        return
-
-    if bot.is_telegram_admin(user_id):
-        yield from bot.sendMessage(chat_id,
-                                   "id: {id}, name: {name}, username: @{username}".format(id=bot.id, name=bot.name,
-                                                                                          username=bot.username))
-    else:
-        yield from bot.sendMessage(chat_id, "Only admins can do that")
-
-
-# TELEGRAM DEFINITIONS END
-
-# HANGOUTSBOT
-
-tg_bot = None
-
-
 def _initialise(bot):
-    if not bot.config.exists(['telesync']):
-        bot.config.set_by_path(['telesync'], {'api_key': "PUT_YOUR_TELEGRAM_API_KEY_HERE",
-                                              'enabled': True,
-                                              'admins': [],
-                                              'do_not_keep_photos': True,
-                                              'enable_sticker_sync' : True,
-                                              'sync_chat_titles' : True,
-                                              'sync_join_messages' : True,
-                                              'sync_reply_to' : True,
-                                              'be_quiet': False})
+    """init bot for telesync, create and start a TelegramBot, register handler
 
-    bot.config.save()
+    setup config and memory entrys, create TelegramBot and initialise it before
+    starting the message loop, add commands to the hangupsbot and TelegramBot,
+    start additional coros for TelegramBot, register handler for HO-messages
 
-    if not bot.memory.exists(['telesync']):
-        bot.memory.set_by_path(['telesync'], {'ho2tg': {}, 'tg2ho': {}})
-
-    if not bot.memory.exists(['profilesync']):
-        bot.memory.set_by_path(['profilesync'], {'ho2tg': {}, 'tg2ho': {}})
-
-    telesync_config = bot.config.get_by_path(['telesync'])
-
-    if telesync_config['enabled']:
-        global tg_bot
-        tg_bot = TelegramBot(bot)
-        tg_bot.set_on_message_callback(tg_on_message)
-        tg_bot.set_on_photo_callback(tg_on_photo)
-        tg_bot.set_on_sticker_callback(tg_on_sticker)
-        tg_bot.set_on_user_join_callback(tg_on_user_join)
-        tg_bot.set_on_user_leave_callback(tg_on_user_leave)
-        tg_bot.set_on_location_share_callback(tg_on_location_share)
-        tg_bot.set_on_supoergroup_upgrade_callback(tg_on_supergroup_upgrade)
-        tg_bot.add_command("/whoami", tg_command_whoami)
-        tg_bot.add_command("/whereami", tg_command_whereami)
-        tg_bot.add_command("/setsyncho", tg_command_set_sync_ho)
-        tg_bot.add_command("/clearsyncho", tg_command_clear_sync_ho)
-        tg_bot.add_command("/addadmin", tg_command_add_bot_admin)
-        tg_bot.add_command("/removeadmin", tg_command_remove_bot_admin)
-        tg_bot.add_command("/tldr", tg_command_tldr)
-        tg_bot.add_command("/syncprofile", tg_command_sync_profile)
-        tg_bot.add_command("/unsyncprofile", tg_command_unsync_profile)
-        tg_bot.add_command("/getme", tg_command_get_me)
-
-        loop = asyncio.get_event_loop()
-        # run telegram bot
-        loop.create_task(tg_bot.message_loop())
-        loop.create_task(tg_bot.setup_bot_info())
-
-
-@command.register(admin=False)
-def syncprofile(bot, event, *args):
+    Args:
+        bot: hangupsbot instance
     """
-    /bot syncprofile <id> - syncs the g+ profile with the tg profile, id will be posted by bot on tg side
-    :param bot:
-    :param event:
-    :param args:
-    :return:
+    setup_config(bot)
+    setup_memory(bot)
+
+    try:
+        # ensure that no message_loop is running
+        if bot.tg_bot.loop_task and not bot.tg_bot.loop_task.cancelled():
+            bot.tg_bot.loop_task.cancel()
+            logger.info(
+                'found running message_loop and stopped it: %s',
+                bot.tg_bot.loop_task
+                )
+    except AttributeError:
+        pass
+    bot.tg_bot = None
+    if not bot.config.get_by_path(['telesync', 'enabled']):
+        return
+
+    tg_bot = bot.tg_bot = TelegramBot(bot)
+    tg_bot.loop_task = plugins.start_asyncio_task(tg_bot.start)
+
+    plugins.start_asyncio_task(tg_bot.received.periodic_cleanup)
+    plugins.start_asyncio_task(tg_bot.periodic_profilesync_reminder)
+    plugins.register_handler(_on_hangouts_message, 'allmessages')
+    plugins.register_handler(_on_membership_change, 'membership')
+    plugins.register_user_command(['syncprofile'])
+    plugins.register_admin_command(['tele_stop', 'telesync'])
+
+def setup_config(bot):
+    """register all attributes in config
+
+    Args:
+        bot: hangupsbot instance
     """
-    parameters = list(args)
+    default_config_telesync = {
+        # telegram-admin ids
+        'admins': [],
 
-    ho2tg_dict = bot.memory.get_by_path(['profilesync'])['ho2tg']
-    tg2ho_dict = bot.memory.get_by_path(['profilesync'])['tg2ho']
+        # from botfather
+        'api_key': 'PUT_YOUR_TELEGRAM_API_KEY_HERE',
 
-    if len(parameters) > 1:
-        yield from bot.coro_send_message(event.conv_id, "Too many arguments")
-    elif len(parameters) < 1:
-        yield from bot.coro_send_message(event.conv_id, "Too few arguments")
-    elif len(parameters) == 1:
-        if str(parameters[0]) in ho2tg_dict:
-            tg_id = ho2tg_dict[str(parameters[0])]
-            user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
-            user_text = '<a href="{user_gplus}">{uname}</a>'.format(uname=event.user.full_name, user_gplus=user_gplus)
-            ho_id = parameters[0]
-            tg2ho_dict[tg_id] = {'user_gplus': user_gplus, 'user_text': user_text, 'ho_id': ho_id}
-            # del ho2tg_dict[str(parameters[0])]
-            ho2tg_dict[str(event.user_id.chat_id)] = str(tg_id)
-            new_mem = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
-            bot.memory.set_by_path(['profilesync'], new_mem)
-            yield from bot.coro_send_message(event.conv_id, "Succsesfully set up profile sync.")
+        # no spam from commands if permissions/chat types do not match
+        'be_quiet': True,
+
+        # if True, the photos will be removed after Upload
+        'do_not_keep_photos': True,
+
+        'enable_sticker_sync': True,
+
+        # enable the sync
+        'enabled': True,
+
+        # check new message in a channel against the last n messages
+        'c_filter_received_n': 10,
+
+        # custom path to store pictures after download/before upload
+        'photo_path': '/tmp/telesync_photos_{botname}',
+
+        # remind the user on the pending sync every n hours
+        'profilesync_reminder': 36,
+
+        # cleanup the sources for channel-filter and edit-track every n seconds
+        'sleep_after_clean_up': 600,
+
+        # resize sticker to max width and max height, in px
+        'sticker_max_size': 256,
+
+        # store source for channel-filter and edit-track in RAM or memory.json
+        # second one keeps track over reboot, True for memory.json
+        'store_messages': False,
+
+        # store source for channel-filter and edit-track in RAM or memory.json
+        # second one keeps track over reboot, True for memory.json
+        'store_photoids': True,
+
+        # sync the reply message, limit is set via reply_limit_{type}
+        'sync_reply_to': True,
+
+        # save last n messages to keep track of edits/new messages
+        'track_edits': 20,
+
+        # custom label to mark an updated Telegram message
+        'update_label': 'Update'
+    }
+
+    default_config = {
+        # use this also for other syncs and tg-replys can be formatted correct
+        'global_sync_separator': ' : ',
+
+        # set the next entrys global to be then able to set them also per conv
+        #   as access is via bot.get_config_suboption
+        'sync_chat_titles' : False,
+        'sync_join_messages': True,
+        'sync_leave_messages': True,
+
+        # available keys: name, text, title, separator
+        # activate 'sync_chat_titles' to use the title key
+        'sync_format_member_change': '{name} {text} {title}',
+        'sync_format_message': '{name} {title}{separator}{text}',
+
+        # after n char cut and add '...', setting for all other chat_types
+        'sync_reply_limit': 50,
+        # after n char cut and add '...', setting for channels
+        'sync_reply_limit_tg-channel': 30,
+        'telesync': default_config_telesync
+    }
+
+    # validate config
+    _validate_dict(bot, 'config', [], default_config)
+
+    if not len(bot.config.get_by_path(['telesync', 'api_key'])):
+        bot.config.set_by_path(['telesync', 'enabled'], False)
+    if not len(bot.config.get_by_path(['global_sync_separator'])):
+        bot.config.set_by_path(
+            ['global_sync_separator'],
+            default_config['global_sync_separator']
+            )
+
+    if bot.config.changed:
+        bot.config.save()
+
+def setup_memory(bot):
+    """create all dicts in memory
+
+    Args:
+        bot: hangupsbot instance
+    """
+    default_memory = {
+        # tg-channel -> ho
+        'channel2ho': {},
+
+        # ho -> tg
+        'ho2tg': {},
+
+        # sync tg- and g+ profiles to provide
+        # propper names for syncs, bot-commands, mentions (opt)
+        'profilesync': {
+            # syncs, index g+id
+            'ho2tg': {},
+
+            # tg-usernames
+            'usernames': {},
+
+            # pending syncs, index g+id
+            'pending_ho': {},
+
+            # pending syncs, index tg-id
+            'pending_tg': {},
+
+            # syncs, index tg-id
+            'tg2ho': {}
+        },
+        # set in config store_{messages, photoids}, to store the data here
+        'received': {
+            # photo-id to google-file-id
+            'photo_ids': {},
+
+            # sub dicts for each chat, photo-id to message id
+            'photos': {},
+
+            # sticker file id to google-file-id
+            'sticker': {},
+
+            # sub dicts for each chat, message id to text/photocaption
+            'text': {}
+        },
+        # tg-chat {private, group, supergroup} -> ho
+        'tg2ho': {},
+
+        # sub dicts for each chat, store users in each chat
+        'tg_data': {}
+    }
+
+    # validate memory
+    _validate_dict(bot, 'memory', ['telesync'], default_memory)
+
+    if bot.memory.changed:
+        bot.memory.save()
+
+def _validate_dict(bot, target, stack, source):
+    """set the targets dict the stack points to, to the structure of the source
+
+    check existance of each key in source, check type and entrys of the values
+
+    Args:
+        bot: hangups instance
+        target: attribute of bot, such as 'config' or 'memory'
+        stack: list of keys to the dict to validate
+        source: default dict structure
+    """
+    for key, value in source.items():
+        if not getattr(bot, target).exists(stack + [key]):
+            getattr(bot, target).set_by_path(stack + [key], value)
+        elif not isinstance(
+                getattr(bot, target).get_by_path(stack + [key]),
+                type(value)
+            ):
+            getattr(bot, target).set_by_path(stack + [key], value)
+        elif isinstance(value, dict) and len(value):
+            _validate_dict(bot, target, stack + [key], value)
+
+@asyncio.coroutine
+def _util_is_valid_image_link(url):
+    """verify fileextension from link or from headers
+
+    Args:
+        url: string
+
+    Returns:
+        string: the valid file_name or an empty string
+    """
+    url = url.strip()
+    if ' ' in url or not url.startswith(('http://', 'https://')):
+        return ''
+    valid_extensions = (
+        '.jpg', '.jpeg', '.gif', '.gifv', '.webm', '.png', 'webp'
+        )
+    if url.endswith(valid_extensions):
+        file_name = url.rpartition('/')[2]
+        return file_name
+    try:
+        with contextlib.closing(urllib.request.urlopen(url)) as resp:
+            file_name = resp.info().get_filename()
+            if not file_name:
+                file_name = ''
+            if not file_name.endswith(valid_extensions):
+                file_name = ''
+    except urllib.error.HTTPError:
+        file_name = ''
+    return file_name
+
+def _util_is_animated_photo(file_name):
+    """return if extension is a known extension for animated files
+
+    Args:
+        file_name: string
+
+    Returns:
+        True if animated, otherwise False
+    """
+    return file_name.rpartition('.')[-1].endswith(
+        ('.gif', '.gifv', '.webm', '.mp4')
+        )
+
+@asyncio.coroutine
+def _util_get_event_content(bot, event):
+    """check event for photos to download them, return the text and file objects
+
+    Args:
+        bot: hangupsbot
+        event: hangups Event instance
+
+    Returns:
+        tuple of string and list:
+            text without photo-links
+            a list of tupel with info about downloads: path and file object
+                the file object is
+                    io.BytesIO, if config entry 'do_not_keep_photos' is True
+                    open(path, 'rb'), otherwise
+    """
+    tg_bot = bot.tg_bot
+    text_lines = []
+    photos = set()
+    for item in event.text.split('\n') + event.conv_event.attachments:
+        file_name = yield from _util_is_valid_image_link(item)
+        if len(file_name):
+            photos.add((item.strip(), file_name))
         else:
-            yield from bot.coro_send_message(event.conv_id,
-                                             "You have to execute following command from telegram first:")
-            yield from bot.coro_send_message(event.conv_id, "/syncprofile")
+            text_lines.append(item)
 
+    text = '\n'.join(text_lines)
 
-@command.register(admin=True)
-def telesync(bot, event, *args):
+    downloaded_files = []
+    for link, file_name in photos:
+        # verify an existing location for downloading the photos
+        if not os.path.exists(TelegramBot.PHOTO_PATH):
+            if not tg_bot.update_photo_path():
+                # no photo_path available, fallback to in memory handling
+                tg_bot.config['do_not_keep_photos'] = True
+
+        photo_path = (TelegramBot.PHOTO_PATH + '/{rand}-{file_name}').format(
+            botname=tg_bot.user.name,
+            rand=random.randint(1, 100000),
+            file_name=file_name
+            )
+
+        with contextlib.closing(urllib.request.urlopen(link)) as resp:
+            if tg_bot.config['do_not_keep_photos']:
+                downloaded_files.append((photo_path, io.BytesIO(resp.read())))
+            else:
+                with open(photo_path, 'wb') as file:
+                    file.write(resp.read())
+                    downloaded_files.append(
+                        (
+                            photo_path,
+                            open(photo_path, 'rb')
+                            )
+                        )
+    return text, downloaded_files
+
+def _util_format_sync_text(name, title, text, template, html=True):
+    """format the sync message for the other chat
+
+    Args:
+        name: string, sender name - empty on bot message
+        title: string, groupname - can be empty
+        text: string, message for the chat
+        template: string, use custom template for the message layout
+        html: boolean, trigger the html bold tag for separator and title
+
+    Returns:
+        string, formated text for the chat
     """
+    if title:
+        title = '({})'.format(util_html_bold(title) if html else title)
+    return template.format(
+        name=name,
+        title=title,
+        separator=TelegramBot.SEPARATOR,
+        text=text
+        )
+
+def _util_get_event_text(event, text, template='', name=''):
+    """return stripped text,
+
+    Args:
+        event: hangups Event instance
+        text: string, raw_text for the message
+        template: string, use custom template for message layout
+        name: string, predefined text, use to skip message parsing
+
+    Returns:
+        tupel of 2 strings, the first entry is the message without html tags,
+            the second is with html tags
+    """
+    if event.user.is_self or len(name):
+        if TelegramBot.SEPARATOR in event.text:
+            # message from other sync
+            name, text = text.partition(TelegramBot.SEPARATOR)[0:3:2]
+        else:
+            # bot message
+            template = '{text}'
+        name_html = util_html_bold(name)
+    else:
+        name = event.user.full_name
+        gplus_url = 'https://plus.google.com/{uid}'.format(
+            uid=event.user_id.chat_id
+            )
+        name_html = "<a href='{user_gplus}'>{uname}</a>".format(
+            uname=name,
+            user_gplus=gplus_url
+            )
+    title = ''
+    if event.bot.get_config_suboption(event.conv_id, 'sync_chat_titles'):
+        title = event.bot.conversations.get_name(event.conv)
+    return (
+        _util_format_sync_text(name, title, _('[Photo]'), template, html=False),
+        _util_format_sync_text(name_html, title, text, template)
+        )
+
+
+@asyncio.coroutine
+def tele_stop(bot, event, *args):
+    """stop telesync loop or start it again in a serperate loop
+
+    Note:
+        this loop is detached from the plugin loader:
+        once you restarted the sync with ! tele_stop again, simply unloading
+        telesync via ! pluginunload will not stop the messageloop, use
+        ! tele_stop again to stop the loop
+
+    ! tele_stop
+
+    Args:
+        bot: hangupsbot instance
+        event: hangups_event
+        args: additional text as tupel
+    """
+    if event.user_id.chat_id not in bot.config['admins']:
+        yield from bot.coro_send_message(
+            event.conv_id,
+            _('This comand is Admin-only.')
+            )
+
+    tg_bot = bot.tg_bot
+    if tg_bot.loop_task and not tg_bot.loop_task.cancelled():
+        tg_bot.loop_task.cancel()
+        html = _('[GLOBAL] sync changed to one-way<br />HO -> TG')
+    elif tg_bot.loop_task and tg_bot.loop_task.cancelled():
+        loop = asyncio.get_event_loop()
+        tg_bot.loop_task = loop.create_task(tg_bot.message_loop())
+        html = _('[GLOBAL] two-way sync resumed <br />HO <-> TG')
+    else:
+        html = _('sync is disabled')
+    yield from bot.coro_send_message(event.conv_id, html)
+
+@asyncio.coroutine
+def syncprofile(bot, event, *args):
+    """syncs ho-user with tg-user-profile and syncs pHO <-> tg-pm
+
+    ! syncprofile <token>
+    ! syncprofile <token> split
+    token is generated on tg-side
+
+    Args:
+        bot: hangupsbot instance
+        event: hangups_event
+        args: additional text as tupel
+    """
+    bot_cmd = bot.memory['bot.command_aliases'][0]
+    if len(args) == 0 or (len(args) > 1 and args[1].lower() != 'split'):
+        help_html = _(
+            '<b>Usage:</b><br />'
+            '{bot_cmd} syncprofile <token><br />'
+            '{bot_cmd} syncprofile <token> split<br />'
+            'The addition <i>split</i>  sets no sync between private Hangout '
+            'and private Telegram Chat.<br />'
+            'Example:<br />'
+            '{bot_cmd} syncprofile DEMO123 <br />'
+            '{bot_cmd} syncprofile 123DEMO split'
+            ).format(bot_cmd=bot_cmd)
+        yield from bot.coro_send_message(event.conv_id, help_html)
+        return
+
+    conv_1on1 = yield from bot.get_1to1(event.user.id_.chat_id)
+    if not conv_1on1:
+        html = _('Disable DND first:')
+        yield from bot.coro_send_message(event.conv_id, html)
+        html = '{} optin'.format(bot_cmd)
+        yield from bot.coro_send_message(event.conv_id, html)
+        return
+    conv_1on1 = conv_1on1.id_
+
+    ho_user_id = str(event.user_id.chat_id)
+    if bot.memory.exists(['telesync', 'profilesync', 'ho2tg', ho_user_id]):
+        html = _(
+            'I found a connection between this G+Profile and the Telegram '
+            'Profile {}. Send me /unsyncprofile our private Telegram chat to '
+            'disconnect them.'
+            )
+        yield from bot.coro_send_message(conv_1on1, html)
+        return
+    elif not bot.memory.exists(
+            ['telesync', 'profilesync', 'pending_ho', args[0]]
+        ):
+        html = _(
+            'Check your spelling or start the sync via Telegram <i>again</i>\n'
+            'Open a private chat with {bot_username} '
+            'https://t.me/{bot_username} and send me'
+            ).format(bot_username=bot.tg_bot.user.username)
+        yield from bot.coro_send_message(conv_1on1, html)
+        yield from bot.coro_send_message(conv_1on1, '/syncprofile')
+        return
+
+    tg_id, tg_chat = bot.memory.get_by_path(
+        ['telesync', 'profilesync', 'pending_ho', args[0]]
+        )
+
+    # profile sync
+    bot.memory.set_by_path(
+        ['telesync', 'profilesync', 'tg2ho', tg_id],
+        ho_user_id
+        )
+    bot.memory.set_by_path(
+        ['telesync', 'profilesync', 'ho2tg', ho_user_id],
+        tg_id
+        )
+    text = _('Your profiles are now connected')
+
+    # chat sync
+    if len(args) == 1:
+        bot.memory.set_by_path(['telesync', 'tg2ho', tg_chat], conv_1on1)
+        bot.memory.set_by_path(['telesync', 'ho2tg', conv_1on1], tg_chat)
+        text = _(
+            'Your profiles are now connected and you will receive my messages'
+            ' in Telegram as well.'
+            )
+
+    # cleanup
+    bot.memory.pop_by_path(
+        ['telesync', 'profilesync', 'pending_ho', args[0]]
+        )
+    bot.memory.pop_by_path(
+        ['telesync', 'profilesync', 'pending_tg', tg_id]
+        )
+    bot.memory.save()
+
+    yield from bot.coro_send_message(conv_1on1, text)
+
+@asyncio.coroutine
+def telesync(bot, event, *args):
+    """set a telegram chat as sync target for the current ho
+
     /bot telesync <telegram chat id> - set sync with telegram group
     /bot telesync - disable sync and clear sync data from memory
+
+    Args:
+        bot: hangupsbot instance
+        event: hangups_event
+        args: additional text as tupel
     """
-    parameters = list(args)
+    if len(args) > 1:
+        yield from bot.coro_send_message(
+            event.conv_id,
+            _('Too many arguments')
+            )
 
-    memory = bot.memory.get_by_path(['telesync'])
-    tg2ho_dict = memory['tg2ho']
-    ho2tg_dict = memory['ho2tg']
+    elif len(args) == 0:
+        if bot.memory.exists(['telesync', 'ho2tg', str(event.conv_id)]):
+            tg_chat_id = bot.memory.pop_by_path(
+                ['telesync', 'ho2tg', str(event.conv_id)]
+                )
+            bot.memory.pop_by_path(['telesync', 'tg2ho', str(tg_chat_id)])
+            bot.memory.save()
 
-    if len(parameters) > 1:
-        yield from bot.coro_send_message(event.conv_id, "Too many arguments")
-
-    elif len(parameters) == 0:
-        if str(event.conv_id) in ho2tg_dict:
-            tg_chat_id = ho2tg_dict[str(event.conv_id)]
-            del ho2tg_dict[str(event.conv_id)]
-            del tg2ho_dict[str(tg_chat_id)]
-
-        yield from bot.coro_send_message(event.conv_id, "Sync target cleared")
-
-    elif len(parameters) == 1:
-        tg_chat_id = str(parameters[0])
-
-        if str(event.conv_id) in ho2tg_dict:
-            yield from bot.coro_send_message(event.conv_id,
-                                             "Sync target '{tg_conv_id}' already set".format(
-                                                 tg_conv_id=str(tg_chat_id)))
-        else:
-            tg2ho_dict[str(tg_chat_id)] = str(event.conv_id)
-            ho2tg_dict[str(event.conv_id)] = str(tg_chat_id)
-            yield from bot.coro_send_message(event.conv_id,
-                                             "Sync target set to {tg_conv_id}".format(tg_conv_id=str(tg_chat_id)))
+        yield from bot.coro_send_message(
+            event.conv_id,
+            _('Sync target cleared')
+            )
 
     else:
-        raise RuntimeError("plugins/telesync: it seems something really went wrong, you should not see this error")
-
-    new_memory = {'ho2tg': ho2tg_dict, 'tg2ho': tg2ho_dict}
-    bot.memory.set_by_path(['telesync'], new_memory)
-
+        tg_chat_id = str(args[0])
+        if bot.memory.exists(['telesync', 'ho2tg', str(event.conv_id)]):
+            current_target = bot.memory.get_by_path(
+                ['telesync', 'tg2ho', str(tg_chat_id)]
+                )
+            if tg_chat_id == current_target:
+                yield from bot.coro_send_message(
+                    event.conv_id,
+                    _("Sync target '{}' already set").format(tg_chat_id)
+                    )
+                return
+            bot.memory.pop_by_path(['telesync', 'tg2ho', current_target])
+            text = _("Sync target updated to '{}'").format(tg_chat_id)
+        else:
+            text = _("Sync target set to '{}'").format(tg_chat_id)
+            bot.memory.set_by_path(
+                ['telesync', 'ho2tg', str(event.conv_id)],
+                tg_chat_id
+                )
+            bot.memory.set_by_path(
+                ['telesync', 'tg2ho', tg_chat_id],
+                str(event.conv_id)
+                )
+            bot.memory.save()
+            yield from bot.coro_send_message(
+                event.conv_id,
+                text
+                )
 
 @asyncio.coroutine
-def is_valid_image_link(url):
+def _on_hangouts_message(bot, event, command):
+    """forward message/photos from all users via Hangouts to Telegram
+
+    Args:
+        bot: hangupsbot instance
+        event: hangups_event
+        command: command handle from commands
     """
-    :param url:
-    :return: result, file_name
-    """
-    if ' ' not in url:
-        if url.startswith(("http://", "https://")):
-            if url.endswith((".jpg", ".jpeg", ".gif", ".gifv", ".webm", ".png", ".mp4")):
-                ext = url.split(".")[-1].strip()
-                file = url.split("/")[-1].strip().replace(".", "").replace("_", "-")
-                return True, "{name}.{ext}".format(name=file, ext=ext)
+    tg_bot = bot.tg_bot
+    if not bot.memory.exists(['telesync', 'ho2tg', event.conv_id]):
+        return
+    if event.user.is_self and tg_bot.sending and (
+            (TelegramBot.SEPARATOR in event.text) or \
+                any(item in event.text for item in (_('joined'), _('left')))
+        ):
+        # this is a synced message
+        tg_bot.sending -= 1
+        return
+    tg_chat_id = bot.memory.get_by_path(['telesync', 'ho2tg', event.conv_id])
+
+    text, downloaded_files = yield from _util_get_event_content(bot, event)
+
+    logger.info(
+        '[TELESYNC] Forwarding %s%s%s from HO: %s to TG: %s',
+        'Text' if len(text) else '',
+        ' and ' if len(text) and len(downloaded_files) else '',
+        'Media' if len(downloaded_files) else '',
+        event.conv_id,
+        tg_chat_id
+        )
+
+    # TG-Photo-Captions are not allowed to contain html, caption handled extra
+    text_photo, text_html = _util_get_event_text(
+        event,
+        text,
+        template=bot.get_config_suboption(event.conv_id, 'sync_format_message')
+        )
+
+    if len(downloaded_files) == 1:
+        photo_info = downloaded_files[0]
+        if _util_is_animated_photo(photo_info[0]):
+            yield from tg_bot.sendDocument(
+                tg_chat_id,
+                photo_info[1]
+                )
+        else:
+            yield from tg_bot.sendPhoto(
+                tg_chat_id,
+                photo_info[1],
+                caption=text_photo,
+                )
+            photo_info[1].close()
+    else:
+        for photo_info in downloaded_files:
+            if _util_is_animated_photo(photo_info[0]):
+                yield from tg_bot.sendDocument(
+                    tg_chat_id,
+                    photo_info[1]
+                    )
             else:
-                with aiohttp.ClientSession() as session:
-                    resp = yield from session.get(url)
-                    headers = resp.headers
-                    resp.close()
-                    if "image" in headers['CONTENT-TYPE']:
-                        content_disp = headers['CONTENT-DISPOSITION']
-                        content_disp = content_disp.replace("\"", "").split("=")
-                        file_ext = content_disp[2].split('.')[1].strip()
-                        if file_ext in ("jpg", "jpeg", "gif", "gifv", "webm", "png", "mp4"):
-                            file_name = content_disp[1].split("?")[0].strip()
-                            return True, "{name}.{ext}".format(name=file_name, ext=file_ext)
-    return False, ""
+                yield from tg_bot.sendPhoto(
+                    tg_chat_id,
+                    photo_info[1],
+                    caption=text_photo
+                    )
+                photo_info[1].close()
+    if len(text):
+        yield from tg_bot.send_html(
+            tg_chat_id,
+            text_html
+            )
 
+@asyncio.coroutine
+def _on_membership_change(bot, event, command):
+    """notify a configured tg-chat about a membership change
 
-def get_photo_extension(file_name):
-    return ".{}".format(file_name.rpartition('.')[-1])
-
-
-def is_animated_photo(file_name):
-    return True if get_photo_extension(file_name).endswith((".gif", ".gifv", ".webm", ".mp4")) else False
-
-
-@handler.register(priority=5, event=hangups.ChatMessageEvent)
-def _on_hangouts_message(bot, event, command=""):
-    global tg_bot
-
-    if event.text.startswith('/'):  # don't sync /bot commands
+    Args:
+        bot: hangupsbot instance
+        event: hangups_event
+        command: command handle from commands
+    """
+    if not bot.memory.exists(['telesync', 'ho2tg', event.conv_id]):
         return
 
-    sync_text = event.text
-    photo_url = ""
+    if event.conv_event.type_ == hangups.MembershipChangeType.JOIN:
+        text = _('joined')
+        config_entry = 'sync_join_messages'
+    else:
+        text = _('left')
+        config_entry = 'sync_leave_messages'
 
-    has_photo, photo_file_name = yield from is_valid_image_link(sync_text)
-
-    if has_photo:
-        photo_url = sync_text
-        sync_text = "(shared an image)"
-
-    ho2tg_dict = bot.memory.get_by_path(['telesync'])['ho2tg']
-    config_dict = tg_bot.ho_bot.config.get_by_path(['telesync'])
-
-    if event.conv_id in ho2tg_dict:
-        user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
-        chat_title = ""
-        if "sync_chat_titles" not in config_dict or config_dict["sync_chat_titles"]:
-            chat_title = ' <b>({gname})</b>'.format(gname=event.conv.name)
-        text = '<a href="{user_gplus}">{uname}</a>{chat_title}: {text}'.format(uname=event.user.full_name,
-                                                                               user_gplus=user_gplus,
-                                                                               chat_title=chat_title,
-                                                                               text=sync_text)
-        yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='html',
-                                      disable_web_page_preview=True)
-        if has_photo:
-            photo_name = "{rand}-{file_name}".format(rand=random.randint(1, 100000), file_name=photo_file_name)
-            photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_name
-
-            file_dir = os.path.dirname(photo_path)
-            if not os.path.exists(file_dir):
-                os.makedirs(file_dir)
-
-            with aiohttp.ClientSession() as session:
-                resp = yield from session.get(photo_url)
-                raw_data = yield from resp.read()
-                resp.close()
-                with open(photo_path, "wb") as f:
-                    f.write(raw_data)
-                    logger.info("plugins/telesync: photo url: {url}".format(url=photo_url))
-                    logger.info("plugins/telesync: file saved: {file}".format(file=photo_path))
-
-                if is_animated_photo(photo_path):
-                    yield from tg_bot.sendDocument(ho2tg_dict[event.conv_id], open(photo_path, 'rb'))
-                else:
-                    yield from tg_bot.sendPhoto(ho2tg_dict[event.conv_id], open(photo_path, 'rb'))
-
-            if config_dict['do_not_keep_photos']:
-                os.remove(photo_path)  # don't use unnecessary space on disk
-                logger.info("plugins/telesync: file removed: {file}".format(file=photo_path))
-
-
-def create_membership_change_message(user_name, user_gplus, group_name, membership_event="left"):
-    text = '<a href="{user_gplus}">{uname}</a> {membership_event} <b>({gname})</b>'.format(uname=user_name,
-                                                                                           user_gplus=user_gplus,
-                                                                                           gname=group_name,
-                                                                                           membership_event=membership_event)
-    return text
-
-
-@handler.register(priority=5, event=hangups.MembershipChangeEvent)
-def _on_membership_change(bot, event, command=""):
-    config_dict = tg_bot.ho_bot.config.get_by_path(['telesync'])
-    if 'sync_join_messages' not in config_dict or not config_dict['sync_join_messages']:
+    if not bot.get_config_suboption(event.conv_id, config_entry):
         return
 
-    # Generate list of added or removed users
-    event_users = [event.conv.get_user(user_id) for user_id
-                   in event.conv_event.participant_ids]
-    names = ', '.join([user.full_name for user in event_users])
+    if len(event.conv_event.participant_ids) > 1:
+        # Generate list of added or removed users
+        event_users_names = [
+            event.conv.get_user(
+                user_id
+                ).full_name for user_id in event.conv_event.participant_ids
+            ]
+        names = util_html_bold(', '.join(event_users_names))
+        fake_event = event
+    else:
+        names = ''
+        fake_event = hangups_event.FakeEvent(
+            bot=bot,
+            conv_id=event.conv_id,
+            user_id=event.conv.get_user(
+                event.conv_event.participant_ids[0]
+                ).id_.chat_id,
+            text=text
+            )
 
-    user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
+    template = bot.get_config_suboption(
+        event.conv_id,
+        'sync_format_member_change'
+        )
 
-    membership_event = "joined" if event.conv_event.type_ == hangups.MembershipChangeType.JOIN else "left"
-    text = create_membership_change_message(names, user_gplus, event.conv.name, membership_event)
+    text = _util_get_event_text(
+        fake_event,
+        text,
+        template,
+        name=names
+        )[1]
 
-    ho2tg_dict = bot.memory.get_by_path(['telesync'])['ho2tg']
-
-    if event.conv_id in ho2tg_dict:
-        yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='html',
-                                      disable_web_page_preview=True)
+    yield from bot.tg_bot.send_html(
+        bot.memory.get_by_path(['telesync', 'ho2tg', event.conv_id]),
+        text
+        )
