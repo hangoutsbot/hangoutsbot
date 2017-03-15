@@ -99,10 +99,11 @@ class BridgeInstance(WebFramework):
                                             "norelay": [ self.plugin_name ] }))
 
             else:
-                # Close the response to allow the connection to be reused for
-                # the next request.
-                res.close()
-                break
+                pass
+
+            # Close the response to allow the connection to be reused for
+            # the next request.
+            res.close()
 
         logger.critical("long-polling terminated")
 
