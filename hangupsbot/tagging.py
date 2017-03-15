@@ -9,8 +9,9 @@ logger = logging.getLogger(__name__)
 class tags:
     regex_allowed = "a-z0-9._\-" # +command.deny_prefix
 
-    wildcard = { "user": "*", 
-                 "group": "GROUP", 
+    wildcard = { "conversation": "*",
+                 "user": "*",
+                 "group": "GROUP",
                  "one2one": "ONE_TO_ONE" }
 
     bot = None
@@ -83,7 +84,9 @@ class tags:
             index_type = "conv"
 
             if( id not in self.bot.conversations.catalog and
-                  id not in (self.wildcard["group"], self.wildcard["one2one"]) ):
+                  id not in ( self.wildcard["group"],
+                              self.wildcard["one2one"],
+                              self.wildcard["conversation"]) ):
 
                 raise ValueError("conversation {} does not exist".format(id))
 
@@ -245,13 +248,16 @@ class tags:
                 check_keys.extend([ self.wildcard["group"] ])
             elif conv_type == "ONE_TO_ONE" :
                 check_keys.extend([ self.wildcard["one2one"] ])
+            check_keys.extend([ self.wildcard["conversation"] ])
         else:
             logger.warning("convactive: conversation {} does not exist".format(conv_id))
 
         for _key in check_keys:
             if _key in self.indices["conv-tags"]:
-                active_tags = self.indices["conv-tags"][_key]
-                break
+                active_tags.extend(self.indices["conv-tags"][_key])
+                active_tags = list(set(active_tags))
+                if "tagging-merge" not in active_tags:
+                    break
 
         return active_tags
 
@@ -288,8 +294,10 @@ class tags:
 
         for _key in check_keys:
             if _key in self.indices["user-tags"]:
-                active_tags = self.indices["user-tags"][_key]
-                break
+                active_tags.extend(self.indices["user-tags"][_key])
+                active_tags = list(set(active_tags))
+                if "tagging-merge" not in active_tags:
+                    break
 
         return active_tags
 
