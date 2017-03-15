@@ -30,6 +30,7 @@ more info: https://github.com/hangoutsbot/hangoutsbot/wiki/WIP:-Chatbridge-API-S
 # TODO/MISSING
 
 * more control over source user/platform and message formatting
+* audience awareness, re: https://github.com/hangoutsbot/hangoutsbot/issues/380
 * html/markdown processing
 * no image support yet
 * proper documentation
