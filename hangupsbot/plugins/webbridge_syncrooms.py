@@ -7,10 +7,7 @@ import requests
 import plugins
 
 from webbridge import ( WebFramework,
-                        IncomingRequestHandler,
-                        FakeEvent,
-                        FakeUser,
-                        FakeUserID )
+                        IncomingRequestHandler )
 
 logger = logging.getLogger(__name__)
 

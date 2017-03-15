@@ -8,9 +8,7 @@ import plugins
 
 from webbridge import ( WebFramework,
                         IncomingRequestHandler,
-                        FakeEvent,
-                        FakeUser,
-                        FakeUserID )
+                        FakeEvent )
 
 logger = logging.getLogger(__name__)
 
@@ -24,17 +22,13 @@ class BridgeInstance(WebFramework):
         conv_id = config["trigger"]
         external_ids = config["config.json"][self.configkey]
 
-        ### XXX: still incomplete, refer to slack implementation
+        user = event.passthru["original_request"]["user"]
         message = event.passthru["original_request"]["message"]
-        if isinstance(event.passthru["original_request"]["user"], str):
-            full_name = event.passthru["original_request"]["user"]
-        else:
-            full_name = event.passthru["original_request"]["user"].full_name
 
         for eid in external_ids:
             yield from self.telegram_api_request("sendMessage", {
                 "chat_id" : eid, 
-                "text" : full_name + " : " + message })
+                "text" : self._format_message(message, user) })
 
     def start_listening(self, bot):
         for configuration in self.configuration:
@@ -91,18 +85,18 @@ class BridgeInstance(WebFramework):
                                 else:
                                     message = "unrecognised telegram update: {}".format(raw_message)
 
-                                passthru = {
-                                    "original_request": {
-                                        "message": message,
-                                        "image_id": None,
-                                        "segments": None,
-                                        "user": user },
-                                    "norelay": [ self.plugin_name ]}
-
-                                yield from self._send_to_internal_chat( conv_id,
-                                                                        FakeEvent( text = message,
-                                                                                   user = user,
-                                                                                   passthru = passthru ))
+                                yield from self._send_to_internal_chat(
+                                    conv_id,
+                                    FakeEvent(
+                                        text = message,
+                                        user = user,
+                                        passthru = {
+                                            "original_request": {
+                                                "message": message,
+                                                "image_id": None,
+                                                "segments": None,
+                                                "user": user },
+                                            "norelay": [ self.plugin_name ] }))
 
             else:
                 # Close the response to allow the connection to be reused for

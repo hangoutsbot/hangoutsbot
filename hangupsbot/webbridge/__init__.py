@@ -98,9 +98,8 @@ class WebFramework:
             # halt messaging handler from re-relaying
             passthru["norelay"].append(self.plugin_name)
 
-        myself = bot.user_self()
-        chat_id = myself['chat_id']
-        fullname = myself['full_name']
+        user = self.bot._user_list._self_user
+        chat_id = user.id_.chat_id
 
         # context preserves as much of the original request as possible
         if "original_request" in passthru:
@@ -112,9 +111,17 @@ class WebFramework:
                     user = FakeUser( full_name = str,
                                      id_ = FakeUserID( chat_id = chat_id,
                                                        gaia_id = chat_id ))
-                    pass
                 else:
                     user = passthru["original_request"]["user"]
+            else:
+                # add bot if no user is present
+                passthru["original_request"]["user"] = user
+        else:
+            # bot
+            passthru["original_request"] = { "message": message,
+                                             "image_id": None,
+                                             "segments": None,
+                                             "user": user }
 
         # for messages from other plugins, relay them
         for config in applicable_configurations:
@@ -158,6 +165,7 @@ class WebFramework:
                 passthru["original_request"]["user"] = user
         else:
             # user raised an event
+            logger.info("relaying user event")
             passthru["original_request"] = { "message": event.text,
                                              "image_id": None, # XXX: should be attachments
                                              "segments": event.conv_event.segments,
@@ -172,25 +180,45 @@ class WebFramework:
 
     @asyncio.coroutine
     def _send_to_internal_chat(self, conv_id, event):
-        ### XXX: temp
-        if isinstance(event.passthru["original_request"]["user"], str):
-            full_name = event.passthru["original_request"]["user"]
-        else:
-            full_name = event.passthru["original_request"]["user"].full_name
-
         yield from self.bot.coro_send_message(
             conv_id,
-            "{}: {}".format( full_name,
-                             event.passthru["original_request"]["message"] ),
+            self._format_message( event.passthru["original_request"]["message"],
+                                  event.passthru["original_request"]["user"] ),
             image_id = event.passthru["original_request"]["image_id"],
             context = { "passthru": event.passthru })
 
-    def _format_message(self, message, asUser):
-        if isinstance(asUser, str):
-            formatted_message = "{}: {}".format(asUser, message)
+    def _standardise_bridge_user_details(self, user):
+        preferred_name = None
+        full_name = None
+        nickname = None
+        photo_url = None
+
+        if isinstance(user, str):
+            full_name = user
         else:
-            print("{} {}".format(type(asUser), asUser))
-            formatted_message = "{}: {}".format(asUser.full_name, message)
+            permauser = self.bot.get_hangups_user(user.id_.chat_id)
+            nickname = self.bot.get_memory_suboption(user.id_.chat_id, 'nickname') or None
+            if isinstance(permauser, dict):
+                full_name = permauser["full_name"]
+                if "photo_url" in permauser:
+                    photo_url = permauser["photo_url"]
+            else:
+                full_name = permauser.full_name
+                photo_url = permauser.photo_url
+
+        if nickname:
+            preferred_name = nickname + "@ho"
+        else:
+            preferred_name = full_name
+
+        return (preferred_name, nickname, full_name, photo_url)
+
+    def _format_message(self, message, user):
+        if isinstance(user, str):
+            formatted_message = "{}: {}".format(user, message)
+        else:
+            preferred_name, nickname, full_name, photo_url = self._standardise_bridge_user_details(user)
+            formatted_message = "{}: {}".format(preferred_name, message)
 
         return formatted_message
 
