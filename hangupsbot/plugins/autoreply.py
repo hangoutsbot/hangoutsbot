@@ -9,12 +9,20 @@ logger = logging.getLogger(__name__)
 
 
 def _initialise(bot):
-    plugins.register_handler(_handle_autoreply, type="message")
+    plugins.register_handler(_handle_autoreply, type="allmessages")
     plugins.register_handler(_handle_autoreply, type="membership")
     plugins.register_admin_command(["autoreply"])
 
 
 def _handle_autoreply(bot, event, command):
+
+    # allow autoreplys for synced messages
+    if event.user.is_self:
+        if not bot.config.exists(['global_sync_separator']):
+            return
+        if bot.config['global_sync_separator'] not in event.text:
+            return
+
     config_autoreplies = bot.get_config_suboption(event.conv.id_, 'autoreplies_enabled')
     tagged_autoreplies = "autoreplies-enable" in bot.tags.useractive(event.user_id.chat_id, event.conv.id_)
 
