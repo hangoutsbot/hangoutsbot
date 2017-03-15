@@ -101,7 +101,7 @@ def _broadcast(bot, broadcast_list, context):
         segments = passthru["original_request"]["segments"]
         if "user" in passthru["original_request"]:
             if(isinstance(passthru["original_request"]["user"], str)):
-                pass
+                message = "{}: {}".format(passthru["original_request"]["user"], message)
             else:
                 chat_id = passthru["original_request"]["user"].id_.chat_id
                 # message line formatting: required since hangouts is limited

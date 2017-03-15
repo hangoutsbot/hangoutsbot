@@ -24,13 +24,64 @@ class WebFramework:
 
         self._start_sinks(bot)
 
-        plugins.register_handler(self._handle_websync)
+        plugins.register_handler(self._broadcast, type="sending")
+        plugins.register_handler(self._repeat, type="allmessages")
 
 
     def load_configuration(self, bot, configkey):
         self.configuration = bot.get_config_option(self.configkey)
-
         return self.configuration
+
+    def applicable_configuration(self, conv_id):
+        """standardised configuration structure:
+
+            "<EXTERNAL_CHAT_NAME>": [
+                {
+                    "bot_api_key": <api key(s) for bot>,
+                    "hangouts": [
+                        "<at least 1 internal chat/group/team id>"
+                    ],
+                    "<EXTERNAL_CHAT_NAME>": [
+                        "<at least 1 external chat/group/team id>"
+                    ]
+                }
+            ]
+
+        """
+
+        applicable_configurations = []
+        for configuration in self.configuration:
+            if conv_id in configuration["hangouts"]:
+                applicable_configurations.append({ "trigger": conv_id,
+                                                   "config.json": configuration })
+
+        return applicable_configurations
+
+    def _broadcast(self, bot, broadcast_list, context):
+        conv_id = broadcast_list[0][0]
+        message = broadcast_list[0][1]
+        image_id = broadcast_list[0][2]
+
+        applicable_configurations = self.applicable_configuration(conv_id)
+        if not applicable_configurations:
+            return
+
+        ### XXX: RELAY STUFF
+
+
+    def _repeat(self, bot, event, command):
+        if isinstance(self.configuration, list):
+            for config in self.configuration:
+                try:
+                    convlist = config["synced_conversations"]
+                    if event.conv_id in convlist:
+                        self._send_to_external_chat(bot, event, config)
+                except Exception as e:
+                    logger.exception("EXCEPTION in _handle_websync")
+
+
+    def _send_to_external_chat(self, event, config):
+        logger.info("webbridge._send_to_external_chat(): {} {}".format(self.configkey, config))
 
 
     def _start_sinks(self, bot):
@@ -63,22 +114,3 @@ class WebFramework:
                     "webbridge." + self.configkey)
 
         logger.info("webbridge.sinks: {} thread(s) started for {}".format(itemNo + 1, self.configkey))
-
-
-    def _handle_websync(self, bot, event, command):
-        """Handle hangouts messages, preparing them to be sent to the
-        external service
-        """
-
-        if isinstance(self.configuration, list):
-            for config in self.configuration:
-                try:
-                    convlist = config["synced_conversations"]
-                    if event.conv_id in convlist:
-                        self._send_to_external_chat(bot, event, config)
-                except Exception as e:
-                    logger.exception("EXCEPTION in _handle_websync")
-
-    def _send_to_external_chat(self, bot, event, config):
-        logger.info("webbridge._send_to_external_chat(): {} {}".format(self.configkey, config))
-

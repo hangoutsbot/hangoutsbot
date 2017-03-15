@@ -97,10 +97,10 @@ class SlackAsyncListener(AsyncRequestHandler):
                     message = "{}: {}".format(user, original_message)
                     passthru = {
                         "original_request": {
-                            "message": message,
+                            "message": original_message,
                             "image_id": None,
                             "segments": None,
-                            "user": "slack-legacy" },
+                            "user": user },
                         "norelay": [ __name__ ]}
 
                     yield from self.send_data(
@@ -220,7 +220,7 @@ def _broadcast(bot, broadcast_list, context):
     # for messages from other plugins, relay them
     for config in channelConfigs:
         logger.info("BROADCASTING: {} - {}".format(message, passthru))
-        yield from _slack_send(bot, config, message, chat_id)
+        yield from _slack_send(bot, config, message, chat_id, passthru)
 
 
 @asyncio.coroutine
@@ -273,26 +273,33 @@ def _repeat(bot, event, command):
 
     for config in channelConfigs:
         logger.info("REPEATING: {} - {}".format(message, passthru))
-        yield from _slack_send(bot, config, message, user.id_.chat_id)
+        yield from _slack_send(bot, config, message, user.id_.chat_id, passthru)
 
 
 @asyncio.coroutine
-def _slack_send(bot, sinkConfig, message, chat_id):
+def _slack_send(bot, sinkConfig, message, chat_id, passthru):
+
+    _response = yield from bot._client.get_entity_by_id(
+        hangups.hangouts_pb2.GetEntityByIdRequest(
+            request_header = bot._client.get_request_header(),
+            batch_lookup_spec = [
+                hangups.hangouts_pb2.EntityLookupSpec(
+                    gaia_id = chat_id )]))
+
     try:
-        _response = yield from bot._client.get_entity_by_id(
-            hangups.hangouts_pb2.GetEntityByIdRequest(
-                request_header = bot._client.get_request_header(),
-                batch_lookup_spec = [
-                    hangups.hangouts_pb2.EntityLookupSpec(
-                        gaia_id = chat_id )]))
+        photo_url = "http:" + _response.entity[0].properties.photo_url
+    except Exception as e:
+        logger.exception("FAILED to acquire photo_url for {}".format(fullname))
+        photo_url = None
 
-        fullname = _response.entity[0].properties.display_name;
-        try:
-            photo_url = "http:" + _response.entity[0].properties.photo_url
-        except Exception as e:
-            logger.exception("FAILED to acquire photo_url for {}".format(fullname))
-            photo_url = None
+    if "original_request" in passthru:
+        message = passthru["original_request"]["message"]
+        if isinstance(passthru["original_request"]["user"], str):
+            fullname = passthru["original_request"]["user"]
+        else:
+            fullname = _response.entity[0].properties.display_name;
 
+    try:
         try:
             client = SlackClient(sinkConfig["key"], verify=True)
         except TypeError:
@@ -306,7 +313,6 @@ def _slack_send(bot, sinkConfig, message, chat_id):
             slack_api_params["link_names"] = 1
 
         client.chat_post_message(sinkConfig["channel"],  message, **slack_api_params)
-
     except Exception as e:
         logger.exception( "Could not handle slackout with key {} between {} and {}. "
                           "Is config.json properly configured?".format( slackkey,
