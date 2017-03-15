@@ -17,6 +17,9 @@ more info: https://github.com/hangoutsbot/hangoutsbot/wiki/WIP:-Chatbridge-API-S
 
 # stability
 
+* chatbridges will work with the same config keys as their plugin base, where applicable
+* do not run  both the base plugin and their chatbridge successor at the same time!
+
 | platform | notes         | devs                                           | plugin base       |
 |----------|---------------|------------------------------------------------|-------------------|
 | hubot    | may be broken |                                                |                   |
@@ -26,9 +29,12 @@ more info: https://github.com/hangoutsbot/hangoutsbot/wiki/WIP:-Chatbridge-API-S
 
 # TODO/MISSING
 
+* more control over source user/platform and message formatting
+* html/markdown processing
 * no image support yet
 * proper documentation
 
 *devs are invited to help fix these issues* :)
 
-dev branch: https://github.com/hangoutsbot/hangoutsbot/tree/framework/context
+* sporadic comments in the source code
+* dev branch: https://github.com/hangoutsbot/hangoutsbot/tree/framework/context
