@@ -20,19 +20,24 @@ _internal = __internal_vars()
 
 
 def _initialise():
-    plugins.register_handler(_handle_keyword)
+    plugins.register_handler(_handle_keyword, 'allmessages')
     plugins.register_user_command(["subscribe", "unsubscribe"])
     plugins.register_admin_command(["testsubscribe"])
 
 
 def _handle_keyword(bot, event, command, include_event_user=False):
     """handle keyword"""
+
+    # allow subscribes for synced messages
     if event.user.is_self:
-        return
+        if not bot.config.exists(['global_sync_separator']):
+            return
+        if bot.config['global_sync_separator'] not in event.text:
+            return
 
     _populate_keywords(bot, event)
 
-    users_in_chat = event.conv.users
+    _users_in_chat = event.conv.users
 
     """check if synced room, if so, append on the users"""
     sync_room_list = bot.get_config_suboption(event.conv_id, 'sync_rooms')
@@ -40,16 +45,53 @@ def _handle_keyword(bot, event, command, include_event_user=False):
         if event.conv_id in sync_room_list:
             for syncedroom in sync_room_list:
                 if event.conv_id not in syncedroom:
-                    users_in_chat += bot.get_users_in_conversation(syncedroom)
-            users_in_chat = list(set(users_in_chat)) # make unique
+                    _users_in_chat += bot.get_users_in_conversation(syncedroom)
+
+    # telesync support
+    tg_event_user = []
+    separator = bot.config['global_sync_separator']
+    if bot.memory.exists(['telesync', 'ho2tg', event.conv_id]):
+        tg_chat_id = str(
+            bot.memory.get_by_path(['telesync', 'ho2tg', event.conv_id])
+            )
+        if bot.memory.exists(['telesync', 'tg_data', tg_chat_id, 'user']):
+            tg_user = bot.memory.get_by_path(
+                ['telesync', 'tg_data', tg_chat_id, 'user']
+                )
+            for tg_user_id in tg_user:
+                if not bot.memory.exists(
+                        ['telesync', 'profilesync', 'tg2ho', tg_user_id]
+                    ):
+                    continue
+                ho_chat_id = bot.memory.get_by_path(
+                    ['telesync', 'profilesync', 'tg2ho', tg_user_id]
+                    )
+                user = bot.get_hangups_user(ho_chat_id)
+                _users_in_chat.append(user)
+                if user.full_name in event.text.split(separator, 1)[0]:
+                    # this user might have sent the message
+                    tg_event_user.append(ho_chat_id)
+
+    # as hangups user objects of the same user are not the same objects, filter
+    #   duplicates by chat id
+    users_in_chat = [bot.get_hangups_user(bot.user_self()['chat_id'])]
+    ids_in_chat = [bot.user_self()['chat_id']]
+    for user in _users_in_chat:
+        if user.id_.chat_id not in ids_in_chat:
+            users_in_chat.append(user)
+            ids_in_chat.append(user.id_.chat_id)
 
     event_text = re.sub(r"\s+", " ", event.text)
     event_text_lower = event.text.lower()
     for user in users_in_chat:
         chat_id = user.id_.chat_id
         try:
-            if _internal.keywords[chat_id] and ( not chat_id in event.user.id_.chat_id
-                                                 or include_event_user ):
+            if not _internal.keywords[user.id_.chat_id]:
+                continue
+            if (
+                    not user.id_.chat_id in event.user.id_.chat_id and
+                    not user.id_.chat_id in tg_event_user
+                ) or include_event_user:
                 for phrase in _internal.keywords[chat_id]:
                     regexphrase = r"(^|\b| )" + re.escape(phrase) + r"($|\b)"
                     if re.search(regexphrase, event_text, re.IGNORECASE):
@@ -107,8 +149,13 @@ def _send_notification(bot, event, phrase, user):
     """support for reprocessor
     override the source name by defining event._external_source"""
     source_name = event.user.full_name
+    separator = bot.config['global_sync_separator']
+    text = event.text
     if hasattr(event, '_external_source'):
         source_name = event._external_source
+    elif separator in event.text:
+        source_name = event.text.split(separator, 1)[0]
+        text = event.text.split(separator, 1)[1]
 
     """send alert with 1on1 conversation"""
     conv_1on1 = yield from bot.get_1to1(user.id_.chat_id, context={ 'initiator_convid': event.conv_id })
@@ -124,7 +171,7 @@ def _send_notification(bot, event, phrase, user):
                     source_name,
                     phrase,
                     conversation_name,
-                    event.text))
+                    text))
             logger.info("{} ({}) alerted via 1on1 ({})".format(user.full_name, user.id_.chat_id, conv_1on1.id_))
         else:
             logger.info("{} ({}) has dnd".format(user.full_name, user.id_.chat_id))

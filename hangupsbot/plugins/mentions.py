@@ -15,7 +15,7 @@ nicks = {}
 
 def _initialise(bot):
     _migrate_mention_config_to_memory(bot)
-    plugins.register_handler(_handle_mention, "message")
+    plugins.register_handler(_handle_mention, "allmessages")
     plugins.register_user_command(["pushbulletapi", "setnickname", "bemorespecific"])
     plugins.register_admin_command(["mention"])
 
@@ -37,6 +37,14 @@ def _migrate_mention_config_to_memory(bot):
 
 def _handle_mention(bot, event, command):
     """handle @mention"""
+
+    # allow mentions for synced messages
+    if event.user.is_self:
+        if not bot.config.exists(['global_sync_separator']):
+            return
+        if bot.config['global_sync_separator'] not in event.text:
+            return
+
     occurrences = [word for word in set(event.text.split()) if word.startswith('@')]
     if len(occurrences) > 0:
         for word in occurrences:
@@ -76,7 +84,7 @@ def mention(bot, event, *args):
         logger.debug("@mention from {} ({}) too short (== '{}')".format(event.user.full_name, event.user.id_.chat_id, username))
         return
 
-    users_in_chat = event.conv.users
+    _users_in_chat = event.conv.users
     mention_chat_ids = []
 
     """sync room support"""
@@ -89,10 +97,43 @@ def mention(bot, event, *args):
                     """current conversation is part of a syncroom group, add "external" users"""
                     for syncedroom in rooms_group:
                         if event.conv_id is not syncedroom:
-                            users_in_chat += bot.get_users_in_conversation(syncedroom)
-                    users_in_chat = list(set(users_in_chat)) # make unique
-                    logger.debug("@mention in a syncroom: {} user(s) present".format(len(users_in_chat)))
+                            _users_in_chat += bot.get_users_in_conversation(syncedroom)
+                    logger.debug("@mention in a syncroom: {} user(s) present".format(len(_users_in_chat)))
                     break
+
+    # telesync support
+    tg_event_user = []
+    separator = bot.config['global_sync_separator']
+    if bot.memory.exists(['telesync', 'ho2tg', event.conv_id]):
+        tg_chat_id = str(
+            bot.memory.get_by_path(['telesync', 'ho2tg', event.conv_id])
+            )
+        if bot.memory.exists(['telesync', 'tg_data', tg_chat_id, 'user']):
+            tg_user = bot.memory.get_by_path(
+                ['telesync', 'tg_data', tg_chat_id, 'user']
+                )
+            for tg_user_id in tg_user:
+                if not bot.memory.exists(
+                        ['telesync', 'profilesync', 'tg2ho', tg_user_id]
+                    ):
+                    continue
+                ho_chat_id = bot.memory.get_by_path(
+                    ['telesync', 'profilesync', 'tg2ho', tg_user_id]
+                    )
+                user = bot.get_hangups_user(ho_chat_id)
+                _users_in_chat.append(user)
+                if user.full_name in event.text.split(separator, 1)[0]:
+                    # this user might have sent the message
+                    tg_event_user.append(ho_chat_id)
+
+    # as hangups user objects of the same user are not the same objects, filter
+    #   duplicates by chat id
+    users_in_chat = [bot.get_hangups_user(bot.user_self()['chat_id'])]
+    ids_in_chat = [bot.user_self()['chat_id']]
+    for user in _users_in_chat:
+        if user.id_.chat_id not in ids_in_chat:
+            users_in_chat.append(user)
+            ids_in_chat.append(user.id_.chat_id)
 
     """
     /bot mention <fragment> test
@@ -219,9 +260,12 @@ def mention(bot, event, *args):
                 logger.debug("suppressing @all for {} ({})".format(event.user.full_name, event.user.id_.chat_id))
                 continue
 
-            if u.id_.chat_id == event.user.id_.chat_id and not noisy_mention_test:
+            if (
+                    u.id_.chat_id == event.user.id_.chat_id or \
+                    str(u.id_.chat_id) in tg_event_user
+                ) and not noisy_mention_test:
                 """prevent initiating user from mentioning themselves"""
-                logger.debug("suppressing @self for {} ({})".format(event.user.full_name, event.user.id_.chat_id))
+                logger.debug("suppressing @self for {} ({})".format(u.full_name, u.id_.chat_id))
                 continue
 
             if u.id_.chat_id in mention_chat_ids:
@@ -288,8 +332,12 @@ def mention(bot, event, *args):
     """support for reprocessor
     override the source name by defining event._external_source"""
     source_name = event.user.full_name
+    text = event.text
     if hasattr(event, '_external_source'):
         source_name = event._external_source
+    elif separator in event.text:
+        source_name = event.text.split(separator, 1)[0]
+        text = event.text.split(separator, 1)[1]
 
     """send @mention alerts"""
     for u in mention_list:
@@ -305,7 +353,7 @@ def mention(bot, event, *args):
                             pb = PushBullet(pushbullet_config["api"])
                             push = pb.push_link(
                                 title = _("{} mentioned you in {}").format(source_name, conversation_name),
-                                    body=event.text,
+                                    body=text,
                                     url='https://hangouts.google.com/chat/{}'.format(event.conv.id_) )
                             if isinstance(push, tuple):
                                 # backward-compatibility for pushbullet library < 0.8.0
@@ -338,7 +386,7 @@ def mention(bot, event, *args):
                         message_mentioned.format(
                             source_name,
                             conversation_name,
-                            event.text)) # prevent internal parser from removing <tags>
+                            text)) # prevent internal parser from removing <tags>
                     mention_chat_ids.append(u.id_.chat_id)
                     user_tracking["mentioned"].append(u.full_name)
                     logger.info("{} ({}) alerted via 1on1 ({})".format(u.full_name, u.id_.chat_id, conv_1on1.id_))
