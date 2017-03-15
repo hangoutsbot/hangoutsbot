@@ -62,8 +62,12 @@ import html # for html.unescape
 logger = logging.getLogger(__name__)
 
 # fix for simple_smile support
-emoji.EMOJI_UNICODE[':simple_smile:'] = emoji.EMOJI_UNICODE[':smiling_face:']
-emoji.EMOJI_ALIAS_UNICODE[':simple_smile:'] = emoji.EMOJI_UNICODE[':smiling_face:']
+emoji.EMOJI_UNICODE[':simple_smile:'] = (
+    emoji.EMOJI_UNICODE[':slightly_smiling_face:']
+    )
+emoji.EMOJI_ALIAS_UNICODE[':simple_smile:'] = (
+    emoji.EMOJI_UNICODE[':slightly_smiling_face:']
+    )
 
 def chatMessageEvent2SlackText(event):
     def renderTextSegment(segment):
@@ -126,6 +130,7 @@ class SlackMessage(object):
         self.sender_id = None
         self.channel = None
         self.file_attachment = None
+        self.is_comment = False
 
         if 'type' not in reply:
             raise ParseError('no "type" in reply: %s' % str(reply))
@@ -156,6 +161,43 @@ class SlackMessage(object):
                     raise ParseError('ignore "edited" message from bot, possibly slack-added preview')
                 else:
                     raise ParseError('strange edited message without "edited" member:\n%s' % str(reply))
+
+        elif (
+                reply['type'] == 'message' and 'text' in reply and \
+                'attachments' in reply and \
+                'is_share' in reply['attachments'][0] and \
+                'text' in reply['attachments'][0] and \
+                (
+                    'author_subname' in reply['attachments'][0] or \
+                    'author_name' in reply['attachments'][0]
+                    )
+            ):
+            # filter hidden ho relay tag, extract and remove it
+            hoidfmt = re.compile(
+                r'^(.*) <ho://([^/]+)/([^|]+)\| >$',
+                re.MULTILINE | re.DOTALL
+                )
+            match = hoidfmt.match(reply['attachments'][0]['text'])
+            if match:
+                quote_text_raw = match.group(1)
+            else:
+                quote_text_raw = reply['attachments'][0]['text']
+            reply_max = slackrtm.bot.config['sync_reply_limit']
+            if len(quote_text_raw) < reply_max:
+                quote_text = quote_text_raw
+            else:
+                quote_text = quote_text_raw[0:reply_max] + '...'
+            if 'author_name' in reply['attachments'][0]:
+                quote_uname = reply['attachments'][0]['author_name']
+            else:
+                quote_uname = reply['attachments'][0]['author_subname']
+            self.quote = (
+                "| <i><b>{quote_uname}</b></i> :<br/>| <i>{quote_text}</i>"
+                ).format(quote_uname=quote_uname, quote_text=quote_text)
+            self.is_comment = True
+            user = reply['user']
+            text = reply['text']
+
         elif reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'file_comment':
             user = reply['comment']['user']
             text = reply['text']
@@ -1152,6 +1194,8 @@ class SlackRTM(object):
         except Exception as e:
             logger.exception('error in handleCommands: %s(%s)', type(e), str(e))
 
+        separator = self.bot.config['global_sync_separator']
+
         for sync in self.get_syncs(channelid=msg.channel):
             if not sync.sync_joins and msg.is_joinleave:
                 continue
@@ -1159,7 +1203,10 @@ class SlackRTM(object):
                 slacktag = ''
                 if sync.slacktag and msg.tag_from_slack:
                     slacktag = ' (%s)' % sync.slacktag
-                response = u'<b>%s%s%s:</b> %s' % (msg.realname4ho if sync.showslackrealnames else msg.username4ho, slacktag, msg.edited, msg_html)
+                if msg.is_comment:
+                    response = u'<b>%s%s%s%s</b>%s' % (msg.realname4ho if sync.showslackrealnames else msg.username4ho, slacktag, msg.edited, separator, msg_html)
+                else:
+                    response = u'%s<b>%s%s%s%s</b>%s' % (msg.quote, msg.realname4ho if sync.showslackrealnames else msg.username4ho, slacktag, msg.edited, separator, msg_html)
                 logger.debug('forwarding to HO %s: %s', sync.hangoutid, response.encode('utf-8'))
                 if msg.file_attachment:
                     if sync.image_upload:
@@ -1175,14 +1222,11 @@ class SlackRTM(object):
 
     @asyncio.coroutine
     def handle_ho_message(self, event):
+        separator = self.bot.config['global_sync_separator']
         for sync in self.get_syncs(hangoutid=event.conv_id):
-            if self.sending and ': ' in event.text:
+            if self.sending and separator in event.text:
                 # this hangout message originated in slack
                 self.sending -= 1
-                command = event.text.split(': ')[1]
-                event.text = command
-                logger.debug('attempting to execute %s', command)
-                yield from self.bot._handlers.handle_command(event)
                 return
             if self.lastimg and self.lastimg in event.text:
                 # already seen this image, skip
@@ -1348,9 +1392,14 @@ class SlackRTMThread(threading.Thread):
 
 
 def _initialise(bot):
+    slack_sink = bot.get_config_option('slackrtm')
+    if not slack_sink:
+        return
+    if not bot.config.exists(['global_sync_separator']):
+        bot.config.set_by_path(['global_sync_separator'], ' : ')
+        bot.config.save()
     # Start and asyncio event loop
     loop = asyncio.get_event_loop()
-    slack_sink = bot.get_config_option('slackrtm')
     threads = []
     if isinstance(slack_sink, list):
         for sinkConfig in slack_sink:
@@ -1799,7 +1848,7 @@ def slack_showslackrealnames(bot, event, *args):
     elif realnames.lower() in ['false', 'off', 'n', 'no']:
         realnames = False
     else:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('sorry, but "%s" is not "true" or "false"' % upload, is_bold=True)])
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('sorry, but "%s" is not "true" or "false"' % realnames, is_bold=True)])
         return
 
     try:
