@@ -68,6 +68,8 @@ class WebFramework:
 
         """
 
+        self.load_configuration(self.configkey)
+
         applicable_configurations = []
         for configuration in self.configuration:
             if conv_id in configuration["hangouts"]:
@@ -213,12 +215,25 @@ class WebFramework:
 
         return (preferred_name, nickname, full_name, photo_url)
 
-    def _format_message(self, message, user):
+    def _format_message(self, message, user, userwrap="MARKDOWN_BOLD2"):
+        if userwrap == "MARKDOWN_BOLD": # telegram/slack
+            userwrap_left = "*"
+            userwrap_right = "*"
+        elif userwrap == "MARKDOWN_BOLD2": # github/hangups/hangoutsbot
+            userwrap_left = "**"
+            userwrap_right = "**"
+        elif userwrap == "HTML_BOLD":
+            userwrap_left = "<b>"
+            userwrap_right = "</b>"
+        else:
+            userwrap_left = ""
+            userwrap_right = ""
+
         if isinstance(user, str):
-            formatted_message = "{}: {}".format(user, message)
+            formatted_message = "{2}{0}{3}: {1}".format(user, message, userwrap_left, userwrap_right)
         else:
             preferred_name, nickname, full_name, photo_url = self._standardise_bridge_user_details(user)
-            formatted_message = "{}: {}".format(preferred_name, message)
+            formatted_message = "{2}{0}{3}: {1}".format(preferred_name, message, userwrap_left, userwrap_right)
 
         return formatted_message
 

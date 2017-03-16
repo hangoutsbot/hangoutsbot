@@ -2,6 +2,8 @@ import aiohttp
 import asyncio
 import json
 import logging
+import os
+import re
 import requests
 
 import plugins
@@ -25,10 +27,25 @@ class BridgeInstance(WebFramework):
         user = event.passthru["original_request"]["user"]
         message = event.passthru["original_request"]["message"]
 
+        # XXX: strip html, telegram parser seems buggy and too simplistic
+        # only keep bold for emphasis
+        #message = re.sub(r"</?b>", "", message)
+        message = re.sub(r"</?i>", "", message)
+        message = re.sub(r"</?pre>", "", message)
+
+        # https://core.telegram.org/bots/api#html-style
+        # prevent replacements on valid <b>...</b> tags
+        message = re.sub(r"<(?!/b|b)", "&lt;", message)
+        message = re.sub(r"(?<!b)>", "%gt;", message)
+        message = re.sub(r"&(?!amp;)", "&amp;", message)
+
         for eid in external_ids:
-            yield from self.telegram_api_request("sendMessage", {
-                "chat_id" : eid, 
-                "text" : self._format_message(message, user) })
+            yield from self.telegram_api_request(
+                config["config.json"],
+                "sendMessage",
+                    { "chat_id" : eid,
+                      "text" : self._format_message(message, user, userwrap="HTML_BOLD"),
+                        "parse_mode" : "HTML" })
 
     def start_listening(self, bot):
         for configuration in self.configuration:
@@ -77,11 +94,26 @@ class BridgeInstance(WebFramework):
                         if str(raw_message["chat"]["id"]) in configuration[self.configkey]:
                             for conv_id in configuration["hangouts"]:
                                 user = raw_message["from"]["username"] + "@tg"
+                                image_id = None
 
                                 if "text" in raw_message:
                                     message = raw_message["text"]
-                                elif "photo" in message:
-                                    message = "(photo)"
+
+                                elif "photo" in raw_message:
+                                    photo_path = yield from self.telegram_api_getfilepath( configuration,
+                                                                                           raw_message["photo"][2]['file_id'] )
+
+                                    image_id = yield from bot.call_shared("image_upload_single", photo_path)
+                                    message = "sent a photo"
+
+                                elif "sticker" in raw_message:
+                                    photo_path = yield from self.telegram_api_getfilepath( configuration,
+                                                                                           raw_message["sticker"]['file_id'] )
+
+                                    image_id = yield from bot.call_shared("image_upload_single", photo_path)
+                                    message = "sent {} sticker".format(raw_message["sticker"]['emoji'])
+                                    print(raw_message)
+
                                 else:
                                     message = "unrecognised telegram update: {}".format(raw_message)
 
@@ -93,7 +125,7 @@ class BridgeInstance(WebFramework):
                                         passthru = {
                                             "original_request": {
                                                 "message": message,
-                                                "image_id": None,
+                                                "image_id": image_id,
                                                 "segments": None,
                                                 "user": user },
                                             "norelay": [ self.plugin_name ] }))
@@ -108,20 +140,32 @@ class BridgeInstance(WebFramework):
         logger.critical("long-polling terminated")
 
     @asyncio.coroutine
-    def telegram_api_request(self, method, data):
+    def telegram_api_request(self, configuration, method, data):
         connector = aiohttp.TCPConnector(verify_ssl=True)
         headers = {'content-type': 'application/x-www-form-urlencoded'}
 
-        BOT_API_KEY = self.configuration[0]["bot_api_key"]
+        BOT_API_KEY = configuration["bot_api_key"]
 
         url = "https://api.telegram.org/bot{}/{}".format(BOT_API_KEY, method)
 
-        logger.debug(url)
-        r = yield from aiohttp.request('post', url, data=data, headers=headers, connector=connector)
-        raw = yield from r.text()
-        logger.debug(raw)
+        response = yield from aiohttp.request('post', url, data=data, headers=headers, connector=connector)
+        results = yield from response.text()
 
-        return raw
+        return results
+
+    @asyncio.coroutine
+    def telegram_api_getfilepath(self, configuration, file_id):
+        results = yield from self.telegram_api_request(
+            configuration,
+            "getFile", {
+                "file_id": file_id })
+
+        metadata = json.loads(results)
+
+        BOT_API_KEY = configuration["bot_api_key"]
+        source_url = "https://api.telegram.org/file/bot{}/{}".format(BOT_API_KEY, metadata["result"]["file_path"])
+
+        return source_url
 
 
 def _initialise(bot):

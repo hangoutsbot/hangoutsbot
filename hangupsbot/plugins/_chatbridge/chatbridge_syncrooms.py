@@ -32,6 +32,8 @@ class BridgeInstance(WebFramework):
         if not self.bot.get_config_option('syncing_enabled'):
             return False
 
+        self.load_configuration(self.configkey)
+
         applicable_configurations = []
         syncouts = self.configuration
         for sync_rooms_list in syncouts:

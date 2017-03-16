@@ -43,9 +43,19 @@ class SlackAsyncListener(AsyncRequestHandler):
                 text = emoji.emojize(str(payload["text"][0]), use_aliases=True)
             except NameError: # emoji library likely missing
                 text = str(payload["text"][0])
-                
+
             if "user_name" in payload:
                 if "slackbot" not in str(payload["user_name"][0]):
+                    file_upload = re.search(r"<@[A-Z0-9]+\|.*?> uploaded a file: (<https?://.*?>)", text)
+                    if file_upload:
+                        text = re.sub(r"<@[A-Z0-9]+\|.*?> uploaded a file:", "uploaded", text)
+                        # make the link clickable in hangouts
+                        match = file_upload.group(1)
+                        tokens = match[1:-1].rsplit("|", 1)
+                        full_link = tokens[0]
+                        file_name = tokens[1]
+                        text = re.sub(re.escape(match), "{} with title \"{}\"".format(full_link, file_name), text)
+
                     text = self._slack_label_users(text)
                     text = self._slack_label_channels(text)
 
@@ -160,6 +170,11 @@ class BridgeInstance(WebFramework):
 
         user = event.passthru["original_request"]["user"]
         message = event.passthru["original_request"]["message"]
+
+        # XXX: rudimentary conversion of html to markdown
+        message = re.sub(r"</?b>", "*", message)
+        message = re.sub(r"</?i>", "_", message)
+        message = re.sub(r"</?pre>", "`", message)
 
         preferred_name, nickname, full_name, photo_url = _externals['BridgeInstance']._standardise_bridge_user_details(user)
 
