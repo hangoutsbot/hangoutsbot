@@ -256,6 +256,7 @@ class SlackRTMSync(object):
         self.slacktag = slacktag
         self.showslackrealnames = showslackrealnames
 
+    @staticmethod
     def fromDict(sync_dict):
         sync_joins = True
         if 'sync_joins' in sync_dict and not sync_dict['sync_joins']:
@@ -301,7 +302,6 @@ class SlackRTM(object):
         self.config = sink_config
         self.apikey = self.config['key']
         self.threadname = None
-        self.sending = 0
         self.lastimg = ''
 
         self.slack = SlackClient(self.apikey)
@@ -1137,6 +1137,17 @@ class SlackRTM(object):
         self.bot.user_memory_set(self.name, 'synced_conversations', syncs)
         return
 
+    @staticmethod
+    def _repeater_cleaner(bot, event, id):
+        event_tokens = event.text.split(":", maxsplit=1)
+        event_text = event_tokens[1].strip()
+        if event_text.lower().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
+            event_text = bot._handlers.bot_command[0] + " [REDACTED]"
+        event.text = event_text
+        event.from_bot = False
+        event._slackrtm_no_repeat = True
+        event._external_source = event_tokens[0].strip() + "@slackrtm"
+
     def handle_reply(self, reply):
         try:
             msg = SlackMessage(self, reply)
@@ -1168,22 +1179,27 @@ class SlackRTM(object):
                     else:
                         # we should not upload the images, so we have to send the url instead
                         response += msg.file_attachment
-                self.sending += 1
                 self.loop.call_soon_threadsafe(asyncio.async,
-                    self.bot.coro_send_message(sync.hangoutid, response, context={'slack': True})
+                    self.bot.coro_send_message(
+                        sync.hangoutid, response,
+                        context = {
+                            'base': {
+                                'tags': ['slack', 'relay'],
+                                'source': 'slackrtm',
+                                'importance': 50
+                            },
+                            'reprocessor': self.bot.call_shared("reprocessor.attach_reprocessor",
+                                self._repeater_cleaner, return_as_dict=True)
+                        }
+                    )
                 )
 
     @asyncio.coroutine
     def handle_ho_message(self, event):
+        if "_slackrtm_no_repeat" in dir(event) and event._slackrtm_no_repeat:
+            return
+
         for sync in self.get_syncs(hangoutid=event.conv_id):
-            if self.sending and ': ' in event.text:
-                # this hangout message originated in slack
-                self.sending -= 1
-                command = event.text.split(': ')[1]
-                event.text = command
-                logger.debug('attempting to execute %s', command)
-                yield from self.bot._handlers.handle_command(event)
-                return
             if self.lastimg and self.lastimg in event.text:
                 # already seen this image, skip
                 self.lastimg = ''
@@ -1196,22 +1212,6 @@ class SlackRTM(object):
             except Exception as e:
                 logger.exception('error while getting user from bot: %s', e)
                 photo_url = ''
-#            # a file shared in HO is a message containing *only* the url to it
-#            if re.match(r'^https?://[^ /]*googleusercontent.com/[^ ]*$', event.text, re.IGNORECASE):
-#                print('slackrtm: found image: %s' % event.text)
-#                image_link = event.text
-#                try:
-#                    filename = os.path.basename(image_link)
-#                    image_response = urllib.request.urlretrieve(image_link, filename)
-#                    #data = image_response.read()
-#                    #print('slackrtm: data="%s"' % str(data))
-#                    slacker_client = slacker.Slacker(self.apikey)
-#                    response = slacker_client.files.upload(filename,
-#                                                           channels=sync.channelid)
-#                except Exception as e:
-#                    print('slackrtm: exception while loading image: %s(%s)' % (e, str(e)))
-#            else:
-#                print('slackrtm: NO image in message: "%s"' % event.text)
             message = chatMessageEvent2SlackText(event.conv_event)
             message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
             logger.debug("sending to channel %s: %s", sync.channelid, message.encode('utf-8'))
@@ -1799,7 +1799,7 @@ def slack_showslackrealnames(bot, event, *args):
     elif realnames.lower() in ['false', 'off', 'n', 'no']:
         realnames = False
     else:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('sorry, but "%s" is not "true" or "false"' % upload, is_bold=True)])
+        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('sorry, but "%s" is not "true" or "false"' % realnames, is_bold=True)])
         return
 
     try:
