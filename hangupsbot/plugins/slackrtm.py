@@ -1204,9 +1204,9 @@ class SlackRTM(object):
                 if sync.slacktag and msg.tag_from_slack:
                     slacktag = ' (%s)' % sync.slacktag
                 if msg.is_comment:
-                    response = u'<b>%s%s%s%s</b>%s' % (msg.realname4ho if sync.showslackrealnames else msg.username4ho, slacktag, msg.edited, separator, msg_html)
-                else:
                     response = u'%s<b>%s%s%s%s</b>%s' % (msg.quote, msg.realname4ho if sync.showslackrealnames else msg.username4ho, slacktag, msg.edited, separator, msg_html)
+                else:
+                    response = u'<b>%s%s%s%s</b>%s' % (msg.realname4ho if sync.showslackrealnames else msg.username4ho, slacktag, msg.edited, separator, msg_html)
                 logger.debug('forwarding to HO %s: %s', sync.hangoutid, response.encode('utf-8'))
                 if msg.file_attachment:
                     if sync.image_upload:
