@@ -82,8 +82,8 @@ def image_upload_single(image_uri):
     try:
         r = yield from aiohttp.request('get', image_uri)
         content_type = r.headers['Content-Type']
-        if not content_type.startswith('image/'):
-            logger.warning("request did not return image, content-type={}".format(content_type))
+        if not content_type.startswith('image/') and not content_type == "application/octet-stream":
+            logger.warning("request did not return image/image-like data, content-type={}, headers={}".format(content_type, r.headers))
             return False
         raw = yield from r.read()
     except (aiohttp.errors.ClientError) as exc:
