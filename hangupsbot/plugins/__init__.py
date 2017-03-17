@@ -176,16 +176,15 @@ def register_shared(id, objectref, forgiving=True):
     bot.register_shared(id, objectref, forgiving=forgiving)
 
 def start_asyncio_task(coroutine_function, *args, **kwargs):
+    loop = asyncio.get_event_loop()
     if asyncio.iscoroutinefunction(coroutine_function):
-        loop = asyncio.get_event_loop()
         task = loop.create_task(coroutine_function(tracking.bot, *args, **kwargs))
-
-        asyncio.async(task).add_done_callback(asyncio_task_ended)
-
-        tracking.register_asyncio_task(task)
-
+    elif asyncio.iscoroutine(coroutine_function):
+        task = loop.create_task(coroutine_function)
     else:
         raise RuntimeError("coroutine function must be supplied")
+    asyncio.async(task).add_done_callback(asyncio_task_ended)
+    tracking.register_asyncio_task(task)
 
 
 """plugin loader"""
