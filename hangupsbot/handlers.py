@@ -25,6 +25,7 @@ class EventHandler:
 
         self._passthrus = {}
         self._contexts = {}
+        self._image_ids = {}
 
         self.pluggables = { "allmessages": [],
                             "call": [],
@@ -122,6 +123,23 @@ class EventHandler:
     """handler core"""
 
     @asyncio.coroutine
+    def image_uri_from(self, image_id, callback, *args, **kwargs):
+        """XXX: there isn't a direct way to resolve an image_id to the public url without
+        posting it first via the api. other plugins and functions can establish a short-lived
+        task to wait for the image id to be posted, and retrieve the url in an asyncronous way"""
+
+        ticks = 0
+        while True:
+            if image_id not in self._image_ids:
+                yield from asyncio.sleep(1)
+                ticks = ticks + 1
+                if ticks > 60:
+                    return False
+            else:
+                yield from callback(self._image_ids[image_id], *args, **kwargs)
+                return True
+
+    @asyncio.coroutine
     def run_reprocessor(self, id, event, *args, **kwargs):
         if id in self._reprocessors:
             is_coroutine = asyncio.iscoroutinefunction(self._reprocessors[id])
@@ -171,6 +189,20 @@ class EventHandler:
                         yield from command.run(self.bot, event, *["optout"])
                         logger.info("auto opt-in for {}".format(event.user.id_.chat_id))
                         return
+
+            """map image ids to their public uris in absence of any fixed server api"""
+            if( event.passthru
+                    and "original_request" in event.passthru
+                    and "image_id" in event.passthru["original_request"]
+                    and event.passthru["original_request"]["image_id"]
+                    and len(event.conv_event.attachments) == 1 ):
+
+                _image_id = event.passthru["original_request"]["image_id"]
+                _image_uri = event.conv_event.attachments[0]
+
+                if _image_id not in self._image_ids:
+                    self._image_ids[_image_id] = _image_uri
+                    logger.info("associating image_id={} with {}".format(_image_id, _image_uri))
 
             yield from self.run_pluggable_omnibus("allmessages", self.bot, event, command)
             if not event.from_bot:
