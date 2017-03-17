@@ -19,5 +19,5 @@ spotipy
 slackclient >=0.16 # slackrtm (includes websockets)
 textblob
 python_dateutil # gitlab sink
-telepot == 7.1 # telegram sync, newer versions doesn't support Python3.4.1
+telepot >=10.5 # telesync needs aio support
 cleverwrap # cleverbot

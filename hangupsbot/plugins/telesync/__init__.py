@@ -5,12 +5,14 @@ import logging
 import io
 import random
 import asyncio
-import hangups
-import plugins
 import aiohttp
-import telepot
-import telepot.async
-import telepot.exception
+
+import telepot.aio
+
+import hangups
+
+import plugins
+
 from handlers import handler
 from commands import command
 
@@ -19,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # TELEGRAM BOT
 
-class TelegramBot(telepot.async.Bot):
+class TelegramBot(telepot.aio.Bot):
     def __init__(self, hangupsbot):
         self.config = hangupsbot.config.get_by_path(['telesync'])
         super().__init__(self.config['api_key'])
@@ -714,6 +716,7 @@ def _initialise(bot):
         bot.memory.set_by_path(['profilesync'], {'ho2tg': {}, 'tg2ho': {}})
 
     global tg_bot
+
     tg_bot = TelegramBot(bot)
     tg_bot.set_on_message_callback(tg_on_message)
     tg_bot.set_on_photo_callback(tg_on_photo)
@@ -733,10 +736,8 @@ def _initialise(bot):
     tg_bot.add_command("/unsyncprofile", tg_command_unsync_profile)
     tg_bot.add_command("/getme", tg_command_get_me)
 
-    loop = asyncio.get_event_loop()
-    # run telegram bot
-    loop.create_task(tg_bot.message_loop())
-    loop.create_task(tg_bot.setup_bot_info())
+    plugins.start_asyncio_task(tg_bot.message_loop())
+    plugins.start_asyncio_task(tg_bot.setup_bot_info())
 
 
 @command.register(admin=False)
