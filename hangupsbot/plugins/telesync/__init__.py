@@ -891,11 +891,11 @@ class BridgeInstance(WebFramework):
         has_photo, photo_file_name = yield from _telesync_is_valid_image_link(sync_text)
         if has_photo:
             photo_url = sync_text
-            sync_text = "(shared an image)"
+            sync_text = "shared an image"
 
         user_gplus = 'https://plus.google.com/u/0/{}/about'.format(event.user.id_.chat_id)
 
-        preferred_name, nickname, full_name, photo_url = self._standardise_bridge_user_details(user)
+        preferred_name, nickname, full_name, user_photo_url = self._standardise_bridge_user_details(user)
 
         chat_title = format(self.bot.conversations.get_name(conv_id))
         if "sync_chat_titles" not in config or config["sync_chat_titles"] and chat_title:
@@ -926,13 +926,14 @@ class BridgeInstance(WebFramework):
             if not os.path.exists(file_dir):
                 os.makedirs(file_dir)
 
+            logger.info("saving: {} to {}".format(photo_url, photo_path))
+
             with aiohttp.ClientSession() as session:
                 resp = yield from session.get(photo_url)
                 raw_data = yield from resp.read()
                 resp.close()
                 with open(photo_path, "wb") as f:
                     f.write(raw_data)
-                    logger.info("saved: {} to {}".format(photo_url, photo_path))
 
             for eid in external_ids:
                 if _telesync_is_animated_photo(photo_path):
@@ -942,7 +943,7 @@ class BridgeInstance(WebFramework):
                     yield from tg_bot.sendPhoto( eid,
                                                  open(photo_path, 'rb') )
 
-            if config['do_not_keep_photos']:
+            if "do_not_keep_photos" not in config or config['do_not_keep_photos']:
                 os.remove(photo_path)  # don't use unnecessary space on disk
                 logger.info("removed: {}".format(photo_path))
 
