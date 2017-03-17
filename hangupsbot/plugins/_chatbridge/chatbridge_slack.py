@@ -165,6 +165,18 @@ class BridgeInstance(WebFramework):
 
         return applicable_configurations
 
+    def asyncio_task_ended(self, future):
+        if future.cancelled():
+            logger.info("task cancelled {}".format(future))
+        else:
+            logger.info("IMAGE FROM URI: {}".format(future.result()))
+
+    @asyncio.coroutine
+    def _send_deferred_photo(self, image_link, relay_channels, client, slack_api_params):
+        for relay_channel in relay_channels:
+            logger.info("deferred post to {}".format(relay_channel))
+            client.chat_post_message(relay_channel,  image_link, **slack_api_params)
+
     @asyncio.coroutine
     def _send_to_external_chat(self, config, event):
         conv_id = config["trigger"]
@@ -190,6 +202,37 @@ class BridgeInstance(WebFramework):
 
         if "link_names" not in config["config.json"] or config["config.json"]["link_names"]:
             slack_api_params["link_names"] = 1
+
+        """XXX: this plugin leverages existing storage in hangouts - since there isn't a direct means
+        to acquire the public url of a hangups-upload file we need to wait for other handlers to post
+        the image in hangouts, which generates the public url, which we will send in a deferred post.
+
+        handlers.image_uri_from() is packaged as a task to wait for an image link to be associated with
+        an image id that this handler sees
+        """
+
+        if( "image_id" in event.passthru["original_request"]
+                and event.passthru["original_request"]["image_id"] ):
+
+            if( "conv_event" in event
+                    and "attachments" in event.conv_event
+                    and len(event.conv_event.attachments) == 1 ):
+
+                message = "shared an image: {}".format(event.conv_event.attachments[0])
+            else:
+                # without attachments, create a deferred post until the public image url becomes available
+                image_id = event.passthru["original_request"]["image_id"]
+
+                loop = asyncio.get_event_loop()
+                task = loop.create_task(
+                    self.bot._handlers.image_uri_from(
+                        image_id,
+                        self._send_deferred_photo,
+                        relay_channels,
+                        client,
+                        slack_api_params ))
+
+                asyncio.async(task).add_done_callback(self.asyncio_task_ended)
 
         for relay_channel in relay_channels:
             client.chat_post_message(relay_channel,  message, **slack_api_params)
