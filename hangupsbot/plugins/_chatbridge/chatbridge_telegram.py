@@ -112,7 +112,6 @@ class BridgeInstance(WebFramework):
 
                                     image_id = yield from bot.call_shared("image_upload_single", photo_path)
                                     message = "sent {} sticker".format(raw_message["sticker"]['emoji'])
-                                    print(raw_message)
 
                                 else:
                                     message = "unrecognised telegram update: {}".format(raw_message)

@@ -150,6 +150,8 @@ class BridgeInstance(WebFramework):
 
         recommendation: one hangout group in synced_conversations keys is GOOD ENOUGH"""
 
+        self.load_configuration(self.configkey)
+
         applicable_configurations = []
         sinks = self.configuration
         for config in sinks:
@@ -176,7 +178,7 @@ class BridgeInstance(WebFramework):
         message = re.sub(r"</?i>", "_", message)
         message = re.sub(r"</?pre>", "`", message)
 
-        preferred_name, nickname, full_name, photo_url = _externals['BridgeInstance']._standardise_bridge_user_details(user)
+        preferred_name, nickname, full_name, photo_url = self._standardise_bridge_user_details(user)
 
         try:
             client = SlackClient(config["config.json"]["key"], verify=True)
