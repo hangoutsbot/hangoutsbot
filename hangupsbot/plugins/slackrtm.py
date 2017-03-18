@@ -41,25 +41,32 @@ the Hangouts side for more help.
 
 import asyncio
 import json
+import html
 import logging
+import mimetypes
 import os
 import pprint
 import re
 import threading
 import time
 import urllib.request
-import mimetypes
 
 import hangups
 
 import plugins
 
+from webbridge import ( WebFramework,
+                        IncomingRequestHandler,
+                        FakeEvent )
+
 import emoji
-from websocket import WebSocketConnectionClosedException
+
 from slackclient import SlackClient
-import html # for html.unescape
+from websocket import WebSocketConnectionClosedException
+
 
 logger = logging.getLogger(__name__)
+
 
 # fix for simple_smile support
 emoji.EMOJI_UNICODE[':simple_smile:'] = emoji.EMOJI_UNICODE[':smiling_face:']
@@ -214,12 +221,12 @@ class SlackMessage(object):
             username = slackrtm.get_username(user, user)
             realname = slackrtm.get_realname(user,username)
 
-            username4ho = u'<a href="https://%s.slack.com/team/%s">%s</a>' % (domain, username, username)
-            realname4ho = u'<a href="https://%s.slack.com/team/%s">%s</a>' % (domain, username, realname)
+            username4ho = u'{2}'.format(domain, username, username)
+            realname4ho = u'{2}'.format(domain, username, username)
             tag_from_slack = True
         elif sender_id != '':
-            username4ho = u'<a href="https://plus.google.com/%s">%s</a>' % (sender_id, username)
-            realname4ho = u'<a href="https://plus.google.com/%s">%s</a>' % (sender_id, username)
+            username4ho = u'{1}'.format(sender_id, username)
+            realname4ho = u'{1}'.format(sender_id, username)
             tag_from_slack = False
 
         if 'channel' in reply:
@@ -296,13 +303,14 @@ class SlackRTMSync(object):
 
 
 class SlackRTM(object):
-    def __init__(self, sink_config, bot, loop, threaded=False):
+    def __init__(self, sink_config, bot, loop, threaded=False, bridgeinstance=False):
         self.bot = bot
         self.loop = loop
         self.config = sink_config
         self.apikey = self.config['key']
         self.threadname = None
         self.lastimg = ''
+        self._bridgeinstance = bridgeinstance
 
         self.slack = SlackClient(self.apikey)
         if not self.slack.rtm_connect():
@@ -1170,7 +1178,8 @@ class SlackRTM(object):
                 slacktag = ''
                 if sync.slacktag and msg.tag_from_slack:
                     slacktag = ' (%s)' % sync.slacktag
-                response = u'<b>%s%s%s:</b> %s' % (msg.realname4ho if sync.showslackrealnames else msg.username4ho, slacktag, msg.edited, msg_html)
+                user = msg.realname4ho if sync.showslackrealnames else msg.username4ho
+                response = u'<b>%s%s%s:</b> %s' % (user, slacktag, msg.edited, msg_html)
                 logger.debug('forwarding to HO %s: %s', sync.hangoutid, response.encode('utf-8'))
                 if msg.file_attachment:
                     if sync.image_upload:
@@ -1179,48 +1188,45 @@ class SlackRTM(object):
                     else:
                         # we should not upload the images, so we have to send the url instead
                         response += msg.file_attachment
+
                 self.loop.call_soon_threadsafe(asyncio.async,
-                    self.bot.coro_send_message(
-                        sync.hangoutid, response,
-                        context = {
-                            'base': {
-                                'tags': ['slack', 'relay'],
-                                'source': 'slackrtm',
-                                'importance': 50
-                            },
-                            'reprocessor': self.bot.call_shared("reprocessor.attach_reprocessor",
-                                self._repeater_cleaner, return_as_dict=True)
-                        }
-                    )
-                )
+                    self._bridgeinstance._send_to_internal_chat(
+                        sync.hangoutid,
+                        FakeEvent(
+                            text = response,
+                            user = user,
+                            passthru = {
+                                "original_request": {
+                                    "message": msg_html,
+                                    "image_id": None,
+                                    "segments": None,
+                                    "user": user },
+                                "norelay": [ self._bridgeinstance.plugin_name ] })))
 
     @asyncio.coroutine
-    def handle_ho_message(self, event):
-        if "_slackrtm_no_repeat" in dir(event) and event._slackrtm_no_repeat:
-            return
+    def handle_ho_message(self, event, chatbridge_extras={}):
+        user = event.passthru["original_request"]["user"]
+        message = event.passthru["original_request"]["message"]
+        preferred_name, nickname, full_name, photo_url = self._bridgeinstance._standardise_bridge_user_details(user)
+        if chatbridge_extras:
+            conv_id = chatbridge_extras["conv_id"]
 
-        for sync in self.get_syncs(hangoutid=event.conv_id):
-            if self.lastimg and self.lastimg in event.text:
-                # already seen this image, skip
-                self.lastimg = ''
-                return
-            fullname = event.user.full_name
+        for sync in self.get_syncs(hangoutid=conv_id):
             if sync.hotag:
-                fullname = '%s (%s)' % (fullname, sync.hotag)
+                full_name = '%s (%s)' % (full_name, sync.hotag)
             try:
-                photo_url = "http:"+self.bot._user_list.get_user(event.user_id).photo_url
+                photo_url = "https://" + photo_url
             except Exception as e:
                 logger.exception('error while getting user from bot: %s', e)
                 photo_url = ''
-            message = chatMessageEvent2SlackText(event.conv_event)
-            message = u'%s <ho://%s/%s| >' % (message, event.conv_id, event.user_id.chat_id)
+            message = u'%s <ho://%s/%s| >' % (message, conv_id, user.id_.chat_id)
             logger.debug("sending to channel %s: %s", sync.channelid, message.encode('utf-8'))
             self.api_call('chat.postMessage',
-                          channel=sync.channelid,
-                          text=message,
-                          username=fullname,
-                          link_names=True,
-                          icon_url=photo_url)
+                          channel = sync.channelid,
+                          text = message,
+                          username = full_name,
+                          link_names = True,
+                          icon_url = photo_url)
 
     def handle_ho_membership(self, event):
         # Generate list of added or removed users
@@ -1273,8 +1279,50 @@ class SlackRTM(object):
                           link_names=True)
 
 
-_slackrtms = []
+class BridgeInstance(WebFramework):
+    def setup_plugin(self):
+        self.plugin_name = "slackRTM"
 
+    def load_configuration(self, convid):
+        slackrtm_configs = self.bot.get_config_option('slackrtm') or []
+        if not slackrtm_configs:
+            return
+
+        """WARNING: slackrtm configuration in current form is FUNDAMENTALLY BROKEN since it misuses USER memory for storage"""
+
+        mutated_configurations = []
+        for slackrtm_config in slackrtm_configs:
+            # mutate the config earlier, as slackrtm is messy
+            config_clone = dict(slackrtm_config)
+            synced_conversations = self.bot.user_memory_get(slackrtm_config["name"], "synced_conversations") or []
+            for synced in synced_conversations:
+                config_clone["hangouts"] = [ synced["hangoutid"] ]
+                config_clone[self.configkey] = [ synced["channelid"] ]
+                mutated_configurations.append(config_clone)
+        self.configuration = mutated_configurations
+
+        return self.configuration
+
+    @asyncio.coroutine
+    def _send_to_external_chat(self, config, event):
+        conv_id = config["trigger"]
+        relay_channels = config["config.json"][self.configkey]
+
+        user = event.passthru["original_request"]["user"]
+        message = event.passthru["original_request"]["message"]
+
+        for slackrtm in _slackrtms:
+            try:
+                yield from slackrtm.handle_ho_message(event, chatbridge_extras={ "conv_id": conv_id })
+            except Exception as e:
+                logger.exception('_handle_slackout threw: %s', str(e))
+
+    def start_listening(self, bot):
+        """slackrtm does not use web-bridge style listeners"""
+        pass
+
+
+_slackrtms = []
 
 class SlackRTMThread(threading.Thread):
     def __init__(self, bot, loop, config):
@@ -1284,6 +1332,7 @@ class SlackRTMThread(threading.Thread):
         self._loop = loop
         self._config = config
         self._listener = None
+        self._bridgeinstance = BridgeInstance(bot, "slackrtm")
 
     def run(self):
         logger.debug('SlackRTMThread.run()')
@@ -1293,7 +1342,7 @@ class SlackRTMThread(threading.Thread):
         try:
             if self._listener and self._listener in _slackrtms:
                 _slackrtms.remove(self._listener)
-            self._listener = SlackRTM(self._config, self._bot, self._loop, threaded=True)
+            self._listener = SlackRTM(self._config, self._bot, self._loop, threaded=True, bridgeinstance=self._bridgeinstance)
             _slackrtms.append(self._listener)
             last_ping = int(time.time())
             while True:
@@ -1361,20 +1410,10 @@ def _initialise(bot):
             threads.append(t)
     logger.info("%d sink thread(s) started", len(threads))
 
-    plugins.register_handler(_handle_slackout, type="allmessages")
     plugins.register_handler(_handle_membership_change, type="membership")
     plugins.register_handler(_handle_rename, type="rename")
 
     plugins.register_admin_command(["slack_help", "slacks", "slack_channels", "slack_listsyncs", "slack_syncto", "slack_disconnect", "slack_setsyncjoinmsgs", "slack_setimageupload", "slack_sethotag","slack_users", "slack_setslacktag", "slack_showslackrealnames"])
-
-
-@asyncio.coroutine
-def _handle_slackout(bot, event, command):
-    for slackrtm in _slackrtms:
-        try:
-            yield from slackrtm.handle_ho_message(event)
-        except Exception as e:
-            logger.exception('_handle_slackout threw: %s', str(e))
 
 
 @asyncio.coroutine
