@@ -216,6 +216,7 @@ class SlackMessage(object):
 
         username4ho = username
         realname4ho = username
+        tag_from_slack = False # XXX: prevents key not defined on unmonitored channels
         if not is_bot:
             domain = slackrtm.get_slack_domain()
             username = slackrtm.get_username(user, user)
@@ -1157,21 +1158,32 @@ class SlackRTM(object):
         event._external_source = event_tokens[0].strip() + "@slackrtm"
 
     def handle_reply(self, reply):
+        """handle incoming replies from slack"""
+
         try:
             msg = SlackMessage(self, reply)
-            msg_html = self.textToHtml(msg.text)
         except ParseError as e:
             return
         except Exception as e:
             logger.exception('error parsing Slack reply: %s(%s)', type(e), str(e))
             return
 
+        syncs = self.get_syncs(channelid=msg.channel)
+        if not syncs:
+            """since slackRTM listens to everything, we need a quick way to filter out noise. this also
+            has the added advantage of making slackrtm play well with other slack plugins"""
+            return
+
+        print(syncs)
+
+        msg_html = self.textToHtml(msg.text)
+
         try:
             self.handleCommands(msg)
         except Exception as e:
             logger.exception('error in handleCommands: %s(%s)', type(e), str(e))
 
-        for sync in self.get_syncs(channelid=msg.channel):
+        for sync in syncs:
             if not sync.sync_joins and msg.is_joinleave:
                 continue
             if msg.from_ho_id != sync.hangoutid:
@@ -1441,16 +1453,12 @@ def slacks(bot, event, *args):
 
        usage: /bot slacks"""
 
-    segments = [
-        hangups.ChatMessageSegment('Configured Slack teams:', is_bold=True),
-        hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-        ]
+    lines = [ "**Configured Slack teams:**" ]
+
     for slackrtm in _slackrtms:
-        segments.append(hangups.ChatMessageSegment('%s' % slackrtm.name))
-        segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
-    bot.send_message_segments(event.conv, segments)
+        lines.append("* {}".format(slackrtm.name))
 
-
+    yield from bot.coro_send_message(event.conv_id, "\n".join(lines))
 
 
 def slack_channels(bot, event, *args):
@@ -1459,7 +1467,7 @@ def slack_channels(bot, event, *args):
     usage: /bot slack_channels <teamname>"""
 
     if len(args) != 1:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name to list channels of', is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "specify slack team to get list of channels")
         return
 
     slackname = args[0]
@@ -1469,28 +1477,25 @@ def slack_channels(bot, event, *args):
             slackrtm = s
             break
     if not slackrtm:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a configured slack team with name "%s", use /bot slacks to list all teams' % slackname, is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "there is no slack team with name **{}**, use _/bot slacks_ to list all teams".format(slackname))
         return
 
-    segments = []
+    lines = ["**Channels:**"]
 
-    segments.append(hangups.ChatMessageSegment('Slack channels in team %s:' % (slackname), is_bold=True))
-    segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
     slackrtm.update_channelinfos()
     for cid in slackrtm.channelinfos:
         if not slackrtm.channelinfos[cid]['is_archived']:
-            segments.append(hangups.ChatMessageSegment('%s (%s)' % (slackrtm.channelinfos[cid]['name'], cid)))
-            segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+            lines.append("* {1} {0}".format(slackrtm.channelinfos[cid]['name'], cid))
 
-    segments.append(hangups.ChatMessageSegment('private groups:', is_bold=True))
-    segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+    lines.append("**Private groups:**")
+
     slackrtm.update_groupinfos()
     for gid in slackrtm.groupinfos:
         if not slackrtm.groupinfos[gid]['is_archived']:
-            segments.append(hangups.ChatMessageSegment('%s (%s)' % (slackrtm.groupinfos[gid]['name'], gid)))
-            segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+            lines.append("* {1} {0}".format(slackrtm.groupinfos[gid]['name'], gid))
 
-    bot.send_message_segments(event.conv, segments)
+    yield from bot.coro_send_message(event.conv_id, "\n".join(lines))
+
 
 def slack_users(bot, event, *args):
     """list all slack channels available in specified slack team
@@ -1501,7 +1506,7 @@ def slack_users(bot, event, *args):
         honame = ' '.join(args[2:])
     else:
         if len(args) != 2:
-            bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name and a channel', is_bold=True)])
+            yield from bot.coro_send_message(event.conv_id, "specify slack team and channel")
             return
         honame = bot.conversations.get_name(event.conv)
 
@@ -1512,25 +1517,26 @@ def slack_users(bot, event, *args):
             slackrtm = s
             break
     if not slackrtm:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a configured slack team with name "%s", use /bot slacks to list all teams' % slackname, is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "there is no slack team with name **{}**, use _/bot slacks_ to list all teams".format(slackname))
         return
+
     slackrtm.update_channelinfos()
     channelid = args[1]
     channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
     if not channelname:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a channel with id "%s" in team "%s", use /bot slack_channels %s to list all teams' % (channelid, slackname, slackname), is_bold=True)])
+        yield from bot.coro_send_message(
+            event.conv_id,
+            "there is no channel with name **{0}** in **{1}**, use _/bot slack_channels {1}_ to list all channels".format(channelid, slackname) )
         return
 
-    segments = []
+    lines = [ "**Slack users in channel {}**:".format(channelname) ]
 
-    segments.append(hangups.ChatMessageSegment('Slack users in channel %s:' % (channelname), is_bold=True))
-    segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
     users = slackrtm.get_channel_users(channelid)
     for username, realname in sorted(users.items()):
-        segments.append(hangups.ChatMessageSegment('%s (%s)' % (realname, username)))
-        segments.append(hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK))
+        print(username)
+        lines.append("* {} {}".format(username, realname))
 
-    bot.send_message_segments(event.conv, segments)
+    yield from bot.coro_send_message(event.conv_id, "\n".join(lines))
 
 
 def slack_listsyncs(bot, event, *args):
@@ -1538,10 +1544,8 @@ def slack_listsyncs(bot, event, *args):
 
     usage: /bot slack_listsyncs"""
 
-    segments = [
-        hangups.ChatMessageSegment('list of currently synced conversations:', is_bold=True),
-        hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK)
-        ]
+    lines = [ "**Currently synced:**" ]
+
     for slackrtm in _slackrtms:
         for sync in slackrtm.syncs:
             hangoutname = 'unknown'
@@ -1549,25 +1553,15 @@ def slack_listsyncs(bot, event, *args):
                 if c.id_ == sync.hangoutid:
                     hangoutname = bot.conversations.get_name(c, truncate=False)
                     break
-            segments.extend(
-                [
-                    hangups.ChatMessageSegment(
-                        '%s:%s(%s) : %s(%s)' % (
-                            slackrtm.name,
-                            slackrtm.get_channelname(sync.channelid),
-                            sync.channelid,
-                            hangoutname,
-                            sync.hangoutid
-                            ),
-                        is_bold=True
-                        ),
-                    hangups.ChatMessageSegment(' '),
-                    hangups.ChatMessageSegment(sync.getPrintableOptions(), is_italic=True),
-                    hangups.ChatMessageSegment('\n', hangups.SegmentType.LINE_BREAK),
-                    ]
-                )
+            lines.append("{} : {} ({})\n  {} ({})\n  {}".format(
+                slackrtm.name,
+                slackrtm.get_channelname(sync.channelid),
+                sync.channelid,
+                hangoutname,
+                sync.hangoutid,
+                sync.getPrintableOptions()) )
 
-    bot.send_message_segments(event.conv, segments)
+    yield from bot.coro_send_message(event.conv_id, "\n".join(lines))
 
 
 def slack_syncto(bot, event, *args):
@@ -1579,7 +1573,7 @@ def slack_syncto(bot, event, *args):
         honame = ' '.join(args[2:])
     else:
         if len(args) != 2:
-            bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name and a channel', is_bold=True)])
+            yield from bot.coro_send_message(event.conv_id, "specify slack team and channel")
             return
         honame = bot.conversations.get_name(event.conv)
 
@@ -1590,21 +1584,24 @@ def slack_syncto(bot, event, *args):
             slackrtm = s
             break
     if not slackrtm:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a configured slack team with name "%s", use /bot slacks to list all teams' % slackname, is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "there is no slack team with name **{}**, use _/bot slacks_ to list all teams".format(slackname))
         return
 
     channelid = args[1]
     channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
     if not channelname:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a channel with id "%s" in team "%s", use /bot slack_channels %s to list all teams' % (channelid, slackname, slackname), is_bold=True)])
+        yield from bot.coro_send_message(
+            event.conv_id,
+            "there is no channel with name **{0}** in **{1}**, use _/bot slack_channels {1}_ to list all channels".format(channelid, slackname) )
         return
 
     try:
         slackrtm.syncto(channelid, event.conv.id_, honame)
     except AlreadySyncingError:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('Already syncing this Hangout to %s:%s.' % (slackname, channelname), is_bold=True)])
-    else:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('OK, I will now sync all messages in this Hangout to %s:%s.' % (slackname, channelname), is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "hangout already synced with {} : {}".format(slackname, channelname))
+        return
+
+    yield from bot.coro_send_message(event.conv_id, "this hangout synced with {} : {}".format(slackname, channelname))
 
 
 def slack_disconnect(bot, event, *args):
@@ -1613,7 +1610,7 @@ def slack_disconnect(bot, event, *args):
     usage: /bot slack_disconnect <teamname> <channelid>"""
 
     if len(args) != 2:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name and a channel', is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "specify slack team and channel")
         return
 
     slackname = args[0]
@@ -1623,21 +1620,24 @@ def slack_disconnect(bot, event, *args):
             slackrtm = s
             break
     if not slackrtm:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a configured slack team with name "%s", use /bot slacks to list all teams' % slackname, is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "there is no slack team with name **{}**, use _/bot slacks_ to list all teams".format(slackname))
         return
 
     channelid = args[1]
     channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
     if not channelname:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a channel with id "%s" in team "%s", use /bot slack_channels %s to list all teams' % (channelid, slackname, slackname), is_bold=True)])
+        yield from bot.coro_send_message(
+            event.conv_id,
+            "there is no channel with name **{0}** in **{1}**, use _/bot slack_channels {1}_ to list all channels".format(channelid, slackname) )
         return
 
     try:
         slackrtm.disconnect(channelid, event.conv.id_)
     except NotSyncingError:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('This Hangout is NOT synced to %s:%s.' % (slackname, channelname), is_bold=True)])
-    else:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('OK, I will no longer sync messages in this Hangout to %s:%s.' % (slackname, channelname), is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "hangout not previously synced with {} : {}".format(slackname, channelname))
+        return
+
+    yield from bot.coro_send_message(event.conv_id, "this hangout disconnected from {} : {}".format(slackname, channelname))
 
 
 def slack_setsyncjoinmsgs(bot, event, *args):
@@ -1646,7 +1646,7 @@ def slack_setsyncjoinmsgs(bot, event, *args):
     usage: /bot slack_setsyncjoinmsgs <teamname> <channelid> {true|false}"""
 
     if len(args) != 3:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name, a channel and "true" or "false"', is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "specify exactly three parameters: slack team, slack channel, and \"true\" or \"false\"")
         return
 
     slackname = args[0]
@@ -1656,30 +1656,36 @@ def slack_setsyncjoinmsgs(bot, event, *args):
             slackrtm = s
             break
     if not slackrtm:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a configured slack team with name "%s", use /bot slacks to list all teams' % slackname, is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "there is no slack team with name **{}**, use _/bot slacks_ to list all teams".format(slackname))
         return
 
     channelid = args[1]
     channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
     if not channelname:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a channel with id "%s" in team "%s", use /bot slack_channels %s to list all teams' % (channelid, slackname, slackname), is_bold=True)])
+        yield from bot.coro_send_message(
+            event.conv_id,
+            "there is no channel with name **{0}** in **{1}**, use _/bot slack_channels {1}_ to list all channels".format(channelid, slackname) )
         return
 
-    enable = args[2]
-    if enable.lower() in ['true', 'on', 'y', 'yes']:
-        enable = True
+    flag = args[2]
+    if flag.lower() in ['true', 'on', 'y', 'yes']:
+        flag = True
     elif enable.lower() in ['false', 'off', 'n', 'no']:
-        enable = False
+        flag = False
     else:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('sorry, but "%s" is not "true" or "false"' % enable, is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "cannot interpret {} as either \"true\" or \"false\"".format(flag))
         return
 
     try:
-        slackrtm.setsyncjoinmsgs(channelid, event.conv.id_, enable)
+        slackrtm.setsyncjoinmsgs(channelid, event.conv.id_, flag)
     except NotSyncingError:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('This Hangout is NOT synced to %s:%s.' % (slackname, channelname), is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "hangout not previously synced with {} : {}".format(slackname, channelname))
+        return
+
+    if flag:
+        yield from bot.coro_send_message(event.conv_id, "membership changes will be synced with {} : {}".format(slackname, channelname))
     else:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('OK, I will %s sync join/leave messages in this Hangout with %s:%s.' % (('now' if enable else 'no longer'), slackname, channelname), is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "membership changes will no longer be synced with {} : {}".format(slackname, channelname))
 
 
 def slack_setimageupload(bot, event, *args):
@@ -1688,7 +1694,7 @@ def slack_setimageupload(bot, event, *args):
     usage: /bot slack_setimageupload <teamname> <channelid> {true|false}"""
 
     if len(args) != 3:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name, a channel and "true" or "false"', is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "specify exactly three parameters: slack team, slack channel, and \"true\" or \"false\"")
         return
 
     slackname = args[0]
@@ -1698,30 +1704,36 @@ def slack_setimageupload(bot, event, *args):
             slackrtm = s
             break
     if not slackrtm:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a configured slack team with name "%s", use /bot slacks to list all teams' % slackname, is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "there is no slack team with name **{}**, use _/bot slacks_ to list all teams".format(slackname))
         return
 
     channelid = args[1]
     channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
     if not channelname:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a channel with id "%s" in team "%s", use /bot slack_channels %s to list all teams' % (channelid, slackname, slackname), is_bold=True)])
+        yield from bot.coro_send_message(
+            event.conv_id,
+            "there is no channel with name **{0}** in **{1}**, use _/bot slack_channels {1}_ to list all channels".format(channelid, slackname) )
         return
 
-    upload = args[2]
-    if upload.lower() in ['true', 'on', 'y', 'yes']:
-        upload = True
-    elif upload.lower() in ['false', 'off', 'n', 'no']:
-        upload = False
+    flag = args[2]
+    if flag.lower() in ['true', 'on', 'y', 'yes']:
+        flag = True
+    elif flag.lower() in ['false', 'off', 'n', 'no']:
+        flag = False
     else:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('sorry, but "%s" is not "true" or "false"' % upload, is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "cannot interpret {} as either \"true\" or \"false\"".format(flag))
         return
 
     try:
-        slackrtm.setimageupload(channelid, event.conv.id_, upload)
+        slackrtm.setimageupload(channelid, event.conv.id_, flag)
     except NotSyncingError:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('This Hangout is NOT synced to %s:%s.' % (slackname, channelname), is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "hangout not previously synced with {} : {}".format(slackname, channelname))
+        return
+
+    if flag:
+        yield from bot.coro_send_message(event.conv_id, "images will be uploaded to this hangout when shared in {} : {}".format(slackname, channelname))
     else:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('OK, I will %s upload images to this Hangout when shared in %s:%s.' % (('now' if upload else 'no longer'), slackname, channelname), is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "images will not be uploaded to this hangout when shared in {} : {}".format(slackname, channelname))
 
 
 def slack_sethotag(bot, event, *args):
@@ -1731,7 +1743,7 @@ def slack_sethotag(bot, event, *args):
     usage: /bot slack_hotag <teamname> <channelid> {<tag>|none}"""
 
     if len(args) < 3:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name, a channel and a tag', is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "specify: slack team, slack channel, and a tag (\"none\" to disable)")
         return
 
     slackname = args[0]
@@ -1741,28 +1753,32 @@ def slack_sethotag(bot, event, *args):
             slackrtm = s
             break
     if not slackrtm:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a configured slack team with name "%s", use /bot slacks to list all teams' % slackname, is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "there is no slack team with name **{}**, use _/bot slacks_ to list all teams".format(slackname))
         return
 
     channelid = args[1]
     channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
     if not channelname:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a channel with id "%s" in team "%s", use /bot slack_channels %s to list all teams' % (channelid, slackname, slackname), is_bold=True)])
+        yield from bot.coro_send_message(
+            event.conv_id,
+            "there is no channel with name **{0}** in **{1}**, use _/bot slack_channels {1}_ to list all channels".format(channelid, slackname) )
         return
 
     hotag = ' '.join(args[2:])
-    if hotag == 'none':
+    if hotag.lower() == 'none':
         hotag = None
-        oktext = 'NOT be tagged'
-    else:
-        oktext = 'be tagged with " (%s)"' % hotag
 
     try:
         slackrtm.sethotag(channelid, event.conv.id_, hotag)
     except NotSyncingError:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('This Hangout is NOT synced to %s:%s.' % (slackname, channelname), is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "hangout not previously synced with {} : {}".format(slackname, channelname))
+        return
+
+    if hotag:
+        yield from bot.coro_send_message(event.conv_id, "messages synced from this hangout will be tagged \"{}\" in {} : {}".format(hotag, slackname, channelname))
     else:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('OK, messages from this Hangout will %s in slack channel  %s:%s.' % (oktext, slackname, channelname), is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "messages synced from this hangout will not be tagged in {} : {}".format(slackname, channelname))
+
 
 def slack_setslacktag(bot, event, *args):
     """sets the identity of the specified slack conversation synced to the current hangout
@@ -1771,7 +1787,7 @@ def slack_setslacktag(bot, event, *args):
     usage: /bot slack_slacktag <teamname> <channelid> {<tag>|none}"""
 
     if len(args) < 3:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name, a channel and a tag', is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "specify: slack team, slack channel, and a tag (\"none\" to disable)")
         return
 
     slackname = args[0]
@@ -1781,39 +1797,40 @@ def slack_setslacktag(bot, event, *args):
             slackrtm = s
             break
     if not slackrtm:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a configured slack team with name "%s", use /bot slacks to list all teams' % slackname, is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "there is no slack team with name **{}**, use _/bot slacks_ to list all teams".format(slackname))
         return
 
     channelid = args[1]
     channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
     if not channelname:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a channel with id "%s" in team "%s", use /bot slack_channels %s to list all teams' % (channelid, slackname, slackname), is_bold=True)])
+        yield from bot.coro_send_message(
+            event.conv_id,
+            "there is no channel with name **{0}** in **{1}**, use _/bot slack_channels {1}_ to list all channels".format(channelid, slackname) )
         return
 
     slacktag = ' '.join(args[2:])
-    if slacktag == 'none':
+    if slacktag.lower() == 'none':
         slacktag = None
-        oktext = 'NOT be tagged'
-    else:
-        oktext = 'be tagged with " (%s)"' % slacktag
 
     try:
         slackrtm.setslacktag(channelid, event.conv.id_, slacktag)
     except NotSyncingError:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('This Hangout is NOT synced to %s:%s.' % (slackname, channelname), is_bold=True)])
-    else:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('OK, messages from slack channel %s:%s will %s in this Hangout.' % (oktext, slackname, channelname), is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "hangout not previously synced with {} : {}".format(slackname, channelname))
+        return
 
+    if slacktag:
+        yield from bot.coro_send_message(event.conv_id, "messages from slack {} : {} will be tagged with \"{}\" in this hangout".format(slackname, channelname, slacktag))
+    else:
+        yield from bot.coro_send_message(event.conv_id, "messages from slack {} : {} will not be tagged in this hangout".format(slackname, channelname))
 
 
 def slack_showslackrealnames(bot, event, *args):
-    """enable/disable display of realnames instead of usernames in messages synced from slack
-    (default: disabled)
+    """enable/disable display of realnames instead of usernames in messages synced from slack (default: disabled)
 
     usage: /bot slack_showslackrealnames <teamname> <channelid> {true|false}"""
 
     if len(args) != 3:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: You must specify a slack team name, a channel and "true" or "false"', is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "specify exactly three parameters: slack team, slack channel, and \"true\" or \"false\"")
         return
 
     slackname = args[0]
@@ -1823,27 +1840,33 @@ def slack_showslackrealnames(bot, event, *args):
             slackrtm = s
             break
     if not slackrtm:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a configured slack team with name "%s", use /bot slacks to list all teams' % slackname, is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "there is no slack team with name **{}**, use _/bot slacks_ to list all teams".format(slackname))
         return
 
     channelid = args[1]
     channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
     if not channelname:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('ERROR: Could not find a channel with id "%s" in team "%s", use /bot slack_channels %s to list all teams' % (channelid, slackname, slackname), is_bold=True)])
+        yield from bot.coro_send_message(
+            event.conv_id,
+            "there is no channel with name **{0}** in **{1}**, use _/bot slack_channels {1}_ to list all channels".format(channelid, slackname) )
         return
 
-    realnames = args[2]
-    if realnames.lower() in ['true', 'on', 'y', 'yes']:
-        realnames = True
-    elif realnames.lower() in ['false', 'off', 'n', 'no']:
-        realnames = False
+    flag = args[2]
+    if flag.lower() in ['true', 'on', 'y', 'yes']:
+        flag = True
+    elif flag.lower() in ['false', 'off', 'n', 'no']:
+        flag = False
     else:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('sorry, but "%s" is not "true" or "false"' % realnames, is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "cannot interpret {} as either \"true\" or \"false\"".format(flag))
         return
 
     try:
-        slackrtm.showslackrealnames(channelid, event.conv.id_, realnames)
+        slackrtm.showslackrealnames(channelid, event.conv.id_, flag)
     except NotSyncingError:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('This Hangout is NOT synced to %s:%s.' % (slackname, channelname), is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "hangout not previously synced with {} : {}".format(slackname, channelname))
+        return
+
+    if flag:
+        yield from bot.coro_send_message(event.conv_id, "real names will be displayed when syncing messages from slack {} : {}".format(slackname, channelname))
     else:
-        bot.send_message_segments(event.conv, [hangups.ChatMessageSegment('OK, I will display %s in this Hangout when syncing from %s:%s.' % (('realnames' if realnames else 'usernames'), slackname, channelname), is_bold=True)])
+        yield from bot.coro_send_message(event.conv_id, "user names will be displayed when syncing messages from slack {} : {}".format(slackname, channelname))
