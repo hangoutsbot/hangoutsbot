@@ -1427,6 +1427,15 @@ def _initialise(bot):
 
     plugins.register_admin_command(["slack_help", "slacks", "slack_channels", "slack_listsyncs", "slack_syncto", "slack_disconnect", "slack_setsyncjoinmsgs", "slack_setimageupload", "slack_sethotag","slack_users", "slack_setslacktag", "slack_showslackrealnames"])
 
+    plugins.start_asyncio_task(_wait_until_unloaded).add_done_callback(_plugin_unloaded)
+
+@asyncio.coroutine
+def _wait_until_unloaded(bot):
+    while True:
+        yield from asyncio.sleep(60)
+
+def _plugin_unloaded(future):
+    pass
 
 @asyncio.coroutine
 def _handle_membership_change(bot, event, command):
