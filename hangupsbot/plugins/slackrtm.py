@@ -1146,17 +1146,6 @@ class SlackRTM(object):
         _slackrtm_set_synced_conversations(self.bot, syncs)
         return
 
-    @staticmethod
-    def _repeater_cleaner(bot, event, id):
-        event_tokens = event.text.split(":", maxsplit=1)
-        event_text = event_tokens[1].strip()
-        if event_text.lower().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
-            event_text = bot._handlers.bot_command[0] + " [REDACTED]"
-        event.text = event_text
-        event.from_bot = False
-        event._slackrtm_no_repeat = True
-        event._external_source = event_tokens[0].strip() + "@slackrtm"
-
     def handle_reply(self, reply):
         """handle incoming replies from slack"""
 
