@@ -185,6 +185,7 @@ def start_asyncio_task(coroutine_function, *args, **kwargs):
         raise RuntimeError("coroutine function must be supplied")
     asyncio.async(task).add_done_callback(asyncio_task_ended)
     tracking.register_asyncio_task(task)
+    return task
 
 
 """plugin loader"""
