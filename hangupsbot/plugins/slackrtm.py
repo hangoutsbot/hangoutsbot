@@ -358,7 +358,7 @@ class SlackRTM(object):
             self.hangoutnames[c.id_] = name
 
         self.syncs = []
-        syncs = _slackrtm_get_synced_conversations(self.bot, self.name)
+        syncs = _slackrtm_conversations_get(self.bot, self.name)
         if not syncs:
             syncs = []
         for s in syncs:
@@ -1008,12 +1008,12 @@ class SlackRTM(object):
         sync = SlackRTMSync(channel, hangoutid, shortname, self.get_teamname())
         logger.info('adding sync: %s', sync.toDict())
         self.syncs.append(sync)
-        syncs = _slackrtm_get_synced_conversations(self.bot, self.name)
+        syncs = _slackrtm_conversations_get(self.bot, self.name)
         if not syncs:
             syncs = []
         logger.info('storing sync: %s', sync.toDict())
         syncs.append(sync.toDict())
-        _slackrtm_set_synced_conversations(self.bot, syncs)
+        _slackrtm_conversations_set(self.bot, self.name, syncs)
         return
 
     def disconnect(self, channel, hangoutid):
@@ -1026,14 +1026,14 @@ class SlackRTM(object):
         if not sync:
             raise NotSyncingError
 
-        syncs = _slackrtm_get_synced_conversations(self.bot, self.name)
+        syncs = _slackrtm_conversations_get(self.bot, self.name)
         if not syncs:
             syncs = []
         for s in syncs:
             if s['channelid'] == channel and s['hangoutid'] == hangoutid:
                 logger.info('removing stored sync: %s', s)
                 syncs.remove(s)
-        _slackrtm_set_synced_conversations(self.bot, syncs)
+        _slackrtm_conversations_set(self.bot, self.name, syncs)
         return
 
     def setsyncjoinmsgs(self, channel, hangoutid, enable):
@@ -1047,7 +1047,7 @@ class SlackRTM(object):
         logger.info('setting sync_joins=%s for sync=%s', enable, sync.toDict())
         sync.sync_joins = enable
 
-        syncs = _slackrtm_get_synced_conversations(self.bot, self.name)
+        syncs = _slackrtm_conversations_get(self.bot, self.name)
         if not syncs:
             syncs = []
         for s in syncs:
@@ -1055,7 +1055,7 @@ class SlackRTM(object):
                 syncs.remove(s)
         logger.info('storing new sync=%s with changed sync_joins', s)
         syncs.append(sync.toDict())
-        _slackrtm_set_synced_conversations(self.bot, syncs)
+        _slackrtm_conversations_set(self.bot, self.name, syncs)
         return
 
     def sethotag(self, channel, hangoutid, hotag):
@@ -1069,7 +1069,7 @@ class SlackRTM(object):
         logger.info('setting hotag="%s" for sync=%s', hotag, sync.toDict())
         sync.hotag = hotag
 
-        syncs = _slackrtm_get_synced_conversations(self.bot, self.name)
+        syncs = _slackrtm_conversations_get(self.bot, self.name)
         if not syncs:
             syncs = []
         for s in syncs:
@@ -1077,7 +1077,7 @@ class SlackRTM(object):
                 syncs.remove(s)
         logger.info('storing new sync=%s with changed hotag', s)
         syncs.append(sync.toDict())
-        _slackrtm_set_synced_conversations(self.bot, syncs)
+        _slackrtm_conversations_set(self.bot, self.name, syncs)
         return
 
     def setimageupload(self, channel, hangoutid, upload):
@@ -1091,7 +1091,7 @@ class SlackRTM(object):
         logger.info('setting image_upload=%s for sync=%s', upload, sync.toDict())
         sync.image_upload = upload
 
-        syncs = _slackrtm_get_synced_conversations(self.bot, self.name)
+        syncs = _slackrtm_conversations_get(self.bot, self.name)
         if not syncs:
             syncs = []
         for s in syncs:
@@ -1099,7 +1099,7 @@ class SlackRTM(object):
                 syncs.remove(s)
         logger.info('storing new sync=%s with changed hotag', s)
         syncs.append(sync.toDict())
-        _slackrtm_set_synced_conversations(self.bot, syncs)
+        _slackrtm_conversations_set(self.bot, self.name, syncs)
         return
 
     def setslacktag(self, channel, hangoutid, slacktag):
@@ -1113,7 +1113,7 @@ class SlackRTM(object):
         logger.info('setting slacktag="%s" for sync=%s', slacktag, sync.toDict())
         sync.slacktag = slacktag
 
-        syncs = _slackrtm_get_synced_conversations(self.bot, self.name)
+        syncs = _slackrtm_conversations_get(self.bot, self.name)
         if not syncs:
             syncs = []
         for s in syncs:
@@ -1121,7 +1121,7 @@ class SlackRTM(object):
                 syncs.remove(s)
         logger.info('storing new sync=%s with changed hotag', s)
         syncs.append(sync.toDict())
-        _slackrtm_set_synced_conversations(self.bot, syncs)
+        _slackrtm_conversations_set(self.bot, self.name, syncs)
         return
 
     def showslackrealnames(self, channel, hangoutid, realnames):
@@ -1135,7 +1135,7 @@ class SlackRTM(object):
         logger.info('setting showslackrealnames=%s for sync=%s', realnames, sync.toDict())
         sync.showslackrealnames = realnames
 
-        syncs = _slackrtm_get_synced_conversations(self.bot, self.name)
+        syncs = _slackrtm_conversations_get(self.bot, self.name)
         if not syncs:
             syncs = []
         for s in syncs:
@@ -1143,7 +1143,7 @@ class SlackRTM(object):
                 syncs.remove(s)
         logger.info('storing new sync=%s with changed hotag', s)
         syncs.append(sync.toDict())
-        _slackrtm_set_synced_conversations(self.bot, syncs)
+        _slackrtm_conversations_set(self.bot, self.name, syncs)
         return
 
     def handle_reply(self, reply):
@@ -1293,7 +1293,7 @@ class BridgeInstance(WebFramework):
         for slackrtm_config in slackrtm_configs:
             # mutate the config earlier, as slackrtm is messy
             config_clone = dict(slackrtm_config)
-            synced_conversations = _slackrtm_get_synced_conversations(self.bot, slackrtm_config["name"]) or []
+            synced_conversations = _slackrtm_conversations_get(self.bot, slackrtm_config["name"]) or []
             for synced in synced_conversations:
                 config_clone["hangouts"] = [ synced["hangoutid"] ]
                 config_clone[self.configkey] = [ synced["channelid"] ]
@@ -1396,6 +1396,10 @@ class SlackRTMThread(threading.Thread):
 
 
 def _initialise(bot):
+    # unbreak slackrtm memory.json usage
+    #   previously, this plugin wrote into "user_data" key to store its internal team settings
+    _slackrtm_conversations_migrate_20170319(bot)
+
     # Start and asyncio event loop
     loop = asyncio.get_event_loop()
     slack_sink = bot.get_config_option('slackrtm')
@@ -1416,11 +1420,45 @@ def _initialise(bot):
 
     plugins.start_asyncio_task(_wait_until_unloaded).add_done_callback(_plugin_unloaded)
 
-def _slackrtm_set_synced_conversations(bot, slack_channel, synced_hangouts):
-    bot.user_memory_set(slack_channel, 'synced_conversations', synced_hangouts)
+def _slackrtm_conversations_migrate_20170319(bot):
+    memory_root_key = "slackrtm"
+    if bot.memory.exists([ memory_root_key ]):
+        return
 
-def _slackrtm_get_synced_conversations(bot, slack_channel):
-    return bot.user_memory_get(slack_channel, 'synced_conversations')
+    configurations = bot.get_config_option('slackrtm') or []
+    migrated_configurations = {}
+    for configuration in configurations:
+        team_name = configuration["name"]
+        legacy_team_memory = dict(bot.memory.get_by_path([ 'user_data', team_name ]))
+        migrated_configurations[ team_name ] = legacy_team_memory
+
+    bot.memory.set_by_path([ memory_root_key ], migrated_configurations)
+    bot.memory.save()
+
+def _slackrtm_conversations_set(bot, team_name, synced_hangouts):
+    memory_root_key = "slackrtm"
+
+    if not bot.memory.exists([ memory_root_key ]):
+        bot.memory.set_by_path([ memory_root_key ], {})
+
+    if not bot.memory.exists([ memory_root_key, team_name ]):
+        bot.memory.set_by_path([ memory_root_key, team_name ], {})
+
+    bot.memory.set_by_path([ memory_root_key, team_name, "synced_conversations" ], synced_hangouts)
+    bot.memory.save()
+
+def _slackrtm_conversations_get(bot, team_name):
+    memory_root_key = "slackrtm"
+    synced_conversations = False
+    if bot.memory.exists([ memory_root_key ]):
+        full_path = [ memory_root_key, team_name, "synced_conversations" ]
+        if bot.memory.exists(full_path):
+            synced_conversations = bot.memory.get_by_path(full_path) or False
+    else:
+        # XXX: older versions of this plugin incorrectly uses "user_data" key
+        logger.warning("using broken legacy memory of synced conversations")
+        synced_conversations = bot.user_memory_get(team_name, 'synced_conversations')
+    return synced_conversations
 
 @asyncio.coroutine
 def _wait_until_unloaded(bot):
