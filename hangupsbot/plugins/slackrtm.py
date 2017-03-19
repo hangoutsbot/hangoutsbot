@@ -768,7 +768,7 @@ class SlackRTM(object):
                     channelname = '#%s' % self.get_channelname(msg.channel)
 
                 try:
-                    self.syncto(msg.channel, hangoutid, shortname)
+                    self.config_syncto(msg.channel, hangoutid, shortname)
                 except AlreadySyncingError:
                     message += u'This channel (%s) is already synced with Hangout _%s_.' % (channelname, hangoutname)
                 else:
@@ -798,7 +798,7 @@ class SlackRTM(object):
                 else:
                     channelname = '#%s' % self.get_channelname(msg.channel)
                 try:
-                    self.disconnect(msg.channel, hangoutid)
+                    self.config_disconnect(msg.channel, hangoutid)
                 except NotSyncingError:
                     message += u'This channel (%s) is *not* synced with Hangout _%s_.' % (channelname, hangoutid)
                 else:
@@ -838,7 +838,7 @@ class SlackRTM(object):
                     return
 
                 try:
-                    self.setsyncjoinmsgs(msg.channel, hangoutid, enable)
+                    self.config_setsyncjoinmsgs(msg.channel, hangoutid, enable)
                 except NotSyncingError:
                     message += u'This channel (%s) is not synced with Hangout _%s_, not changing syncjoinmsgs.' % (channelname, hangoutname)
                 else:
@@ -875,7 +875,7 @@ class SlackRTM(object):
                     oktext = 'be tagged with " (%s)"' % hotag
 
                 try:
-                    self.sethotag(msg.channel, hangoutid, hotag)
+                    self.config_sethotag(msg.channel, hangoutid, hotag)
                 except NotSyncingError:
                     message += u'This channel (%s) is not synced with Hangout _%s_, not changing Hangout tag.' % (channelname, hangoutname)
                 else:
@@ -915,7 +915,7 @@ class SlackRTM(object):
                     return
 
                 try:
-                    self.setimageupload(msg.channel, hangoutid, upload)
+                    self.config_setimageupload(msg.channel, hangoutid, upload)
                 except NotSyncingError:
                     message += u'This channel (%s) is not synced with Hangout _%s_, not changing imageupload.' % (channelname, hangoutname)
                 else:
@@ -952,7 +952,7 @@ class SlackRTM(object):
                     oktext = 'be tagged with " (%s)"' % slacktag
 
                 try:
-                    self.setslacktag(msg.channel, hangoutid, slacktag)
+                    self.config_setslacktag(msg.channel, hangoutid, slacktag)
                 except NotSyncingError:
                     message += u'This channel (%s) is not synced with Hangout _%s_, not changing Slack tag.' % (channelname, hangoutname)
                 else:
@@ -992,7 +992,7 @@ class SlackRTM(object):
                     return
 
                 try:
-                    self.showslackrealnames(msg.channel, hangoutid, realnames)
+                    self.config_showslackrealnames(msg.channel, hangoutid, realnames)
                 except NotSyncingError:
                     message += u'This channel (%s) is not synced with Hangout _%s_, not changing showslackrealnames.' % (channelname, hangoutname)
                 else:
@@ -1000,7 +1000,7 @@ class SlackRTM(object):
                 self.api_call('chat.postMessage', channel=msg.channel, text=message, as_user=True, link_names=True)
 
 
-    def syncto(self, channel, hangoutid, shortname):
+    def config_syncto(self, channel, hangoutid, shortname):
         for sync in self.syncs:
             if sync.channelid == channel and sync.hangoutid == hangoutid:
                 raise AlreadySyncingError
@@ -1016,7 +1016,7 @@ class SlackRTM(object):
         _slackrtm_conversations_set(self.bot, self.name, syncs)
         return
 
-    def disconnect(self, channel, hangoutid):
+    def config_disconnect(self, channel, hangoutid):
         sync = None
         for s in self.syncs:
             if s.channelid == channel and s.hangoutid == hangoutid:
@@ -1036,7 +1036,7 @@ class SlackRTM(object):
         _slackrtm_conversations_set(self.bot, self.name, syncs)
         return
 
-    def setsyncjoinmsgs(self, channel, hangoutid, enable):
+    def config_setsyncjoinmsgs(self, channel, hangoutid, enable):
         sync = None
         for s in self.syncs:
             if s.channelid == channel and s.hangoutid == hangoutid:
@@ -1058,7 +1058,7 @@ class SlackRTM(object):
         _slackrtm_conversations_set(self.bot, self.name, syncs)
         return
 
-    def sethotag(self, channel, hangoutid, hotag):
+    def config_sethotag(self, channel, hangoutid, hotag):
         sync = None
         for s in self.syncs:
             if s.channelid == channel and s.hangoutid == hangoutid:
@@ -1080,7 +1080,7 @@ class SlackRTM(object):
         _slackrtm_conversations_set(self.bot, self.name, syncs)
         return
 
-    def setimageupload(self, channel, hangoutid, upload):
+    def config_setimageupload(self, channel, hangoutid, upload):
         sync = None
         for s in self.syncs:
             if s.channelid == channel and s.hangoutid == hangoutid:
@@ -1102,7 +1102,7 @@ class SlackRTM(object):
         _slackrtm_conversations_set(self.bot, self.name, syncs)
         return
 
-    def setslacktag(self, channel, hangoutid, slacktag):
+    def config_setslacktag(self, channel, hangoutid, slacktag):
         sync = None
         for s in self.syncs:
             if s.channelid == channel and s.hangoutid == hangoutid:
@@ -1124,7 +1124,7 @@ class SlackRTM(object):
         _slackrtm_conversations_set(self.bot, self.name, syncs)
         return
 
-    def showslackrealnames(self, channel, hangoutid, realnames):
+    def config_showslackrealnames(self, channel, hangoutid, realnames):
         sync = None
         for s in self.syncs:
             if s.channelid == channel and s.hangoutid == hangoutid:
@@ -1635,7 +1635,7 @@ def slack_syncto(bot, event, *args):
         return
 
     try:
-        slackrtm.syncto(channelid, event.conv.id_, honame)
+        slackrtm.config_syncto(channelid, event.conv.id_, honame)
     except AlreadySyncingError:
         yield from bot.coro_send_message(event.conv_id, "hangout already synced with {} : {}".format(slackname, channelname))
         return
@@ -1671,9 +1671,9 @@ def slack_disconnect(bot, event, *args):
         return
 
     try:
-        slackrtm.disconnect(channelid, event.conv.id_)
+        slackrtm.config_disconnect(channelid, event.conv.id_)
     except NotSyncingError:
-        yield from bot.coro_send_message(event.conv_id, "hangout not previously synced with {} : {}".format(slackname, channelname))
+        yield from bot.coro_send_message(event.conv_id, "current hangout not previously synced with {} : {}".format(slackname, channelname))
         return
 
     yield from bot.coro_send_message(event.conv_id, "this hangout disconnected from {} : {}".format(slackname, channelname))
@@ -1716,9 +1716,9 @@ def slack_setsyncjoinmsgs(bot, event, *args):
         return
 
     try:
-        slackrtm.setsyncjoinmsgs(channelid, event.conv.id_, flag)
+        slackrtm.config_setsyncjoinmsgs(channelid, event.conv.id_, flag)
     except NotSyncingError:
-        yield from bot.coro_send_message(event.conv_id, "hangout not previously synced with {} : {}".format(slackname, channelname))
+        yield from bot.coro_send_message(event.conv_id, "current hangout not previously synced with {} : {}".format(slackname, channelname))
         return
 
     if flag:
@@ -1764,9 +1764,9 @@ def slack_setimageupload(bot, event, *args):
         return
 
     try:
-        slackrtm.setimageupload(channelid, event.conv.id_, flag)
+        slackrtm.config_setimageupload(channelid, event.conv.id_, flag)
     except NotSyncingError:
-        yield from bot.coro_send_message(event.conv_id, "hangout not previously synced with {} : {}".format(slackname, channelname))
+        yield from bot.coro_send_message(event.conv_id, "current hangout not previously synced with {} : {}".format(slackname, channelname))
         return
 
     if flag:
@@ -1808,9 +1808,9 @@ def slack_sethotag(bot, event, *args):
         hotag = None
 
     try:
-        slackrtm.sethotag(channelid, event.conv.id_, hotag)
+        slackrtm.config_sethotag(channelid, event.conv.id_, hotag)
     except NotSyncingError:
-        yield from bot.coro_send_message(event.conv_id, "hangout not previously synced with {} : {}".format(slackname, channelname))
+        yield from bot.coro_send_message(event.conv_id, "current hangout not previously synced with {} : {}".format(slackname, channelname))
         return
 
     if hotag:
@@ -1852,9 +1852,9 @@ def slack_setslacktag(bot, event, *args):
         slacktag = None
 
     try:
-        slackrtm.setslacktag(channelid, event.conv.id_, slacktag)
+        slackrtm.config_setslacktag(channelid, event.conv.id_, slacktag)
     except NotSyncingError:
-        yield from bot.coro_send_message(event.conv_id, "hangout not previously synced with {} : {}".format(slackname, channelname))
+        yield from bot.coro_send_message(event.conv_id, "current hangout not previously synced with {} : {}".format(slackname, channelname))
         return
 
     if slacktag:
@@ -1900,9 +1900,9 @@ def slack_showslackrealnames(bot, event, *args):
         return
 
     try:
-        slackrtm.showslackrealnames(channelid, event.conv.id_, flag)
+        slackrtm.config_showslackrealnames(channelid, event.conv.id_, flag)
     except NotSyncingError:
-        yield from bot.coro_send_message(event.conv_id, "hangout not previously synced with {} : {}".format(slackname, channelname))
+        yield from bot.coro_send_message(event.conv_id, "current hangout not previously synced with {} : {}".format(slackname, channelname))
         return
 
     if flag:
