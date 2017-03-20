@@ -1166,6 +1166,12 @@ class SlackRTM(object):
         user = event.passthru["original_request"]["user"]
         message = event.passthru["original_request"]["message"]
         preferred_name, nickname, full_name, photo_url = self._bridgeinstance._standardise_bridge_user_details(user)
+        if isinstance(user, str):
+            chat_id = user
+        else:
+            chat_id = user.id_.chat_id
+
+        # XXX: slackrtm needs more metadata for itself
         if chatbridge_extras:
             conv_id = chatbridge_extras["conv_id"]
 
@@ -1173,11 +1179,12 @@ class SlackRTM(object):
             if sync.hotag:
                 full_name = '%s (%s)' % (full_name, sync.hotag)
             try:
-                photo_url = "https://" + photo_url
+                if photo_url:
+                    photo_url = "https://" + photo_url
             except Exception as e:
                 logger.exception('error while getting user from bot: %s', e)
                 photo_url = ''
-            message = u'%s <ho://%s/%s| >' % (message, conv_id, user.id_.chat_id)
+            message = u'%s <ho://%s/%s| >' % (message, conv_id, chat_id)
             logger.debug("sending to channel %s: %s", sync.channelid, message.encode('utf-8'))
             self.api_call('chat.postMessage',
                           channel = sync.channelid,
