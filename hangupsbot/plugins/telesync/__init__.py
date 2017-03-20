@@ -149,6 +149,13 @@ class TelegramBot(telepot.aio.Bot):
             return False
 
     @asyncio.coroutine
+    def get_hangouts_image_id_from_telegram_photo_id(self, photo_id):
+        metadata = yield from self.getFile(photo_id)
+        photo_path = "https://api.telegram.org/file/bot{}/{}".format(self.config['api_key'], metadata["file_path"])
+        ho_photo_id = yield from self.ho_bot.call_shared("image_upload_single", photo_path)
+        return ho_photo_id
+
+    @asyncio.coroutine
     def handle(self, msg):
 
         if 'migrate_to_chat_id' in msg:
@@ -336,6 +343,8 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
                 "norelay": [ tg_bot.chatbridge.plugin_name ] }))
 
 
+
+
 @asyncio.coroutine
 def tg_on_sticker(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
@@ -344,16 +353,9 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
 
         user = tg_util_sync_get_user_name(msg)
-
-        photo_id = msg['sticker']['file_id']
-
-        # TODO: find a better way to handling file paths
-        photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_id + ".jpg"
-
         text = "uploading sticker from <b>{}</b> in <b>{}</b>...".format(
             tg_util_sync_get_user_name(msg),
             tg_util_get_group_name(msg) )
-
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
             FakeEvent(
@@ -367,21 +369,9 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
                         "user": user },
                     "norelay": [ tg_bot.chatbridge.plugin_name ] }))
 
-        file_dir = os.path.dirname(photo_path)
-        if not os.path.exists(file_dir):
-            os.makedirs(file_dir)
-
-        yield from tg_bot.download_file(photo_id, photo_path)
-
-        logger.info("sending sticker {}".format(photo_id))
-
-        with open(photo_path, "rb") as photo_file:
-            ho_photo_id = yield from tg_bot.ho_bot._client.upload_image(
-                photo_file,
-                filename = os.path.basename(photo_path) )
+        ho_photo_id = yield from tg_bot.get_hangouts_image_id_from_telegram_photo_id(msg['sticker']['file_id'])
 
         text = "sent {} sticker".format(msg["sticker"]['emoji'])
-
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
             FakeEvent(
@@ -397,10 +387,6 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
 
         logger.info("sticker posted to hangouts")
 
-        config = _telesync_config(tg_bot.ho_bot)
-        if "do_not_keep_photos" not in config or config["do_not_keep_photos"]:
-            os.remove(photo_path)  # don't use unnecessary space on disk
-
 
 @asyncio.coroutine
 def tg_on_photo(tg_bot, tg_chat_id, msg):
@@ -410,19 +396,9 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
 
         user = tg_util_sync_get_user_name(msg)
-
-        photos = tg_util_get_photo_list(msg)
-        photo_caption = tg_util_get_photo_caption(msg)
-
-        photo_id = photos[len(photos) - 1]['file_id']  # get photo id so we can download it
-
-        # TODO: find a better way to handling file paths
-        photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_id + ".jpg"
-
         text = "uploading photo from <b>{}</b> in <b>{}</b>...".format(
             user,
             tg_util_get_group_name(msg) )
-
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
             FakeEvent(
@@ -436,20 +412,11 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
                         "user": user },
                     "norelay": [ tg_bot.chatbridge.plugin_name ] }))
 
-        file_dir = os.path.dirname(photo_path)
-        if not os.path.exists(file_dir):
-            os.makedirs(file_dir)
-
-        yield from tg_bot.download_file(photo_id, photo_path)
-
-        logger.info("sending photo {}".format(photo_id))
-
-        with open(photo_path, "rb") as photo_file:
-            ho_photo_id = yield from tg_bot.ho_bot._client.upload_image( photo_file,
-                                                                         filename=os.path.basename(photo_path))
+        tg_photos = tg_util_get_photo_list(msg)
+        tg_photo_id = tg_photos[len(tg_photos) - 1]['file_id']
+        ho_photo_id = yield from tg_bot.get_hangouts_image_id_from_telegram_photo_id(tg_photo_id)
 
         text = "sent a photo"
-
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
             FakeEvent(
@@ -464,10 +431,6 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
                     "norelay": [ tg_bot.chatbridge.plugin_name ] }))
 
         logger.info("photo posted to hangouts")
-
-        config = _telesync_config(tg_bot.ho_bot)
-        if "do_not_keep_photos" not in config or config["do_not_keep_photos"]:
-            os.remove(photo_path)  # don't use unnecessary space on disk
 
 
 @asyncio.coroutine
@@ -917,35 +880,19 @@ class BridgeInstance(WebFramework):
 
         # send photos
         if has_photo:
-            photo_name = "{}-{}".format( random.randint(1, 100000),
-                                         photo_file_name )
-
-            photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_name
-
-            file_dir = os.path.dirname(photo_path)
-            if not os.path.exists(file_dir):
-                os.makedirs(file_dir)
-
-            logger.info("saving: {} to {}".format(photo_url, photo_path))
-
             with aiohttp.ClientSession() as session:
                 resp = yield from session.get(photo_url)
                 raw_data = yield from resp.read()
                 resp.close()
-                with open(photo_path, "wb") as f:
-                    f.write(raw_data)
+                tempfile = io.BytesIO(raw_data)
 
             for eid in external_ids:
-                if _telesync_is_animated_photo(photo_path):
+                if photo_file_name.endswith((".gif", ".gifv", ".webm", ".mp4")):
                     yield from tg_bot.sendDocument( eid,
-                                                    open(photo_path, 'rb' ) )
+                                                    tempfile )
                 else:
                     yield from tg_bot.sendPhoto( eid,
-                                                 open(photo_path, 'rb') )
-
-            if "do_not_keep_photos" not in config or config['do_not_keep_photos']:
-                os.remove(photo_path)  # don't use unnecessary space on disk
-                logger.info("removed: {}".format(photo_path))
+                                                 tempfile )
 
 
 """hangoutsbot plugin initialisation"""
@@ -990,19 +937,12 @@ def _initialise(bot):
 
     plugins.register_handler(_on_membership_change, type="membership")
 
-
 def _telesync_config(bot):
     # immediately halt configuration load if it isn't available
     telesync_config = bot.get_config_option("telesync") or {}
     if "enabled" not in telesync_config  or not telesync_config["enabled"]:
         return False
     return telesync_config
-
-def _telesync_get_photo_extension(file_name):
-    return ".{}".format(file_name.rpartition('.')[-1])
-
-def _telesync_is_animated_photo(file_name):
-    return True if _telesync_get_photo_extension(file_name).endswith((".gif", ".gifv", ".webm", ".mp4")) else False
 
 def _telesync_membership_change_message(user_name, user_gplus, group_name, membership_event="left"):
     text = '<a href="{user_gplus}">{uname}</a> {membership_event} <b>({gname})</b>'.format(uname=user_name,
