@@ -752,9 +752,24 @@ class SlackRTM(object):
                                 "norelay": [ self._bridgeinstance.plugin_name ] })))
 
     @asyncio.coroutine
+    def _send_deferred_photo(self, image_link, sync, full_name, link_names, photo_url, fragment):
+        self.api_call('chat.postMessage',
+                      channel = sync.channelid,
+                      text = "{} {}".format(image_link, fragment),
+                      username = full_name,
+                      link_names = True,
+                      icon_url = photo_url)
+
+    @asyncio.coroutine
     def handle_ho_message(self, event, chatbridge_extras={}):
         user = event.passthru["original_request"]["user"]
         message = event.passthru["original_request"]["message"]
+
+        # XXX: rudimentary conversion of html to markdown
+        message = re.sub(r"</?b>", "*", message)
+        message = re.sub(r"</?i>", "_", message)
+        message = re.sub(r"</?pre>", "`", message)
+
         preferred_name, nickname, full_name, photo_url = self._bridgeinstance._standardise_bridge_user_details(user)
         if isinstance(user, str):
             chat_id = user
@@ -774,7 +789,45 @@ class SlackRTM(object):
             except Exception as e:
                 logger.exception('error while getting user from bot: %s', e)
                 photo_url = ''
-            message = u'%s <ho://%s/%s| >' % (message, conv_id, chat_id)
+
+            fragment = "<ho://{}/{}| >".format(conv_id, chat_id)
+            message = "{} {}".format(message, fragment)
+
+            """XXX: deferred image sending
+
+            this plugin leverages existing storage in hangouts - since there isn't a direct means
+            to acquire the public url of a hangups-upload file we need to wait for other handlers to post
+            the image in hangouts, which generates the public url, which we will send in a deferred post.
+
+            handlers.image_uri_from() is packaged as a task to wait for an image link to be associated with
+            an image id that this handler sees
+            """
+
+            if( "image_id" in event.passthru["original_request"]
+                    and event.passthru["original_request"]["image_id"] ):
+
+                if( "conv_event" in event
+                        and "attachments" in event.conv_event
+                        and len(event.conv_event.attachments) == 1 ):
+
+                    message = "shared an image: {}".format(event.conv_event.attachments[0])
+                else:
+                    # without attachments, create a deferred post until the public image url becomes available
+                    image_id = event.passthru["original_request"]["image_id"]
+
+                    loop = asyncio.get_event_loop()
+                    task = loop.create_task(
+                        self.bot._handlers.image_uri_from(
+                            image_id,
+                            self._send_deferred_photo,
+                            sync,
+                            full_name,
+                            True,
+                            photo_url,
+                            fragment ))
+
+            """standard message relay"""
+
             logger.debug("sending to channel %s: %s", sync.channelid, message.encode('utf-8'))
             self.api_call('chat.postMessage',
                           channel = sync.channelid,
