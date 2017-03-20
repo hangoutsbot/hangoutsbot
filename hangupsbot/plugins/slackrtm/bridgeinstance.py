@@ -15,21 +15,19 @@ class BridgeInstance(WebFramework):
     def setup_plugin(self):
         self.plugin_name = "slackRTM"
 
-    def load_configuration(self, convid):
-        slackrtm_configs = self.bot.get_config_option('slackrtm') or []
+    def load_configuration(self, configkey):
+        slackrtm_configs = self.bot.get_config_option(configkey) or []
         if not slackrtm_configs:
             return
-
-        """WARNING: slackrtm configuration in current form is FUNDAMENTALLY BROKEN since it misuses USER memory for storage"""
 
         mutated_configurations = []
         for slackrtm_config in slackrtm_configs:
             # mutate the config earlier, as slackrtm is messy
-            config_clone = dict(slackrtm_config)
             synced_conversations = _slackrtm_conversations_get(self.bot, slackrtm_config["name"]) or []
             for synced in synced_conversations:
+                config_clone = dict(slackrtm_config)
                 config_clone["hangouts"] = [ synced["hangoutid"] ]
-                config_clone[self.configkey] = [ synced["channelid"] ]
+                config_clone[configkey] = [ synced["channelid"] ]
                 mutated_configurations.append(config_clone)
         self.configuration = mutated_configurations
 
@@ -38,14 +36,20 @@ class BridgeInstance(WebFramework):
     @asyncio.coroutine
     def _send_to_external_chat(self, config, event):
         conv_id = config["trigger"]
-        relay_channels = config["config.json"][self.configkey]
+        team_name = config["config.json"]["name"]
 
         user = event.passthru["original_request"]["user"]
         message = event.passthru["original_request"]["message"]
 
+        """slackrtm uses one thread per team, identify slackclient to handle the hangouts message.
+        since the config is further separated by hangouts conv_id for relay, we also supply extra info
+            to the handler, so it can decide for itself whether/where the message should be forwarded"""
+
         for slackrtm in _slackrtms:
             try:
-                yield from slackrtm.handle_ho_message(event, chatbridge_extras={ "conv_id": conv_id })
+                # identify the correct thread, then send the message
+                if slackrtm.name == team_name:
+                    yield from slackrtm.handle_ho_message(event, chatbridge_extras={ "conv_id": conv_id })
             except Exception as e:
                 logger.exception('_handle_slackout threw: %s', str(e))
 
