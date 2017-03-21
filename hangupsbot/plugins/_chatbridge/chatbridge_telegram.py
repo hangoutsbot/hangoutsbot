@@ -119,8 +119,8 @@ class BridgeInstance(WebFramework):
                                 yield from self._send_to_internal_chat(
                                     conv_id,
                                     message,
-                                    {   "from_user": user,
-                                        "from_chat": False })
+                                    {   "source_user": user,
+                                        "source_title": False })
 
             else:
                 pass

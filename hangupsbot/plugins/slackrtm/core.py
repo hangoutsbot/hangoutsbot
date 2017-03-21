@@ -724,7 +724,7 @@ class SlackRTM(object):
                 continue
 
             if msg.from_ho_id != sync.hangoutid:
-                user = msg.realname4ho if sync.showslackrealnames else msg.username4ho
+                username = msg.realname4ho if sync.showslackrealnames else msg.username4ho
 
                 if msg.file_attachment:
                     if sync.image_upload:
@@ -742,8 +742,9 @@ class SlackRTM(object):
                         sync.hangoutid,
                         msg_html,
                         {   "sync": sync,
-                            "from_user": user,
-                            "from_chat": channel_name }))
+                            "source_user": username,
+                            "source_uid": msg.user,
+                            "source_title": channel_name }))
 
     @asyncio.coroutine
     def _send_deferred_photo(self, image_link, sync, full_name, link_names, photo_url, fragment):
@@ -764,7 +765,7 @@ class SlackRTM(object):
         message = re.sub(r"</?i>", "_", message)
         message = re.sub(r"</?pre>", "`", message)
 
-        bridge_user = self._bridgeinstance._get_user_details(user)
+        bridge_user = self._bridgeinstance._get_user_details(user, { "event": event })
 
         for sync in self.get_syncs(hangoutid=conv_id):
             display_name = bridge_user["preferred_name"]
@@ -777,7 +778,7 @@ class SlackRTM(object):
                 elif sync.hotag is not True and sync.hotag:
                     display_name += " ({})".format(sync.hotag)
 
-            slackrtm_fragment = "<ho://{}/{}| >".format(conv_id, bridge_user["chat_id"])
+            slackrtm_fragment = "<ho://{}/{}| >".format(conv_id, bridge_user["chat_id"] or bridge_user["preferred_name"])
 
             message = "{} {}".format(message, slackrtm_fragment)
 

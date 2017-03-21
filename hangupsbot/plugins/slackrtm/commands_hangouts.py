@@ -319,13 +319,13 @@ def slack_sethotag(bot, event, *args):
 
     if len(args) == 3:
         if args[2].lower() == 'none':
-            slacktag = None
+            hotag = None
         elif args[2].lower() == "true":
-            slacktag = True
+            hotag = True
         else:
-            slacktag = args[2]
+            hotag = args[2]
     else:
-        slacktag = ' '.join(args[2:])
+        hotag = ' '.join(args[2:])
 
     try:
         slackrtm.config_sethotag(channelid, event.conv.id_, hotag)

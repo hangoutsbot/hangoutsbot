@@ -97,7 +97,7 @@ class WebFramework:
             passthru["norelay"] = []
         if self.plugin_name in passthru["norelay"]:
             # prevent message broadcast duplication
-            logger.info("_broadcast:NORELAY:{}@{}".format(passthru["norelay"], self.plugin_name))
+            logger.info("{}:NORELAY:broadcast:{}".format(self.plugin_name,passthru["norelay"]))
             return
         else:
             # halt messaging handler from re-relaying
@@ -107,10 +107,12 @@ class WebFramework:
         chat_id = user.id_.chat_id
 
         # context preserves as much of the original request as possible
+
+        logger.info("{}:broadcast:{}".format(self.plugin_name, passthru))
+
         if "original_request" in passthru:
             message = passthru["original_request"]["message"]
             image_id = passthru["original_request"]["image_id"]
-            segments = passthru["original_request"]["segments"]
             if "user" in passthru["original_request"]:
                 if(isinstance(passthru["original_request"]["user"], str)):
                     user = FakeUser( full_name = str,
@@ -121,14 +123,24 @@ class WebFramework:
             else:
                 # add bot if no user is present
                 passthru["original_request"]["user"] = user
+
         else:
-            # bot is sending a message
+            """bot is raising an event that needs to be repeated
+
+            only the first handler to run will assign all the variables 
+                we need for the other bridges to work"""
+
+            logger.info("hangouts bot raised an event, first seen by {}".format(self.plugin_name))
+
             passthru["original_request"] = { "message": message,
                                              "image_id": None,
                                              "segments": None,
                                              "user": user }
+
             passthru["chatbridge"] = { "source_title": bot.conversations.get_name(conv_id),
-                                       "source_user": user }
+                                       "source_user": user,
+                                       "source_uid": chat_id,
+                                       "source_plugin": self.plugin_name }
 
         # for messages from other plugins, relay them
         for config in applicable_configurations:
@@ -153,33 +165,35 @@ class WebFramework:
             passthru["norelay"] = []
         if self.plugin_name in passthru["norelay"]:
             # prevent message relay duplication
-            logger.info("_repeat:NORELAY:{}@{}".format(passthru["norelay"],self.plugin_name))
+            logger.info("{}:NORELAY:repeat:{}".format(self.plugin_name,passthru["norelay"]))
             return
         else:
             # halt sending handler from re-relaying
             passthru["norelay"].append(self.plugin_name)
 
+        logger.info("{}:repeat:{}".format(self.plugin_name, passthru))
+
         user = event.user
         message = event.text
         image_id = None
 
-        if "original_request" in passthru:
-            message = passthru["original_request"]["message"]
-            image_id = passthru["original_request"]["image_id"]
-            segments = passthru["original_request"]["segments"]
-            # user is only assigned once, upon the initial event
-            if "user" in passthru["original_request"]:
-                user = passthru["original_request"]["user"]
-            else:
-                passthru["original_request"]["user"] = user
-        else:
-            # user raised an event
+        if "original_request" not in passthru:
+            """user has raised an event that needs to be repeated
+
+            only the first handler to run will assign all the variables 
+                we need for the other bridges to work"""
+
+            logger.info("hangouts user raised an event, first seen by {}".format(self.plugin_name))
+
             passthru["original_request"] = { "message": event.text,
                                              "image_id": None, # XXX: should be attachments
                                              "segments": event.conv_event.segments,
                                              "user": event.user }
+
             passthru["chatbridge"] = { "source_title": bot.conversations.get_name(conv_id),
-                                       "source_user": event.user }
+                                       "source_user": event.user,
+                                       "source_uid": event.user.id_.chat_id,
+                                       "source_plugin": self.plugin_name }
 
         for config in applicable_configurations:
             yield from self._send_to_external_chat(config, event)
@@ -192,22 +206,32 @@ class WebFramework:
     def _send_to_internal_chat(self, conv_id, message, external_context, image_id=None):
         formatted_message = self.format_incoming_message(message, external_context)
 
-        from_user = self.plugin_name
-        if "from_user" in external_context and external_context["from_user"]:
-            from_user = external_context["from_user"]
-        from_chat = self.plugin_name
-        if "from_chat" in external_context and external_context["from_chat"]:
-            from_chat = external_context["from_chat"]
+        source_user = self.plugin_name
+        if "source_user" in external_context and external_context["source_user"]:
+            source_user = external_context["source_user"]
+
+        source_title = self.plugin_name
+        if "source_title" in external_context and external_context["source_title"]:
+            source_title = external_context["source_title"]
+
+        source_uid = False
+        if "source_uid" in external_context and external_context["source_uid"]:
+            source_uid = external_context["source_uid"]
 
         passthru =  {
             "original_request": {
                 "message": message,
                 "image_id": image_id,
                 "segments": None,
-                "user": from_user },
+                "user": source_user },
             "chatbridge": {
-                "source_title": from_chat },
+                "source_title": source_title,
+                "source_user": source_user,
+                "source_uid": source_uid,
+                "plugin": self.plugin_name },
             "norelay": [ self.plugin_name ] }
+
+        logger.info("{}:receive:{}".format(self.plugin_name, passthru))
 
         yield from self.bot.coro_send_message(
             conv_id,
@@ -216,20 +240,20 @@ class WebFramework:
             context = { "passthru": passthru })
 
     def format_incoming_message(self, message, external_context):
-        if "from_user" in external_context and external_context["from_user"]:
-            from_user = external_context["from_user"]
+        if "source_user" in external_context and external_context["source_user"]:
+            source_user = external_context["source_user"]
         else:
-            from_user = self.plugin_name
+            source_user = self.plugin_name
 
-        bridge_user = self._get_user_details(from_user)
+        bridge_user = self._get_user_details(source_user)
 
-        if "from_user" in external_context:
-            from_chat = external_context["from_chat"]
+        if "source_title" in external_context:
+            source_title = external_context["source_title"]
         else:
-            from_chat = self.plugin_name
+            source_title = self.plugin_name
 
-        if from_chat:
-            formatted = "+{} ({})+: {}".format(bridge_user["preferred_name"], from_chat, message)
+        if source_title:
+            formatted = "+{} ({})+: {}".format(bridge_user["preferred_name"], source_title, message)
         else:
             formatted = "+{}+: {}".format(bridge_user["preferred_name"], message)
 
@@ -241,7 +265,7 @@ class WebFramework:
         return formatted
 
     def _get_user_details(self, user, additional_context=None):
-        chat_id = None # guaranteed
+        chat_id = None
         preferred_name = None # guaranteed
         full_name = None
         nickname = None
@@ -269,7 +293,7 @@ class WebFramework:
             preferred_name = full_name
 
         if not chat_id:
-            chat_id = preferred_name
+            chat_id = False
 
         return { "chat_id": chat_id,
                  "preferred_name": preferred_name,

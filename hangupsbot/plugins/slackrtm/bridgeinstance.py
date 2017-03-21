@@ -56,23 +56,23 @@ class BridgeInstance(WebFramework):
 
     def format_incoming_message(self, message, external_context):
         sync = external_context["sync"]
-        from_user = external_context["from_user"]
-        from_chat = external_context["from_chat"]
+        source_user = external_context["source_user"]
+        source_title = external_context["source_title"]
 
         if sync.slacktag is False:
-            from_chat = False
+            source_title = False
         elif sync.slacktag is not True and sync.slacktag:
-            from_chat = sync.slacktag
+            source_title = sync.slacktag
         else:
             # use supplied channel title
             pass
 
-        if from_chat:
-            formatted = "<b>{}</b> ({}): {}".format( from_user,
-                                                     from_chat,
+        if source_title:
+            formatted = "<b>{}</b> ({}): {}".format( source_user,
+                                                     source_title,
                                                      message )
         else:
-            formatted = "<b>{}</b>: {}".format( from_user, message )
+            formatted = "<b>{}</b>: {}".format( source_user, message )
 
         return formatted
 

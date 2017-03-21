@@ -58,14 +58,15 @@ class BridgeInstance(WebFramework):
 
         user = event.passthru["original_request"]["user"]
         message = event.passthru["original_request"]["message"]
+
         chat_title = event.passthru["chatbridge"]["source_title"]
+        source_uid = ["source_uid"]
 
         for relay_id in relay_ids:
             yield from self._send_to_internal_chat(
                 relay_id,
                 message,
-                {   "from_user": user,
-                    "from_chat": chat_title })
+                event.passthru["chatbridge"] )
 
     def start_listening(self, bot):
         """syncrooms do not need any special listeners"""

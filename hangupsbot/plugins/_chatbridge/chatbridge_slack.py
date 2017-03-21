@@ -67,8 +67,8 @@ class SlackAsyncListener(AsyncRequestHandler):
                     yield from _externals['BridgeInstance']._send_to_internal_chat(
                         conv_id,
                         original_message,
-                        {   "from_user": user,
-                            "from_chat": False })
+                        {   "source_user": user,
+                            "source_title": False })
 
     def _slack_label_users(self, text):
         for fragment in re.findall("(<@([A-Z0-9]+)(\|[^>]*?)?>)", text):
@@ -176,7 +176,7 @@ class BridgeInstance(WebFramework):
         message = re.sub(r"</?i>", "_", message)
         message = re.sub(r"</?pre>", "`", message)
 
-        bridge_user = self._get_user_details(user)
+        bridge_user = self._get_user_details(user, { "event": event })
 
         try:
             client = SlackClient(config["config.json"]["key"], verify=True)

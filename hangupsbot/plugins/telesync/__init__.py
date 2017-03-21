@@ -317,8 +317,9 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
         ho_conv_id,
         original_message,
         {   "config": config,
-            "from_user": user,
-            "from_chat": chat_title })
+            "source_user": user,
+            "source_uid": msg['from']['id'],
+            "source_title": chat_title })
 
 
 @asyncio.coroutine
@@ -338,8 +339,10 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
             text,
-            {   "from_user": user,
-                "from_chat": chat_title })
+            {   "config": config,
+                "source_user": user,
+                "source_uid": msg['from']['id'],
+                "source_title": chat_title })
 
         ho_photo_id = yield from tg_bot.get_hangouts_image_id_from_telegram_photo_id(msg['sticker']['file_id'])
 
@@ -349,8 +352,9 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
             ho_conv_id,
             text,
             {   "config": config,
-                "from_user": user,
-                "from_chat": chat_title },
+                "source_user": user,
+                "source_uid": msg['from']['id'],
+                "source_title": chat_title },
             image_id=ho_photo_id )
 
         logger.info("sticker posted to hangouts")
@@ -374,8 +378,9 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
             ho_conv_id,
             text,
             {   "config": config,
-                "from_user": user,
-                "from_chat": chat_title })
+                "source_user": user,
+                "source_uid": msg['from']['id'],
+                "source_title": chat_title })
 
         tg_photos = tg_util_get_photo_list(msg)
         tg_photo_id = tg_photos[len(tg_photos) - 1]['file_id']
@@ -387,8 +392,9 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
             ho_conv_id,
             text,
             {   "config": config,
-                "from_user": user,
-                "from_chat": chat_title },
+                "source_user": user,
+                "source_uid": msg['from']['id'],
+                "source_title": chat_title },
             image_id=ho_photo_id )
 
         logger.info("photo posted to hangouts")
@@ -414,8 +420,9 @@ def tg_on_user_join(tg_bot, tg_chat_id, msg):
             ho_conv_id,
             formatted_line,
             {   "config": config,
-                "from_user": "telesync",
-                "from_chat": chat_title })
+                "source_user": "telesync",
+                "source_uid": False,
+                "source_title": chat_title })
 
         logger.info("join {} {}".format( ho_conv_id,
                                          formatted_line ))
@@ -441,8 +448,9 @@ def tg_on_user_leave(tg_bot, tg_chat_id, msg):
             ho_conv_id,
             formatted_line,
             {   "config": config,
-                "from_user": "telesync",
-                "from_chat": chat_title })
+                "source_user": "telesync",
+                "source_uid": False,
+                "source_title": chat_title })
 
         logger.info("left {} {}".format( ho_conv_id,
                                          formatted_line ))
@@ -471,8 +479,9 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
             ho_conv_id,
             formatted_line,
             {   "config": config,
-                "from_user": "telesync",
-                "from_chat": chat_title })
+                "source_user": "telesync",
+                "source_uid": False,
+                "source_title": chat_title })
 
         logger.info("location {} {}".format( ho_conv_id,
                                              text ))
@@ -795,9 +804,11 @@ class BridgeInstance(WebFramework):
             photo_url = sync_text
             sync_text = "shared an image"
 
-        user_gplus = 'https://plus.google.com/u/0/{}/about'.format(event.user.id_.chat_id)
-
-        bridge_user = self._get_user_details(user)
+        bridge_user = self._get_user_details(user, { "event": event })
+        username = bridge_user["preferred_name"]
+        if bridge_user["chat_id"]:
+            username = "<a href=\"https://plus.google.com/u/0/{}/about\">{}</a>".format( bridge_user["chat_id"],
+                                                                                         bridge_user["preferred_name"] )
 
         chat_title = format(self.bot.conversations.get_name(conv_id))
 
@@ -805,14 +816,12 @@ class BridgeInstance(WebFramework):
             chat_title = event.passthru["chatbridge"]["source_title"]
 
         if "sync_chat_titles" not in config or config["sync_chat_titles"] and chat_title:
-            formatted_text = "<a href=\"{}\">{}</a> ({}): {}".format( user_gplus,
-                                                                      bridge_user["preferred_name"],
-                                                                      chat_title,
-                                                                      sync_text )
+            formatted_text = "{} ({}): {}".format( username,
+                                                   chat_title,
+                                                   sync_text )
         else:
-            formatted_text = "<a href=\"{}\">{}</a>: {}".format( user_gplus,
-                                                                 bridge_user["preferred_name"],
-                                                                 sync_text )
+            formatted_text = "{}: {}".format( username,
+                                              sync_text )
 
         # send messages first
         for eid in external_ids:
@@ -839,15 +848,15 @@ class BridgeInstance(WebFramework):
 
     def format_incoming_message(self, message, external_context):
         config = external_context["config"]
-        from_user = external_context["from_user"]
-        from_chat = external_context["from_chat"]
+        source_user = external_context["source_user"]
+        source_title = external_context["source_title"]
 
-        if "sync_chat_titles" not in config or config["sync_chat_titles"] and from_chat:
-            formatted = "<b>{}</b> ({}): {}".format( from_user,
-                                                     from_chat,
+        if "sync_chat_titles" not in config or config["sync_chat_titles"] and source_title:
+            formatted = "<b>{}</b> ({}): {}".format( source_user,
+                                                     source_title,
                                                      message )
         else:
-            formatted = "<b>{}</b>: {}".format( from_user, message )
+            formatted = "<b>{}</b>: {}".format( source_user, message )
 
         return formatted
 
