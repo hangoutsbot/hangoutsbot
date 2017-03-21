@@ -188,16 +188,6 @@ class WebFramework:
     def _send_to_external_chat(self, config, event):
         pass
 
-    """
-    @asyncio.coroutine
-    def _send_to_internal_chat(self, conv_id, event):
-        yield from self.bot.coro_send_message(
-            conv_id,
-            event.text,
-            image_id = event.passthru["original_request"]["image_id"],
-            context = { "passthru": event.passthru })
-    """
-
     @asyncio.coroutine
     def _send_to_internal_chat(self, conv_id, message, external_context, image_id=None):
         formatted_message = self.format_incoming_message(message, external_context)
