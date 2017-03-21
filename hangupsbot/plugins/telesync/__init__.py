@@ -210,6 +210,7 @@ class TelegramBot(telepot.aio.Bot):
             else:
                 raise telepot.BadFlavor(msg)
 
+
 def tg_util_get_group_name(msg):
     """
     :param msg: msg object from telepot
@@ -284,14 +285,6 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
     config = _telesync_config(tg_bot.ho_bot)
 
     original_message = msg["text"]
-    formatted_line = "<b>{}</b>: {}".format( user,
-                                             msg["text"] )
-
-    if("sync_chat_titles" not in config or config["sync_chat_titles"]):
-        if chat_title:
-            formatted_line = "<b>{}</b> ({}): {}".format( user,
-                                                          chat_title,
-                                                          msg["text"] )
 
     if 'sync_reply_to' in config and config['sync_reply_to'] and 'reply_to_message' in msg:
         """specialised formatting for reply-to telegram messages"""
@@ -319,28 +312,13 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
 
         r2_format = "\n| <i><b>{}</b></i>:\n| <i>{}</i>\n{}"
         original_message = r2_format.format(r2_user, r2_text, original_message)
-        formatted_line = r2_format.format(r2_user, r2_text, formatted_line)
-
-        logger.info("REPLY-TO {}: {}".format( ho_conv_id,
-                                              repr(formatted_line) ))
-    else:
-        logger.info("STANDARD {}: {}".format( ho_conv_id,
-                                              repr(formatted_line) ))
 
     yield from tg_bot.chatbridge._send_to_internal_chat(
         ho_conv_id,
-        FakeEvent(
-            text = formatted_line,
-            user = user,
-            passthru = {
-                "original_request": {
-                    "message": original_message,
-                    "image_id": None,
-                    "segments": None,
-                    "user": user },
-                "chatbridge": {
-                    "source_title": chat_title },
-                "norelay": [ tg_bot.chatbridge.plugin_name ] }))
+        original_message,
+        {   "config": config,
+            "from_user": user,
+            "from_chat": chat_title })
 
 
 @asyncio.coroutine
@@ -359,36 +337,21 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
-            FakeEvent(
-                text = text,
-                user = user,
-                passthru = {
-                    "original_request": {
-                        "message": text,
-                        "image_id": None,
-                        "segments": None,
-                        "user": user },
-                    "chatbridge": {
-                        "source_title": chat_title },
-                    "norelay": [ tg_bot.chatbridge.plugin_name ] }))
+            text,
+            {   "from_user": user,
+                "from_chat": chat_title })
 
         ho_photo_id = yield from tg_bot.get_hangouts_image_id_from_telegram_photo_id(msg['sticker']['file_id'])
 
         text = "sent {} sticker".format(msg["sticker"]['emoji'])
+
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
-            FakeEvent(
-                text = text,
-                user = user,
-                passthru = {
-                    "original_request": {
-                        "message": text,
-                        "image_id": ho_photo_id,
-                        "segments": None,
-                        "user": user },
-                    "chatbridge": {
-                        "source_title": chat_title },
-                    "norelay": [ tg_bot.chatbridge.plugin_name ] }))
+            text,
+            {   "config": config,
+                "from_user": user,
+                "from_chat": chat_title },
+            image_id=ho_photo_id )
 
         logger.info("sticker posted to hangouts")
 
@@ -409,38 +372,24 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
-            FakeEvent(
-                text = text,
-                user = user,
-                passthru = {
-                    "original_request": {
-                        "message": text,
-                        "image_id": None,
-                        "segments": None,
-                        "user": user },
-                    "chatbridge": {
-                        "source_title": chat_title },
-                    "norelay": [ tg_bot.chatbridge.plugin_name ] }))
+            text,
+            {   "config": config,
+                "from_user": user,
+                "from_chat": chat_title })
 
         tg_photos = tg_util_get_photo_list(msg)
         tg_photo_id = tg_photos[len(tg_photos) - 1]['file_id']
         ho_photo_id = yield from tg_bot.get_hangouts_image_id_from_telegram_photo_id(tg_photo_id)
 
         text = "sent a photo"
+
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
-            FakeEvent(
-                text = text,
-                user = user,
-                passthru = {
-                    "original_request": {
-                        "message": text,
-                        "image_id": ho_photo_id,
-                        "segments": None,
-                        "user": user },
-                    "chatbridge": {
-                        "source_title": chat_title },
-                    "norelay": [ tg_bot.chatbridge.plugin_name ] }))
+            text,
+            {   "config": config,
+                "from_user": user,
+                "from_chat": chat_title },
+            image_id=ho_photo_id )
 
         logger.info("photo posted to hangouts")
 
@@ -463,18 +412,10 @@ def tg_on_user_join(tg_bot, tg_chat_id, msg):
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
-            FakeEvent(
-                text = formatted_line,
-                user = "telesync",
-                passthru = {
-                    "original_request": {
-                        "message": formatted_line,
-                        "image_id": None,
-                        "segments": None,
-                        "user": "telesync" },
-                    "chatbridge": {
-                        "source_title": chat_title },
-                    "norelay": [ tg_bot.chatbridge.plugin_name ] }))
+            formatted_line,
+            {   "config": config,
+                "from_user": "telesync",
+                "from_chat": chat_title })
 
         logger.info("join {} {}".format( ho_conv_id,
                                          formatted_line ))
@@ -498,18 +439,10 @@ def tg_on_user_leave(tg_bot, tg_chat_id, msg):
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
-            FakeEvent(
-                text = formatted_line,
-                user = "telesync",
-                passthru = {
-                    "original_request": {
-                        "message": formatted_line,
-                        "image_id": None,
-                        "segments": None,
-                        "user": "telesync" },
-                    "chatbridge": {
-                        "source_title": chat_title },
-                    "norelay": [ tg_bot.chatbridge.plugin_name ] }))
+            formatted_line,
+            {   "config": config,
+                "from_user": "telesync",
+                "from_chat": chat_title })
 
         logger.info("left {} {}".format( ho_conv_id,
                                          formatted_line ))
@@ -536,18 +469,10 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
-            FakeEvent(
-                text = formatted_line,
-                user = user,
-                passthru = {
-                    "original_request": {
-                        "message": text,
-                        "image_id": None,
-                        "segments": None,
-                        "user": user },
-                    "chatbridge": {
-                        "source_title": chat_title },
-                    "norelay": [ tg_bot.chatbridge.plugin_name ] }))
+            formatted_line,
+            {   "config": config,
+                "from_user": "telesync",
+                "from_chat": chat_title })
 
         logger.info("location {} {}".format( ho_conv_id,
                                              text ))
@@ -911,6 +836,20 @@ class BridgeInstance(WebFramework):
                 else:
                     yield from tg_bot.sendPhoto( eid,
                                                  tempfile )
+
+    def format_incoming_message(self, message, external_context):
+        config = external_context["config"]
+        from_user = external_context["from_user"]
+        from_chat = external_context["from_chat"]
+
+        if "sync_chat_titles" not in config or config["sync_chat_titles"] and from_chat:
+            formatted = "<b>{}</b> ({}): {}".format( from_user,
+                                                     from_chat,
+                                                     message )
+        else:
+            formatted = "<b>{}</b>: {}".format( from_user, message )
+
+        return formatted
 
 
 """hangoutsbot plugin initialisation"""

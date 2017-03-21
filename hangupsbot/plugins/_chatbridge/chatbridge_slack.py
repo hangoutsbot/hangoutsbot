@@ -61,22 +61,14 @@ class SlackAsyncListener(AsyncRequestHandler):
 
                     user = payload["user_name"][0] + "@slack"
                     original_message = unescape(text)
-                    message = "{}: {}".format(user, original_message)
 
                     # cheat and use an an external variable to reach BridgeInstance
 
                     yield from _externals['BridgeInstance']._send_to_internal_chat(
                         conv_id,
-                        FakeEvent(
-                            text = message,
-                            user = user,
-                            passthru = {
-                                "original_request": {
-                                    "message": original_message,
-                                    "image_id": None,
-                                    "segments": None,
-                                    "user": user },
-                                "norelay": [ _externals["plugin_name"] ] }))
+                        original_message,
+                        {   "from_user": user,
+                            "from_chat": False })
 
     def _slack_label_users(self, text):
         for fragment in re.findall("(<@([A-Z0-9]+)(\|[^>]*?)?>)", text):

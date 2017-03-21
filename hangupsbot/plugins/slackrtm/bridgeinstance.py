@@ -54,6 +54,28 @@ class BridgeInstance(WebFramework):
             except Exception as e:
                 logger.exception('_handle_slackout threw: %s', str(e))
 
+    def format_incoming_message(self, message, external_context):
+        sync = external_context["sync"]
+        from_user = external_context["from_user"]
+        from_chat = external_context["from_chat"]
+
+        if sync.slacktag is False:
+            from_chat = False
+        elif sync.slacktag is not True and sync.slacktag:
+            from_chat = sync.slacktag
+        else:
+            # use supplied channel title
+            pass
+
+        if from_chat:
+            formatted = "<b>{}</b> ({}): {}".format( from_user,
+                                                     from_chat,
+                                                     message )
+        else:
+            formatted = "<b>{}</b>: {}".format( from_user, message )
+
+        return formatted
+
     def start_listening(self, bot):
         """slackrtm does not use web-bridge style listeners"""
         pass

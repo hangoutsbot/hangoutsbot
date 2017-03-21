@@ -58,31 +58,14 @@ class BridgeInstance(WebFramework):
 
         user = event.passthru["original_request"]["user"]
         message = event.passthru["original_request"]["message"]
-
-        chat_title = False
-        if "chatbridge" in event.passthru and event.passthru["chatbridge"]["source_title"]:
-            chat_title = event.passthru["chatbridge"]["source_title"]
-
-        preferred_name, nickname, full_name, user_photo_url = self._standardise_bridge_user_details(user)
-
-        if chat_title:
-            formatted_text = "**{}** ({}): {}".format(
-                preferred_name,
-                chat_title,
-                message )
-        else:
-            formatted_text = "**{}**: {}".format(
-                preferred_name,
-                message )
+        chat_title = event.passthru["chatbridge"]["source_title"]
 
         for relay_id in relay_ids:
             yield from self._send_to_internal_chat(
                 relay_id,
-                FakeEvent(
-                    text = formatted_text,
-                    user = user,
-                    passthru = event.passthru ))
-
+                message,
+                {   "from_user": user,
+                    "from_chat": chat_title })
 
     def start_listening(self, bot):
         """syncrooms do not need any special listeners"""

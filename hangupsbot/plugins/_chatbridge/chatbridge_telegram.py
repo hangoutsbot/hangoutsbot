@@ -45,7 +45,7 @@ class BridgeInstance(WebFramework):
                 "sendMessage",
                     { "chat_id" : eid,
                       "text" : self._format_message(message, user, userwrap="HTML_BOLD"),
-                        "parse_mode" : "HTML" })
+                      "parse_mode" : "HTML" })
 
     def start_listening(self, bot):
         for configuration in self.configuration:
@@ -93,7 +93,7 @@ class BridgeInstance(WebFramework):
 
                         if str(raw_message["chat"]["id"]) in configuration[self.configkey]:
                             for conv_id in configuration["hangouts"]:
-                                user = raw_message["from"]["username"] + "@tg"
+                                user = raw_message["from"]["username"] + "@telegram"
                                 image_id = None
 
                                 if "text" in raw_message:
@@ -118,16 +118,9 @@ class BridgeInstance(WebFramework):
 
                                 yield from self._send_to_internal_chat(
                                     conv_id,
-                                    FakeEvent(
-                                        text = message,
-                                        user = user,
-                                        passthru = {
-                                            "original_request": {
-                                                "message": message,
-                                                "image_id": image_id,
-                                                "segments": None,
-                                                "user": user },
-                                            "norelay": [ self.plugin_name ] }))
+                                    message,
+                                    {   "from_user": user,
+                                        "from_chat": False })
 
             else:
                 pass

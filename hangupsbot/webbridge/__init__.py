@@ -97,7 +97,7 @@ class WebFramework:
             passthru["norelay"] = []
         if self.plugin_name in passthru["norelay"]:
             # prevent message broadcast duplication
-            logger.info("NORELAY:_broadcast {}".format(passthru["norelay"]))
+            logger.info("_broadcast:NORELAY:{}@{}".format(passthru["norelay"], self.plugin_name))
             return
         else:
             # halt messaging handler from re-relaying
@@ -128,14 +128,16 @@ class WebFramework:
                                              "segments": None,
                                              "user": user }
             passthru["chatbridge"] = { "source_title": bot.conversations.get_name(conv_id),
-                                       "source_user": event.user }
+                                       "source_user": user }
 
         # for messages from other plugins, relay them
         for config in applicable_configurations:
-            yield from self._send_to_external_chat( config,
-                                                    FakeEvent( text = message,
-                                                               user = user,
-                                                               passthru = passthru ))
+            yield from self._send_to_external_chat(
+                config,
+                FakeEvent(
+                    text = message,
+                    user = user,
+                    passthru = passthru ))
 
     @asyncio.coroutine
     def _repeat(self, bot, event, command):
@@ -151,7 +153,7 @@ class WebFramework:
             passthru["norelay"] = []
         if self.plugin_name in passthru["norelay"]:
             # prevent message relay duplication
-            logger.info("NORELAY:_repeat {}".format(passthru["norelay"]))
+            logger.info("_repeat:NORELAY:{}@{}".format(passthru["norelay"],self.plugin_name))
             return
         else:
             # halt sending handler from re-relaying
@@ -172,7 +174,6 @@ class WebFramework:
                 passthru["original_request"]["user"] = user
         else:
             # user raised an event
-            logger.info("relaying user event")
             passthru["original_request"] = { "message": event.text,
                                              "image_id": None, # XXX: should be attachments
                                              "segments": event.conv_event.segments,
@@ -187,6 +188,7 @@ class WebFramework:
     def _send_to_external_chat(self, config, event):
         pass
 
+    """
     @asyncio.coroutine
     def _send_to_internal_chat(self, conv_id, event):
         yield from self.bot.coro_send_message(
@@ -194,16 +196,59 @@ class WebFramework:
             event.text,
             image_id = event.passthru["original_request"]["image_id"],
             context = { "passthru": event.passthru })
-
+    """
 
     @asyncio.coroutine
-    def _send_to_internal_chat(self, conv_id, event):
+    def _send_to_internal_chat(self, conv_id, message, external_context, image_id=None):
+        formatted_message = self.format_incoming_message(message, external_context)
+
+        from_user = self.plugin_name
+        if "from_user" in external_context and external_context["from_user"]:
+            from_user = external_context["from_user"]
+        from_chat = self.plugin_name
+        if "from_chat" in external_context and external_context["from_chat"]:
+            from_chat = external_context["from_chat"]
+
+        passthru =  {
+            "original_request": {
+                "message": message,
+                "image_id": image_id,
+                "segments": None,
+                "user": from_user },
+            "chatbridge": {
+                "source_title": from_chat },
+            "norelay": [ self.plugin_name ] }
+
         yield from self.bot.coro_send_message(
             conv_id,
-            event.text,
-            image_id = event.passthru["original_request"]["image_id"],
-            context = { "passthru": event.passthru })
+            formatted_message,
+            image_id = image_id,
+            context = { "passthru": passthru })
 
+    def format_incoming_message(self, message, external_context):
+        if "from_user" in external_context and external_context["from_user"]:
+            from_user = external_context["from_user"]
+        else:
+            from_user = self.plugin_name
+
+        preferred_name, nickname, full_name, photo_url = self._standardise_bridge_user_details(from_user)
+
+        if "from_user" in external_context:
+            from_chat = external_context["from_chat"]
+        else:
+            from_chat = self.plugin_name
+
+        if from_chat:
+            formatted = "+{} ({})+: {}".format(preferred_name, from_chat, message)
+        else:
+            formatted = "+{}+: {}".format(preferred_name, message)
+
+        return formatted
+
+    def format_outgoing_message(self, message, internal_context):
+        formatted = message
+
+        return formatted
 
     def _standardise_bridge_user_details(self, user):
         preferred_name = None

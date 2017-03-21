@@ -726,17 +726,6 @@ class SlackRTM(object):
             if msg.from_ho_id != sync.hangoutid:
                 user = msg.realname4ho if sync.showslackrealnames else msg.username4ho
 
-                channel_name = False
-                if sync.slacktag is True:
-                    channel_name = self.get_channelname(msg.channel)
-                elif sync.slacktag:
-                    channel_name = sync.slacktag
-
-                if channel_name:
-                    response = "<b>{}</b> ({}): {} {}".format(user, channel_name, msg.edited, msg_html)
-                else:
-                    response = "<b>{}</b>: {} {}".format(user, msg.edited, msg_html)
-
                 if msg.file_attachment:
                     if sync.image_upload:
                         self.loop.call_soon_threadsafe(asyncio.async, self.upload_image(sync.hangoutid, msg.file_attachment))
@@ -745,21 +734,16 @@ class SlackRTM(object):
                         # we should not upload the images, so we have to send the url instead
                         response += msg.file_attachment
 
-                self.loop.call_soon_threadsafe(asyncio.async,
+                channel_name = self.get_channelname(msg.channel)
+
+                self.loop.call_soon_threadsafe(
+                    asyncio.async,
                     self._bridgeinstance._send_to_internal_chat(
                         sync.hangoutid,
-                        FakeEvent(
-                            text = response,
-                            user = user,
-                            passthru = {
-                                "original_request": {
-                                    "message": msg_html,
-                                    "image_id": None,
-                                    "segments": None,
-                                    "user": user },
-                                "chatbridge": {
-                                    "source_title": channel_name },
-                                "norelay": [ self._bridgeinstance.plugin_name ] })))
+                        msg_html,
+                        {   "sync": sync,
+                            "from_user": user,
+                            "from_chat": channel_name }))
 
     @asyncio.coroutine
     def _send_deferred_photo(self, image_link, sync, full_name, link_names, photo_url, fragment):
