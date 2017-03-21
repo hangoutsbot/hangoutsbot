@@ -276,24 +276,22 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
     if tg_chat_id not in tg2ho_dict:
         return
-    ho_conv_id = tg2ho_dict[tg_chat_id]
 
+    ho_conv_id = tg2ho_dict[tg_chat_id]
     user = tg_util_sync_get_user_name(msg)
     chat_title = tg_util_get_group_name(msg)
 
     config = _telesync_config(tg_bot.ho_bot)
 
-    if("sync_chat_titles" not in config or config["sync_chat_titles"]) and chat_title:
-        # only if titles are requested as part of the message, and its available:
-        #   attach telegram group title to message
-        original_message = "({}) {}".format(chat_title, msg["text"])
-        formatted_line = "<b>{}</b>: ({}) {}".format( user,
-                                                      chat_title,
-                                                      msg["text"] )
-    else:
-        original_message = msg["text"]
-        formatted_line = "<b>{}</b>: {}".format( user,
-                                                 msg["text"] )
+    original_message = msg["text"]
+    formatted_line = "<b>{}</b>: {}".format( user,
+                                             msg["text"] )
+
+    if("sync_chat_titles" not in config or config["sync_chat_titles"]):
+        if chat_title:
+            formatted_line = "<b>{}</b> ({}): {}".format( user,
+                                                          chat_title,
+                                                          msg["text"] )
 
     if 'sync_reply_to' in config and config['sync_reply_to'] and 'reply_to_message' in msg:
         """specialised formatting for reply-to telegram messages"""
@@ -340,9 +338,9 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
                     "image_id": None,
                     "segments": None,
                     "user": user },
+                "chatbridge": {
+                    "source_title": chat_title },
                 "norelay": [ tg_bot.chatbridge.plugin_name ] }))
-
-
 
 
 @asyncio.coroutine
@@ -352,10 +350,13 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
     if str(tg_chat_id) in tg2ho_dict:
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
 
+        chat_title = tg_util_get_group_name(msg)
+
         user = tg_util_sync_get_user_name(msg)
         text = "uploading sticker from <b>{}</b> in <b>{}</b>...".format(
             tg_util_sync_get_user_name(msg),
-            tg_util_get_group_name(msg) )
+            chat_title )
+
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
             FakeEvent(
@@ -367,6 +368,8 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
                         "image_id": None,
                         "segments": None,
                         "user": user },
+                    "chatbridge": {
+                        "source_title": chat_title },
                     "norelay": [ tg_bot.chatbridge.plugin_name ] }))
 
         ho_photo_id = yield from tg_bot.get_hangouts_image_id_from_telegram_photo_id(msg['sticker']['file_id'])
@@ -383,6 +386,8 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
                         "image_id": ho_photo_id,
                         "segments": None,
                         "user": user },
+                    "chatbridge": {
+                        "source_title": chat_title },
                     "norelay": [ tg_bot.chatbridge.plugin_name ] }))
 
         logger.info("sticker posted to hangouts")
@@ -395,10 +400,13 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
     if str(tg_chat_id) in tg2ho_dict:
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
 
+        chat_title = tg_util_get_group_name(msg)
+
         user = tg_util_sync_get_user_name(msg)
         text = "uploading photo from <b>{}</b> in <b>{}</b>...".format(
             user,
-            tg_util_get_group_name(msg) )
+            chat_title )
+
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
             FakeEvent(
@@ -410,6 +418,8 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
                         "image_id": None,
                         "segments": None,
                         "user": user },
+                    "chatbridge": {
+                        "source_title": chat_title },
                     "norelay": [ tg_bot.chatbridge.plugin_name ] }))
 
         tg_photos = tg_util_get_photo_list(msg)
@@ -428,6 +438,8 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
                         "image_id": ho_photo_id,
                         "segments": None,
                         "user": user },
+                    "chatbridge": {
+                        "source_title": chat_title },
                     "norelay": [ tg_bot.chatbridge.plugin_name ] }))
 
         logger.info("photo posted to hangouts")
@@ -442,12 +454,12 @@ def tg_on_user_join(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
 
     if str(tg_chat_id) in tg2ho_dict:
+        ho_conv_id = tg2ho_dict[str(tg_chat_id)]
+        chat_title = tg_util_get_group_name(msg)
 
         formatted_line = "<b>{}</b> joined <b>{}</b>".format(
             tg_util_sync_get_user_name(msg, chat_action='new_chat_member'),
-            tg_util_get_group_name(msg) )
-
-        ho_conv_id = tg2ho_dict[str(tg_chat_id)]
+            chat_title )
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
@@ -460,6 +472,8 @@ def tg_on_user_join(tg_bot, tg_chat_id, msg):
                         "image_id": None,
                         "segments": None,
                         "user": "telesync" },
+                    "chatbridge": {
+                        "source_title": chat_title },
                     "norelay": [ tg_bot.chatbridge.plugin_name ] }))
 
         logger.info("join {} {}".format( ho_conv_id,
@@ -475,12 +489,12 @@ def tg_on_user_leave(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
 
     if str(tg_chat_id) in tg2ho_dict:
+        ho_conv_id = tg2ho_dict[str(tg_chat_id)]
+        chat_title = tg_util_get_group_name(msg)
 
         formatted_line = "<b>{}</b> left <b>{}</b>".format(
             tg_util_sync_get_user_name(msg, chat_action='left_chat_member'),
-            tg_util_get_group_name(msg) )
-
-        ho_conv_id = tg2ho_dict[str(tg_chat_id)]
+            chat_title )
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
@@ -493,6 +507,8 @@ def tg_on_user_leave(tg_bot, tg_chat_id, msg):
                         "image_id": None,
                         "segments": None,
                         "user": "telesync" },
+                    "chatbridge": {
+                        "source_title": chat_title },
                     "norelay": [ tg_bot.chatbridge.plugin_name ] }))
 
         logger.info("left {} {}".format( ho_conv_id,
@@ -508,17 +524,13 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
     config = _telesync_config(tg_bot.ho_bot)
 
     if str(tg_chat_id) in tg2ho_dict:
-        chat_title = ""
+        chat_title = tg_util_get_group_name(msg)
 
         user = tg_util_sync_get_user_name(msg)
         text = maps_url
 
-        if "sync_chat_titles" not in config or config["sync_chat_titles"]:
-            chat_title = ' <b>({})</b>'.format(tg_util_get_group_name(msg))
-
-        formatted_line = "<b>{}</b>{}: {}".format( user,
-                                                   chat_title,
-                                                   text )
+        formatted_line = "<b>{}</b>: {}".format( user,
+                                                 text )
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
 
@@ -533,6 +545,8 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
                         "image_id": None,
                         "segments": None,
                         "user": user },
+                    "chatbridge": {
+                        "source_title": chat_title },
                     "norelay": [ tg_bot.chatbridge.plugin_name ] }))
 
         logger.info("location {} {}".format( ho_conv_id,
@@ -861,6 +875,10 @@ class BridgeInstance(WebFramework):
         preferred_name, nickname, full_name, user_photo_url = self._standardise_bridge_user_details(user)
 
         chat_title = format(self.bot.conversations.get_name(conv_id))
+
+        if "chatbridge" in event.passthru and event.passthru["chatbridge"]["source_title"]:
+            chat_title = event.passthru["chatbridge"]["source_title"]
+
         if "sync_chat_titles" not in config or config["sync_chat_titles"] and chat_title:
             formatted_text = "<a href=\"{}\">{}</a> ({}): {}".format( user_gplus,
                                                                       preferred_name,

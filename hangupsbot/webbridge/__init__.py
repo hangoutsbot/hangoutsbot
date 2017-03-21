@@ -12,9 +12,12 @@ from sinks.base_bot_request_handler import AsyncRequestHandler as IncomingReques
 
 logger = logging.getLogger(__name__)
 
-FakeEvent = namedtuple( 'event', [ 'text',
-                                   'user',
-                                   'passthru' ])
+class FakeEvent:
+    def __init__(self, text, user, passthru, conv_id=None):
+        self.text = text
+        self.user = user
+        self.passthru = passthru
+        self.conv_id = conv_id
 
 FakeUser = namedtuple( 'user', [ 'full_name',
                                  'id_' ])
@@ -119,11 +122,13 @@ class WebFramework:
                 # add bot if no user is present
                 passthru["original_request"]["user"] = user
         else:
-            # bot
+            # bot is sending a message
             passthru["original_request"] = { "message": message,
                                              "image_id": None,
                                              "segments": None,
                                              "user": user }
+            passthru["chatbridge"] = { "source_title": bot.conversations.get_name(conv_id),
+                                       "source_user": event.user }
 
         # for messages from other plugins, relay them
         for config in applicable_configurations:
@@ -172,6 +177,8 @@ class WebFramework:
                                              "image_id": None, # XXX: should be attachments
                                              "segments": event.conv_event.segments,
                                              "user": event.user }
+            passthru["chatbridge"] = { "source_title": bot.conversations.get_name(conv_id),
+                                       "source_user": event.user }
 
         for config in applicable_configurations:
             yield from self._send_to_external_chat(config, event)
@@ -184,10 +191,19 @@ class WebFramework:
     def _send_to_internal_chat(self, conv_id, event):
         yield from self.bot.coro_send_message(
             conv_id,
-            self._format_message( event.passthru["original_request"]["message"],
-                                  event.passthru["original_request"]["user"] ),
+            event.text,
             image_id = event.passthru["original_request"]["image_id"],
             context = { "passthru": event.passthru })
+
+
+    @asyncio.coroutine
+    def _send_to_internal_chat(self, conv_id, event):
+        yield from self.bot.coro_send_message(
+            conv_id,
+            event.text,
+            image_id = event.passthru["original_request"]["image_id"],
+            context = { "passthru": event.passthru })
+
 
     def _standardise_bridge_user_details(self, user):
         preferred_name = None
@@ -209,7 +225,7 @@ class WebFramework:
                 photo_url = permauser.photo_url
 
         if nickname:
-            preferred_name = nickname + "@ho"
+            preferred_name = nickname
         else:
             preferred_name = full_name
 

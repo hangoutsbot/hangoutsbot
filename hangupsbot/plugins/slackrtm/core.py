@@ -722,13 +722,21 @@ class SlackRTM(object):
         for sync in syncs:
             if not sync.sync_joins and msg.is_joinleave:
                 continue
+
             if msg.from_ho_id != sync.hangoutid:
-                slacktag = ''
-                if sync.slacktag and msg.tag_from_slack:
-                    slacktag = ' (%s)' % sync.slacktag
                 user = msg.realname4ho if sync.showslackrealnames else msg.username4ho
-                response = u'<b>%s%s%s:</b> %s' % (user, slacktag, msg.edited, msg_html)
-                logger.debug('forwarding to HO %s: %s', sync.hangoutid, response.encode('utf-8'))
+
+                channel_name = False
+                if sync.slacktag is True:
+                    channel_name = self.get_channelname(msg.channel)
+                elif sync.slacktag:
+                    channel_name = sync.slacktag
+
+                if channel_name:
+                    response = "<b>{}</b> ({}): {} {}".format(user, channel_name, msg.edited, msg_html)
+                else:
+                    response = "<b>{}</b>: {} {}".format(user, msg.edited, msg_html)
+
                 if msg.file_attachment:
                     if sync.image_upload:
                         self.loop.call_soon_threadsafe(asyncio.async, self.upload_image(sync.hangoutid, msg.file_attachment))
@@ -749,6 +757,8 @@ class SlackRTM(object):
                                     "image_id": None,
                                     "segments": None,
                                     "user": user },
+                                "chatbridge": {
+                                    "source_title": channel_name },
                                 "norelay": [ self._bridgeinstance.plugin_name ] })))
 
     @asyncio.coroutine
@@ -782,7 +792,12 @@ class SlackRTM(object):
 
         for sync in self.get_syncs(hangoutid=conv_id):
             if sync.hotag:
-                full_name = '%s (%s)' % (full_name, sync.hotag)
+                if "chatbridge" in event.passthru and event.passthru["chatbridge"]["source_title"]:
+                    chat_title = event.passthru["chatbridge"]["source_title"]
+                    full_name = "{} ({})".format(full_name, chat_title)
+                else:
+                    full_name = "{} ({})".format(full_name, sync.hotag)
+
             try:
                 if photo_url:
                     photo_url = "https://" + photo_url
@@ -791,6 +806,7 @@ class SlackRTM(object):
                 photo_url = ''
 
             fragment = "<ho://{}/{}| >".format(conv_id, chat_id)
+
             message = "{} {}".format(message, fragment)
 
             """XXX: deferred image sending

@@ -1,3 +1,5 @@
+from .core import( AlreadySyncingError,
+                   NotSyncingError )
 from .utils import _slackrtms
 
 def slacks(bot, event, *args):
@@ -315,9 +317,15 @@ def slack_sethotag(bot, event, *args):
             "there is no channel with name **{0}** in **{1}**, use _/bot slack_channels {1}_ to list all channels".format(channelid, slackname) )
         return
 
-    hotag = ' '.join(args[2:])
-    if hotag.lower() == 'none':
-        hotag = None
+    if len(args) == 3:
+        if args[2].lower() == 'none':
+            slacktag = None
+        elif args[2].lower() == "true":
+            slacktag = True
+        else:
+            slacktag = args[2]
+    else:
+        slacktag = ' '.join(args[2:])
 
     try:
         slackrtm.config_sethotag(channelid, event.conv.id_, hotag)
@@ -325,7 +333,9 @@ def slack_sethotag(bot, event, *args):
         yield from bot.coro_send_message(event.conv_id, "current hangout not previously synced with {} : {}".format(slackname, channelname))
         return
 
-    if hotag:
+    if hotag is True:
+        yield from bot.coro_send_message(event.conv_id, "messages synced from this hangout will be tagged with chatbridge-compatible channel title".format(slackname, channelname))
+    elif hotag:
         yield from bot.coro_send_message(event.conv_id, "messages synced from this hangout will be tagged \"{}\" in {} : {}".format(hotag, slackname, channelname))
     else:
         yield from bot.coro_send_message(event.conv_id, "messages synced from this hangout will not be tagged in {} : {}".format(slackname, channelname))
@@ -359,9 +369,15 @@ def slack_setslacktag(bot, event, *args):
             "there is no channel with name **{0}** in **{1}**, use _/bot slack_channels {1}_ to list all channels".format(channelid, slackname) )
         return
 
-    slacktag = ' '.join(args[2:])
-    if slacktag.lower() == 'none':
-        slacktag = None
+    if len(args) == 3:
+        if args[2].lower() == 'none':
+            slacktag = None
+        elif args[2].lower() == "true":
+            slacktag = True
+        else:
+            slacktag = args[2]
+    else:
+        slacktag = ' '.join(args[2:])
 
     try:
         slackrtm.config_setslacktag(channelid, event.conv.id_, slacktag)
@@ -369,7 +385,9 @@ def slack_setslacktag(bot, event, *args):
         yield from bot.coro_send_message(event.conv_id, "current hangout not previously synced with {} : {}".format(slackname, channelname))
         return
 
-    if slacktag:
+    if slacktag is True:
+        yield from bot.coro_send_message(event.conv_id, "messages from slack {} : {} will be tagged with chatbridge-compatible channel title".format(slackname, channelname))
+    elif slacktag:
         yield from bot.coro_send_message(event.conv_id, "messages from slack {} : {} will be tagged with \"{}\" in this hangout".format(slackname, channelname, slacktag))
     else:
         yield from bot.coro_send_message(event.conv_id, "messages from slack {} : {} will not be tagged in this hangout".format(slackname, channelname))

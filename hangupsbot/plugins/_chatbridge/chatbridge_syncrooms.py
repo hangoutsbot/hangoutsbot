@@ -7,7 +7,7 @@ import requests
 import plugins
 
 from webbridge import ( WebFramework,
-                        IncomingRequestHandler )
+                        FakeEvent )
 
 logger = logging.getLogger(__name__)
 
@@ -55,8 +55,34 @@ class BridgeInstance(WebFramework):
         """
 
         relay_ids = config["config.json"]["hangouts"]
+
+        user = event.passthru["original_request"]["user"]
+        message = event.passthru["original_request"]["message"]
+
+        chat_title = False
+        if "chatbridge" in event.passthru and event.passthru["chatbridge"]["source_title"]:
+            chat_title = event.passthru["chatbridge"]["source_title"]
+
+        preferred_name, nickname, full_name, user_photo_url = self._standardise_bridge_user_details(user)
+
+        if chat_title:
+            formatted_text = "**{}** ({}): {}".format(
+                preferred_name,
+                chat_title,
+                message )
+        else:
+            formatted_text = "**{}**: {}".format(
+                preferred_name,
+                message )
+
         for relay_id in relay_ids:
-            yield from self._send_to_internal_chat(relay_id, event)
+            yield from self._send_to_internal_chat(
+                relay_id,
+                FakeEvent(
+                    text = formatted_text,
+                    user = user,
+                    passthru = event.passthru ))
+
 
     def start_listening(self, bot):
         """syncrooms do not need any special listeners"""
