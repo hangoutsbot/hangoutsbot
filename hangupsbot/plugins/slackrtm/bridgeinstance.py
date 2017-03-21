@@ -50,7 +50,7 @@ class BridgeInstance(WebFramework):
             try:
                 # identify the correct thread, then send the message
                 if slackrtm.name == team_name:
-                    yield from slackrtm.handle_ho_message(event, chatbridge_extras={ "conv_id": conv_id })
+                    yield from slackrtm.handle_ho_message(event, conv_id)
             except Exception as e:
                 logger.exception('_handle_slackout threw: %s', str(e))
 

@@ -221,7 +221,7 @@ class WebFramework:
         else:
             from_user = self.plugin_name
 
-        preferred_name, nickname, full_name, photo_url = self._standardise_bridge_user_details(from_user)
+        bridge_user = self._get_user_details(from_user)
 
         if "from_user" in external_context:
             from_chat = external_context["from_chat"]
@@ -229,9 +229,9 @@ class WebFramework:
             from_chat = self.plugin_name
 
         if from_chat:
-            formatted = "+{} ({})+: {}".format(preferred_name, from_chat, message)
+            formatted = "+{} ({})+: {}".format(bridge_user["preferred_name"], from_chat, message)
         else:
-            formatted = "+{}+: {}".format(preferred_name, message)
+            formatted = "+{}+: {}".format(bridge_user["preferred_name"], message)
 
         return formatted
 
@@ -240,8 +240,9 @@ class WebFramework:
 
         return formatted
 
-    def _standardise_bridge_user_details(self, user):
-        preferred_name = None
+    def _get_user_details(self, user, additional_context=None):
+        chat_id = None # guaranteed
+        preferred_name = None # guaranteed
         full_name = None
         nickname = None
         photo_url = None
@@ -249,8 +250,9 @@ class WebFramework:
         if isinstance(user, str):
             full_name = user
         else:
-            permauser = self.bot.get_hangups_user(user.id_.chat_id)
-            nickname = self.bot.get_memory_suboption(user.id_.chat_id, 'nickname') or None
+            chat_id = user.id_.chat_id
+            permauser = self.bot.get_hangups_user(chat_id)
+            nickname = self.bot.get_memory_suboption(chat_id, 'nickname') or None
             if isinstance(permauser, dict):
                 full_name = permauser["full_name"]
                 if "photo_url" in permauser:
@@ -258,13 +260,22 @@ class WebFramework:
             else:
                 full_name = permauser.full_name
                 photo_url = permauser.photo_url
+            if photo_url and not photo_url.startswith("http"):
+                photo_url = "https:" + photo_url
 
         if nickname:
             preferred_name = nickname
         else:
             preferred_name = full_name
 
-        return (preferred_name, nickname, full_name, photo_url)
+        if not chat_id:
+            chat_id = preferred_name
+
+        return { "chat_id": chat_id,
+                 "preferred_name": preferred_name,
+                 "nickname": nickname,
+                 "full_name": full_name,
+                 "photo_url": photo_url }
 
     def _format_message(self, message, user, userwrap="MARKDOWN_BOLD2"):
         if userwrap == "MARKDOWN_BOLD": # telegram/slack
@@ -283,8 +294,8 @@ class WebFramework:
         if isinstance(user, str):
             formatted_message = "{2}{0}{3}: {1}".format(user, message, userwrap_left, userwrap_right)
         else:
-            preferred_name, nickname, full_name, photo_url = self._standardise_bridge_user_details(user)
-            formatted_message = "{2}{0}{3}: {1}".format(preferred_name, message, userwrap_left, userwrap_right)
+            bridge_user = self._get_user_details(user)
+            formatted_message = "{2}{0}{3}: {1}".format(bridge_user["preferred_name"], message, userwrap_left, userwrap_right)
 
         return formatted_message
 

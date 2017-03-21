@@ -797,7 +797,7 @@ class BridgeInstance(WebFramework):
 
         user_gplus = 'https://plus.google.com/u/0/{}/about'.format(event.user.id_.chat_id)
 
-        preferred_name, nickname, full_name, user_photo_url = self._standardise_bridge_user_details(user)
+        bridge_user = self._get_user_details(user)
 
         chat_title = format(self.bot.conversations.get_name(conv_id))
 
@@ -806,12 +806,12 @@ class BridgeInstance(WebFramework):
 
         if "sync_chat_titles" not in config or config["sync_chat_titles"] and chat_title:
             formatted_text = "<a href=\"{}\">{}</a> ({}): {}".format( user_gplus,
-                                                                      preferred_name,
+                                                                      bridge_user["preferred_name"],
                                                                       chat_title,
                                                                       sync_text )
         else:
             formatted_text = "<a href=\"{}\">{}</a>: {}".format( user_gplus,
-                                                                 preferred_name,
+                                                                 bridge_user["preferred_name"],
                                                                  sync_text )
 
         # send messages first

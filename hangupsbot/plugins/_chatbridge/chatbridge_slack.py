@@ -176,15 +176,15 @@ class BridgeInstance(WebFramework):
         message = re.sub(r"</?i>", "_", message)
         message = re.sub(r"</?pre>", "`", message)
 
-        preferred_name, nickname, full_name, photo_url = self._standardise_bridge_user_details(user)
+        bridge_user = self._get_user_details(user)
 
         try:
             client = SlackClient(config["config.json"]["key"], verify=True)
         except TypeError:
             client = SlackClient(config["config.json"]["key"])
 
-        slack_api_params = { 'username': preferred_name,
-                             'icon_url': photo_url }
+        slack_api_params = { 'username': bridge_user["preferred_name"],
+                             'icon_url': bridge_user["photo_url"] }
 
         if "link_names" not in config["config.json"] or config["config.json"]["link_names"]:
             slack_api_params["link_names"] = 1

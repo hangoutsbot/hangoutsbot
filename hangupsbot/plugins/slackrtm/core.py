@@ -755,7 +755,7 @@ class SlackRTM(object):
                       icon_url = photo_url)
 
     @asyncio.coroutine
-    def handle_ho_message(self, event, chatbridge_extras={}):
+    def handle_ho_message(self, event, conv_id):
         user = event.passthru["original_request"]["user"]
         message = event.passthru["original_request"]["message"]
 
@@ -764,34 +764,22 @@ class SlackRTM(object):
         message = re.sub(r"</?i>", "_", message)
         message = re.sub(r"</?pre>", "`", message)
 
-        preferred_name, nickname, full_name, photo_url = self._bridgeinstance._standardise_bridge_user_details(user)
-        if isinstance(user, str):
-            chat_id = user
-        else:
-            chat_id = user.id_.chat_id
-
-        # XXX: slackrtm needs more metadata for itself
-        if chatbridge_extras:
-            conv_id = chatbridge_extras["conv_id"]
+        bridge_user = self._bridgeinstance._get_user_details(user)
 
         for sync in self.get_syncs(hangoutid=conv_id):
+            display_name = bridge_user["preferred_name"]
+
             if sync.hotag:
-                if "chatbridge" in event.passthru and event.passthru["chatbridge"]["source_title"]:
-                    chat_title = event.passthru["chatbridge"]["source_title"]
-                    full_name = "{} ({})".format(full_name, chat_title)
-                else:
-                    full_name = "{} ({})".format(full_name, sync.hotag)
+                if sync.hotag is True:
+                    if "chatbridge" in event.passthru and event.passthru["chatbridge"]["source_title"]:
+                        chat_title = event.passthru["chatbridge"]["source_title"]
+                        display_name += " ({})".format(chat_title)
+                elif sync.hotag is not True and sync.hotag:
+                    display_name += " ({})".format(sync.hotag)
 
-            try:
-                if photo_url:
-                    photo_url = "https://" + photo_url
-            except Exception as e:
-                logger.exception('error while getting user from bot: %s', e)
-                photo_url = ''
+            slackrtm_fragment = "<ho://{}/{}| >".format(conv_id, bridge_user["chat_id"])
 
-            fragment = "<ho://{}/{}| >".format(conv_id, chat_id)
-
-            message = "{} {}".format(message, fragment)
+            message = "{} {}".format(message, slackrtm_fragment)
 
             """XXX: deferred image sending
 
@@ -821,10 +809,10 @@ class SlackRTM(object):
                             image_id,
                             self._send_deferred_photo,
                             sync,
-                            full_name,
+                            display_name,
                             True,
-                            photo_url,
-                            fragment ))
+                            bridge_user["photo_url"],
+                            slackrtm_fragment ))
 
             """standard message relay"""
 
@@ -832,9 +820,9 @@ class SlackRTM(object):
             self.api_call('chat.postMessage',
                           channel = sync.channelid,
                           text = message,
-                          username = full_name,
+                          username = display_name,
                           link_names = True,
-                          icon_url = photo_url)
+                          icon_url = bridge_user["photo_url"])
 
     def handle_ho_membership(self, event):
         # Generate list of added or removed users
