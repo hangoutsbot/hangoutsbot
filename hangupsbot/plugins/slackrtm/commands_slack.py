@@ -9,7 +9,7 @@ def slackCommandHandler(slackbot, msg):
     if len(tokens) < 2:
         return
 
-    if tokens.pop(0) in [ "@hobot", "<@" + slackbot.my_uid + ">" ]:
+    if tokens.pop(0) in [ "@hobot", "<@" + slackbot.my_uid.lower() + ">" ]:
         command = tokens.pop(0)
         args = tokens
         if command in commands_user:
