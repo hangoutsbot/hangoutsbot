@@ -889,6 +889,7 @@ class SlackRTMThread(threading.Thread):
         logger.debug('SlackRTMThread.run()')
         asyncio.set_event_loop(self._loop)
 
+        start_ts = time.time()
         try:
             if self._listener and self._listener in _slackrtms:
                 _slackrtms.remove(self._listener)
@@ -900,11 +901,13 @@ class SlackRTMThread(threading.Thread):
                     return
                 replies = self._listener.rtm_read()
                 if replies:
-                    if 'type' in replies[0]:
-                        if replies[0]['type'] == 'hello':
-                        # print('slackrtm: ignoring first replies including type=hello message to avoid message duplication: %s...' % str(replies)[:30])
-                            continue
                     for reply in replies:
+                        if reply["type"] == "hello":
+                            # discard the initial api reply
+                            continue
+                        if reply["type"] == "message" and float(reply["ts"]) < start_ts:
+                            # discard messages in the queue older than the thread start timestamp
+                            continue
                         try:
                             self._listener.handle_reply(reply)
                         except Exception as e:
