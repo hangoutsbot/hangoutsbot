@@ -56,17 +56,15 @@ class BridgeInstance(WebFramework):
 
         relay_ids = config["config.json"]["hangouts"]
 
-        user = event.passthru["original_request"]["user"]
-        message = event.passthru["original_request"]["message"]
-
-        chat_title = event.passthru["chatbridge"]["source_title"]
-        source_uid = ["source_uid"]
+        formatted_message = self.format_incoming_message( event.passthru["original_request"]["message"],
+                                                          event.passthru["chatbridge"] )
 
         for relay_id in relay_ids:
-            yield from self._send_to_internal_chat(
+            yield from self.bot.coro_send_message(
                 relay_id,
-                message,
-                event.passthru["chatbridge"] )
+                formatted_message,
+                image_id = event.passthru["original_request"]["image_id"],
+                context = { "passthru": event.passthru })
 
     def start_listening(self, bot):
         """syncrooms do not need any special listeners"""
