@@ -2,6 +2,7 @@ import logging
 import shlex
 import asyncio
 import inspect
+import time
 import uuid
 
 import hangups
@@ -26,6 +27,7 @@ class EventHandler:
         self._passthrus = {}
         self._contexts = {}
         self._image_ids = {}
+        self._executables = {}
 
         self.pluggables = { "allmessages": [],
                             "call": [],
@@ -190,7 +192,9 @@ class EventHandler:
                         logger.info("auto opt-in for {}".format(event.user.id_.chat_id))
                         return
 
-            """map image ids to their public uris in absence of any fixed server api"""
+            """map image ids to their public uris in absence of any fixed server api
+               XXX: small memory leak over time as each id gets cached indefinitely"""
+
             if( event.passthru
                     and "original_request" in event.passthru
                     and "image_id" in event.passthru["original_request"]
@@ -203,6 +207,17 @@ class EventHandler:
                 if _image_id not in self._image_ids:
                     self._image_ids[_image_id] = _image_uri
                     logger.info("associating image_id={} with {}".format(_image_id, _image_uri))
+
+            """first occurence of an actual executable id needs to be handled as an event
+               XXX: small memory leak over time as each id gets cached indefinitely"""
+
+            if( event.passthru and "executable" in event.passthru and event.passthru["executable"] ):
+                if event.passthru["executable"] not in self._executables:
+                    original_message = event.passthru["original_request"]["message"]
+                    logger.info("current event is executable: {}".format(original_message))
+                    self._executables[event.passthru["executable"]] = time.time()
+                    event.from_bot = False
+                    event.text = original_message
 
             yield from self.run_pluggable_omnibus("allmessages", self.bot, event, command)
             if not event.from_bot:
