@@ -207,15 +207,15 @@ class WebFramework:
         formatted_message = self.format_incoming_message(message, external_context)
 
         source_user = self.plugin_name
-        if "source_user" in external_context and external_context["source_user"]:
+        if "source_user" in external_context:
             source_user = external_context["source_user"]
 
         source_title = self.plugin_name
-        if "source_title" in external_context and external_context["source_title"]:
+        if "source_title" in external_context:
             source_title = external_context["source_title"]
 
         source_uid = False
-        if "source_uid" in external_context and external_context["source_uid"]:
+        if "source_uid" in external_context:
             source_uid = external_context["source_uid"]
 
         passthru =  {
@@ -250,12 +250,12 @@ class WebFramework:
         if "source_title" in external_context:
             source_title = external_context["source_title"]
         else:
-            source_title = self.plugin_name
+            source_title = plugin_name
 
         if source_title:
-            formatted = "+{} ({})+: {}".format(bridge_user["preferred_name"], source_title, message)
+            formatted = "<b>{}</b> ({}): {}".format(bridge_user["preferred_name"], source_title, message)
         else:
-            formatted = "+{}+: {}".format(bridge_user["preferred_name"], message)
+            formatted = "<b>{}</b>: {}".format(bridge_user["preferred_name"], message)
 
         return formatted
 
