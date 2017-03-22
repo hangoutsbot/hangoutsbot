@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import uuid
 
 from collections import namedtuple
 
@@ -32,9 +33,7 @@ class WebFramework:
         self.configkey = configkey
         self.RequestHandler = RequestHandler
 
-        if not self.load_configuration(configkey):
-            logger.info("no configuration for {}, not running".format(self.configkey))
-            return
+        self.load_configuration(configkey)
 
         self.setup_plugin()
 
@@ -48,7 +47,7 @@ class WebFramework:
         self.start_listening(bot)
 
     def load_configuration(self, configkey):
-        self.configuration = self.bot.get_config_option(self.configkey)
+        self.configuration = self.bot.get_config_option(self.configkey) or []
         return self.configuration
 
     def setup_plugin(self):
@@ -229,6 +228,7 @@ class WebFramework:
                 "source_user": source_user,
                 "source_uid": source_uid,
                 "plugin": self.plugin_name },
+            # "executable": "{}-{}".format(self.plugin_name, str(uuid.uuid4())),
             "norelay": [ self.plugin_name ] }
 
         logger.info("{}:receive:{}".format(self.plugin_name, passthru))
