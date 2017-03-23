@@ -52,7 +52,7 @@ class BridgeInstance(WebFramework):
                 if slackrtm.name == team_name:
                     yield from slackrtm.handle_ho_message(event, conv_id)
             except Exception as e:
-                logger.exception('_handle_slackout threw: %s', str(e))
+                logger.exception(e)
 
     def format_incoming_message(self, message, external_context):
         sync = external_context["sync"]

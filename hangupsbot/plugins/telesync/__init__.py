@@ -789,6 +789,21 @@ class BridgeInstance(WebFramework):
         return applicable_configurations
 
     @asyncio.coroutine
+    def _send_deferred_media(self, media_link, eid):
+        with aiohttp.ClientSession() as session:
+            resp = yield from session.get(media_link)
+            raw_data = yield from resp.read()
+            resp.close()
+            tempfile = io.BytesIO(raw_data)
+
+        if media_link.endswith((".gif", ".gifv", ".webm", ".mp4")):
+            yield from tg_bot.sendDocument( eid,
+                                            tempfile )
+        else:
+            yield from tg_bot.sendPhoto( eid,
+                                         tempfile )
+
+    @asyncio.coroutine
     def _send_to_external_chat(self, config, event):
         conv_id = config["trigger"]
         external_ids = config["config.json"][self.configkey]
@@ -803,14 +818,6 @@ class BridgeInstance(WebFramework):
         * telesync configuration only allows 1-to-1 telegram-ho mappings, this
             migrated function supports multiple telegram groups anyway"""
 
-        sync_text = message
-        photo_url = None
-
-        has_photo, photo_file_name = yield from _telesync_is_valid_image_link(sync_text)
-        if has_photo:
-            photo_url = sync_text
-            sync_text = "shared an image"
-
         bridge_user = self._get_user_details(user, { "event": event })
         username = bridge_user["preferred_name"]
         if bridge_user["chat_id"]:
@@ -822,36 +829,70 @@ class BridgeInstance(WebFramework):
         if "chatbridge" in event.passthru and event.passthru["chatbridge"]["source_title"]:
             chat_title = event.passthru["chatbridge"]["source_title"]
 
-        if "sync_chat_titles" not in config or config["sync_chat_titles"] and chat_title:
-            formatted_text = "{} ({}): {}".format( username,
-                                                   chat_title,
-                                                   sync_text )
-        else:
-            formatted_text = "{}: {}".format( username,
-                                              sync_text )
-
-        # send messages first
         for eid in external_ids:
+
+            divider = ":"
+
+            """XXX: media sending:
+
+            * if media link is already available, send it immediately
+              * real events from google servers will have the medialink in event.conv_event.attachment
+              * media link can also be added as part of the passthru
+            * for events raised by other external chats, wait for the public link to become available
+            """
+
+            if "attachments" in event.passthru["original_request"] and event.passthru["original_request"]["attachments"]:
+                # automatically prioritise incoming events with attachments available
+                media_link = event.passthru["original_request"]["attachments"][0]
+                logger.info("media link in original request: {}".format(media_link))
+
+                yield from self._send_deferred_media(media_link, eid)
+                message = "shared media"
+                divider = ""
+
+            elif isinstance(event, FakeEvent):
+                if( "image_id" in event.passthru["original_request"]
+                        and event.passthru["original_request"]["image_id"] ):
+                    # without media link, create a deferred post until a public media link becomes available
+                    image_id = event.passthru["original_request"]["image_id"]
+                    logger.info("wait for media link: {}".format(image_id))
+
+                    loop = asyncio.get_event_loop()
+                    task = loop.create_task(
+                        self.bot._handlers.image_uri_from(
+                            image_id,
+                            self._send_deferred_media,
+                            eid ))
+
+            elif( hasattr(event, "conv_event")
+                    and hasattr(event.conv_event, "attachments")
+                    and len(event.conv_event.attachments) == 1 ):
+                # catch actual events with media link  but didn' go through the passthru
+
+                media_link = event.conv_event.attachments[0]
+                logger.info("media link in original event: {}".format(media_link))
+
+                yield from self._send_deferred_media(media_link, eid)
+                message = "shared media"
+                divider = ""
+
+            """standard message relay"""
+
+            if "sync_chat_titles" not in config or config["sync_chat_titles"] and chat_title:
+                formatted_text = "{} ({}){} {}".format( username,
+                                                        chat_title,
+                                                        divider,
+                                                        message )
+            else:
+                formatted_text = "{}{} {}".format( username,
+                                                   divider,
+                                                   message )
+
+            logger.info("sending {}: {}".format(eid, formatted_text))
             yield from tg_bot.sendMessage( eid,
                                            formatted_text,
                                            parse_mode = 'HTML',
                                            disable_web_page_preview = True )
-
-        # send photos
-        if has_photo:
-            with aiohttp.ClientSession() as session:
-                resp = yield from session.get(photo_url)
-                raw_data = yield from resp.read()
-                resp.close()
-                tempfile = io.BytesIO(raw_data)
-
-            for eid in external_ids:
-                if photo_file_name.endswith((".gif", ".gifv", ".webm", ".mp4")):
-                    yield from tg_bot.sendDocument( eid,
-                                                    tempfile )
-                else:
-                    yield from tg_bot.sendPhoto( eid,
-                                                 tempfile )
 
     def format_incoming_message(self, message, external_context):
         config = external_context["config"]

@@ -59,7 +59,7 @@ def _scan_for_triggers(bot, event, command):
                 image_data = io.BytesIO(raw)
                 logger.debug("uploading: {}".format(filename))
                 image_id = yield from bot._client.upload_image(image_data, filename=filename)
-            yield from bot.coro_send_message(event.conv.id_, None, image_id=image_id)
+            yield from bot.coro_send_message(event.conv.id_, "", image_id=image_id)
 
 
 def _load_all_the_things():

@@ -56,14 +56,35 @@ class BridgeInstance(WebFramework):
 
         relay_ids = config["config.json"]["hangouts"]
 
-        formatted_message = self.format_incoming_message( event.passthru["original_request"]["message"],
-                                                          event.passthru["chatbridge"] )
+        message = event.passthru["original_request"]["message"]
+        image_id = event.passthru["original_request"]["image_id"]
 
         for relay_id in relay_ids:
+            """XXX: media sending:
+
+            * if media link is already available, send it immediately
+              * real events from google servers will have the medialink in event.conv_event.attachment
+            """
+
+            if( hasattr(event, "conv_event")
+                    and hasattr(event.conv_event, "attachments")
+                    and len(event.conv_event.attachments) == 1 ):
+                # catch actual events with media link, upload it to get a valid image id
+                media_link = event.conv_event.attachments[0]
+                logger.info("media link in original event: {}".format(media_link))
+
+                image_id = yield from self.bot.call_shared("image_upload_single", media_link)
+                message = "shared media on hangouts"
+
+            """standard message relay"""
+
+            formatted_message = self.format_incoming_message( message,
+                                                              event.passthru["chatbridge"] )
+
             yield from self.bot.coro_send_message(
                 relay_id,
                 formatted_message,
-                image_id = event.passthru["original_request"]["image_id"],
+                image_id = image_id,
                 context = { "passthru": event.passthru })
 
     def start_listening(self, bot):

@@ -132,7 +132,7 @@ class WebFramework:
             logger.info("hangouts bot raised an event, first seen by {}".format(self.plugin_name))
 
             passthru["original_request"] = { "message": message,
-                                             "image_id": None,
+                                             "image_id": image_id,
                                              "segments": None,
                                              "user": user }
 
@@ -186,6 +186,7 @@ class WebFramework:
 
             passthru["original_request"] = { "message": event.text,
                                              "image_id": None, # XXX: should be attachments
+                                             "attachments": event.conv_event.attachments,
                                              "segments": event.conv_event.segments,
                                              "user": event.user }
 

@@ -529,25 +529,31 @@ class SlackRTM(object):
         return text
 
     @asyncio.coroutine
-    def upload_image(self, hoid, image):
-        try:
-            token = self.apikey
-            logger.info('downloading %s', image)
-            filename = os.path.basename(image)
-            request = urllib.request.Request(image)
-            request.add_header("Authorization", "Bearer %s" % token)
-            image_response = urllib.request.urlopen(request)
-            content_type = image_response.info().get_content_type()
-            filename_extension = mimetypes.guess_extension(content_type)
-            if filename[-(len(filename_extension)):] != filename_extension:
-                logger.info('No correct file extension found, appending "%s"' % filename_extension)
-                filename += filename_extension
-            logger.info('uploading as %s', filename)
-            image_id = yield from self.bot._client.upload_image(image_response, filename=filename)
-            logger.info('sending HO message, image_id: %s', image_id)
-            self.bot.send_message_segments(hoid, None, image_id=image_id)
-        except Exception as e:
-            logger.exception('upload_image: %s(%s)', type(e), str(e))
+    def upload_image(self, image_uri, sync, username, userid, channel_name):
+        token = self.apikey
+        logger.info('downloading %s', image_uri)
+        filename = os.path.basename(image_uri)
+        request = urllib.request.Request(image_uri)
+        request.add_header("Authorization", "Bearer %s" % token)
+        image_response = urllib.request.urlopen(request)
+        content_type = image_response.info().get_content_type()
+        filename_extension = mimetypes.guess_extension(content_type)
+        if filename[-(len(filename_extension)):] != filename_extension:
+            logger.info('No correct file extension found, appending "%s"' % filename_extension)
+            filename += filename_extension
+
+        logger.info('uploading as %s', filename)
+        image_id = yield from self.bot._client.upload_image(image_response, filename=filename)
+
+        logger.info('sending HO message, image_id: %s', image_id)
+        yield from self._bridgeinstance._send_to_internal_chat(
+            sync.hangoutid,
+            "shared media from slack",
+            {   "sync": sync,
+                "source_user": username,
+                "source_uid": userid,
+                "source_title": channel_name },
+            image_id=image_id )
 
     def config_syncto(self, channel, hangoutid, shortname):
         for sync in self.syncs:
@@ -725,16 +731,24 @@ class SlackRTM(object):
 
             if msg.from_ho_id != sync.hangoutid:
                 username = msg.realname4ho if sync.showslackrealnames else msg.username4ho
+                channel_name = self.get_channelname(msg.channel)
 
                 if msg.file_attachment:
                     if sync.image_upload:
-                        self.loop.call_soon_threadsafe(asyncio.async, self.upload_image(sync.hangoutid, msg.file_attachment))
+
+                        self.loop.call_soon_threadsafe(
+                            asyncio.async,
+                            self.upload_image(
+                                msg.file_attachment,
+                                sync,
+                                username,
+                                msg.user,
+                                channel_name ))
+
                         self.lastimg = os.path.basename(msg.file_attachment)
                     else:
                         # we should not upload the images, so we have to send the url instead
                         response += msg.file_attachment
-
-                channel_name = self.get_channelname(msg.channel)
 
                 self.loop.call_soon_threadsafe(
                     asyncio.async,
@@ -747,7 +761,7 @@ class SlackRTM(object):
                             "source_title": channel_name }))
 
     @asyncio.coroutine
-    def _send_deferred_photo(self, image_link, sync, full_name, link_names, photo_url, fragment):
+    def _send_deferred_media(self, image_link, sync, full_name, link_names, photo_url, fragment):
         self.api_call('chat.postMessage',
                       channel = sync.channelid,
                       text = "{} {}".format(image_link, fragment),
@@ -780,44 +794,54 @@ class SlackRTM(object):
 
             slackrtm_fragment = "<ho://{}/{}| >".format(conv_id, bridge_user["chat_id"] or bridge_user["preferred_name"])
 
-            message = "{} {}".format(message, slackrtm_fragment)
+            """XXX: media sending:
 
-            """XXX: deferred image sending
-
-            this plugin leverages existing storage in hangouts - since there isn't a direct means
-            to acquire the public url of a hangups-upload file we need to wait for other handlers to post
-            the image in hangouts, which generates the public url, which we will send in a deferred post.
-
-            handlers.image_uri_from() is packaged as a task to wait for an image link to be associated with
-            an image id that this handler sees
+            * if media link is already available, send it immediately
+              * real events from google servers will have the medialink in event.conv_event.attachment
+              * media link can also be added as part of the passthru
+            * for events raised by other external chats, wait for the public link to become available
             """
 
-            if( "image_id" in event.passthru["original_request"]
-                    and event.passthru["original_request"]["image_id"] ):
 
-                if( "conv_event" in event
-                        and "attachments" in event.conv_event
-                        and len(event.conv_event.attachments) == 1 ):
+            if "attachments" in event.passthru["original_request"] and event.passthru["original_request"]["attachments"]:
+                # automatically prioritise incoming events with attachments available
+                media_link = event.passthru["original_request"]["attachments"][0]
+                logger.info("media link in original request: {}".format(media_link))
 
-                    message = "shared an image: {}".format(event.conv_event.attachments[0])
-                else:
-                    # without attachments, create a deferred post until the public image url becomes available
+                message = "shared media: {}".format(media_link)
+
+            elif isinstance(event, FakeEvent):
+                if( "image_id" in event.passthru["original_request"]
+                        and event.passthru["original_request"]["image_id"] ):
+                    # without media link, create a deferred post until a public media link becomes available
                     image_id = event.passthru["original_request"]["image_id"]
+                    logger.info("wait for media link: {}".format(image_id))
 
                     loop = asyncio.get_event_loop()
                     task = loop.create_task(
                         self.bot._handlers.image_uri_from(
                             image_id,
-                            self._send_deferred_photo,
+                            self._send_deferred_media,
                             sync,
                             display_name,
                             True,
                             bridge_user["photo_url"],
                             slackrtm_fragment ))
 
+            elif( hasattr(event, "conv_event")
+                    and hasattr(event.conv_event, "attachments")
+                    and len(event.conv_event.attachments) == 1 ):
+                # catch actual events with media link  but didn' go through the passthru
+                media_link = event.conv_event.attachments[0]
+                logger.info("media link in original event: {}".format(media_link))
+
+                message = "shared media: {}".format(media_link)
+
             """standard message relay"""
 
-            logger.debug("sending to channel %s: %s", sync.channelid, message.encode('utf-8'))
+            message = "{} {}".format(message, slackrtm_fragment)
+
+            logger.info("message {}: {}".format(sync.channelid, message))
             self.api_call('chat.postMessage',
                           channel = sync.channelid,
                           text = message,
