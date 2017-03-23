@@ -790,6 +790,7 @@ class SlackRTM(object):
         message = re.sub(r"</?b>", "*", message)
         message = re.sub(r"</?i>", "_", message)
         message = re.sub(r"</?pre>", "`", message)
+        message = re.sub(r"<br */?>", "\n", message)
 
         bridge_user = self._bridgeinstance._get_user_details(user, { "event": event })
 
