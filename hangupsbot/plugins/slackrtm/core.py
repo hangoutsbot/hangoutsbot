@@ -97,8 +97,9 @@ class SlackMessage(object):
         if 'type' not in reply:
             raise ParseError('no "type" in reply: %s' % str(reply))
 
-        if reply['type'] in ['pong', 'presence_change', 'user_typing', 'file_shared', 'file_public', 'file_comment_added', 'file_comment_deleted', 'message_deleted']:
-            # we ignore pong's as they are only answers for our pings
+        if reply['type'] in [ 'pong', 'presence_change', 'user_typing', 'file_shared', 'file_public',
+                              'file_comment_added', 'file_comment_deleted', 'message_deleted', 'file_created' ]:
+
             raise ParseError('not a "message" type reply: type=%s' % reply['type'])
 
         text = u''
@@ -537,9 +538,17 @@ class SlackRTM(object):
         request.add_header("Authorization", "Bearer %s" % token)
         image_response = urllib.request.urlopen(request)
         content_type = image_response.info().get_content_type()
-        filename_extension = mimetypes.guess_extension(content_type)
-        if filename[-(len(filename_extension)):] != filename_extension:
-            logger.info('No correct file extension found, appending "%s"' % filename_extension)
+
+        filename_extension = mimetypes.guess_extension(content_type).lower() # returns with "."
+        physical_extension = "." + filename.rsplit(".", 1).pop().lower()
+
+        if physical_extension == filename_extension:
+            pass
+        elif filename_extension == ".jpe" and physical_extension in [ ".jpg", ".jpeg", ".jpe", ".jif", ".jfif" ]:
+            # account for mimetypes idiosyncrancy to return jpe for valid jpeg
+            pass
+        else:
+            logger.warning("unable to determine extension: {} {}".format(filename_extension, physical_extension))
             filename += filename_extension
 
         logger.info('uploading as %s', filename)

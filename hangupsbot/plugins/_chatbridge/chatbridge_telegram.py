@@ -37,10 +37,10 @@ class BridgeInstance(WebFramework):
         message = re.sub(r"</?pre>", "", message)
 
         # https://core.telegram.org/bots/api#html-style
-        # prevent replacements on valid <b>...</b> tags
+        # prevent replacements on valid <b>...</b> <a href="...">...</a> tags
         message = re.sub(r"&(?!amp;)", "&amp;", message)
-        message = re.sub(r"<(?!/b|b)", "&lt;", message)
-        message = re.sub(r"(?<!b)>", "&gt;", message)
+        message = re.sub(r"<(?!/b|b|a|/a)", "&lt;", message)
+        message = re.sub(r"(?<!b|a|\")>", "&gt;", message)
 
         for eid in external_ids:
             yield from self.telegram_api_request(

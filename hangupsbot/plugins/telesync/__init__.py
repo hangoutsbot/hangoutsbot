@@ -827,10 +827,10 @@ class BridgeInstance(WebFramework):
         message = re.sub(r"</?i>", "", message)
         message = re.sub(r"</?pre>", "", message)
         message = re.sub(r"<br */?>", "\n", message)
-        # prevent replacements on valid <b>...</b> tags
+        # prevent replacements on valid <b>...</b> <a href="...">...</a> tags
         message = re.sub(r"&(?!amp;)", "&amp;", message)
-        message = re.sub(r"<(?!/b|b)", "&lt;", message)
-        message = re.sub(r"(?<!b)>", "&gt;", message)
+        message = re.sub(r"<(?!/b|b|a|/a)", "&lt;", message)
+        message = re.sub(r"(?<!b|a|\")>", "&gt;", message)
 
         bridge_user = self._get_user_details(user, { "event": event })
         username = bridge_user["preferred_name"]
