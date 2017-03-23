@@ -9,6 +9,7 @@ import random
 import re
 
 import telepot.aio
+import telepot.exception
 
 import hangups
 
@@ -855,58 +856,65 @@ class BridgeInstance(WebFramework):
             * for events raised by other external chats, wait for the public link to become available
             """
 
-            if "attachments" in event.passthru["original_request"] and event.passthru["original_request"]["attachments"]:
-                # automatically prioritise incoming events with attachments available
-                media_link = event.passthru["original_request"]["attachments"][0]
-                logger.info("media link in original request: {}".format(media_link))
+            try:
+                if "attachments" in event.passthru["original_request"] and event.passthru["original_request"]["attachments"]:
+                    # automatically prioritise incoming events with attachments available
+                    media_link = event.passthru["original_request"]["attachments"][0]
+                    logger.info("media link in original request: {}".format(media_link))
 
-                yield from self._send_deferred_media(media_link, eid)
-                message = "shared media"
-                divider = ""
+                    yield from self._send_deferred_media(media_link, eid)
+                    message = "shared media"
+                    divider = ""
 
-            elif isinstance(event, FakeEvent):
-                if( "image_id" in event.passthru["original_request"]
-                        and event.passthru["original_request"]["image_id"] ):
-                    # without media link, create a deferred post until a public media link becomes available
-                    image_id = event.passthru["original_request"]["image_id"]
-                    logger.info("wait for media link: {}".format(image_id))
+                elif isinstance(event, FakeEvent):
+                    if( "image_id" in event.passthru["original_request"]
+                            and event.passthru["original_request"]["image_id"] ):
+                        # without media link, create a deferred post until a public media link becomes available
+                        image_id = event.passthru["original_request"]["image_id"]
+                        logger.info("wait for media link: {}".format(image_id))
 
-                    loop = asyncio.get_event_loop()
-                    task = loop.create_task(
-                        self.bot._handlers.image_uri_from(
-                            image_id,
-                            self._send_deferred_media,
-                            eid ))
+                        loop = asyncio.get_event_loop()
+                        task = loop.create_task(
+                            self.bot._handlers.image_uri_from(
+                                image_id,
+                                self._send_deferred_media,
+                                eid ))
 
-            elif( hasattr(event, "conv_event")
-                    and hasattr(event.conv_event, "attachments")
-                    and len(event.conv_event.attachments) == 1 ):
-                # catch actual events with media link  but didn' go through the passthru
+                elif( hasattr(event, "conv_event")
+                        and hasattr(event.conv_event, "attachments")
+                        and len(event.conv_event.attachments) == 1 ):
+                    # catch actual events with media link  but didn' go through the passthru
 
-                media_link = event.conv_event.attachments[0]
-                logger.info("media link in original event: {}".format(media_link))
+                    media_link = event.conv_event.attachments[0]
+                    logger.info("media link in original event: {}".format(media_link))
 
-                yield from self._send_deferred_media(media_link, eid)
-                message = "shared media"
-                divider = ""
+                    yield from self._send_deferred_media(media_link, eid)
+                    message = "shared media"
+                    divider = ""
 
-            """standard message relay"""
+                """standard message relay"""
 
-            if "sync_chat_titles" not in config or config["sync_chat_titles"] and chat_title:
-                formatted_text = "{} ({}){} {}".format( username,
-                                                        chat_title,
-                                                        divider,
-                                                        message )
-            else:
-                formatted_text = "{}{} {}".format( username,
-                                                   divider,
-                                                   message )
+                if "sync_chat_titles" not in config or config["sync_chat_titles"] and chat_title:
+                    formatted_text = "{} ({}){} {}".format( username,
+                                                            chat_title,
+                                                            divider,
+                                                            message )
+                else:
+                    formatted_text = "{}{} {}".format( username,
+                                                       divider,
+                                                       message )
 
-            logger.info("sending {}: {}".format(eid, formatted_text))
-            yield from tg_bot.sendMessage( eid,
-                                           formatted_text,
-                                           parse_mode = 'HTML',
-                                           disable_web_page_preview = True )
+                logger.info("sending {}: {}".format(eid, formatted_text))
+                yield from tg_bot.sendMessage( eid,
+                                               formatted_text,
+                                               parse_mode = 'HTML',
+                                               disable_web_page_preview = True )
+
+            except telepot.exception.BotWasKickedError as exc:
+                logger.error("telesync bot was kicked from the telegram chat id {}".format(eid))
+                # continue processing the rest of the external chats
+            except:
+                raise
 
     def format_incoming_message(self, message, external_context):
         config = external_context["config"]
