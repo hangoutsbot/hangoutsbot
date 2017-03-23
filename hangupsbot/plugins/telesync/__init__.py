@@ -1,11 +1,12 @@
 # A Sync plugin for Telegram and Hangouts
 
-import os
-import logging
-import io
-import random
-import asyncio
 import aiohttp
+import asyncio
+import io
+import logging
+import os
+import random
+import re
 
 import telepot.aio
 
@@ -817,6 +818,14 @@ class BridgeInstance(WebFramework):
             already filtered only relevant events
         * telesync configuration only allows 1-to-1 telegram-ho mappings, this
             migrated function supports multiple telegram groups anyway"""
+
+        # https://core.telegram.org/bots/api#html-style
+        # telegram api doesnt understand html linebreaks
+        message = re.sub(r"<br */?>", "\n", message)
+        # prevent replacements on valid <b>...</b> tags
+        message = re.sub(r"&(?!amp;)", "&amp;", message)
+        message = re.sub(r"<(?!/b|b)", "&lt;", message)
+        message = re.sub(r"(?<!b)>", "&gt;", message)
 
         bridge_user = self._get_user_details(user, { "event": event })
         username = bridge_user["preferred_name"]
