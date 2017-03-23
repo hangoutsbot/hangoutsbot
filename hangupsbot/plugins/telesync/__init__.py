@@ -824,6 +824,8 @@ class BridgeInstance(WebFramework):
 
         # https://core.telegram.org/bots/api#html-style
         # telegram api doesnt understand html linebreaks
+        message = re.sub(r"</?i>", "", message)
+        message = re.sub(r"</?pre>", "", message)
         message = re.sub(r"<br */?>", "\n", message)
         # prevent replacements on valid <b>...</b> tags
         message = re.sub(r"&(?!amp;)", "&amp;", message)
