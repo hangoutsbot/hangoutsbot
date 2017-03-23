@@ -328,8 +328,9 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
 
     if str(tg_chat_id) in tg2ho_dict:
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
-
         chat_title = tg_util_get_group_name(msg)
+
+        config = _telesync_config(tg_bot.ho_bot)
 
         user = tg_util_sync_get_user_name(msg)
         text = "uploading sticker from <b>{}</b> in <b>{}</b>...".format(
@@ -366,8 +367,9 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
 
     if str(tg_chat_id) in tg2ho_dict:
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
-
         chat_title = tg_util_get_group_name(msg)
+
+        config = _telesync_config(tg_bot.ho_bot)
 
         user = tg_util_sync_get_user_name(msg)
         text = "uploading photo from <b>{}</b> in <b>{}</b>...".format(
@@ -412,6 +414,8 @@ def tg_on_user_join(tg_bot, tg_chat_id, msg):
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
         chat_title = tg_util_get_group_name(msg)
 
+        config = _telesync_config(tg_bot.ho_bot)
+
         formatted_line = "<b>{}</b> joined <b>{}</b>".format(
             tg_util_sync_get_user_name(msg, chat_action='new_chat_member'),
             chat_title )
@@ -440,6 +444,8 @@ def tg_on_user_leave(tg_bot, tg_chat_id, msg):
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
         chat_title = tg_util_get_group_name(msg)
 
+        config = _telesync_config(tg_bot.ho_bot)
+
         formatted_line = "<b>{}</b> left <b>{}</b>".format(
             tg_util_sync_get_user_name(msg, chat_action='left_chat_member'),
             chat_title )
@@ -465,15 +471,16 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
     config = _telesync_config(tg_bot.ho_bot)
 
     if str(tg_chat_id) in tg2ho_dict:
+        ho_conv_id = tg2ho_dict[str(tg_chat_id)]
         chat_title = tg_util_get_group_name(msg)
+
+        config = _telesync_config(tg_bot.ho_bot)
 
         user = tg_util_sync_get_user_name(msg)
         text = maps_url
 
         formatted_line = "<b>{}</b>: {}".format( user,
                                                  text )
-
-        ho_conv_id = tg2ho_dict[str(tg_chat_id)]
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
