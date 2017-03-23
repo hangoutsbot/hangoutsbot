@@ -819,6 +819,9 @@ class BridgeInstance(WebFramework):
         * telesync configuration only allows 1-to-1 telegram-ho mappings, this
             migrated function supports multiple telegram groups anyway"""
 
+        if not message:
+            message = ""
+
         # https://core.telegram.org/bots/api#html-style
         # telegram api doesnt understand html linebreaks
         message = re.sub(r"<br */?>", "\n", message)

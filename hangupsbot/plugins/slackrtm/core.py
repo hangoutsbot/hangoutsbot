@@ -774,6 +774,9 @@ class SlackRTM(object):
         user = event.passthru["original_request"]["user"]
         message = event.passthru["original_request"]["message"]
 
+        if not message:
+            message = ""
+
         # XXX: rudimentary conversion of html to markdown
         message = re.sub(r"</?b>", "*", message)
         message = re.sub(r"</?i>", "_", message)

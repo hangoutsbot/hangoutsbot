@@ -27,6 +27,9 @@ class BridgeInstance(WebFramework):
         user = event.passthru["original_request"]["user"]
         message = event.passthru["original_request"]["message"]
 
+        if not message:
+            message = ""
+
         # XXX: strip html, telegram parser seems buggy and too simplistic
         # only keep bold for emphasis
         #message = re.sub(r"</?b>", "", message)

@@ -59,6 +59,9 @@ class BridgeInstance(WebFramework):
         message = event.passthru["original_request"]["message"]
         image_id = event.passthru["original_request"]["image_id"]
 
+        if not message:
+            message = ""
+
         for relay_id in relay_ids:
             """XXX: media sending:
 
