@@ -20,6 +20,7 @@ from websocket import WebSocketConnectionClosedException
 from .bridgeinstance import ( BridgeInstance,
                               FakeEvent )
 from .commands_slack import slackCommandHandler
+from .parsers import slack_markdown_to_hangouts
 from .utils import  ( _slackrtms,
                       _slackrtm_conversations_set,
                       _slackrtm_conversations_get )
@@ -31,33 +32,6 @@ logger = logging.getLogger(__name__)
 # fix for simple_smile support
 emoji.EMOJI_UNICODE[':simple_smile:'] = emoji.EMOJI_UNICODE[':smiling_face:']
 emoji.EMOJI_ALIAS_UNICODE[':simple_smile:'] = emoji.EMOJI_UNICODE[':smiling_face:']
-
-def chatMessageEvent2SlackText(event):
-    def renderTextSegment(segment):
-        out = ''
-        if segment.is_bold:
-            out += ' *'
-        if segment.is_italic:
-            out += ' _'
-        out += segment.text
-        if segment.is_italic:
-            out += '_ '
-        if segment.is_bold:
-            out += '* '
-        return out
-
-    lines = ['']
-    for segment in event.segments:
-        if segment.type_ == hangups.schemas.SegmentType.TEXT:
-            lines[-1] += renderTextSegment(segment)
-        elif segment.type_ == hangups.schemas.SegmentType.LINK:
-            lines[-1] += segment.text
-        elif segment.type_ == hangups.schemas.SegmentType.LINE_BREAK:
-            lines.append('')
-        else:
-            logger.warning('Ignoring unknown chat message segment type: %s', segment.type_)
-    lines.extend(event.attachments)
-    return '\n'.join(lines)
 
 
 class ParseError(Exception):
@@ -112,6 +86,7 @@ class SlackMessage(object):
         # only used during parsing
         user = ''
         is_bot = False
+
         if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'message_changed':
             if 'edited' in reply['message']:
                 edited = '(Edited)'
@@ -124,21 +99,27 @@ class SlackMessage(object):
                     raise ParseError('ignore "edited" message from bot, possibly slack-added preview')
                 else:
                     raise ParseError('strange edited message without "edited" member:\n%s' % str(reply))
+
         elif reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'file_comment':
             user = reply['comment']['user']
             text = reply['text']
+
         elif reply['type'] == 'file_comment_added':
             user = reply['comment']['user']
             text = reply['comment']['comment']
+
         else:
             if reply['type'] == 'message' and 'subtype' in reply and reply['subtype'] == 'bot_message' and 'user' not in reply:
                 is_bot = True
                 # this might be a HO relayed message, check if username is set and use it as username
                 username = reply['username']
+
             elif 'text' not in reply or 'user' not in reply:
                 raise ParseError('no text/user in reply:\n%s' % str(reply))
+
             else:
                 user = reply['user']
+
             if 'text' not in reply or not len(reply['text']):
                 # IFTTT?
                 if 'attachments' in reply:
@@ -151,8 +132,11 @@ class SlackMessage(object):
                             text += "\n*%s*\n%s" % (field['title'], field['value'])
                 else:
                     raise ParseError('strange message without text and without attachments:\n%s' % pprint.pformat(reply))
+
             else:
+                # dev: normal messages that are entered by a slack user usually go this route
                 text = reply['text']
+
         file_attachment = None
         if 'file' in reply:
             if 'url_private_download' in reply['file']:
@@ -174,6 +158,16 @@ class SlackMessage(object):
 
         # text now contains the real message, but html entities have to be dequoted still
         text = html.unescape(text)
+
+        """
+        strip :skin-tone-<id>: if present and apparently combined with an actual emoji alias
+        * depends on the slack users emoji style, e.g. hangouts style has no skin tone support
+        * do it BEFORE emojize() for more reliable detection of sub-pattern :some_emoji(::skin-tone-\d:)
+        """
+        text = re.sub(r"::skin-tone-\d:", ":", text, flags=re.IGNORECASE)
+
+        # convert emoji aliases into their unicode counterparts
+        text = emoji.emojize(text, use_aliases=True)
 
         username4ho = username
         realname4ho = username
@@ -508,27 +502,6 @@ class SlackRTM(object):
         out = out.replace('`', '%60')
         return out
 
-    def textToHtml(self, text):
-        reffmt = re.compile(r'<((.)([^|>]*))((\|)([^>]*)|([^>]*))>')
-        text = reffmt.sub(self.matchReference, text)
-        text = emoji.emojize(text, use_aliases=True)
-        text = ' %s ' % text
-        bfmt = re.compile(r'([\s*_`])\*([^*]*)\*([\s*_`])')
-        text = bfmt.sub(r'\1<b>\2</b>\3', text)
-        ifmt = re.compile(r'([\s*_`])_([^_]*)_([\s*_`])')
-        text = ifmt.sub(r'\1<i>\2</i>\3', text)
-        pfmt = re.compile(r'([\s*_`])```([^`]*)```([\s*_`])')
-        text = pfmt.sub(r'\1"\2"\3', text)
-        cfmt = re.compile(r'([\s*_`])`([^`]*)`([\s*_`])')
-        text = cfmt.sub(r"\1'\2'\3", text)
-        text = text.replace("\r\n", "\n")
-        text = text.replace("\n", " <br/>")
-        if text[0] == ' ' and text[-1] == ' ':
-            text = text[1:-1]
-        else:
-            logger.warning('leading or trailing space missing: "%s"', text)
-        return text
-
     @asyncio.coroutine
     def upload_image(self, image_uri, sync, username, userid, channel_name):
         token = self.apikey
@@ -727,7 +700,7 @@ class SlackRTM(object):
             has the added advantage of making slackrtm play well with other slack plugins"""
             return
 
-        msg_html = self.textToHtml(msg.text)
+        message = slack_markdown_to_hangouts(msg.text)
 
         try:
             slackCommandHandler(self, msg)
@@ -763,7 +736,7 @@ class SlackRTM(object):
                     asyncio.async,
                     self._bridgeinstance._send_to_internal_chat(
                         sync.hangoutid,
-                        msg_html,
+                        message,
                         {   "sync": sync,
                             "source_user": username,
                             "source_uid": msg.user,

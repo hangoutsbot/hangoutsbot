@@ -20,4 +20,5 @@ slackclient >=0.16 # slackrtm (includes websockets)
 textblob
 python_dateutil # gitlab sink
 telepot >=10.5 # telesync needs aio support
+ReParser==1.4.3 # matches hangups, used for markdown standardisation
 cleverwrap # cleverbot
