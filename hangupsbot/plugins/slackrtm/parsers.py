@@ -26,6 +26,16 @@ tokens = [
 
 parser = Parser(tokens)
 
+def render_link(link, label):
+    if label in link:
+        return link
+    else:
+        return link + " (" + label + ")"
+
+def convert_slack_links(text):
+    text = re.sub(r"<(.*?)\|(.*?)>",  lambda m: render_link(m.group(1), m.group(2)), text)
+    return text
+
 def slack_markdown_to_hangouts(text, debug=False):
     # workaround: short-circuit on single char inputs
     # important ones are markdown-related
@@ -67,6 +77,7 @@ def slack_markdown_to_hangouts(text, debug=False):
         # manually escape to prevent hangups markdown processing
         text = text.replace("*", "\\*")
         text = text.replace("_", "\\_")
+        text = convert_slack_links(text)
 
         definition = segment[1]
         if "is_bold" in definition and definition["is_bold"]:
@@ -95,6 +106,9 @@ if __name__ == '__main__':
             '_\n'
             '*\n'
             '¯\_(ツ)_/¯\n'
+            '<http://www.google.com.sg|Google Singapore> <http://www.google.com.my|Google Malaysia>\n'
+            '<http://www.google.com|www.google.com>\n'
+            'www.google.com\n'
             '**hello\n'
             '*** hi\n'
             '********\n'
