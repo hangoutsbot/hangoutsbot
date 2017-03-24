@@ -823,21 +823,15 @@ class BridgeInstance(WebFramework):
         if not message:
             message = ""
 
-        # https://core.telegram.org/bots/api#html-style
-        # telegram api doesnt understand html linebreaks
-        message = re.sub(r"</?i>", "", message)
-        message = re.sub(r"</?pre>", "", message)
-        message = re.sub(r"<br */?>", "\n", message)
-        # prevent replacements on valid <b>...</b> <a href="...">...</a> tags
-        message = re.sub(r"&(?!amp;)", "&amp;", message)
-        message = re.sub(r"<(?!/b|b|a|/a)", "&lt;", message)
-        message = re.sub(r"(?<!b|a|\")>", "&gt;", message)
+        # https://core.telegram.org/bots/api#markdown-style
+        # replace hangups bold style with tg style
+        message = re.sub(r"\*\*", "*", message)
 
         bridge_user = self._get_user_details(user, { "event": event })
         username = bridge_user["preferred_name"]
         if bridge_user["chat_id"]:
-            username = "<a href=\"https://plus.google.com/u/0/{}/about\">{}</a>".format( bridge_user["chat_id"],
-                                                                                         bridge_user["preferred_name"] )
+            username = "[{1}](https://plus.google.com/u/0/{0}/about)".format( bridge_user["chat_id"],
+                                                                              bridge_user["preferred_name"] )
 
         chat_title = format(self.bot.conversations.get_name(conv_id))
 
@@ -907,7 +901,7 @@ class BridgeInstance(WebFramework):
                 logger.info("sending {}: {}".format(eid, formatted_text))
                 yield from tg_bot.sendMessage( eid,
                                                formatted_text,
-                                               parse_mode = 'HTML',
+                                               parse_mode = 'Markdown',
                                                disable_web_page_preview = True )
 
             except telepot.exception.BotWasKickedError as exc:
