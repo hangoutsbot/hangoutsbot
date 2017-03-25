@@ -76,10 +76,10 @@ if __name__ == '__main__':
     print("")
 
     html = ( '<B>THE SYNCROOM TEST</B><br />'
-             '<b><a href="https://plus.google.com/u/bleks/about">'
-             'JAWJDJS AKJSKJDS</a></b><br />'
-             '... (<a href="mailto:eeckart@gmail.com">eeckart@gmail.com</a>)<br />'
-             '... 104821221116551390464<br /><b>Users: 1</b>' )
+             '<b><a href="https://plus.google.com/u/01234567890/about">'
+             'ABCDEFG MNOPQRSTUV</a></b><br />'
+             '... (<a href="mailto:ABCD@efghijk.com">ABCD@efghijk.com</a>)<br />'
+             '... 01234567890<br /><b>Users: 1</b>' )
 
     print(html_to_hangups_markdown(html, debug=True))
     print("")
