@@ -20,7 +20,8 @@ from websocket import WebSocketConnectionClosedException
 from .bridgeinstance import ( BridgeInstance,
                               FakeEvent )
 from .commands_slack import slackCommandHandler
-from .parsers import slack_markdown_to_hangouts
+from .parsers import ( slack_markdown_to_hangups,
+                       hangups_markdown_to_slack )
 from .utils import  ( _slackrtms,
                       _slackrtm_conversations_set,
                       _slackrtm_conversations_get )
@@ -700,7 +701,7 @@ class SlackRTM(object):
             has the added advantage of making slackrtm play well with other slack plugins"""
             return
 
-        message = slack_markdown_to_hangouts(msg.text)
+        message = slack_markdown_to_hangups(msg.text)
 
         try:
             slackCommandHandler(self, msg)
@@ -759,10 +760,7 @@ class SlackRTM(object):
         if not message:
             message = ""
 
-        # XXX: convert hangups bold markdown to slack bold markdown
-        message = re.sub(r"\*\*", "*", message)
-        # XXX: convert links to slack-formatted links
-        message = re.sub(r"\[(.*?)\]\((.*?)\)", r"<\2|\1>", message)
+        message = hangups_markdown_to_slack(message)
 
         bridge_user = self._bridgeinstance._get_user_details(user, { "event": event })
 

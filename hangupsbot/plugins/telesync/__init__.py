@@ -18,6 +18,9 @@ import plugins
 from webbridge import ( WebFramework,
                         FakeEvent )
 
+from .parsers import hangups_markdown_to_telegram
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -823,11 +826,7 @@ class BridgeInstance(WebFramework):
         if not message:
             message = ""
 
-        # https://core.telegram.org/bots/api#markdown-style
-        # XXX: replace hangups bold style with tg style
-        message = re.sub(r"\*\*", "*", message)
-        # XXX: unwrap bolded/italicised links (works on single/double wrapped)
-        message = re.sub(r"([_*]?)([_*])(\[.*?\]\(.*?\))\2\1", r"\3", message)
+        message = hangups_markdown_to_telegram(message)
 
         bridge_user = self._get_user_details(user, { "event": event })
         username = bridge_user["preferred_name"]

@@ -17,14 +17,17 @@ b_right = r'(?:(?=[' + boundary_chars + r'])|(?=$))'   # Lookahead
 markdown_start = b_left + r'(?<!\\){tag}(?!\s)(?!{tag})'
 markdown_end = r'(?<!{tag})(?<!\s)(?<!\\){tag}' + b_right
 
-tokens = [
+tokens_slack_to_hangups = [
     Token('b',          *markdown(r'\*'),     is_bold=True),
     Token('i',          *markdown(r'_'),      is_italic=True),
     Token('pre1',       *markdown(r'`'),      skip=True),
-    Token('pre2',       *markdown(r'```'),    skip=True),
-]
+    Token('pre2',       *markdown(r'```'),    skip=True) ]
 
-parser = Parser(tokens)
+tokens_hangups_to_slack = [
+    Token('b',          *markdown(r'\*\*'),    bold=True) ]
+
+parser_slack_to_hangups = Parser(tokens_slack_to_hangups)
+parser_hangups_to_slack = Parser(tokens_hangups_to_slack)
 
 def render_link(link, label):
     if label in link:
@@ -36,71 +39,103 @@ def convert_slack_links(text):
     text = re.sub(r"<(.*?)\|(.*?)>",  lambda m: render_link(m.group(1), m.group(2)), text)
     return text
 
-def slack_markdown_to_hangouts(text, debug=False):
-    # workaround: short-circuit on single char inputs
-    # important ones are markdown-related
-    if text.strip() in [ "*", "_", "`", "~" ]:
-        return "\\" + text.strip()
-
-    # workaround: common pattern *<text>
+def slack_markdown_to_hangups(text, debug=False):
     lines = text.split("\n")
     nlines = []
     for line in lines:
+        # workaround: for single char lines
+        if len(line) < 2:
+            line = line.replace("*", "\\*")
+            line = line.replace("_", "\\_")
+            nlines.append(line)
+            continue
+
+        # workaround: common pattern *<text>
         if re.match("^\*[^* ]", line) and line.count("*") % 2:
             line = line.replace("*", "* ", 1)
-        nlines.append(line)
+
+        # workaround: accidental consumption of * in "**test"
+        replacement_token = "[2star:" + str(uuid.uuid4()) + "]"
+        line = line.replace("**", replacement_token)
+
+        segments = parser_slack_to_hangups.parse(line)
+
+        nline=""
+        for segment in [ (segment.text,
+                          segment.params) for segment in segments ]:
+
+            if debug: print(segment)
+
+            text = segment[0]
+            definition = segment[1]
+
+            lspace = ""
+            rspace = ""
+            text = text.replace(replacement_token, "**")
+            if text[0:1] == " ":
+                lspace = " "
+                text = text[1:]
+            if text[-1:] == " ":
+                rspace = " "
+                text = text[:-1]
+
+            # manually escape to prevent hangups markdown processing
+            text = text.replace("*", "\\*")
+            text = text.replace("_", "\\_")
+            text = convert_slack_links(text)
+
+            markdown = []
+            if "is_bold" in definition and definition["is_bold"]:
+                markdown.append("**")
+            if "is_italic" in definition and definition["is_italic"]:
+                markdown.append("_")
+
+            nline += lspace
+            nline += "".join(markdown)
+            nline += text
+            nline += "".join(markdown[::-1])
+            nline += rspace
+
+        nlines.append(nline)
     text = "\n".join(nlines)
+    return text
 
-    # workaround: accidental consumption of * in "**test"
-    replacement_token = "[2star:" + str(uuid.uuid4()) + "]"
-    text = text.replace("**", replacement_token)
 
+def hangups_markdown_to_slack(text, debug=False):
+    lines = text.split("\n")
+    nlines = []
     output = ""
-    segments = parser.parse(text)
-    for segment in [ (segment.text,
-                      segment.params) for segment in segments ]:
+    for line in lines:
+        segments = parser_hangups_to_slack.parse(line)
+        for segment in [ [segment.text,
+                          segment.params] for segment in segments ]:
 
-        if debug: print(segment)
+            if debug: print(segment)
 
-        lspace = ""
-        rspace = ""
-        markdown = []
-        text = segment[0]
-        text = text.replace(replacement_token, "**")
-        if text[0:1] == " ":
-            lspace = " "
-            text = text[1:]
-        if text[-1:] == " ":
-            rspace = " "
-            text = text[:-1]
+            text = segment[0]
+            definition = segment[1]
 
-        # manually escape to prevent hangups markdown processing
-        text = text.replace("*", "\\*")
-        text = text.replace("_", "\\_")
-        text = convert_slack_links(text)
+            # convert links to slack format
+            text = re.sub(r"\[(.*?)\]\((.*?)\)", r"<\2|\1>", text)
 
-        definition = segment[1]
-        if "is_bold" in definition and definition["is_bold"]:
-            markdown.append("**")
-        if "is_italic" in definition and definition["is_italic"]:
-            markdown.append("_")
+            wrapper = ""
+            if "bold" in definition and definition["bold"]:
+                # bold
+                wrapper = "*"
 
-        output += lspace
-        output += "".join(markdown)
-        output += text
-        output += "".join(markdown[::-1])
-        output += rspace
-
+            nlines.append(wrapper + text + wrapper)
+    output = "\n".join(nlines)
     return output
 
+
 if __name__ == '__main__':
-    print("***TEST OF SLACK MARKDOWN TO HANGOUTS PARSER")
+    print("***SLACK MARKDOWN TO HANGUPS")
     print("")
 
     text = ('Hello *bold* world!\n'
             'You can *try _this_ awesome* [link](www.eff.org).\n'
             '*title*\n'
-            '* hello\n'
+            '*hello\n'
             '* world\n'
             '*\n'
             '_\n'
@@ -113,11 +148,31 @@ if __name__ == '__main__':
             '*** hi\n'
             '********\n'
             '_ xya kskdks')
-    print(text)
+    print(repr(text))
     print("")
 
-    output = slack_markdown_to_hangouts(text, debug=True)
+    output = slack_markdown_to_hangups(text, debug=True)
     print("")
 
-    print(output)
+    print(repr(output))
     print("")
+
+    print("***HANGUPS MARKDOWN TO SLACK PARSER")
+    print("")
+
+    text = ('**[bot] test markdown**\n'
+            '**[ABCDEF ABCDEF](https://plus.google.com/u/0/1234567890/about)**\n'
+            '... ([ABC@DEF.GHI](mailto:ABC@DEF.GHI))\n'
+            '... 1234567890\n'
+            '**[XYZ XYZ](https://plus.google.com/u/0/1234567890/about)**\n'
+            '... 0123456789\n'
+            '**`_Users: 2_`**' )
+    print(repr(text))
+    print("")
+
+    output = hangups_markdown_to_slack(text, debug=True)
+    print("")
+
+    print(repr(output))
+    print("")
+
