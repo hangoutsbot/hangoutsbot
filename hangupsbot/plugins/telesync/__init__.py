@@ -824,8 +824,10 @@ class BridgeInstance(WebFramework):
             message = ""
 
         # https://core.telegram.org/bots/api#markdown-style
-        # replace hangups bold style with tg style
+        # XXX: replace hangups bold style with tg style
         message = re.sub(r"\*\*", "*", message)
+        # XXX: unwrap bolded/italicised links (works on single/double wrapped)
+        message = re.sub(r"([_*]?)([_*])(\[.*?\]\(.*?\))\2\1", r"\3", message)
 
         bridge_user = self._get_user_details(user, { "event": event })
         username = bridge_user["preferred_name"]

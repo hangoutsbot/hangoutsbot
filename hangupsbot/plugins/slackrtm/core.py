@@ -759,11 +759,10 @@ class SlackRTM(object):
         if not message:
             message = ""
 
-        # XXX: rudimentary conversion of html to markdown
-        message = re.sub(r"</?b>", "*", message)
-        message = re.sub(r"</?i>", "_", message)
-        message = re.sub(r"</?pre>", "`", message)
-        message = re.sub(r"<br */?>", "\n", message)
+        # XXX: convert hangups bold markdown to slack bold markdown
+        message = re.sub(r"\*\*", "*", message)
+        # XXX: convert links to slack-formatted links
+        message = re.sub(r"\[(.*?)\]\((.*?)\)", r"<\2|\1>", message)
 
         bridge_user = self._bridgeinstance._get_user_details(user, { "event": event })
 

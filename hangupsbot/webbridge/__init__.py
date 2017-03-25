@@ -7,6 +7,8 @@ from collections import namedtuple
 import plugins
 import threadmanager
 
+from parsers.markdown import html_to_hangups_markdown
+
 from sinks import aiohttp_start
 from sinks.base_bot_request_handler import AsyncRequestHandler as IncomingRequestHandler
 
@@ -130,6 +132,8 @@ class WebFramework:
                 we need for the other bridges to work"""
 
             logger.info("hangouts bot raised an event, first seen by {}".format(self.plugin_name))
+
+            message = html_to_hangups_markdown(message)
 
             passthru["original_request"] = { "message": message,
                                              "image_id": image_id,
