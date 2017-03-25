@@ -39,9 +39,6 @@ class BridgeInstance(WebFramework):
         conv_id = config["trigger"]
         team_name = config["config.json"]["name"]
 
-        user = event.passthru["original_request"]["user"]
-        message = event.passthru["original_request"]["message"]
-
         """slackrtm uses one thread per team, identify slackclient to handle the hangouts message.
         since the config is further separated by hangouts conv_id for relay, we also supply extra info
             to the handler, so it can decide for itself whether/where the message should be forwarded"""
