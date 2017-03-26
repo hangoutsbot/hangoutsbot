@@ -256,24 +256,45 @@ def tg_util_create_gmaps_url(lat, long, https=True):
     return "{https}://maps.google.com/maps?q={lat},{long}".format(https='https' if https else 'http', lat=lat,
                                                                   long=long)
 
-def tg_util_create_telegram_me_link(username, https=True):
-    return "{https}://telegram.me/{username}".format(https='https' if https else 'http', username=username)
-
 def tg_util_sync_get_user_name(msg, chat_action='from'):
-    profile_dict = tg_bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho']
-    username = TelegramBot.get_username(msg, chat_action=chat_action)
+    username = False
 
-    if( str(msg['from']['id']) in profile_dict
-            and "user_gplus" in profile_dict[str(msg['from']['id'])] ):
+    if 'username' in msg[chat_action]:
+        username = msg[chat_action]['username']
+    elif 'firstname' in msg[chat_action]:
+        username = msg[chat_action]['firstname']
 
-        user_html = profile_dict[str(msg['from']['id'])]['user_text']
+    """linked profile support"""
+
+    telegram_uid = str(msg['from']['id'])
+    bot = tg_bot.ho_bot
+    chat_id = False
+
+    keys_tg_to_ho = ['profilesync', 'tg2ho', telegram_uid, 'chat_id']
+    if bot.memory.exists(keys_tg_to_ho):
+        chat_id = bot.memory.get_by_path(keys_tg_to_ho)
+
     else:
-        url = tg_util_create_telegram_me_link(username)
-        # hangouts used to support embedded links,
-        #   no longer displays them unless the url matches visible text
-        user_html = "{}".format(msg[chat_action]['first_name'])
+        """do it the legacy/half-broken way - old telesync didn't store chat_id, extract from link"""
+        try:
+            gplus = bot.memory.get_by_path(['profilesync', 'tg2ho', telegram_uid, 'user_gplus'])
+            has_chat_id = re.search(r"/(\d+)/about", gplus)
+            if has_chat_id:
+                chat_id = has_chat_id.group(1)
+        except KeyError:
+            logger.info("unmapped/invalid hangouts user for {}".format(telegram_uid))
 
-    return msg[chat_action]['first_name'] if username == "" else user_html
+    if chat_id:
+        if bot.memory.exists(['user_data', chat_id, "nickname"]):
+            preferred_name = bot.memory.get_by_path(['user_data', chat_id, "nickname"])
+        else:
+            hangups_user = bot.get_hangups_user(chat_id)
+            preferred_name = hangups_user.full_name
+        # links with different visible content are no longer supported by hangouts clients
+        username = preferred_name
+        logger.info("mapped telegram id: {} to {}, {}".format(telegram_uid, chat_id, username))
+
+    return username
 
 @asyncio.coroutine
 def tg_on_message(tg_bot, tg_chat_id, msg):
@@ -1019,26 +1040,36 @@ def syncprofile(bot, event, *args):
     ho2tg_dict = bot.memory.get_by_path(['profilesync'])['ho2tg']
     tg2ho_dict = bot.memory.get_by_path(['profilesync'])['tg2ho']
 
-    if len(parameters) > 1:
-        yield from bot.coro_send_message(event.conv_id, "Too many arguments")
-    elif len(parameters) < 1:
-        yield from bot.coro_send_message(event.conv_id, "Too few arguments")
-    elif len(parameters) == 1:
-        if str(parameters[0]) in ho2tg_dict:
-            tg_id = ho2tg_dict[str(parameters[0])]
-            user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
-            user_text = '<a href="{user_gplus}">{uname}</a>'.format(uname=event.user.full_name, user_gplus=user_gplus)
-            ho_id = parameters[0]
-            tg2ho_dict[tg_id] = {'user_gplus': user_gplus, 'user_text': user_text, 'ho_id': ho_id}
-            # del ho2tg_dict[str(parameters[0])]
+    if len(parameters) != 1:
+        yield from bot.coro_send_message(event.conv_id, "supply registration id as single parameter")
+
+    else:
+        registration_id = str(parameters[0])
+        if registration_id in ho2tg_dict:
+            ho_id = registration_id
+            tg_id = ho2tg_dict[registration_id]
+
+            chat_id = event.user_id.chat_id
+            user_gplus = 'https://plus.google.com/u/0/{}/about'.format(chat_id)
+
+            tg2ho_dict[tg_id] = { 'ho_id': ho_id,
+                                  'chat_id': chat_id,
+                                  'user_gplus': user_gplus }
+
+            # del ho2tg_dict[str(registration_id)]
             ho2tg_dict[str(event.user_id.chat_id)] = str(tg_id)
+
             new_mem = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
             bot.memory.set_by_path(['profilesync'], new_mem)
-            yield from bot.coro_send_message(event.conv_id, "Succsesfully set up profile sync.")
+            bot.memory.save()
+
+            yield from bot.coro_send_message(
+                event.conv_id,
+                "profile sync successfully set up" )
         else:
-            yield from bot.coro_send_message(event.conv_id,
-                                             "You have to execute following command from telegram first:")
-            yield from bot.coro_send_message(event.conv_id, "/syncprofile")
+            yield from bot.coro_send_message(
+                event.conv_id,
+                "execute /syncprofile command in a private chat with the bot on telegram first" )
 
 
 def telesync(bot, event, *args):
