@@ -996,39 +996,6 @@ def _telesync_config(bot):
         return False
     return telesync_config
 
-def _telesync_membership_change_message(user_name, user_gplus, group_name, membership_event="left"):
-    text = '<a href="{user_gplus}">{uname}</a> {membership_event} <b>({gname})</b>'.format(uname=user_name,
-                                                                                           user_gplus=user_gplus,
-                                                                                           gname=group_name,
-                                                                                           membership_event=membership_event)
-    return text
-
-@asyncio.coroutine
-def _telesync_is_valid_image_link(url):
-    """
-    :param url:
-    :return: result, file_name
-    """
-    if ' ' not in url:
-        if url.startswith(("http://", "https://")):
-            if url.endswith((".jpg", ".jpeg", ".gif", ".gifv", ".webm", ".png", ".mp4")):
-                ext = url.split(".")[-1].strip()
-                file = url.split("/")[-1].strip().replace(".", "").replace("_", "-")
-                return True, "{name}.{ext}".format(name=file, ext=ext)
-            else:
-                with aiohttp.ClientSession() as session:
-                    resp = yield from session.get(url)
-                    headers = resp.headers
-                    resp.close()
-                    if "image" in headers['CONTENT-TYPE']:
-                        content_disp = headers['CONTENT-DISPOSITION']
-                        content_disp = content_disp.replace("\"", "").split("=")
-                        file_ext = content_disp[2].split('.')[1].strip()
-                        if file_ext in ("jpg", "jpeg", "gif", "gifv", "webm", "png", "mp4"):
-                            file_name = content_disp[1].split("?")[0].strip()
-                            return True, "{name}.{ext}".format(name=file_name, ext=file_ext)
-    return False, ""
-
 
 def syncprofile(bot, event, *args):
     """link g+ and telegram profile together
@@ -1135,17 +1102,19 @@ def _on_membership_change(bot, event, command=""):
         return
 
     # Generate list of added or removed users
-    event_users = [event.conv.get_user(user_id) for user_id
-                   in event.conv_event.participant_ids]
-    names = ', '.join([user.full_name for user in event_users])
+    event_users = [ event.conv.get_user(user_id)
+                    for user_id in event.conv_event.participant_ids ]
 
-    user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
-
-    membership_event = "joined" if event.conv_event.type_ == hangups.MembershipChangeType.JOIN else "left"
-    text = _telesync_membership_change_message(names, user_gplus, event.conv.name, membership_event)
+    text = '<a href="{}">{}</a> {} <b>({})</b>'.format(
+        'https://plus.google.com/u/0/{}/about'.format(event.user_id.chat_id),
+        ', '.join([user.full_name for user in event_users]),
+        "joined" if event.conv_event.type_ == hangups.MembershipChangeType.JOIN else "left",
+        event.conv.name )
 
     ho2tg_dict = bot.memory.get_by_path(['telesync'])['ho2tg']
-
     if event.conv_id in ho2tg_dict:
-        yield from tg_bot.sendMessage(ho2tg_dict[event.conv_id], text, parse_mode='html',
-                                      disable_web_page_preview=True)
+        yield from tg_bot.sendMessage(
+            ho2tg_dict[event.conv_id],
+            text,
+            parse_mode='html',
+            disable_web_page_preview=True )
