@@ -179,7 +179,7 @@ class SlackMessage(object):
             realname = slackrtm.get_realname(user,username)
 
             username4ho = u'{2}'.format(domain, username, username)
-            realname4ho = u'{2}'.format(domain, username, username)
+            realname4ho = u'{2}'.format(domain, username, realname)
             tag_from_slack = True
         elif sender_id != '':
             username4ho = u'{1}'.format(sender_id, username)
