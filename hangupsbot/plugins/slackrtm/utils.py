@@ -50,13 +50,18 @@ def _slackrtm_link_profiles(hangoutsbot, hangouts_uid, slack_teamname, slack_uid
         raise ValueError("unknown base key")
 
     if uid1 in mapped_identities[base_key]:
-        if mapped_identities[base_key][uid1] != uid2:
+        existing_uid2 = mapped_identities[base_key][uid1]
+        if( existing_uid2 != uid2
+            and ( existing_uid2 in mapped_identities[link_key]
+                  and mapped_identities[link_key][existing_uid2] == uid1 )):
             return "profile already synced to another user, please contact bot administrator"
 
         if not remove:
             return "mapping already exist, call command with \"remove\" appended to delink"
 
         del mapped_identities[base_key][uid1]
+        if existing_uid2 in mapped_identities[link_key]:
+            del mapped_identities[link_key][existing_uid2]
         message = "mapping was removed"
 
     else:
