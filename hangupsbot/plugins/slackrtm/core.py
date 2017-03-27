@@ -502,7 +502,7 @@ class SlackRTM(object):
             linktarget = match.group(1)
             if linktext == "":
                 linktext = linktarget
-            out = '<a href="%s">%s</a>' % (linktarget, linktext)
+            out = '[{}]({})'.format(linktext, linktarget)
         out = out.replace('_', '%5F')
         out = out.replace('*', '%2A')
         out = out.replace('`', '%60')
@@ -706,7 +706,9 @@ class SlackRTM(object):
             has the added advantage of making slackrtm play well with other slack plugins"""
             return
 
-        message = slack_markdown_to_hangups(msg.text)
+        reffmt = re.compile(r'<((.)([^|>]*))((\|)([^>]*)|([^>]*))>')
+        message = reffmt.sub(self.matchReference, msg.text)
+        message = slack_markdown_to_hangups(message)
 
         try:
             slackCommandHandler(self, msg)
