@@ -289,6 +289,7 @@ class HangupsBot(object):
         if not hangups_user:
             try:
                 hangups_user = self._user_list._user_dict[UserID]
+                hangups_user.definitionsource = "hangups"
             except KeyError as e:
                 pass
 
@@ -304,6 +305,7 @@ class HangupsBot(object):
                     _cached["photo_url"],
                     _cached["emails"],
                     _cached["is_self"] )
+                hangups_user.definitionsource = "permamem"
 
         """if all else fails, create an "unknown" user"""
         if not hangups_user:
@@ -314,6 +316,7 @@ class HangupsBot(object):
                 None,
                 [],
                 False )
+            hangups_user.definitionsource = False
 
         return hangups_user
 
