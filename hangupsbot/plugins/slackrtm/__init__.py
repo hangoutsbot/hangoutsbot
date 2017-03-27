@@ -109,8 +109,10 @@ def _slackrtm_conversations_migrate_20170319(bot):
     migrated_configurations = {}
     for configuration in configurations:
         team_name = configuration["name"]
-        legacy_team_memory = dict(bot.memory.get_by_path([ 'user_data', team_name ]))
-        migrated_configurations[ team_name ] = legacy_team_memory
+        broken_path = [ 'user_data', team_name ]
+        if bot.memory.exists(broken_path):
+            legacy_team_memory = dict(bot.memory.get_by_path(broken_path))
+            migrated_configurations[ team_name ] = legacy_team_memory
 
     bot.memory.set_by_path([ memory_root_key ], migrated_configurations)
     bot.memory.save()
