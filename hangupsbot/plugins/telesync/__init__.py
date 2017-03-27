@@ -444,8 +444,10 @@ def tg_on_user_join(tg_bot, tg_chat_id, msg):
 
         config = _telesync_config(tg_bot.ho_bot)
 
-        formatted_line = "<b>{}</b> joined <b>{}</b>".format(
+        formatted_line = "*{}* added **{}** to *{}*".format(
             tg_util_sync_get_user_name(msg, chat_action='new_chat_member'),
+            ", ".join([ new_user["username"]
+                        for new_user in msg["new_chat_members"] ]),
             chat_title )
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
@@ -474,8 +476,8 @@ def tg_on_user_leave(tg_bot, tg_chat_id, msg):
 
         config = _telesync_config(tg_bot.ho_bot)
 
-        formatted_line = "<b>{}</b> left <b>{}</b>".format(
-            tg_util_sync_get_user_name(msg, chat_action='left_chat_member'),
+        formatted_line = "**{}** left *{}*".format(
+            msg["left_chat_member"]["username"],
             chat_title )
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
@@ -1134,10 +1136,10 @@ def _on_membership_change(bot, event, command=""):
     event_users = [ event.conv.get_user(user_id)
                     for user_id in event.conv_event.participant_ids ]
 
-    text = '<a href="{}">{}</a> {} <b>({})</b>'.format(
-        'https://plus.google.com/u/0/{}/about'.format(event.user_id.chat_id),
+    text = '_{}: {} {} {}_'.format(
+        event.user.full_name,
         ', '.join([user.full_name for user in event_users]),
-        "joined" if event.conv_event.type_ == hangups.MembershipChangeType.JOIN else "left",
+        "added to" if event.conv_event.type_ == hangups.MembershipChangeType.JOIN else "left",
         event.conv.name )
 
     ho2tg_dict = bot.memory.get_by_path(['telesync'])['ho2tg']
@@ -1145,5 +1147,5 @@ def _on_membership_change(bot, event, command=""):
         yield from tg_bot.sendMessage(
             ho2tg_dict[event.conv_id],
             text,
-            parse_mode='html',
+            parse_mode='Markdown',
             disable_web_page_preview=True )
