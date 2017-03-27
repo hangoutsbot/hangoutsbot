@@ -5,29 +5,49 @@ import uuid
 
 from reparser import Parser, Token, MatchGroup
 
-def markdown(tag):
+
+# slack to hangups
+
+def markdown1(tag):
     """Return sequence of start and end regex patterns for simple Markdown tag"""
-    return (markdown_start.format(tag=tag), markdown_end.format(tag=tag))
+    return (markdown1_start.format(tag=tag), markdown1_end.format(tag=tag))
 
-boundary_chars = r'\s`!\'".,<>?*_~='
+boundary1_chars = r'\s`!\'".,<>?*_~=' # slack to hangups
 
-b_left = r'(?:(?<=[' + boundary_chars + r'])|(?<=^))'  # Lookbehind
-b_right = r'(?:(?=[' + boundary_chars + r'])|(?=$))'   # Lookahead
+b1_left = r'(?:(?<=[' + boundary1_chars + r'])|(?<=^))'
+b1_right = r'(?:(?=[' + boundary1_chars + r'])|(?=$))'
 
-markdown_start = b_left + r'(?<!\\){tag}(?!\s)(?!{tag})'
-markdown_end = r'(?<!{tag})(?<!\s)(?<!\\){tag}' + b_right
+markdown1_start = b1_left + r'(?<!\\){tag}(?!\s)(?!{tag})'
+markdown1_end = r'(?<!{tag})(?<!\s)(?<!\\){tag}' + b1_right
 
 tokens_slack_to_hangups = [
-    Token('b',          *markdown(r'\*'),     is_bold=True),
-    Token('i',          *markdown(r'_'),      is_italic=True),
-    Token('pre1',       *markdown(r'`'),      skip=True),
-    Token('pre2',       *markdown(r'```'),    skip=True) ]
-
-tokens_hangups_to_slack = [
-    Token('b',          *markdown(r'\*\*'),    bold=True) ]
+    Token('b',          *markdown1(r'\*'),     is_bold=True),
+    Token('i',          *markdown1(r'_'),      is_italic=True),
+    Token('pre1',       *markdown1(r'`'),      skip=True),
+    Token('pre2',       *markdown1(r'```'),    skip=True) ]
 
 parser_slack_to_hangups = Parser(tokens_slack_to_hangups)
+
+
+# hangups to slack
+
+def markdown2(tag):
+    """Return sequence of start and end regex patterns for simple Markdown tag"""
+    return (markdown2_start.format(tag=tag), markdown2_end.format(tag=tag))
+
+boundary2_chars = r'\s!\'".,<>?*_~=' # hangups to slack
+
+b2_left = r'(?:(?<=[' + boundary2_chars + r'])|(?<=^))'
+b2_right = r'(?:(?=[' + boundary2_chars + r'])|(?=$))'
+
+markdown2_start = b2_left + r'(?<!\\){tag}(?!\s)(?!{tag})'
+markdown2_end = r'(?<!{tag})(?<!\s)(?<!\\){tag}' + b2_right
+
+tokens_hangups_to_slack = [
+    Token('b',          *markdown2(r'\*\*'),    bold=True) ]
+
 parser_hangups_to_slack = Parser(tokens_hangups_to_slack)
+
 
 def render_link(link, label):
     if label in link:
@@ -106,6 +126,8 @@ def hangups_markdown_to_slack(text, debug=False):
     nlines = []
     output = ""
     for line in lines:
+        single_line = ""
+
         segments = parser_hangups_to_slack.parse(line)
         for segment in [ [segment.text,
                           segment.params] for segment in segments ]:
@@ -123,7 +145,10 @@ def hangups_markdown_to_slack(text, debug=False):
                 # bold
                 wrapper = "*"
 
-            nlines.append(wrapper + text + wrapper)
+            segment_to_text = wrapper + text + wrapper
+            single_line += segment_to_text
+
+        nlines.append(single_line)
     output = "\n".join(nlines)
     return output
 
@@ -166,7 +191,8 @@ if __name__ == '__main__':
             '... 1234567890\n'
             '**[XYZ XYZ](https://plus.google.com/u/0/1234567890/about)**\n'
             '... 0123456789\n'
-            '**`_Users: 2_`**' )
+            '**`_Users: 2_`**\n'
+            '**`ABC (xyz)`**, chat_id = _1234567890_' )
     print(repr(text))
     print("")
 
