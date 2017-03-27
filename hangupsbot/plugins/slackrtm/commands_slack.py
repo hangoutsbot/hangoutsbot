@@ -1,4 +1,11 @@
+import logging
 import sys
+
+from .utils import _slackrtm_link_profiles
+
+
+logger = logging.getLogger(__name__)
+
 
 def slackCommandHandler(slackbot, msg):
     tokens = msg.text.lower().strip().split()
@@ -44,7 +51,8 @@ commands_user = [ "help",
                   "whoami",
                   "whois",
                   "admins",
-                  "hangoutmembers" ]
+                  "hangoutmembers",
+                  "identify" ]
 
 commands_admin = [ "hangouts",
                    "listsyncs",
@@ -166,6 +174,50 @@ def hangoutmembers(slackbot, msg, args):
         text=message,
         as_user=True,
         link_names=True )
+
+def identify(slackbot, msg, args):
+    """link your hangouts user"""
+
+    hangoutsbot = slackbot.bot
+
+    parameters = list(args)
+    if len(parameters) < 1:
+        slackbot.api_call(
+            'chat.postMessage',
+            channel = msg.channel,
+            text = "supply hangouts user id",
+            as_user = True,
+            link_names = True )
+        return
+
+    remove = False
+    if "remove" in parameters:
+        parameters.remove("remove")
+        remove = True
+
+    _hangouts_uid = parameters.pop(0)
+    hangups_user = hangoutsbot.get_hangups_user(_hangouts_uid)
+    if not hangups_user.definitionsource:
+        slackbot.api_call(
+            'chat.postMessage',
+            channel = msg.channel,
+            text = "{} is not a valid hangouts user id".format(_hangouts_uid),
+            as_user = True,
+            link_names = True )
+        return
+
+    hangouts_uid = hangups_user.id_.chat_id
+    slack_teamname = slackbot.name
+    slack_uid = msg.user
+
+    message = _slackrtm_link_profiles(hangoutsbot, hangouts_uid, slack_teamname, slack_uid, "slack", remove)
+
+    slackbot.api_call(
+        'chat.postMessage',
+        channel = msg.channel,
+        text = message,
+        as_user = True,
+        link_names = True )
 
 def hangouts(slackbot, msg, args):
     """admin-only: lists all connected hangouts, suggested: use only in direct message"""

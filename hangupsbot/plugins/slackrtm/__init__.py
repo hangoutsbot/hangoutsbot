@@ -54,7 +54,8 @@ from .commands_hangouts import ( slacks,
                                  slack_setimageupload,
                                  slack_sethotag,
                                  slack_setslacktag,
-                                 slack_showslackrealnames )
+                                 slack_showslackrealnames,
+                                 slack_identify )
 from .core import SlackRTMThread
 from .utils import _slackrtms
 
@@ -83,7 +84,18 @@ def _initialise(bot):
     plugins.register_handler(_handle_membership_change, type="membership")
     plugins.register_handler(_handle_rename, type="rename")
 
-    plugins.register_admin_command(["slacks", "slack_channels", "slack_listsyncs", "slack_syncto", "slack_disconnect", "slack_setsyncjoinmsgs", "slack_setimageupload", "slack_sethotag","slack_users", "slack_setslacktag", "slack_showslackrealnames"])
+    plugins.register_admin_command([ "slacks",
+                                     "slack_channels",
+                                     "slack_listsyncs",
+                                     "slack_syncto",
+                                     "slack_disconnect",
+                                     "slack_setsyncjoinmsgs",
+                                     "slack_setimageupload",
+                                     "slack_sethotag",
+                                     "slack_users",
+                                     "slack_setslacktag",
+                                     "slack_showslackrealnames",
+                                     "slack_identify" ])
 
     plugins.start_asyncio_task(_wait_until_unloaded).add_done_callback(_plugin_unloaded)
 
