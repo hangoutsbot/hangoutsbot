@@ -219,8 +219,12 @@ class WebFramework:
             source_title = external_context["source_title"]
 
         source_uid = False
+        linked_hangups_user = False
         if "source_uid" in external_context:
             source_uid = external_context["source_uid"]
+            linked_hangups_user = self.map_external_uid_with_hangups_user(source_uid, external_context)
+            if linked_hangups_user:
+                source_user = linked_hangups_user
 
         passthru =  {
             "original_request": {
@@ -233,8 +237,10 @@ class WebFramework:
                 "source_user": source_user,
                 "source_uid": source_uid,
                 "plugin": self.plugin_name },
-            # "executable": "{}-{}".format(self.plugin_name, str(uuid.uuid4())),
             "norelay": [ self.plugin_name ] }
+
+        if linked_hangups_user:
+            passthru["executable"] = "{}-{}".format(self.plugin_name, str(uuid.uuid4()))
 
         logger.info("{}:receive:{}".format(self.plugin_name, passthru))
 
@@ -243,6 +249,9 @@ class WebFramework:
             formatted_message,
             image_id = image_id,
             context = { "passthru": passthru })
+
+    def map_external_uid_with_hangups_user(self, source_uid, external_context):
+        return False
 
     def format_incoming_message(self, message, external_context):
         if "source_user" in external_context and external_context["source_user"]:

@@ -214,10 +214,12 @@ class EventHandler:
             if( event.passthru and "executable" in event.passthru and event.passthru["executable"] ):
                 if event.passthru["executable"] not in self._executables:
                     original_message = event.passthru["original_request"]["message"]
+                    linked_hangups_user = event.passthru["original_request"]["user"]
                     logger.info("current event is executable: {}".format(original_message))
                     self._executables[event.passthru["executable"]] = time.time()
                     event.from_bot = False
                     event.text = original_message
+                    event.user = linked_hangups_user
 
             yield from self.run_pluggable_omnibus("allmessages", self.bot, event, command)
             if not event.from_bot:
