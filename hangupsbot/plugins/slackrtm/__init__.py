@@ -94,8 +94,9 @@ def _initialise(bot):
                                      "slack_sethotag",
                                      "slack_users",
                                      "slack_setslacktag",
-                                     "slack_showslackrealnames",
-                                     "slack_identify" ])
+                                     "slack_showslackrealnames" ])
+
+    plugins.register_user_command([ "slack_identify" ])
 
     plugins.start_asyncio_task(_wait_until_unloaded).add_done_callback(_plugin_unloaded)
 
