@@ -946,6 +946,33 @@ class BridgeInstance(WebFramework):
 
         return formatted
 
+    def map_external_uid_with_hangups_user(self, source_uid, external_context):
+        telegram_uid = str(source_uid)
+        profilesync_keys = [ "profilesync", "tg2ho", telegram_uid ]
+
+        hangups_user = False
+        try:
+            hangouts_map = self.bot.memory.get_by_path(profilesync_keys)
+            if "chat_id" in hangouts_map:
+                hangouts_uid = hangouts_map["chat_id"]
+            elif "user_gplus" in hangouts_map:
+                # old semi-broken way
+                gplus = hangouts_map["user_gplus"]
+                has_chat_id = re.search(r"/(\d+)/about", gplus)
+                if has_chat_id:
+                    hangouts_uid = has_chat_id.group(1)
+            else:
+                hangouts_uid = False
+
+            if hangouts_uid:
+                _hangups_user = self.bot.get_hangups_user(hangouts_uid)
+                if _hangups_user.definitionsource:
+                    hangups_user = _hangups_user
+        except KeyError:
+            logger.info("no hangups user for {}".format(source_uid))
+
+        return hangups_user
+
 
 """hangoutsbot plugin initialisation"""
 

@@ -73,6 +73,23 @@ class BridgeInstance(WebFramework):
 
         return formatted
 
+    def map_external_uid_with_hangups_user(self, source_uid, external_context):
+        sync = external_context["sync"]
+        team_name = sync.team_name
+        slack_uid = source_uid
+        profilesync_keys = [ "slackrtm", team_name, "identities", "slack", slack_uid ]
+
+        hangups_user = False
+        try:
+            hangouts_uid = self.bot.memory.get_by_path(profilesync_keys)
+            _hangups_user = self.bot.get_hangups_user(hangouts_uid)
+            if _hangups_user.definitionsource:
+                hangups_user = _hangups_user
+        except KeyError:
+            logger.info("no hangups user for {} {}".format(team_name, slack_uid))
+
+        return hangups_user
+
     def start_listening(self, bot):
         """slackrtm does not use web-bridge style listeners"""
         pass
