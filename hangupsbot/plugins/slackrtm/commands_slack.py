@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 def slackCommandHandler(slackbot, msg):
-    tokens = msg.text.lower().strip().split()
+    tokens = msg.text.strip().split()
     if not msg.user:
         # do not respond to messages that originate from outside slack
         return
@@ -16,8 +16,8 @@ def slackCommandHandler(slackbot, msg):
     if len(tokens) < 2:
         return
 
-    if tokens.pop(0) in [ "@hobot", "<@" + slackbot.my_uid.lower() + ">" ]:
-        command = tokens.pop(0)
+    if tokens.pop(0).lower() in [ "@hobot", "<@" + slackbot.my_uid.lower() + ">" ]:
+        command = tokens.pop(0).lower()
         args = tokens
         if command in commands_user:
             return getattr(sys.modules[__name__], command)(slackbot, msg, args)
