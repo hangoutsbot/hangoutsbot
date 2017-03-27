@@ -28,6 +28,8 @@ def hangups_markdown_to_telegram(text, debug=False):
     nlines = []
     output = ""
     for line in lines:
+        single_line = ""
+
         segments = parser.parse(line)
         for segment in [ [segment.text,
                           segment.params] for segment in segments ]:
@@ -54,7 +56,10 @@ def hangups_markdown_to_telegram(text, debug=False):
                 # italics
                 wrapper = "_"
 
-            nlines.append(wrapper + text + wrapper)
+            segment_to_text = wrapper + text + wrapper
+            single_line += segment_to_text
+
+        nlines.append(single_line)
     output = "\n".join(nlines)
     return output
 
@@ -68,7 +73,8 @@ if __name__ == '__main__':
             '... 1234567890\n'
             '**[XYZ XYZ](https://plus.google.com/u/0/1234567890/about)**\n'
             '... 0123456789\n'
-            '**`_Users: 2_`**' )
+            '**`_Users: 2_`**'
+            'You are at **`THE SYNCROOM TEST`**, conv_id = _`Ugx78I99r-mbd_u_jSV4AaABAQ`_' )
     print(repr(text))
     print("")
 
