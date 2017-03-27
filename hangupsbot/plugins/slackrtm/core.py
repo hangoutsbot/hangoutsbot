@@ -317,11 +317,14 @@ class SlackRTM(object):
         syncs = _slackrtm_conversations_get(self.bot, self.name)
         if not syncs:
             syncs = []
+
         for s in syncs:
             sync = SlackRTMSync.fromDict(s)
             if sync.slacktag == 'NOT_IN_CONFIG':
                 sync.slacktag = self.get_teamname()
+            sync.team_name = self.name # chatbridge needs this for context
             self.syncs.append(sync)
+
         if 'synced_conversations' in self.config and len(self.config['synced_conversations']):
             logger.warning('defining synced_conversations in config is deprecated')
             for conv in self.config['synced_conversations']:
@@ -333,7 +336,9 @@ class SlackRTM(object):
                         hotag = conv[1]
                     else:
                         hotag = self.hangoutnames[conv[1]]
-                self.syncs.append(SlackRTMSync(conv[0], conv[1], hotag, self.get_teamname()))
+                _new_sync = SlackRTMSync(conv[0], conv[1], hotag, self.get_teamname())
+                _new_sync.team_name = self.name # chatbridge needs this for context
+                self.syncs.append(_new_sync)
 
     # As of https://github.com/slackhq/python-slackclient/commit/ac343caf6a3fd8f4b16a79246264a05a7d257760
     # SlackClient.api_call returns a pre-parsed json object (a dict).
