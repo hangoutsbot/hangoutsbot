@@ -77,11 +77,16 @@ class BridgeInstance(WebFramework):
         sync = external_context["sync"]
         team_name = sync.team_name
         slack_uid = source_uid
-        profilesync_keys = [ "slackrtm", team_name, "identities", "slack", slack_uid ]
 
         hangups_user = False
         try:
-            hangouts_uid = self.bot.memory.get_by_path(profilesync_keys)
+            hangouts_uid = self.bot.memory.get_by_path([ "slackrtm", team_name, "identities", "slack", slack_uid ])
+
+            # security: the mapping must be bi-directional and point to each other
+            mapped_slack_uid = self.bot.memory.get_by_path([ "slackrtm", team_name, "identities", "hangouts", hangouts_uid ])
+            if mapped_slack_uid != slack_uid:
+                return False
+
             _hangups_user = self.bot.get_hangups_user(hangouts_uid)
             if _hangups_user.definitionsource:
                 hangups_user = _hangups_user
