@@ -162,6 +162,7 @@ class TelegramBot(telepot.aio.Bot):
     def get_hangouts_image_id_from_telegram_photo_id(self, photo_id):
         metadata = yield from self.getFile(photo_id)
         photo_path = "https://api.telegram.org/file/bot{}/{}".format(self.config['api_key'], metadata["file_path"])
+        logger.info("retrieving: {}".format(metadata["file_path"]))
         try:
             ho_photo_id = yield from self.ho_bot.call_shared("image_upload_single", photo_path)
         except KeyError:
@@ -216,6 +217,13 @@ class TelegramBot(telepot.aio.Bot):
 
                 elif content_type == 'document':
                     if msg["document"]["mime_type"] == "image/gif":
+                        # non-animated gif, treat like a photo
+                        msg['photo'] = [ msg["document"] ]
+                        msg['photo'][0]["width"] = 1
+                        yield from self.onPhotoCallback(self, chat_id, msg)
+                    elif msg["document"]["mime_type"] == "video/mp4" and msg["document"]["file_name"].endswith(".gif.mp4"):
+                        # XXX: actual animated gifs - show thumbnail
+                        # telegram api seems to send it as mp4, upload incompatible with hangouts
                         msg['photo'] = [ msg["document"]["thumb"] ]
                         yield from self.onPhotoCallback(self, chat_id, msg)
 
