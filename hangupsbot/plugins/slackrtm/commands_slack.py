@@ -1,6 +1,8 @@
 import logging
 import sys
 
+from .core import( AlreadySyncingError,
+                   NotSyncingError )
 from .utils import _slackrtm_link_profiles
 
 
