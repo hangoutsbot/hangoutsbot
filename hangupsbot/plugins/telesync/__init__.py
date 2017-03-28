@@ -959,7 +959,9 @@ class BridgeInstance(WebFramework):
 
                 """standard message relay"""
 
-                if "sync_chat_titles" not in config or config["sync_chat_titles"] and chat_title:
+                if( "sync_chat_titles" not in config["config.json"]
+                        or( config["config.json"]["sync_chat_titles"] and chat_title )):
+
                     formatted_text = "{} ({}){} {}".format( username,
                                                             chat_title,
                                                             divider,
@@ -986,7 +988,8 @@ class BridgeInstance(WebFramework):
         source_user = external_context["source_user"]
         source_title = external_context["source_title"]
 
-        if "sync_chat_titles" not in config or config["sync_chat_titles"] and source_title:
+        if( "sync_chat_titles" not in config
+                or( config["sync_chat_titles"] and source_title )):
             formatted = "<b>{}</b> ({}): {}".format( source_user,
                                                      source_title,
                                                      message )
