@@ -162,7 +162,12 @@ class TelegramBot(telepot.aio.Bot):
     def get_hangouts_image_id_from_telegram_photo_id(self, photo_id):
         metadata = yield from self.getFile(photo_id)
         photo_path = "https://api.telegram.org/file/bot{}/{}".format(self.config['api_key'], metadata["file_path"])
-        ho_photo_id = yield from self.ho_bot.call_shared("image_upload_single", photo_path)
+        try:
+            ho_photo_id = yield from self.ho_bot.call_shared("image_upload_single", photo_path)
+        except KeyError:
+            # image plugin not loaded
+            logger.warning("no shared hangoutsbot image upload, please add image plugin to your list of plugins")
+            ho_photo_id = False
         return ho_photo_id
 
     @asyncio.coroutine
@@ -403,6 +408,7 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
         config = _telesync_config(tg_bot.ho_bot)
 
         user = tg_util_sync_get_user_name(msg)
+
         text = "uploading photo from <b>{}</b> in <b>{}</b>...".format(
             user,
             chat_title )
@@ -419,7 +425,10 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
         tg_photo_id = tg_photos[len(tg_photos) - 1]['file_id']
         ho_photo_id = yield from tg_bot.get_hangouts_image_id_from_telegram_photo_id(tg_photo_id)
 
-        text = "sent a photo"
+        if ho_photo_id:
+            text = "sent a photo"
+        else:
+            text = "sent a photo, but telesync could not load it"
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
