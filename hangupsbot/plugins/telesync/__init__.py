@@ -382,7 +382,7 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
         config = _telesync_config(tg_bot.ho_bot)
 
         user = tg_util_sync_get_user_name(msg)
-        text = "uploading sticker from <b>{}</b> in <b>{}</b>...".format(
+        text = "_uploading sticker from {} in {}_".format(
             tg_util_sync_get_user_name(msg),
             chat_title )
 
@@ -422,7 +422,7 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
 
         user = tg_util_sync_get_user_name(msg)
 
-        text = "uploading photo from <b>{}</b> in <b>{}</b>...".format(
+        text = "_uploading photo from {} in {}_".format(
             user,
             chat_title )
 
@@ -871,18 +871,12 @@ class BridgeInstance(WebFramework):
 
     @asyncio.coroutine
     def _send_deferred_media(self, media_link, eid):
-        with aiohttp.ClientSession() as session:
-            resp = yield from session.get(media_link)
-            raw_data = yield from resp.read()
-            resp.close()
-            tempfile = io.BytesIO(raw_data)
-
         if media_link.endswith((".gif", ".gifv", ".webm", ".mp4")):
             yield from tg_bot.sendDocument( eid,
-                                            tempfile )
+                                            media_link )
         else:
             yield from tg_bot.sendPhoto( eid,
-                                         tempfile )
+                                         media_link )
 
     @asyncio.coroutine
     def _send_to_external_chat(self, config, event):
