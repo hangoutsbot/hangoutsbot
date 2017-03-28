@@ -192,7 +192,7 @@ class FakeConversation(object):
                 except KeyError:
                     # rare scenario where a conversation was not refreshed
                     # once the initial message goes through, convmem will be updated
-                    logger.warning("could not determine otr for {}".format(conversation_id))
+                    logger.warning("could not determine otr for {}".format(self.id_))
 
             if context["history"]:
                 otr_status = hangups_shim.schemas.OffTheRecordStatus.ON_THE_RECORD
