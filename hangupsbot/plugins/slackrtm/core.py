@@ -549,6 +549,7 @@ class SlackRTM(object):
                 raise AlreadySyncingError
 
         sync = SlackRTMSync(channel, hangoutid, shortname, self.get_teamname())
+        sync.team_name = self.name # chatbridge needs this for context
         logger.info('adding sync: %s', sync.toDict())
         self.syncs.append(sync)
         syncs = _slackrtm_conversations_get(self.bot, self.name)
