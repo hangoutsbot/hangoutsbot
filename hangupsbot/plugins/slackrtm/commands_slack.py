@@ -419,7 +419,7 @@ def sethotag(slackbot, msg, args):
 
     message = '@%s: ' % msg.username
     if len(args) < 2:
-        message += u'sorry, but you have to specify a Hangout Id and a tag (or "none") for command `sethotag`'
+        message += u'sorry, but you have to specify a Hangout Id and a tag ("none" for no titles; "true" for chatbridge titles) for command `sethotag`'
         slackbot.api_call(
             'chat.postMessage',
             channel=msg.channel,
@@ -452,6 +452,9 @@ def sethotag(slackbot, msg, args):
     if hotag == "none":
         hotag = None
         oktext = '*not* be tagged'
+    elif hotag == "true":
+        hotag = True
+        oktext = 'be tagged with chatbridge-compatible titles'
     else:
         oktext = 'be tagged with " (%s)"' % hotag
 
@@ -461,6 +464,7 @@ def sethotag(slackbot, msg, args):
         message += u'This channel (%s) is not synced with Hangout _%s_, not changing Hangout tag.' % (channelname, hangoutname)
     else:
         message += u'OK, messages from Hangout _%s_ will %s in slack channel %s.' % (hangoutname, oktext, channelname)
+
     slackbot.api_call(
         'chat.postMessage',
         channel=msg.channel,
@@ -539,7 +543,7 @@ def setslacktag(slackbot, msg, args):
 
     message = '@%s: ' % msg.username
     if len(args) < 2:
-        message += u'sorry, but you have to specify a Hangout Id and a tag (or "none") for command `setslacktag`'
+        message += u'sorry, but you have to specify a Hangout Id and a tag ("none" for no titles; "true" for chatbridge titles) for command `setslacktag`'
         slackbot.api_call('chat.postMessage', channel=msg.channel, text=message, as_user=True, link_names=True)
         return
 
@@ -567,6 +571,9 @@ def setslacktag(slackbot, msg, args):
     if slacktag == "none":
         slacktag = None
         oktext = '*not* be tagged'
+    elif slacktag == "true":
+        slacktag = True
+        oktext = 'be tagged with chatbridge-compatible titles'
     else:
         oktext = 'be tagged with " (%s)"' % slacktag
 
