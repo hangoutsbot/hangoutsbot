@@ -214,6 +214,11 @@ class TelegramBot(telepot.aio.Bot):
                     if "enable_sticker_sync" in config and config["enable_sticker_sync"]:
                         yield from self.onStickerCallback(self, chat_id, msg)
 
+                elif content_type == 'document':
+                    if msg["document"]["mime_type"] == "image/gif":
+                        msg['photo'] = [ msg["document"]["thumb"] ]
+                        yield from self.onPhotoCallback(self, chat_id, msg)
+
             elif flavor == "inline_query":  # inline query e.g. "@gif cute panda"
                 query_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
                 print("inline_query")
