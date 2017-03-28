@@ -1,7 +1,7 @@
 import logging
 
-from .core import( AlreadySyncingError,
-                   NotSyncingError )
+from .exceptions import ( AlreadySyncingError,
+                          NotSyncingError )
 from .utils import ( _slackrtms,
                      _slackrtm_link_profiles )
 

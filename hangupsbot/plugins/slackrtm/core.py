@@ -20,6 +20,11 @@ from websocket import WebSocketConnectionClosedException
 from .bridgeinstance import ( BridgeInstance,
                               FakeEvent )
 from .commands_slack import slackCommandHandler
+from .exceptions import ( AlreadySyncingError,
+                          ConnectionFailedError,
+                          NotSyncingError,
+                          ParseError,
+                          IncompleteLoginError )
 from .parsers import ( slack_markdown_to_hangups,
                        hangups_markdown_to_slack )
 from .utils import  ( _slackrtms,
@@ -33,26 +38,6 @@ logger = logging.getLogger(__name__)
 # fix for simple_smile support
 emoji.EMOJI_UNICODE[':simple_smile:'] = emoji.EMOJI_UNICODE[':smiling_face:']
 emoji.EMOJI_ALIAS_UNICODE[':simple_smile:'] = emoji.EMOJI_UNICODE[':smiling_face:']
-
-
-class ParseError(Exception):
-    pass
-
-
-class AlreadySyncingError(Exception):
-    pass
-
-
-class NotSyncingError(Exception):
-    pass
-
-
-class ConnectionFailedError(Exception):
-    pass
-
-
-class IncompleteLoginError(Exception):
-    pass
 
 
 class SlackMessage(object):
