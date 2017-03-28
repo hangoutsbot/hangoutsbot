@@ -24,6 +24,9 @@ from .parsers import hangups_markdown_to_telegram
 logger = logging.getLogger(__name__)
 
 
+# prefix for profile sync registration, must be non-empty string
+reg_code_prefix = "VERIFY"
+
 # TELEGRAM BOT
 
 class TelegramBot(telepot.aio.Bot):
@@ -283,7 +286,7 @@ def tg_util_sync_get_user_name(msg, chat_action='from'):
             has_chat_id = re.search(r"/(\d+)/about", gplus)
             if has_chat_id:
                 chat_id = has_chat_id.group(1)
-        except KeyError:
+        except (KeyError, TypeError):
             logger.info("unmapped/invalid hangouts user for {}".format(telegram_uid))
 
     if chat_id:
@@ -711,22 +714,35 @@ def tg_command_sync_profile(bot, chat_id, args):
     if 'private' != args['chat_type']:
         yield from bot.sendMessage(chat_id, "Comand must be run in private chat!")
         return
-    tg2ho_dict = bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho']
-    ho2tg_dict = bot.ho_bot.memory.get_by_path(['profilesync'])['ho2tg']
-    user_id = args['user_id']
-    if str(user_id) in tg2ho_dict:
-        yield from bot.sendMessage(chat_id, "Your profile is currently synced, to change this run /unsyncprofile")
-        return
 
-    rndm = random.randint(0, 9223372036854775807)
-    tg2ho_dict[str(user_id)] = str(rndm)
-    ho2tg_dict[str(rndm)] = str(user_id)
+    telegram_uid = str(args['user_id'])
+    hangoutsbot = bot.ho_bot
+
+    tg2ho_dict = hangoutsbot.memory.get_by_path(['profilesync'])['tg2ho']
+    ho2tg_dict = hangoutsbot.memory.get_by_path(['profilesync'])['ho2tg']
+
+    if telegram_uid in tg2ho_dict:
+        if isinstance(tg2ho_dict[telegram_uid], str):
+            yield from bot.sendMessage(chat_id, "profile is not fully synced")
+            del ho2tg_dict[tg2ho_dict[telegram_uid]] # remove old registration code
+            logger.info("{} is waiting verification".format(telegram_uid))
+        else:
+            yield from bot.sendMessage(chat_id, "profile is already synced")
+            logger.info("{} is synced to {}".format(telegram_uid, tg2ho_dict[telegram_uid]))
+            return
+
+    # generate/regenerate the registration code
+    registration_code = "{}{}".format(reg_code_prefix, random.randint(0, 9223372036854775807))
+    tg2ho_dict[telegram_uid] = registration_code
+    ho2tg_dict[registration_code] = telegram_uid
+
     new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
-    print(new_memory)
-    bot.ho_bot.memory.set_by_path(['profilesync'], new_memory)
+    hangoutsbot.memory.set_by_path(['profilesync'], new_memory)
+    hangoutsbot.memory.save()
 
-    yield from bot.sendMessage(chat_id, "Paste the following command in the private ho with me")
-    yield from bot.sendMessage(chat_id, "/bot syncprofile {}".format(str(rndm)))
+    yield from bot.sendMessage( chat_id,
+                                "please paste the following code in a private hangout with the bot: "
+                                    "/bot syncprofile {}".format(registration_code))
 
 
 @asyncio.coroutine
@@ -735,20 +751,33 @@ def tg_command_unsync_profile(bot, chat_id, args):
         yield from bot.sendMessage(chat_id, "Comand must be run in private chat!")
         return
 
-    tg2ho_dict = bot.ho_bot.memory.get_by_path(['profilesync'])['tg2ho']
-    ho2tg_dict = bot.ho_bot.memory.get_by_path(['profilesync'])['ho2tg']
-    text = ""
-    if args['user_id'] in tg2ho_dict:
-        ho_id = tg2ho_dict[str(args['user_id'])]['ho_id']
-        del tg2ho_dict[str(args['user_id'])]
-        del ho2tg_dict[str(ho_id)]
-        new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
-        bot.ho_bot.memory.set_by_path(['profilesync'], new_memory)
-        text = "Succsessfully removed sync of your profile."
-    else:
-        text = "There is no sync setup for your profile."
+    telegram_uid = str(args['user_id'])
+    hangoutsbot = bot.ho_bot
 
-    yield from bot.sendMessage(chat_id, text)
+    tg2ho_dict = hangoutsbot.memory.get_by_path(['profilesync'])['tg2ho']
+    ho2tg_dict = hangoutsbot.memory.get_by_path(['profilesync'])['ho2tg']
+
+    if telegram_uid in tg2ho_dict:
+        if isinstance(tg2ho_dict[telegram_uid], str):
+            del ho2tg_dict[ tg2ho_dict[telegram_uid] ]
+        else:
+            _mapped = tg2ho_dict[telegram_uid]
+            if "ho_id" in _mapped:
+                ho_id = _mapped["ho_id"]
+                del ho2tg_dict[ho_id]
+            if "chat_id" in _mapped:
+                hangouts_uid = _mapped["chat_id"]
+                del ho2tg_dict[hangouts_uid]
+            del tg2ho_dict[telegram_uid]
+
+        new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
+        hangoutsbot.memory.set_by_path(['profilesync'], new_memory)
+        hangoutsbot.memory.save()
+
+        yield from bot.sendMessage(chat_id, "all profile references removed")
+        logger.info("removed profile references for {}".format(telegram_uid))
+    else:
+        yield from bot.sendMessage(chat_id, "no profile found")
 
 
 @asyncio.coroutine
@@ -957,6 +986,11 @@ class BridgeInstance(WebFramework):
         hangups_user = False
         try:
             hangouts_map = self.bot.memory.get_by_path(profilesync_keys)
+
+            if isinstance(hangouts_map, str):
+                # security: sync is incomplete, should be a dict
+                return False
+
             if "chat_id" in hangouts_map:
                 hangouts_uid = hangouts_map["chat_id"]
             elif "user_gplus" in hangouts_map:
@@ -1035,27 +1069,42 @@ def syncprofile(bot, event, *args):
 
     parameters = list(args)
 
-    ho2tg_dict = bot.memory.get_by_path(['profilesync'])['ho2tg']
-    tg2ho_dict = bot.memory.get_by_path(['profilesync'])['tg2ho']
-
     if len(parameters) != 1:
         yield from bot.coro_send_message(event.conv_id, "supply registration id as single parameter")
 
     else:
-        registration_id = str(parameters[0])
-        if registration_id in ho2tg_dict:
-            ho_id = registration_id
-            tg_id = ho2tg_dict[registration_id]
+        registration_code = str(parameters[0])
+        ho2tg_dict = bot.memory.get_by_path(['profilesync'])['ho2tg']
+        tg2ho_dict = bot.memory.get_by_path(['profilesync'])['tg2ho']
 
-            chat_id = event.user_id.chat_id
-            user_gplus = 'https://plus.google.com/u/0/{}/about'.format(chat_id)
+        hangouts_uid = str(event.user_id.chat_id)
 
-            tg2ho_dict[tg_id] = { 'ho_id': ho_id,
-                                  'chat_id': chat_id,
-                                  'user_gplus': user_gplus }
+        if( hangouts_uid in ho2tg_dict
+                and ho2tg_dict[hangouts_uid] in tg2ho_dict
+                and not isinstance(tg2ho_dict[ho2tg_dict[hangouts_uid]], str) ):
 
-            # del ho2tg_dict[str(registration_id)]
-            ho2tg_dict[str(event.user_id.chat_id)] = str(tg_id)
+            yield from bot.coro_send_message(
+                event.conv_id,
+                "profile is already synced" )
+
+        elif not registration_code.startswith(reg_code_prefix):
+            yield from bot.coro_send_message(
+                event.conv_id,
+                "execute /syncprofile command in a private chat with the bot on telegram first" )
+
+        elif registration_code in ho2tg_dict:
+            ho_id = registration_code
+            telegram_uid = str(ho2tg_dict[registration_code])
+
+            user_gplus = 'https://plus.google.com/u/0/{}/about'.format(hangouts_uid)
+
+            tg2ho_dict[telegram_uid] = {
+                'registration_code': registration_code,
+                'chat_id': hangouts_uid,
+                'user_gplus': user_gplus }
+            ho2tg_dict[hangouts_uid] = telegram_uid
+
+            del ho2tg_dict[registration_code]
 
             new_mem = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
             bot.memory.set_by_path(['profilesync'], new_mem)
