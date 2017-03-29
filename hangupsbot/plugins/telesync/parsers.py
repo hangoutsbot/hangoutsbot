@@ -56,6 +56,8 @@ def hangups_markdown_to_telegram(text, debug=False):
                 # italics
                 wrapper = "_"
 
+            text = text.replace("_", "\\_")
+
             segment_to_text = wrapper + text + wrapper
             single_line += segment_to_text
 
@@ -72,6 +74,8 @@ if __name__ == '__main__':
             '... ([ABC@DEF.GHI](mailto:ABC@DEF.GHI))\n'
             '... 1234567890\n'
             '**[XYZ XYZ](https://plus.google.com/u/0/1234567890/about)**\n'
+            '_ x\n'
+            '_x\n'
             '... 0123456789\n'
             '**`_Users: 2_`**'
             'You are at **`THE SYNCROOM TEST`**, conv_id = _`Ugx78I99r-mbd_u_jSV4AaABAQ`_' )
