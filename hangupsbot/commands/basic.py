@@ -47,7 +47,6 @@ def help(bot, event, cmd=None, *args):
                                 '<b><pre>{}</pre></b><br />').format( help_chat_id,
                                                                       help_conv_id ))
 
-        help_lines.append('[botalias] <i><b>help</b> <command></i><br/>Show more info about a command.<br />')
         if len(commands_nonadmin) > 0:
             help_lines.append(_('<b>User commands:</b>'))
             help_lines.append(', '.join(sorted(commands_nonadmin)))
@@ -60,6 +59,17 @@ def help(bot, event, cmd=None, *args):
             help_lines.append('')
             help_lines.append(_('<b>Admin commands:</b>'))
             help_lines.append(', '.join(sorted(commands_admin)))
+
+        help_lines.append("")
+        help_lines.append("<b>Command-specific help:</b>")
+        help_lines.append("/bot help <command name>")
+
+        bot_aliases = [ _alias for _alias in bot._handlers.bot_command if len(_alias) < 9 ]
+        if len(bot_aliases) > 1:
+            help_lines.append("")
+            help_lines.append("<b>My short-hand names:</b>")
+            help_lines.append(', '.join(sorted(bot_aliases)))
+
     else:
         if cmd in command.commands and (cmd in commands_admin or cmd in commands_nonadmin):
             command_fn = command.commands[cmd]
@@ -69,25 +79,33 @@ def help(bot, event, cmd=None, *args):
             yield from command.unknown_command(bot, event)
             return
 
-        _docstring = command_fn.__doc__.strip()
+        if "__doc__" in dir(command_fn) and command_fn.__doc__:
+            _docstring = command_fn.__doc__.strip()
+        else:
+            _docstring = "_{}_".format(_("command help not available"))
 
-        """apply limited markdown-like formatting to command help"""
+        """docstrings: apply (very) limited markdown-like formatting to command help"""
 
         # simple bullet lists
         _docstring = re.sub(r'\n +\* +', '\n* ', _docstring)
 
-        # handle generic whitespace
-        # manually parse line-breaks: single break -> space; multiple breaks -> paragraph
-        # XXX: the markdown parser is iffy on line-break processing
-        _docstring = re.sub(r"(?<!\n)\n(?= *[^ \t\n\r\f\v\*])", " ", _docstring) # turn standalone linebreaks into space, preserves multiple linebreaks
-        _docstring = re.sub(r" +", " ", _docstring) # convert multiple consecutive spaces into single space
-        _docstring = re.sub(r" *\n\n+ *(?!\*)", "\n\n", _docstring) # convert consecutive linebreaks into double linebreak (pseudo-paragraph)
+        """docstrings: handle generic whitespace
+            manually parse line-breaks: single break -> space; multiple breaks -> paragraph
+            XXX: the markdown parser is iffy on line-break processing"""
 
-        # replace /bot with the first alias in the command handler
-        # XXX: [botalias] is left a replacement token for backward compatibility, please avoid using it
-        _docstring = re.sub("(\/bot|\[botalias\])", bot._handlers.bot_command[0], _docstring)
+        # turn standalone linebreaks into space, preserves multiple linebreaks
+        _docstring = re.sub(r"(?<!\n)\n(?= *[^ \t\n\r\f\v\*])", " ", _docstring)
+        # convert multiple consecutive spaces into single space
+        _docstring = re.sub(r" +", " ", _docstring)
+        # convert consecutive linebreaks into double linebreak (pseudo-paragraph)
+        _docstring = re.sub(r" *\n\n+ *(?!\*)", "\n\n", _docstring)
 
         help_lines.append("<b>{}</b>: {}".format(command_fn.__name__, _docstring))
+
+    # replace /bot with the first alias in the command handler
+    # XXX: [botalias] maintained backward compatibility, please avoid using it
+    help_lines = [ re.sub(r"(\/bot|\[botalias\])", bot._handlers.bot_command[0], _line)
+                   for _line in help_lines ]
 
     yield from bot.coro_send_to_user_and_conversation(
         event.user.id_.chat_id,
