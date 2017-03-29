@@ -568,6 +568,7 @@ def tg_on_supergroup_upgrade(bot, msg):
 
         new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
         bot.ho_bot.memory.set_by_path(['telesync'], new_memory)
+        bot.ho_bot.memory.save()
 
         logger.info("SUPERGROUP: {} to {}".format( old_chat_id,
                                                    new_chat_id ))
@@ -619,6 +620,7 @@ def tg_command_set_sync_ho(bot, chat_id, args):  # /setsyncho <hangout conv_id>
 
         new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
         bot.ho_bot.memory.set_by_path(['telesync'], new_memory)
+        bot.ho_bot.memory.save()
 
         yield from bot.sendMessage(chat_id, "Sync target set to '{ho_conv_id}''".format(ho_conv_id=str(params[0])))
 
@@ -640,6 +642,7 @@ def tg_command_clear_sync_ho(bot, chat_id, args):
 
     new_memory = {'tg2ho': tg2ho_dict, 'ho2tg': ho2tg_dict}
     bot.ho_bot.memory.set_by_path(['telesync'], new_memory)
+    bot.ho_bot.memory.save()
 
     yield from bot.sendMessage(chat_id, "Sync target cleared")
 
@@ -668,6 +671,7 @@ def tg_command_add_bot_admin(bot, chat_id, args):
     if str(params[0]) not in tg_conf['admins']:
         tg_conf['admins'].append(str(params[0]))
         bot.ho_bot.config.set_by_path(['telesync'], tg_conf)
+        bot.ho_bot.config.save()
         text = "User added to admins"
     else:
         text = "User is already an admin"
@@ -701,6 +705,7 @@ def tg_command_remove_bot_admin(bot, chat_id, args):
     if target_user in tg_conf['admins']:
         tg_conf['admins'].remove(target_user)
         bot.ho_bot.config.set_by_path(['telesync'], tg_conf)
+        bot.ho_bot.save()
         text = "User removed from admins"
     else:
         text = "User is not an admin"
@@ -1039,9 +1044,11 @@ def _initialise(bot):
 
     if not bot.memory.exists(['telesync']):
         bot.memory.set_by_path(['telesync'], {'ho2tg': {}, 'tg2ho': {}})
+        bot.memory.save()
 
     if not bot.memory.exists(['profilesync']):
         bot.memory.set_by_path(['profilesync'], {'ho2tg': {}, 'tg2ho': {}})
+        bot.memory.save()
 
     global tg_bot
 
