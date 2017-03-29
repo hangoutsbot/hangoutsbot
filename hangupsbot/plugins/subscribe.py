@@ -34,14 +34,17 @@ def _handle_keyword(bot, event, command, include_event_user=False):
 
     users_in_chat = event.conv.users
 
-    """check if synced room, if so, append on the users"""
-    sync_room_list = bot.get_config_suboption(event.conv_id, 'sync_rooms')
-    if sync_room_list:
-        if event.conv_id in sync_room_list:
-            for syncedroom in sync_room_list:
-                if event.conv_id not in syncedroom:
-                    users_in_chat += bot.get_users_in_conversation(syncedroom)
-            users_in_chat = list(set(users_in_chat)) # make unique
+    """check if synced room and syncing is enabled
+    if its a valid syncroom, get a list of all unique users across all rooms"""
+
+    if bot.get_config_option('syncing_enabled'):
+        syncouts = bot.get_config_option('sync_rooms') or []
+        for sync_room_list in syncouts:
+            if event.conv_id in sync_room_list:
+                for syncedroom in sync_room_list:
+                    if event.conv_id not in syncedroom:
+                        users_in_chat += bot.get_users_in_conversation(syncedroom)
+                users_in_chat = list(set(users_in_chat)) # make unique
 
     event_text = re.sub(r"\s+", " ", event.text)
     event_text_lower = event.text.lower()
