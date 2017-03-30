@@ -1,24 +1,26 @@
 # BOT DEPENDENCIES #
+
 git+https://github.com/tdryer/hangups.git
 appdirs
 asyncio
-aiohttp>=1.3,<2 # telepot library also needs this version
-jsonrpclib-pelix
+aiohttp>=1.3,<2
+ReParser==1.4.3
 
 # PLUGIN DEPENDENCIES #
-beautifulsoup4
-pushbullet.py # mentions
-goslate # translations
-wikipedia
-wolframalpha
-git+https://github.com/loisaidasam/pyslack.git # slack
-git+https://github.com/carpedm20/emoji
-selenium # screenshots
-google-api-python-client # for spotify
-spotipy
-slackclient >=0.16 # slackrtm (includes websockets)
-textblob
-python_dateutil # gitlab sink
-telepot >=10.5 # telesync needs aio support
-ReParser==1.4.3 # matches hangups, used for markdown standardisation
-cleverwrap # cleverbot
+
+python_dateutil                                 # sinks: gitlab
+pushbullet.py                                   # plugins: mentions
+goslate                                         # plugins: simplytranslate, syncrooms_autotranslate
+textblob                                        # plugins: simplytranslate, syncrooms_autotranslate
+wikipedia                                       # plugins: simplewikipedia
+wolframalpha                                    # plugins: wolframalpha
+git+https://github.com/carpedm20/emoji          # plugins: slack, slackrtm
+git+https://github.com/loisaidasam/pyslack.git  # plugins: slack
+slackclient >=0.16                              # plugins: slackrtm
+selenium                                        # plugins: image_screenshot
+telepot >= 10.5                                 # plugins: telesync
+cleverwrap                                      # plugins: cleverbot
+TwitterAPI                                      # plugins: twitter
+google-api-python-client                        # plugins: spotify
+spotipy                                         # plugins: spotify
+soundcloud                                      # plugins: spotify
