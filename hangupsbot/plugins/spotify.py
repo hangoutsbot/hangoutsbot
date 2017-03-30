@@ -1,3 +1,4 @@
+# coding: utf-8
 """
 Creates a Spotify playlist per chat and adds music automatically by listening
 for YouTube, Soundcloud, and Spotify links (or manually with a Spotify query).
