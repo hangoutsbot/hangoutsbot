@@ -10,7 +10,7 @@ jsonrpclib-pelix
 python_dateutil                                 # sinks: gitlab
 pushbullet.py                                   # plugins: mentions
 goslate                                         # plugins: simplytranslate, syncrooms_autotranslate
-textblob                                        # plugins: plugins: simplytranslate, syncrooms_autotranslate
+textblob                                        # plugins: simplytranslate, syncrooms_autotranslate
 wikipedia                                       # plugins: simplewikipedia
 wolframalpha                                    # plugins: wolframalpha
 git+https://github.com/carpedm20/emoji          # plugins: slack, slackrtm
