@@ -16,8 +16,10 @@ git+https://github.com/carpedm20/emoji
 selenium # screenshots
 google-api-python-client # for spotify
 spotipy
+soundcloud # for spotify
 slackclient >=0.16 # slackrtm (includes websockets)
 textblob
 python_dateutil # gitlab sink
 telepot == 7.1 # telegram sync, newer versions doesn't support Python3.4.1
 cleverwrap # cleverbot
+TwitterAPI # for twitter
