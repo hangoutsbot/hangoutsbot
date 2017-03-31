@@ -39,7 +39,13 @@ def diceroll(bot, event, dice="1d6", *args):
         return
     if not n:
         n = 1
+    if isinstance(n, str) and len(n) > 2:
+        yield from bot.coro_send_message(event.conv, "I can't roll the dice this many times")
+        return
     n = int(n)
+    if len(s) > 4:
+        yield from bot.coro_send_message(event.conv, "Where can I find a {} sided dice?".format(s))
+        return
     s = int(s)
     if not 1 <= n < 100:
         yield from bot.coro_send_message(event.conv, "number of dice must be between 1 and 99")
