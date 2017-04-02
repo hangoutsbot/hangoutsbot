@@ -226,6 +226,7 @@ class TelegramBot(telepot.aio.Bot):
 
     @asyncio.coroutine
     def handle(self, msg):
+        config = _telesync_config(tg_bot.ho_bot)
 
         if 'migrate_to_chat_id' in msg:
             yield from self.onSupergroupUpgradeCallback(self, msg)
@@ -277,9 +278,13 @@ class TelegramBot(telepot.aio.Bot):
                     elif msg["document"]["mime_type"] == "video/mp4" and msg["document"]["file_name"].endswith(".gif.mp4"):
                         # telegram converts animated gifs to mp4, upload is incompatible with hangouts
                         # treat like a photo anyway, hint to backend to resolve the issue
-                        msg['photo'] = [ msg["document"] ]
-                        msg['photo'][0]["width"] = 1 # XXX: required for tg_util_get_photo_list() sort
-                        yield from self.onPhotoCallback(self, chat_id, msg, original_is_gif=True)
+                        if "convert-with-gifscom" not in config or not config["convert-with-gifscom"]:
+                            msg['photo'] = [ msg["document"]["thumb"] ]
+                            yield from self.onPhotoCallback(self, chat_id, msg)
+                        else:
+                            msg['photo'] = [ msg["document"] ]
+                            msg['photo'][0]["width"] = 1 # XXX: required for tg_util_get_photo_list() sort
+                            yield from self.onPhotoCallback(self, chat_id, msg, original_is_gif=True)
 
             elif flavor == "inline_query":  # inline query e.g. "@gif cute panda"
                 query_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
