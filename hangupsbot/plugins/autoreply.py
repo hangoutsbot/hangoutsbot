@@ -42,15 +42,16 @@ def _handle_autoreply(bot, event, command):
     # get_config_suboption returns the convo specific autoreply settings. If none set, it returns the global settings.
     autoreplies_list = bot.get_config_suboption(event.conv_id, 'autoreplies')
 
-    """tag a conversation with "autoreplies-merge" to merge per-conversation and global autoreplies
+    """option to merge per-conversation and global autoreplies, by:
+    * tagging a conversation with "autoreplies-merge" explicitly or by wildcard conv tag
+    * setting global config key: autoreplies.merge = true
     note: you must also define the appropriate autoreply keys for a specific conversation
-    (by default per-conversation autoreplies overrides global autoreplies settings)
+    (by default per-conversation autoreplies replaces global autoreplies settings completely)"""
 
-    tag commands:
-    * /bot tagset conv <conv_id> autoreplies-merge
-    * /bot tagdel conv <conv_id> autoreplies-merge
-    """
-    if event.conv_id in bot.conversations.get("tag:autoreplies-merge"):
+    tagged_autoreplies_merge = "autoreplies-merge" in bot.tags.convactive(event.conv_id)
+    config_autoreplies_merge = bot.get_config_option('autoreplies.merge') or False
+
+    if tagged_autoreplies_merge or config_autoreplies_merge:
 
         # load any global settings as well
         autoreplies_list_global = bot.get_config_option('autoreplies')

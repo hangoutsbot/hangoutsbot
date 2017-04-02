@@ -1,6 +1,11 @@
-import asyncio, logging, re
+import asyncio
+import logging
+import re
+import sys
 
 import plugins
+
+from utils import remove_accents
 
 
 logger = logging.getLogger(__name__)
@@ -29,23 +34,51 @@ def _handle_keyword(bot, event, command, include_event_user=False):
 
     users_in_chat = event.conv.users
 
-    """check if synced room, if so, append on the users"""
-    sync_room_list = bot.get_config_suboption(event.conv_id, 'sync_rooms')
-    if sync_room_list:
-        if event.conv_id in sync_room_list:
-            for syncedroom in sync_room_list:
-                if event.conv_id not in syncedroom:
-                    users_in_chat += bot.get_users_in_conversation(syncedroom)
-            users_in_chat = list(set(users_in_chat)) # make unique
+    """check if synced room and syncing is enabled
+    if its a valid syncroom, get a list of all unique users across all rooms"""
+
+    if bot.get_config_option('syncing_enabled'):
+        syncouts = bot.get_config_option('sync_rooms') or []
+        for sync_room_list in syncouts:
+            if event.conv_id in sync_room_list:
+                for syncedroom in sync_room_list:
+                    if event.conv_id not in syncedroom:
+                        users_in_chat += bot.get_users_in_conversation(syncedroom)
+                users_in_chat = list(set(users_in_chat)) # make unique
 
     event_text = re.sub(r"\s+", " ", event.text)
+    event_text_lower = event.text.lower()
     for user in users_in_chat:
+        chat_id = user.id_.chat_id
         try:
-            if _internal.keywords[user.id_.chat_id] and ( not user.id_.chat_id in event.user.id_.chat_id
-                                                          or include_event_user ):
-                for phrase in _internal.keywords[user.id_.chat_id]:
+            if _internal.keywords[chat_id] and ( not chat_id in event.user.id_.chat_id
+                                                 or include_event_user ):
+                for phrase in _internal.keywords[chat_id]:
                     regexphrase = r"(^|\b| )" + re.escape(phrase) + r"($|\b)"
                     if re.search(regexphrase, event_text, re.IGNORECASE):
+
+                        """XXX: suppress alerts if it appears to be a valid mention to same user
+                        logic condensed from the detection function in the mentions plugin, we may
+                        miss some use-cases, but this should account for "most" of them"""
+                        if 'plugins.mentions' in sys.modules:
+                            _phrase_lower = phrase.lower()
+                            _mention = "@" + _phrase_lower
+                            if (_mention + " ") in event_text_lower or event_text_lower.endswith(_mention):
+                                user = bot.get_hangups_user(chat_id)
+                                _normalised_full_name_lower = remove_accents(user.full_name.lower())
+                                if( _phrase_lower in _normalised_full_name_lower
+                                        or _phrase_lower in _normalised_full_name_lower.replace(" ", "")
+                                        or _phrase_lower in _normalised_full_name_lower.replace(" ", "_") ):
+                                    # part of name mention: skip
+                                    logger.debug("subscription matched full name fragment {}, skipping".format(user.full_name))
+                                    continue
+                                if bot.memory.exists(['user_data', chat_id, "nickname"]):
+                                    _nickname = bot.memory.get_by_path(['user_data', chat_id, "nickname"])
+                                    if _phrase_lower == _nickname.lower():
+                                        # nickname mention: skip
+                                        logger.debug("subscription matched exact nickname {}, skipping".format(_nickname))
+                                        continue
+
                         yield from _send_notification(bot, event, phrase, user)
         except KeyError:
             # User probably hasn't subscribed to anything

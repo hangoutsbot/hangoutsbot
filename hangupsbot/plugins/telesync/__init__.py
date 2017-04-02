@@ -1,7 +1,9 @@
 # A Sync plugin for Telegram and Hangouts
 
-import os, logging
+import os
+import logging
 import io
+import random
 import asyncio
 import hangups
 import plugins
@@ -11,7 +13,6 @@ import telepot.async
 import telepot.exception
 from handlers import handler
 from commands import command
-import random
 
 logger = logging.getLogger(__name__)
 
@@ -21,28 +22,20 @@ logger = logging.getLogger(__name__)
 class TelegramBot(telepot.async.Bot):
     def __init__(self, hangupsbot):
         self.config = hangupsbot.config.get_by_path(['telesync'])
-        if self.config['enabled']:
-            try:
-                super(TelegramBot, self).__init__(self.config['api_key'])
-            except Exception as e:
-                raise telepot.TelegramError("Couldn't initialize telesync", 10)
-
-            if "bot_name" in hangupsbot.config.get_by_path(["telesync"]):
-                self.name = hangupsbot.config.get_by_path(["telesync"])["bot_name"]
-            else:
-                self.name = "bot"
-
-            self.commands = {}
-            self.onMessageCallback = TelegramBot.on_message
-            self.onPhotoCallback = TelegramBot.on_photo
-            self.onStickerCallback = TelegramBot.on_sticker
-            self.onUserJoinCallback = TelegramBot.on_user_join
-            self.onUserLeaveCallback = TelegramBot.on_user_leave
-            self.onLocationShareCallback = TelegramBot.on_location_share
-            self.onSupergroupUpgradeCallback = TelegramBot.on_supoergroup_upgrade
-            self.ho_bot = hangupsbot
+        super().__init__(self.config['api_key'])
+        if "bot_name" in hangupsbot.config.get_by_path(["telesync"]):
+            self.name = hangupsbot.config.get_by_path(["telesync"])["bot_name"]
         else:
-            logger.info('telesync disabled in config.json')
+            self.name = "bot"
+        self.commands = {}
+        self.onMessageCallback = TelegramBot.on_message
+        self.onPhotoCallback = TelegramBot.on_photo
+        self.onStickerCallback = TelegramBot.on_sticker
+        self.onUserJoinCallback = TelegramBot.on_user_join
+        self.onUserLeaveCallback = TelegramBot.on_user_leave
+        self.onLocationShareCallback = TelegramBot.on_location_share
+        self.onSupergroupUpgradeCallback = TelegramBot.on_supoergroup_upgrade
+        self.ho_bot = hangupsbot
 
     @asyncio.coroutine
     def setup_bot_info(self):
@@ -259,6 +252,11 @@ def tg_util_sync_get_user_name(msg, chat_action='from'):
     return msg[chat_action]['first_name'] if username == "" else user_html
 
 
+def _repeater_cleaner(bot, event, id):
+    event.from_bot = False
+    event._telesync_no_repeat = True
+
+
 @asyncio.coroutine
 def tg_on_message(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
@@ -293,10 +291,19 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
                                                                                              newtext=text)
 
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
-        yield from tg_bot.ho_bot.coro_send_message(ho_conv_id, text)
-
-        logger.info("[TELESYNC] Telegram message forwarded: {msg} to: {ho_conv_id}".format(msg=msg['text'],
-                                                                                           ho_conv_id=ho_conv_id))
+        yield from tg_bot.ho_bot.coro_send_message(
+            ho_conv_id, text,
+            context={
+                'base': {
+                    'tags': ['telegram', 'relay'],
+                    'source': 'telesync',
+                    'importance': 50
+                },
+                'repocessor': tg_bot.ho_bot.call_shared("reprocessor.attach_reprocessor",
+                    _repeater_cleaner, return_as_dict=True)
+                }
+            )
+        logger.debug("forwarded to %s: %s", ho_conv_id, msg['text'])
 
 
 @asyncio.coroutine
@@ -694,17 +701,11 @@ tg_bot = None
 
 def _initialise(bot):
     if not bot.config.exists(['telesync']):
-        bot.config.set_by_path(['telesync'], {'api_key': "PUT_YOUR_TELEGRAM_API_KEY_HERE",
-                                              'enabled': True,
-                                              'admins': [],
-                                              'do_not_keep_photos': True,
-                                              'enable_sticker_sync' : True,
-                                              'sync_chat_titles' : True,
-                                              'sync_join_messages' : True,
-                                              'sync_reply_to' : True,
-                                              'be_quiet': False})
+        return
 
-    bot.config.save()
+    telesync_config = bot.config.get_by_path(['telesync'])
+    if not telesync_config['enabled']:
+        return
 
     if not bot.memory.exists(['telesync']):
         bot.memory.set_by_path(['telesync'], {'ho2tg': {}, 'tg2ho': {}})
@@ -712,33 +713,30 @@ def _initialise(bot):
     if not bot.memory.exists(['profilesync']):
         bot.memory.set_by_path(['profilesync'], {'ho2tg': {}, 'tg2ho': {}})
 
-    telesync_config = bot.config.get_by_path(['telesync'])
+    global tg_bot
+    tg_bot = TelegramBot(bot)
+    tg_bot.set_on_message_callback(tg_on_message)
+    tg_bot.set_on_photo_callback(tg_on_photo)
+    tg_bot.set_on_sticker_callback(tg_on_sticker)
+    tg_bot.set_on_user_join_callback(tg_on_user_join)
+    tg_bot.set_on_user_leave_callback(tg_on_user_leave)
+    tg_bot.set_on_location_share_callback(tg_on_location_share)
+    tg_bot.set_on_supoergroup_upgrade_callback(tg_on_supergroup_upgrade)
+    tg_bot.add_command("/whoami", tg_command_whoami)
+    tg_bot.add_command("/whereami", tg_command_whereami)
+    tg_bot.add_command("/setsyncho", tg_command_set_sync_ho)
+    tg_bot.add_command("/clearsyncho", tg_command_clear_sync_ho)
+    tg_bot.add_command("/addadmin", tg_command_add_bot_admin)
+    tg_bot.add_command("/removeadmin", tg_command_remove_bot_admin)
+    tg_bot.add_command("/tldr", tg_command_tldr)
+    tg_bot.add_command("/syncprofile", tg_command_sync_profile)
+    tg_bot.add_command("/unsyncprofile", tg_command_unsync_profile)
+    tg_bot.add_command("/getme", tg_command_get_me)
 
-    if telesync_config['enabled']:
-        global tg_bot
-        tg_bot = TelegramBot(bot)
-        tg_bot.set_on_message_callback(tg_on_message)
-        tg_bot.set_on_photo_callback(tg_on_photo)
-        tg_bot.set_on_sticker_callback(tg_on_sticker)
-        tg_bot.set_on_user_join_callback(tg_on_user_join)
-        tg_bot.set_on_user_leave_callback(tg_on_user_leave)
-        tg_bot.set_on_location_share_callback(tg_on_location_share)
-        tg_bot.set_on_supoergroup_upgrade_callback(tg_on_supergroup_upgrade)
-        tg_bot.add_command("/whoami", tg_command_whoami)
-        tg_bot.add_command("/whereami", tg_command_whereami)
-        tg_bot.add_command("/setsyncho", tg_command_set_sync_ho)
-        tg_bot.add_command("/clearsyncho", tg_command_clear_sync_ho)
-        tg_bot.add_command("/addadmin", tg_command_add_bot_admin)
-        tg_bot.add_command("/removeadmin", tg_command_remove_bot_admin)
-        tg_bot.add_command("/tldr", tg_command_tldr)
-        tg_bot.add_command("/syncprofile", tg_command_sync_profile)
-        tg_bot.add_command("/unsyncprofile", tg_command_unsync_profile)
-        tg_bot.add_command("/getme", tg_command_get_me)
-
-        loop = asyncio.get_event_loop()
-        # run telegram bot
-        loop.create_task(tg_bot.message_loop())
-        loop.create_task(tg_bot.setup_bot_info())
+    loop = asyncio.get_event_loop()
+    # run telegram bot
+    loop.create_task(tg_bot.message_loop())
+    loop.create_task(tg_bot.setup_bot_info())
 
 
 @command.register(admin=False)
@@ -857,10 +855,14 @@ def is_animated_photo(file_name):
 
 @handler.register(priority=5, event=hangups.ChatMessageEvent)
 def _on_hangouts_message(bot, event, command=""):
-    global tg_bot
+    if event.text.startswith('/'):
+        return                              # don't allow HO to issue / commands to TG
 
-    if event.text.startswith('/'):  # don't sync /bot commands
-        return
+    if "_telesync_no_repeat" in dir(event) and event._telesync_no_repeat:
+        return                              # don't sync our stuff back to ourselves
+
+    config_dict = tg_bot.ho_bot.config.get_by_path(['telesync'])
+    ho2tg_dict = bot.memory.get_by_path(['telesync'])['ho2tg']
 
     sync_text = event.text
     photo_url = ""
@@ -870,9 +872,6 @@ def _on_hangouts_message(bot, event, command=""):
     if has_photo:
         photo_url = sync_text
         sync_text = "(shared an image)"
-
-    ho2tg_dict = bot.memory.get_by_path(['telesync'])['ho2tg']
-    config_dict = tg_bot.ho_bot.config.get_by_path(['telesync'])
 
     if event.conv_id in ho2tg_dict:
         user_gplus = 'https://plus.google.com/u/0/{uid}/about'.format(uid=event.user_id.chat_id)
