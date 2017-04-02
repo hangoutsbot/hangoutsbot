@@ -8,6 +8,8 @@ import os
 import random
 import re
 
+from aiohttp.helpers import FormData
+
 import telepot.aio
 import telepot.exception
 
@@ -26,6 +28,51 @@ logger = logging.getLogger(__name__)
 
 # prefix for profile sync registration, must be non-empty string
 reg_code_prefix = "VERIFY"
+
+
+@asyncio.coroutine
+def convert_online_mp4_to_gif(source_url, fallback_url=False):
+    """experimental utility function to convert telegram mp4s back into gifs"""
+
+    config = _telesync_config(tg_bot.ho_bot)
+
+    if "convert-with-gifscom" in config and not config["convert-with-gifscom"]:
+        # must be explicitly disabled
+        return fallback_url or source_url
+
+    if "convert-with-gifscom" in config and config["convert-with-gifscom"] is not True:
+        # api key can be explicitly defined
+        api_key = config["convert-with-gifscom"]
+    else:
+        # an api key isn't required, but...
+        # XXX: demo api key from https://gifs.com/
+        api_key = "gifs56d63999f0f34"
+
+    # retrieve the source image
+    api_request = yield from aiohttp.request('get', source_url)
+    raw_image = yield from api_request.read()
+
+    # upload it to gifs.com for conversion
+
+    url = "https://api.gifs.com/media/upload"
+
+    headers = { "Gifs-Api-Key": api_key }
+    data = FormData()
+    data.add_field('file', raw_image)
+    data.add_field('title', 'example.mp4')
+
+    response = yield from aiohttp.post(url, data=data, headers=headers)
+    if response.status != 200:
+        return fallback_url or source_url
+
+    results = yield from response.json()
+    if "success" not in results:
+        return fallback_url or source_url
+
+    # return the link to the converted file
+
+    return results["success"]["files"]["gif"]
+
 
 # TELEGRAM BOT
 
@@ -159,16 +206,22 @@ class TelegramBot(telepot.aio.Bot):
             return False
 
     @asyncio.coroutine
-    def get_hangouts_image_id_from_telegram_photo_id(self, photo_id):
+    def get_hangouts_image_id_from_telegram_photo_id(self, photo_id, original_is_gif=False):
         metadata = yield from self.getFile(photo_id)
-        photo_path = "https://api.telegram.org/file/bot{}/{}".format(self.config['api_key'], metadata["file_path"])
-        logger.info("retrieving: {}".format(metadata["file_path"]))
+        file_path = metadata["file_path"]
+        photo_path = "https://api.telegram.org/file/bot{}/{}".format(self.config['api_key'], file_path)
+        logger.info("retrieving: {}".format(file_path))
+
+        if file_path.endswith(".mp4") and original_is_gif:
+            photo_path = yield from convert_online_mp4_to_gif(photo_path)
+
         try:
             ho_photo_id = yield from self.ho_bot.call_shared("image_upload_single", photo_path)
         except KeyError:
             # image plugin not loaded
             logger.warning("no shared hangoutsbot image upload, please add image plugin to your list of plugins")
             ho_photo_id = False
+
         return ho_photo_id
 
     @asyncio.coroutine
@@ -219,13 +272,14 @@ class TelegramBot(telepot.aio.Bot):
                     if msg["document"]["mime_type"] == "image/gif":
                         # non-animated gif, treat like a photo
                         msg['photo'] = [ msg["document"] ]
-                        msg['photo'][0]["width"] = 1
+                        msg['photo'][0]["width"] = 1 # XXX: required for tg_util_get_photo_list() sort
                         yield from self.onPhotoCallback(self, chat_id, msg)
                     elif msg["document"]["mime_type"] == "video/mp4" and msg["document"]["file_name"].endswith(".gif.mp4"):
-                        # XXX: actual animated gifs - show thumbnail
-                        # telegram api seems to send it as mp4, upload incompatible with hangouts
-                        msg['photo'] = [ msg["document"]["thumb"] ]
-                        yield from self.onPhotoCallback(self, chat_id, msg)
+                        # telegram converts animated gifs to mp4, upload is incompatible with hangouts
+                        # treat like a photo anyway, hint to backend to resolve the issue
+                        msg['photo'] = [ msg["document"] ]
+                        msg['photo'][0]["width"] = 1 # XXX: required for tg_util_get_photo_list() sort
+                        yield from self.onPhotoCallback(self, chat_id, msg, original_is_gif=True)
 
             elif flavor == "inline_query":  # inline query e.g. "@gif cute panda"
                 query_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
@@ -411,7 +465,7 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
 
 
 @asyncio.coroutine
-def tg_on_photo(tg_bot, tg_chat_id, msg):
+def tg_on_photo(tg_bot, tg_chat_id, msg, original_is_gif=False):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
 
     if str(tg_chat_id) in tg2ho_dict:
@@ -436,7 +490,8 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
 
         tg_photos = tg_util_get_photo_list(msg)
         tg_photo_id = tg_photos[len(tg_photos) - 1]['file_id']
-        ho_photo_id = yield from tg_bot.get_hangouts_image_id_from_telegram_photo_id(tg_photo_id)
+        ho_photo_id = yield from tg_bot.get_hangouts_image_id_from_telegram_photo_id(tg_photo_id,
+                                                                                     original_is_gif=original_is_gif)
 
         if ho_photo_id:
             text = "sent a photo"
