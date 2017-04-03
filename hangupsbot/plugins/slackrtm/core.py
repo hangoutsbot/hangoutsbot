@@ -686,6 +686,12 @@ class SlackRTM(object):
             logger.exception('error parsing Slack reply: %s(%s)', type(e), str(e))
             return
 
+        try:
+            """XXX: emulate behaviour of legacy slackrtm - listens EVERYWHERE"""
+            slackCommandHandler(self, msg)
+        except Exception as e:
+            logger.exception('error in handleCommands: %s(%s)', type(e), str(e))
+
         syncs = self.get_syncs(channelid=msg.channel)
         if not syncs:
             """since slackRTM listens to everything, we need a quick way to filter out noise. this also
@@ -695,11 +701,6 @@ class SlackRTM(object):
         reffmt = re.compile(r'<((.)([^|>]*))((\|)([^>]*)|([^>]*))>')
         message = reffmt.sub(self.matchReference, msg.text)
         message = slack_markdown_to_hangups(message)
-
-        try:
-            slackCommandHandler(self, msg)
-        except Exception as e:
-            logger.exception('error in handleCommands: %s(%s)', type(e), str(e))
 
         for sync in syncs:
             if not sync.sync_joins and msg.is_joinleave:
