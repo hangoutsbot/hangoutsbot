@@ -265,9 +265,7 @@ class TelegramBot(telepot.aio.Bot):
                     yield from self.onPhotoCallback(self, chat_id, msg)
 
                 elif content_type == 'sticker':
-                    config = _telesync_config(tg_bot.ho_bot)
-                    if "enable_sticker_sync" in config and config["enable_sticker_sync"]:
-                        yield from self.onStickerCallback(self, chat_id, msg)
+                    yield from self.onStickerCallback(self, chat_id, msg)
 
                 elif content_type == 'document':
                     if msg["document"]["mime_type"] == "image/gif":
@@ -435,37 +433,30 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
     tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
 
     if str(tg_chat_id) in tg2ho_dict:
+        config = _telesync_config(tg_bot.ho_bot)
         ho_conv_id = tg2ho_dict[str(tg_chat_id)]
         chat_title = tg_util_get_group_name(msg)
-
-        config = _telesync_config(tg_bot.ho_bot)
-
         user = tg_util_sync_get_user_name(msg)
-        text = "_uploading sticker from {} in {}_".format(
-            tg_util_sync_get_user_name(msg),
-            chat_title )
+
+        ho_photo_id = None
+        if "enable_sticker_sync" in config and config["enable_sticker_sync"]:
+            yield from tg_bot.chatbridge._send_to_internal_chat(
+                ho_conv_id,
+                "_uploading sticker from {} in {}_".format(user, chat_title),
+                {   "config": config,
+                    "source_user": user,
+                    "source_uid": msg['from']['id'],
+                    "source_title": chat_title })
+            ho_photo_id = yield from tg_bot.get_hangouts_image_id_from_telegram_photo_id(msg['sticker']['file_id'])
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
-            text,
-            {   "config": config,
-                "source_user": user,
-                "source_uid": msg['from']['id'],
-                "source_title": chat_title })
-
-        ho_photo_id = yield from tg_bot.get_hangouts_image_id_from_telegram_photo_id(msg['sticker']['file_id'])
-
-        text = "sent {} sticker".format(msg["sticker"]['emoji'])
-
-        yield from tg_bot.chatbridge._send_to_internal_chat(
-            ho_conv_id,
-            text,
+            "sent {} sticker".format(msg["sticker"]['emoji']),
             {   "config": config,
                 "source_user": user,
                 "source_uid": msg['from']['id'],
                 "source_title": chat_title },
             image_id=ho_photo_id )
-
         logger.info("sticker posted to hangouts")
 
 
