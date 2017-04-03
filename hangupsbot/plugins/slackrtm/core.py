@@ -648,7 +648,7 @@ class SlackRTM(object):
         for s in syncs:
             if s['channelid'] == channel and s['hangoutid'] == hangoutid:
                 syncs.remove(s)
-        logger.info('storing new sync=%s with changed hotag', s)
+        logger.info('storing new sync=%s with changed slacktag', s)
         syncs.append(sync.toDict())
         _slackrtm_conversations_set(self.bot, self.name, syncs)
         return
