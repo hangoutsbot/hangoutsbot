@@ -196,7 +196,7 @@ class SlackMessage(object):
 
 
 class SlackRTMSync(object):
-    def __init__(self, channelid, hangoutid, hotag, slacktag, sync_joins=True, image_upload=True, showslackrealnames=False):
+    def __init__(self, channelid, hangoutid, hotag, slacktag, sync_joins=True, image_upload=True, showslackrealnames=False, showhorealnames="real"):
         self.channelid = channelid
         self.hangoutid = hangoutid
         self.hotag = hotag
@@ -204,6 +204,7 @@ class SlackRTMSync(object):
         self.image_upload = image_upload
         self.slacktag = slacktag
         self.showslackrealnames = showslackrealnames
+        self.showhorealnames = showhorealnames
 
     @staticmethod
     def fromDict(sync_dict):
@@ -218,10 +219,13 @@ class SlackRTMSync(object):
             slacktag = sync_dict['slacktag']
         else:
             slacktag = 'NOT_IN_CONFIG'
-        realnames = True
+        slackrealnames = True
         if 'showslackrealnames' in sync_dict and not sync_dict['showslackrealnames']:
-            realnames = False
-        return SlackRTMSync(sync_dict['channelid'], sync_dict['hangoutid'], sync_dict['hotag'], slacktag, sync_joins, image_upload, realnames)
+            slackrealnames = False
+        horealnames = 'real'
+        if 'showhorealnames' in sync_dict:
+            horealnames = sync_dict['showhorealnames']
+        return SlackRTMSync(sync_dict['channelid'], sync_dict['hangoutid'], sync_dict['hotag'], slacktag, sync_joins, image_upload, slackrealnames, horealnames)
 
     def toDict(self):
         return {
@@ -232,15 +236,17 @@ class SlackRTMSync(object):
             'image_upload': self.image_upload,
             'slacktag': self.slacktag,
             'showslackrealnames': self.showslackrealnames,
+            'showhorealnames': self.showhorealnames,
             }
 
     def getPrintableOptions(self):
-        return 'hotag="%s", sync_joins=%s, image_upload=%s, slacktag=%s, showslackrealnames=%s' % (
-            self.hotag if self.hotag else 'NONE',
+        return 'hotag=%s, sync_joins=%s, image_upload=%s, slacktag=%s, showslackrealnames=%s, showhorealnames="%s"' % (
+            '"{}"'.format(self.hotag) if self.hotag else 'NONE',
             self.sync_joins,
             self.image_upload,
-            self.slacktag if self.slacktag else 'NONE',
+            '"{}"'.format(self.slacktag) if self.slacktag else 'NONE',
             self.showslackrealnames,
+            self.showhorealnames,
             )
 
 
@@ -675,6 +681,28 @@ class SlackRTM(object):
         _slackrtm_conversations_set(self.bot, self.name, syncs)
         return
 
+    def config_showhorealnames(self, channel, hangoutid, realnames):
+        sync = None
+        for s in self.syncs:
+            if s.channelid == channel and s.hangoutid == hangoutid:
+                sync = s
+        if not sync:
+            raise NotSyncingError
+
+        logger.info('setting showhorealnames=%s for sync=%s', realnames, sync.toDict())
+        sync.showhorealnames = realnames
+
+        syncs = _slackrtm_conversations_get(self.bot, self.name)
+        if not syncs:
+            syncs = []
+        for s in syncs:
+            if s['channelid'] == channel and s['hangoutid'] == hangoutid:
+                syncs.remove(s)
+        logger.info('storing new sync=%s with changed hotag', s)
+        syncs.append(sync.toDict())
+        _slackrtm_conversations_set(self.bot, self.name, syncs)
+        return
+
     def handle_reply(self, reply):
         """handle incoming replies from slack"""
 
@@ -759,15 +787,24 @@ class SlackRTM(object):
         bridge_user = self._bridgeinstance._get_user_details(user, { "event": event })
 
         for sync in self.get_syncs(hangoutid=conv_id):
-            display_name = bridge_user["preferred_name"]
+            extras = []
+            if sync.showhorealnames == "nick":
+                display_name = bridge_user["nickname"] or bridge_user["full_name"]
+            else:
+                display_name = bridge_user["full_name"]
+                if (sync.showhorealnames == "both" and bridge_user["nickname"] and
+                        not bridge_user["full_name"] == bridge_user["nickname"]):
+                    extras.append(bridge_user["nickname"])
 
-            if sync.hotag:
-                if sync.hotag is True:
-                    if "chatbridge" in event.passthru and event.passthru["chatbridge"]["source_title"]:
-                        chat_title = event.passthru["chatbridge"]["source_title"]
-                        display_name += " ({})".format(chat_title)
-                elif sync.hotag is not True and sync.hotag:
-                    display_name += " ({})".format(sync.hotag)
+            if sync.hotag is True:
+                if "chatbridge" in event.passthru and event.passthru["chatbridge"]["source_title"]:
+                    chat_title = event.passthru["chatbridge"]["source_title"]
+                    extras.append(chat_title)
+            elif sync.hotag:
+                extras.append(sync.hotag)
+
+            if extras:
+                display_name = "{} ({})".format(display_name, ", ".join(extras))
 
             slackrtm_fragment = "<ho://{}/{}| >".format(conv_id, bridge_user["chat_id"] or bridge_user["preferred_name"])
 

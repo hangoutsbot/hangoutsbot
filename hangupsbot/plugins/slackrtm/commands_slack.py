@@ -64,7 +64,8 @@ commands_admin = [ "hangouts",
                    "sethotag",
                    "setimageupload",
                    "setslacktag",
-                   "showslackrealnames" ]
+                   "showslackrealnames",
+                   "showhorealnames" ]
 
 def help(slackbot, msg, args):
     """list help for all available commands"""
@@ -642,6 +643,61 @@ def showslackrealnames(slackbot, msg, args):
         message += u'This channel (%s) is not synced with Hangout _%s_, not changing showslackrealnames.' % (channelname, hangoutname)
     else:
         message += u'OK, I will display %s when syncing messages from this channel (%s) with Hangout _%s_.' % (('realnames' if realnames else 'usernames'), channelname, hangoutname)
+    slackbot.api_call(
+        'chat.postMessage',
+        channel=msg.channel,
+        text=message,
+        as_user=True,
+        link_names=True )
+
+def showhorealnames(slackbot, msg, args):
+    """admin-only: show real names and/or usernames for hangouts messages in slack, default: real
+
+    usage: showhorealnames [hangouts conversation id] [real|nick|both]"""
+
+    message = '@%s: ' % msg.username
+    if len(args) != 2:
+        message += u'sorry, but you have to specify a Hangout Id and a `real`/`nick`/`both` for command `showhorealnames`'
+        slackbot.api_call(
+            'chat.postMessage',
+            channel=msg.channel,
+            text=message,
+            as_user=True,
+            link_names=True )
+        return
+
+    hangoutid = args[0]
+    realnames = args[1]
+    for c in slackbot.bot.list_conversations():
+        if c.id_ == hangoutid:
+            hangoutname = slackbot.bot.conversations.get_name(c, truncate=False)
+            break
+    if not hangoutname:
+        message += u'sorry, but I\'m not a member of a Hangout with Id %s' % hangoutid
+        slackbot.api_call(
+            'chat.postMessage',
+            channel=msg.channel,
+            text=message,
+            as_user=True,
+            link_names=True )
+        return
+
+    if msg.channel.startswith('D'):
+        channelname = 'DM'
+    else:
+        channelname = '#%s' % slackbot.get_channelname(msg.channel)
+
+    if realnames not in ['real', 'nick', 'both']:
+        message += u'sorry, but "%s" is not one of "real", "nick" or "both"' % upload
+        slackbot.api_call('chat.postMessage', channel=msg.channel, text=message, as_user=True, link_names=True)
+        return
+
+    try:
+        slackbot.config_showhorealnames(msg.channel, hangoutid, realnames)
+    except NotSyncingError:
+        message += u'This channel (%s) is not synced with Hangout _%s_, not changing showhorealnames.' % (channelname, hangoutname)
+    else:
+        message += u'OK, I will display %s names when syncing messages from this channel (%s) with Hangout _%s_.' % (realnames, channelname, hangoutname)
     slackbot.api_call(
         'chat.postMessage',
         channel=msg.channel,

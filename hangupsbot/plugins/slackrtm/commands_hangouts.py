@@ -486,3 +486,44 @@ def slack_showslackrealnames(bot, event, *args):
         yield from bot.coro_send_message(event.conv_id, "real names will be displayed when syncing messages from slack {} : {}".format(slackname, channelname))
     else:
         yield from bot.coro_send_message(event.conv_id, "user names will be displayed when syncing messages from slack {} : {}".format(slackname, channelname))
+
+
+def slack_showhorealnames(bot, event, *args):
+    """display real names and/or nicknames in messages synced from hangouts (default: real)
+
+    usage: /bot slack_showhorealnames <teamname> <channelid> {real|nick|both}"""
+
+    if len(args) != 3:
+        yield from bot.coro_send_message(event.conv_id, "specify exactly three parameters: slack team, slack channel, and \"real\"/\"nick\"/\"both\"")
+        return
+
+    slackname = args[0]
+    slackrtm = None
+    for s in _slackrtms:
+        if s.name == slackname:
+            slackrtm = s
+            break
+    if not slackrtm:
+        yield from bot.coro_send_message(event.conv_id, "there is no slack team with name **{}**, use _/bot slacks_ to list all teams".format(slackname))
+        return
+
+    channelid = args[1]
+    channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
+    if not channelname:
+        yield from bot.coro_send_message(
+            event.conv_id,
+            "there is no channel with name **{0}** in **{1}**, use _/bot slack_channels {1}_ to list all channels".format(channelid, slackname) )
+        return
+
+    flag = args[2]
+    if flag not in ['real', 'nick', 'both']:
+        yield from bot.coro_send_message(event.conv_id, "cannot interpret {} as one of \"real\", \"nick\" or \"both\"".format(flag))
+        return
+
+    try:
+        slackrtm.config_showhorealnames(channelid, event.conv.id_, flag)
+    except NotSyncingError:
+        yield from bot.coro_send_message(event.conv_id, "current hangout not previously synced with {} : {}".format(slackname, channelname))
+        return
+
+    yield from bot.coro_send_message(event.conv_id, "{} names will be displayed when syncing messages from slack {} : {}".format(flag, slackname, channelname))
