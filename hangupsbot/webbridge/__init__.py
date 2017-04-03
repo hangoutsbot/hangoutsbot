@@ -259,7 +259,7 @@ class WebFramework:
         else:
             source_user = self.plugin_name
 
-        bridge_user = self._get_user_details(source_user)
+        bridge_user = self._get_user_details(source_user, external_context)
 
         if "source_title" in external_context:
             source_title = external_context["source_title"]
@@ -278,7 +278,7 @@ class WebFramework:
 
         return formatted
 
-    def _get_user_details(self, user, additional_context=None):
+    def _get_user_details(self, user, external_context=None):
         chat_id = None
         preferred_name = None # guaranteed
         full_name = None
