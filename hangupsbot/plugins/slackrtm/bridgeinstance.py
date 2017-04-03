@@ -56,7 +56,7 @@ class BridgeInstance(WebFramework):
         source_user = external_context["source_user"]
         source_title = external_context["source_title"]
 
-        if sync.slacktag is False:
+        if sync.slacktag is False or sync.slacktag is None:
             source_title = False
         elif sync.slacktag is not True and sync.slacktag:
             source_title = sync.slacktag
