@@ -104,7 +104,7 @@ def help(bot, event, cmd=None, *args):
 
     # replace /bot with the first alias in the command handler
     # XXX: [botalias] maintained backward compatibility, please avoid using it
-    help_lines = [ re.sub(r"(^| )(/bot|\[botalias\])", bot._handlers.bot_command[0], _line)
+    help_lines = [ re.sub(r"(?<!\S)\/bot(?!\S)", bot._handlers.bot_command[0], _line)
                    for _line in help_lines ]
 
     yield from bot.coro_send_to_user_and_conversation(
