@@ -337,17 +337,34 @@ def tg_util_create_gmaps_url(lat, long, https=True):
                                                                   long=long)
 
 def tg_util_sync_get_user_name(msg, chat_action='from'):
+    bot = tg_bot.ho_bot
+    telesync_config = bot.get_config_option("telesync") or {}
+    telegram_uid = str(msg['from']['id'])
+
     username = False
 
-    if 'username' in msg[chat_action]:
+    fullname = _first_name = _last_name = ""
+    print(msg[chat_action])
+    if 'first_name' in msg[chat_action] and msg[chat_action]['first_name']:
+        _first_name = msg[chat_action]['first_name']
+    if 'last_name' in msg[chat_action] and msg[chat_action]['last_name']:
+        _last_name = msg[chat_action]['last_name']
+    if _first_name or _last_name:
+        fullname = "{} {}".format(_first_name, _last_name).strip()
+
+    if "prefer_fullname" in telesync_config and telesync_config["prefer_fullname"] and fullname:
+        username = fullname
+    elif 'username' in msg[chat_action]:
         username = msg[chat_action]['username']
-    elif 'firstname' in msg[chat_action]:
-        username = msg[chat_action]['firstname']
+    elif _first_name:
+        username = _first_name
+    elif _last_name:
+        username = _last_name
+    else:
+        username = telegram_uid
 
     """linked profile support"""
 
-    telegram_uid = str(msg['from']['id'])
-    bot = tg_bot.ho_bot
     chat_id = False
 
     keys_tg_to_ho = ['profilesync', 'tg2ho', telegram_uid, 'chat_id']
@@ -365,8 +382,6 @@ def tg_util_sync_get_user_name(msg, chat_action='from'):
             logger.info("unmapped/invalid hangouts user for {}".format(telegram_uid))
 
     if chat_id:
-        telesync_config = bot.get_config_option("telesync") or {}
-
         # guaranteed full name
         hangups_user = bot.get_hangups_user(chat_id)
         full_name = hangups_user.full_name
