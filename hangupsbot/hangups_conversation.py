@@ -6,7 +6,8 @@ import hangups
 
 import hangups_shim
 
-from utils import simple_parse_to_segments
+from utils import ( simple_parse_to_segments,
+                    segment_to_html )
 
 
 logger = logging.getLogger(__name__)
@@ -161,13 +162,24 @@ class FakeConversation(object):
         """ChatMessageSegment: parse message"""
 
         if message is None:
+            # nothing to do if the message is blank
             segments = []
+            raw_message = ""
         elif "parser" in context and context["parser"] is False and isinstance(message, str):
+            # no parsing requested, escape anything in raw_message that can be construed as valid markdown
             segments = [hangups.ChatMessageSegment(message)]
+            raw_message = message.replace("*", "\\*").replace("_", "\\_").replace("`", "\\`")
         elif isinstance(message, str):
+            # preferred method: markdown-formatted message (or less preferable but OK: html)
             segments = simple_parse_to_segments(message)
+            raw_message = message
         elif isinstance(message, list):
+            # who does this anymore?
+            logger.warning( "[OBSOLETE]: messages should be sent as html or markdown, "
+                            "not as list of ChatMessageSegment, context={}".format(context) )
             segments = message
+            raw_message = "".join([ segment_to_html(seg)
+                                    for seg in message ])
         else:
             raise TypeError("unknown message type supplied")
 
@@ -177,7 +189,7 @@ class FakeConversation(object):
             serialised_segments = None
 
         if "original_request" not in context["passthru"]:
-            context["passthru"]["original_request"] = { "message": message,
+            context["passthru"]["original_request"] = { "message": raw_message,
                                                         "image_id": image_id,
                                                         "segments": segments }
 
