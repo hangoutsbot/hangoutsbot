@@ -1,18 +1,20 @@
-import re
-import logging
-
 import aiohttp
 import asyncio
 import io
+import logging
 import os
+import re
+import sys
 
+from asyncio.subprocess import PIPE
 
 import plugins
 
+
 logger = logging.getLogger(__name__)
 
-_externals = { "bot": None }
 
+_externals = { "bot": None }
 
 def _initialise(bot):
     _externals["bot"] = bot
@@ -77,18 +79,48 @@ def image_validate_link(image_uri, reject_googleusercontent=True):
 
 @asyncio.coroutine
 def image_upload_single(image_uri):
-    logger.debug("getting {}".format(image_uri))
     filename = os.path.basename(image_uri)
+    logger.info("fetching {}".format(filename))
     try:
         r = yield from aiohttp.request('get', image_uri)
         content_type = r.headers['Content-Type']
-        if not content_type.startswith('image/') and not content_type == "application/octet-stream":
-            logger.warning("request did not return image/image-like data, content-type={}, headers={}".format(content_type, r.headers))
+
+        image_handling = False # must == True if valid image, can contain additonal directives
+
+        """image handling logic for specific image types - if necessary, guess by extension"""
+
+        if content_type.startswith('image/'):
+            if content_type == "image/webp":
+                image_handling = "image_convert_to_png"
+            else:
+                image_handling = "standard"
+
+        elif content_type == "application/octet-stream":
+            ext = filename.split(".")[-1].lower() # guess the type from the extension
+
+            if ext in ("jpg", "jpeg", "jpe", "jif", "jfif", "gif", "png"):
+                image_handling = "standard"
+            elif ext in ("webp"):
+                image_handling = "image_convert_to_png"
+
+        if image_handling:
+            raw = yield from r.read()
+            if image_handling is not "standard":
+                try:
+                    results = yield from getattr(sys.modules[__name__], image_handling)(raw)
+                    if results:
+                        # allow custom handlers to fail gracefully
+                        raw = results
+                except Exception as e:
+                    logger.exception("custom image handler failed: {}".format(image_handling))
+        else:
+            logger.warning("not image/image-like, filename={}, headers={}".format(filename, r.headers))
             return False
-        raw = yield from r.read()
+
     except (aiohttp.errors.ClientError) as exc:
         logger.warning("failed to get {} - {}".format(filename, exc))
         return False
+
     image_data = io.BytesIO(raw)
     image_id = yield from image_upload_raw(image_data, filename=filename)
     return image_id
@@ -111,3 +143,24 @@ def image_validate_and_upload_single(text, reject_googleusercontent=True):
     if image_link:
         image_id = yield from image_upload_single(image_link)
     return image_id
+
+
+@asyncio.coroutine
+def image_convert_to_png(image):
+    path_imagemagick = _externals["bot"].get_config_option("image.imagemagick") or "/usr/bin/convert"
+    cmd = (path_imagemagick, "-", "png:-")
+
+    try:
+        proc = yield from asyncio.create_subprocess_exec(
+            *cmd,
+            stdin = PIPE,
+            stdout = PIPE,
+            stderr = PIPE )
+
+        (stdout_data, stderr_data) = yield from proc.communicate(input=image)
+
+        return stdout_data
+
+    except FileNotFoundError:
+        logger.error("imagemagick not found at path {}".format(path_imagemagick))
+        return False
