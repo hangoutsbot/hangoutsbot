@@ -1,10 +1,11 @@
 import logging
 
+from .kludgy_html_parser import segment_to_html
+from html.parser import HTMLParser
+
 
 logger = logging.getLogger(__name__)
 
-
-from html.parser import HTMLParser
 
 class htmlToMarkdownParser(HTMLParser):
     def feed(self, html, basic_markdown={}, debug=False):
@@ -59,6 +60,12 @@ class htmlToMarkdownParser(HTMLParser):
                 self._markdown += self._basic[tag]
 
 def html_to_hangups_markdown(html, debug=False):
+    if isinstance(html, list):
+        logger.error( "[INVALID]: send messages as html or markdown, "
+                      "not as list of ChatMessageSegment - "
+                      "supplied message will be downconverted to html" )
+        html = "".join([ segment_to_html(seg)
+                         for seg in html ])
     parser = htmlToMarkdownParser()
     return parser.feed(
         html,

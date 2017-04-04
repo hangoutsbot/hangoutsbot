@@ -175,8 +175,8 @@ class FakeConversation(object):
             raw_message = message
         elif isinstance(message, list):
             # who does this anymore?
-            logger.warning( "[OBSOLETE]: messages should be sent as html or markdown, "
-                            "not as list of ChatMessageSegment, context={}".format(context) )
+            logger.error( "[INVALID]: send messages as html or markdown, "
+                          "not as list of ChatMessageSegment, context={}".format(context) )
             segments = message
             raw_message = "".join([ segment_to_html(seg)
                                     for seg in message ])
