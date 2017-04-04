@@ -365,11 +365,24 @@ def tg_util_sync_get_user_name(msg, chat_action='from'):
             logger.info("unmapped/invalid hangouts user for {}".format(telegram_uid))
 
     if chat_id:
+        telesync_config = bot.get_config_option("telesync") or {}
+
+        # guaranteed full name
+        hangups_user = bot.get_hangups_user(chat_id)
+        full_name = hangups_user.full_name
+
+        # determine if the hangoutsbot user has /setnickname
+        nickname = False
         if bot.memory.exists(['user_data', chat_id, "nickname"]):
-            preferred_name = bot.memory.get_by_path(['user_data', chat_id, "nickname"])
+            nickname = bot.memory.get_by_path(['user_data', chat_id, "nickname"])
+
+        if "prefer_fullname" in telesync_config and telesync_config["prefer_fullname"]:
+            preferred_name = full_name
+        elif nickname:
+            preferred_name = nickname
         else:
-            hangups_user = bot.get_hangups_user(chat_id)
-            preferred_name = hangups_user.full_name
+            preferred_name = full_name
+
         # links with different visible content are no longer supported by hangouts clients
         username = preferred_name
         logger.info("mapped telegram id: {} to {}, {}".format(telegram_uid, chat_id, username))
@@ -955,10 +968,15 @@ class BridgeInstance(WebFramework):
         message = hangups_markdown_to_telegram(message)
 
         bridge_user = self._get_user_details(user, { "event": event })
-        username = bridge_user["preferred_name"]
+        telesync_config = config['config.json']
+        if "prefer_fullname" in telesync_config and telesync_config["prefer_fullname"]:
+            username = bridge_user["full_name"]
+        else:
+            username = bridge_user["preferred_name"]
         if bridge_user["chat_id"]:
+            # wrap linked profiles with a g+ link
             username = "[{1}](https://plus.google.com/u/0/{0}/about)".format( bridge_user["chat_id"],
-                                                                              bridge_user["preferred_name"] )
+                                                                              username )
 
         chat_title = format(self.bot.conversations.get_name(conv_id))
 
