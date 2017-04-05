@@ -16,7 +16,35 @@ class BridgeInstance(WebFramework):
     def setup_plugin(self):
         self.plugin_name = "slackRTM"
 
+    def set_extra_configuration(self, hangouts_id, channel_id):
+        """in slackrtm, bridgeinstances are attached to individual 1-1 hangouts/slack mappings
+            parameters set during SlackRTMSync instantiation, used to filter applicable configurations"""
+
+        self.hangouts_id = hangouts_id
+        self.channel_id = channel_id
+
+    def applicable_configuration(self, conv_id):
+        """because of the object hierachy of original slackrtm, each bridgeinstance cannot maintain
+            knowledge of the entire configuration, only return a single applicable configuration"""
+
+        if conv_id != self.hangouts_id:
+            return []
+
+        self.load_configuration(self.configkey)
+
+        applicable_configurations = []
+        for configuration in self.configuration:
+            if( conv_id in configuration["hangouts"]
+                    and self.channel_id in configuration[self.configkey] ):
+                applicable_configurations.append({ "trigger": conv_id,
+                                                   "config.json": configuration })
+
+        return applicable_configurations
+
     def load_configuration(self, configkey):
+        """mutate the slack configuration earlier, maintain 1-1 mappings, so that we can filter
+        it later for a single hangouts and slack channel mapping"""
+
         slackrtm_configs = self.bot.get_config_option(configkey) or []
         if not slackrtm_configs:
             return
@@ -37,17 +65,20 @@ class BridgeInstance(WebFramework):
     @asyncio.coroutine
     def _send_to_external_chat(self, config, event):
         conv_id = config["trigger"]
+        channel_id = config["config.json"]["slackrtm"][0]
         team_name = config["config.json"]["name"]
 
         """slackrtm uses one thread per team, identify slackclient to handle the hangouts message.
         since the config is further separated by hangouts conv_id for relay, we also supply extra info
             to the handler, so it can decide for itself whether/where the message should be forwarded"""
 
+        logger.info("{}:{}:_send_to_external_chat, slackrtms = {}".format(self.plugin_name, self.uid, len(_slackrtms)))
+
         for slackrtm in _slackrtms:
             try:
                 # identify the correct thread, then send the message
                 if slackrtm.name == team_name:
-                    yield from slackrtm.handle_ho_message(event, conv_id)
+                    yield from slackrtm.handle_ho_message(event, conv_id, channel_id)
             except Exception as e:
                 logger.exception(e)
 

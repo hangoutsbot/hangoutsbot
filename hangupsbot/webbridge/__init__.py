@@ -28,9 +28,14 @@ FakeUser = namedtuple( 'user', [ 'full_name',
 FakeUserID = namedtuple( 'userID', [ 'chat_id',
                                      'gaia_id' ])
 
+
 class WebFramework:
+    instance_number = 0
+
     def __init__(self, bot, configkey, RequestHandler=IncomingRequestHandler):
+        self.uid = False
         self.plugin_name = False
+
         self.bot = self._bot = bot
         self.configkey = configkey
         self.RequestHandler = RequestHandler
@@ -42,6 +47,10 @@ class WebFramework:
         if not self.plugin_name:
             logger.warning("plugin_name not defined in code, not running")
             return
+
+        if not self.uid:
+            self.uid = "{}-{}".format(self.plugin_name, WebFramework.instance_number)
+            WebFramework.instance_number = WebFramework.instance_number + 1
 
         plugins.register_handler(self._broadcast, type="sending")
         plugins.register_handler(self._repeat, type="allmessages")
@@ -96,20 +105,20 @@ class WebFramework:
 
         if "norelay" not in passthru:
             passthru["norelay"] = []
-        if self.plugin_name in passthru["norelay"]:
+        if self.uid in passthru["norelay"]:
             # prevent message broadcast duplication
-            logger.info("{}:NORELAY:broadcast:{}".format(self.plugin_name,passthru["norelay"]))
+            logger.info("{}:{}:NORELAY:broadcast:{}".format(self.plugin_name, self.uid, passthru["norelay"]))
             return
         else:
             # halt messaging handler from re-relaying
-            passthru["norelay"].append(self.plugin_name)
+            passthru["norelay"].append(self.uid)
 
         user = self.bot._user_list._self_user
         chat_id = user.id_.chat_id
 
         # context preserves as much of the original request as possible
 
-        logger.info("{}:broadcast:{}".format(self.plugin_name, passthru))
+        logger.info("{}:{}:broadcast:{}".format(self.plugin_name, self.uid, passthru["norelay"]))
 
         if "original_request" in passthru:
             message = passthru["original_request"]["message"]
@@ -131,7 +140,7 @@ class WebFramework:
             only the first handler to run will assign all the variables 
                 we need for the other bridges to work"""
 
-            logger.info("hangouts bot raised an event, first seen by {}".format(self.plugin_name))
+            logger.info("hangouts bot raised an event, first seen by {}, {}".format(self.plugin_name, self.uid))
 
             message = html_to_hangups_markdown(message)
 
@@ -143,6 +152,7 @@ class WebFramework:
             passthru["chatbridge"] = { "source_title": bot.conversations.get_name(conv_id),
                                        "source_user": user,
                                        "source_uid": chat_id,
+                                       "source_gid": conv_id,
                                        "source_plugin": self.plugin_name }
 
         # for messages from other plugins, relay them
@@ -166,15 +176,15 @@ class WebFramework:
 
         if "norelay" not in passthru:
             passthru["norelay"] = []
-        if self.plugin_name in passthru["norelay"]:
+        if self.uid in passthru["norelay"]:
             # prevent message relay duplication
-            logger.info("{}:NORELAY:repeat:{}".format(self.plugin_name,passthru["norelay"]))
+            logger.info("{}:{}:NORELAY:repeat:{}".format(self.plugin_name, self.uid, passthru["norelay"]))
             return
         else:
             # halt sending handler from re-relaying
-            passthru["norelay"].append(self.plugin_name)
+            passthru["norelay"].append(self.uid)
 
-        logger.info("{}:repeat:{}".format(self.plugin_name, passthru))
+        logger.info("{}:{}:repeat:{}".format(self.plugin_name, self.uid, passthru["norelay"]))
 
         user = event.user
         message = event.text
@@ -197,6 +207,7 @@ class WebFramework:
             passthru["chatbridge"] = { "source_title": bot.conversations.get_name(conv_id),
                                        "source_user": event.user,
                                        "source_uid": event.user.id_.chat_id,
+                                       "source_gid": conv_id,
                                        "source_plugin": self.plugin_name }
 
         for config in applicable_configurations:
@@ -218,6 +229,10 @@ class WebFramework:
         if "source_title" in external_context:
             source_title = external_context["source_title"]
 
+        source_gid = self.plugin_name
+        if "source_gid" in external_context:
+            source_gid = external_context["source_gid"]
+
         source_uid = False
         linked_hangups_user = False
         if "source_uid" in external_context:
@@ -236,8 +251,9 @@ class WebFramework:
                 "source_title": source_title,
                 "source_user": source_user,
                 "source_uid": source_uid,
+                "source_gid": source_gid,
                 "plugin": self.plugin_name },
-            "norelay": [ self.plugin_name ] }
+            "norelay": [ self.uid ] }
 
         if linked_hangups_user:
             passthru["executable"] = "{}-{}".format(self.plugin_name, str(uuid.uuid4()))

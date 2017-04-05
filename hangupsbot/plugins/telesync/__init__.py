@@ -337,17 +337,34 @@ def tg_util_create_gmaps_url(lat, long, https=True):
                                                                   long=long)
 
 def tg_util_sync_get_user_name(msg, chat_action='from'):
+    bot = tg_bot.ho_bot
+    telesync_config = bot.get_config_option("telesync") or {}
+    telegram_uid = str(msg['from']['id'])
+
     username = False
 
-    if 'username' in msg[chat_action]:
+    fullname = _first_name = _last_name = ""
+    print(msg[chat_action])
+    if 'first_name' in msg[chat_action] and msg[chat_action]['first_name']:
+        _first_name = msg[chat_action]['first_name']
+    if 'last_name' in msg[chat_action] and msg[chat_action]['last_name']:
+        _last_name = msg[chat_action]['last_name']
+    if _first_name or _last_name:
+        fullname = "{} {}".format(_first_name, _last_name).strip()
+
+    if "prefer_fullname" in telesync_config and telesync_config["prefer_fullname"] and fullname:
+        username = fullname
+    elif 'username' in msg[chat_action]:
         username = msg[chat_action]['username']
-    elif 'firstname' in msg[chat_action]:
-        username = msg[chat_action]['firstname']
+    elif _first_name:
+        username = _first_name
+    elif _last_name:
+        username = _last_name
+    else:
+        username = telegram_uid
 
     """linked profile support"""
 
-    telegram_uid = str(msg['from']['id'])
-    bot = tg_bot.ho_bot
     chat_id = False
 
     keys_tg_to_ho = ['profilesync', 'tg2ho', telegram_uid, 'chat_id']
@@ -365,11 +382,22 @@ def tg_util_sync_get_user_name(msg, chat_action='from'):
             logger.info("unmapped/invalid hangouts user for {}".format(telegram_uid))
 
     if chat_id:
+        # guaranteed full name
+        hangups_user = bot.get_hangups_user(chat_id)
+        full_name = hangups_user.full_name
+
+        # determine if the hangoutsbot user has /setnickname
+        nickname = False
         if bot.memory.exists(['user_data', chat_id, "nickname"]):
-            preferred_name = bot.memory.get_by_path(['user_data', chat_id, "nickname"])
+            nickname = bot.memory.get_by_path(['user_data', chat_id, "nickname"])
+
+        if "prefer_fullname" in telesync_config and telesync_config["prefer_fullname"]:
+            preferred_name = full_name
+        elif nickname:
+            preferred_name = nickname
         else:
-            hangups_user = bot.get_hangups_user(chat_id)
-            preferred_name = hangups_user.full_name
+            preferred_name = full_name
+
         # links with different visible content are no longer supported by hangouts clients
         username = preferred_name
         logger.info("mapped telegram id: {} to {}, {}".format(telegram_uid, chat_id, username))
@@ -416,7 +444,7 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
         else:
             r2_text = content_type
 
-        r2_format = "\n| <i><b>{}</b></i>:\n| <i>{}</i>\n{}"
+        r2_format = "\n| **{}**\n| _{}_\n{}"
         original_message = r2_format.format(r2_user, r2_text, original_message)
 
     yield from tg_bot.chatbridge._send_to_internal_chat(
@@ -955,10 +983,15 @@ class BridgeInstance(WebFramework):
         message = hangups_markdown_to_telegram(message)
 
         bridge_user = self._get_user_details(user, { "event": event })
-        username = bridge_user["preferred_name"]
+        telesync_config = config['config.json']
+        if "prefer_fullname" in telesync_config and telesync_config["prefer_fullname"]:
+            username = bridge_user["full_name"]
+        else:
+            username = bridge_user["preferred_name"]
         if bridge_user["chat_id"]:
+            # wrap linked profiles with a g+ link
             username = "[{1}](https://plus.google.com/u/0/{0}/about)".format( bridge_user["chat_id"],
-                                                                              bridge_user["preferred_name"] )
+                                                                              username )
 
         chat_title = format(self.bot.conversations.get_name(conv_id))
 
