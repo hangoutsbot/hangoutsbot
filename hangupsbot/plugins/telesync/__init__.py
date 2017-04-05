@@ -444,7 +444,7 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
         else:
             r2_text = content_type
 
-        r2_format = "\n| **{}**:\n| _{}_\n{}"
+        r2_format = "\n| **{}**\n| _{}_\n{}"
         original_message = r2_format.format(r2_user, r2_text, original_message)
 
     yield from tg_bot.chatbridge._send_to_internal_chat(
