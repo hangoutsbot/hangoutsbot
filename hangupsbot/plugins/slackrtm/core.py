@@ -196,7 +196,7 @@ class SlackMessage(object):
 
 
 class SlackRTMSync(object):
-    def __init__(self, channelid, hangoutid, hotag, slacktag, sync_joins=True, image_upload=True, showslackrealnames=False):
+    def __init__(self, hangoutsbot, channelid, hangoutid, hotag, slacktag, sync_joins=True, image_upload=True, showslackrealnames=False):
         self.channelid = channelid
         self.hangoutid = hangoutid
         self.hotag = hotag
@@ -205,8 +205,11 @@ class SlackRTMSync(object):
         self.slacktag = slacktag
         self.showslackrealnames = showslackrealnames
 
+        self._bridgeinstance = BridgeInstance(hangoutsbot, "slackrtm")
+        self._bridgeinstance.set_extra_configuration(hangoutid, channelid)
+
     @staticmethod
-    def fromDict(sync_dict):
+    def fromDict(hangoutsbot, sync_dict):
         sync_joins = True
         if 'sync_joins' in sync_dict and not sync_dict['sync_joins']:
             sync_joins = False
@@ -221,7 +224,14 @@ class SlackRTMSync(object):
         realnames = True
         if 'showslackrealnames' in sync_dict and not sync_dict['showslackrealnames']:
             realnames = False
-        return SlackRTMSync(sync_dict['channelid'], sync_dict['hangoutid'], sync_dict['hotag'], slacktag, sync_joins, image_upload, realnames)
+        return SlackRTMSync( hangoutsbot,
+                             sync_dict['channelid'],
+                             sync_dict['hangoutid'],
+                             sync_dict['hotag'],
+                             slacktag,
+                             sync_joins,
+                             image_upload,
+                             realnames )
 
     def toDict(self):
         return {
@@ -245,14 +255,13 @@ class SlackRTMSync(object):
 
 
 class SlackRTM(object):
-    def __init__(self, sink_config, bot, loop, threaded=False, bridgeinstance=False):
+    def __init__(self, sink_config, bot, loop, threaded=False):
         self.bot = bot
         self.loop = loop
         self.config = sink_config
         self.apikey = self.config['key']
         self.threadname = None
         self.lastimg = ''
-        self._bridgeinstance = bridgeinstance
 
         self.slack = SlackClient(self.apikey)
         if not self.slack.rtm_connect():
@@ -304,7 +313,7 @@ class SlackRTM(object):
             syncs = []
 
         for s in syncs:
-            sync = SlackRTMSync.fromDict(s)
+            sync = SlackRTMSync.fromDict(self.bot, s)
             if sync.slacktag == 'NOT_IN_CONFIG':
                 sync.slacktag = self.get_teamname()
             sync.team_name = self.name # chatbridge needs this for context
@@ -321,7 +330,7 @@ class SlackRTM(object):
                         hotag = conv[1]
                     else:
                         hotag = self.hangoutnames[conv[1]]
-                _new_sync = SlackRTMSync(conv[0], conv[1], hotag, self.get_teamname())
+                _new_sync = SlackRTMSync(self.bot, conv[0], conv[1], hotag, self.get_teamname())
                 _new_sync.team_name = self.name # chatbridge needs this for context
                 self.syncs.append(_new_sync)
 
@@ -519,7 +528,7 @@ class SlackRTM(object):
         image_id = yield from self.bot._client.upload_image(image_response, filename=filename)
 
         logger.info('sending HO message, image_id: %s', image_id)
-        yield from self._bridgeinstance._send_to_internal_chat(
+        yield from sync._bridgeinstance._send_to_internal_chat(
             sync.hangoutid,
             "shared media from slack",
             {   "sync": sync,
@@ -533,7 +542,7 @@ class SlackRTM(object):
             if sync.channelid == channel and sync.hangoutid == hangoutid:
                 raise AlreadySyncingError
 
-        sync = SlackRTMSync(channel, hangoutid, shortname, self.get_teamname())
+        sync = SlackRTMSync(self.bot, channel, hangoutid, shortname, self.get_teamname())
         sync.team_name = self.name # chatbridge needs this for context
         logger.info('adding sync: %s', sync.toDict())
         self.syncs.append(sync)
@@ -729,12 +738,13 @@ class SlackRTM(object):
 
                 self.loop.call_soon_threadsafe(
                     asyncio.async,
-                    self._bridgeinstance._send_to_internal_chat(
+                    sync._bridgeinstance._send_to_internal_chat(
                         sync.hangoutid,
                         message,
                         {   "sync": sync,
                             "source_user": username,
                             "source_uid": msg.user,
+                            "source_gid": sync.channelid,
                             "source_title": channel_name }))
 
     @asyncio.coroutine
@@ -747,7 +757,7 @@ class SlackRTM(object):
                       icon_url = photo_url)
 
     @asyncio.coroutine
-    def handle_ho_message(self, event, conv_id):
+    def handle_ho_message(self, event, conv_id, channel_id):
         user = event.passthru["original_request"]["user"]
         message = event.passthru["original_request"]["message"]
 
@@ -756,9 +766,23 @@ class SlackRTM(object):
 
         message = hangups_markdown_to_slack(message)
 
-        bridge_user = self._bridgeinstance._get_user_details(user, { "event": event })
+        """slackrtm uses an overengineered pseudo SlackRTMSync "structure" to contain individual 1-1 syncs
+            we rely on the chatbridge to iterate through multiple syncs, and ensure we only have
+            to deal with a single mapping at this level
 
+            XXX: the mapping SHOULD BE single, but let duplicates get through"""
+
+        active_syncs = []
         for sync in self.get_syncs(hangoutid=conv_id):
+            if sync.channelid != channel_id:
+                continue
+            if sync.hangoutid != conv_id:
+                continue
+            active_syncs.append(sync)
+
+        for sync in active_syncs:
+            bridge_user = sync._bridgeinstance._get_user_details(user, { "event": event })
+
             display_name = bridge_user["preferred_name"]
 
             if sync.hotag:
@@ -884,7 +908,6 @@ class SlackRTMThread(threading.Thread):
         self._loop = loop
         self._config = config
         self._listener = None
-        self._bridgeinstance = BridgeInstance(bot, "slackrtm")
 
     def run(self):
         logger.debug('SlackRTMThread.run()')
@@ -894,7 +917,7 @@ class SlackRTMThread(threading.Thread):
         try:
             if self._listener and self._listener in _slackrtms:
                 _slackrtms.remove(self._listener)
-            self._listener = SlackRTM(self._config, self._bot, self._loop, threaded=True, bridgeinstance=self._bridgeinstance)
+            self._listener = SlackRTM(self._config, self._bot, self._loop, threaded=True)
             _slackrtms.append(self._listener)
             last_ping = int(time.time())
             while True:
