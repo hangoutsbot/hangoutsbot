@@ -34,6 +34,7 @@ class EventHandler:
                             "membership": [],
                             "message": [],
                             "rename": [],
+                            "history": [],
                             "sending":[],
                             "typing": [],
                             "watermark": [] }
@@ -48,7 +49,7 @@ class EventHandler:
 
     def register_handler(self, function, type="message", priority=50):
         """registers extra event handlers"""
-        if type in ["allmessages", "call", "membership", "message", "rename", "typing", "watermark"]:
+        if type in ["allmessages", "call", "membership", "message", "rename", "history", "typing", "watermark"]:
             if not asyncio.iscoroutine(function):
                 # transparently convert into coroutine
                 function = asyncio.coroutine(function)
@@ -303,6 +304,11 @@ class EventHandler:
         yield from self.run_pluggable_omnibus("rename", self.bot, event, command)
 
     @asyncio.coroutine
+    def handle_chat_history(self, event):
+        """handle conversation OTR status change"""
+        yield from self.run_pluggable_omnibus("history", self.bot, event, command)
+
+    @asyncio.coroutine
     def handle_call(self, event):
         """handle incoming calls (voice/video)"""
         yield from self.run_pluggable_omnibus("call", self.bot, event, command)
@@ -383,6 +389,8 @@ class HandlerBridge:
             event_type = "membership"
         elif event is hangups.RenameEvent:
             event_type = "rename"
+        elif event is hangups.OTREvent:
+            event_type = "history"
         elif type(event) is str:
             event_type = str # accept all kinds of strings, just like register_handler
         else:

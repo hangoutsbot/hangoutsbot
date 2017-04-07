@@ -628,6 +628,11 @@ class HangupsBot(object):
                 self._handlers.handle_chat_rename(event)
             ).add_done_callback(lambda future: future.result())
 
+        elif isinstance(conv_event, hangups.OTREvent):
+            asyncio.async(
+                self._handlers.handle_chat_history(event)
+            ).add_done_callback(lambda future: future.result())
+
         elif type(conv_event) is hangups.conversation_event.HangoutEvent:
             asyncio.async(
                 self._handlers.handle_call(event)
@@ -636,7 +641,6 @@ class HangupsBot(object):
         else:
             """
             XXX: Unsupported Events:
-            * OTREvent
             * GroupLinkSharingModificationEvent
             re: https://github.com/tdryer/hangups/blob/master/hangups/conversation_event.py
             """
