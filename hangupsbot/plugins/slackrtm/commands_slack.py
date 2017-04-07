@@ -1,4 +1,5 @@
 import logging
+import re
 import sys
 
 from .exceptions import ( AlreadySyncingError,
