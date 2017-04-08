@@ -252,6 +252,8 @@ class WebFramework:
                 "source_user": source_user,
                 "source_uid": source_uid,
                 "source_gid": source_gid,
+                "source_edited": external_context.get("source_edited"),
+                "source_action": external_context.get("source_action"),
                 "plugin": self.plugin_name },
             "norelay": [ self.uid ] }
 
@@ -270,24 +272,19 @@ class WebFramework:
         return False
 
     def format_incoming_message(self, message, external_context):
-        if "source_user" in external_context and external_context["source_user"]:
-            source_user = external_context["source_user"]
-        else:
-            source_user = self.plugin_name
-
+        source_user = external_context.get("source_user") or self.plugin_name
         bridge_user = self._get_user_details(source_user, external_context)
+        source_title = external_context.get("source_title")
+        source_attrs = [source_title] if source_title else []
+        if external_context.get("source_edited"):
+            source_attrs.append("edited")
 
-        if "source_title" in external_context:
-            source_title = external_context["source_title"]
-        else:
-            source_title = plugin_name
+        sender = "<b>{}</b>".format(bridge_user["preferred_name"])
+        if source_attrs:
+            sender = "{} ({})".format(sender, ", ".join(source_attrs))
 
-        if source_title:
-            formatted = "<b>{}</b> ({}): {}".format(bridge_user["preferred_name"], source_title, message)
-        else:
-            formatted = "<b>{}</b>: {}".format(bridge_user["preferred_name"], message)
-
-        return formatted
+        template = "<i>{} {}</i>" if external_context.get("source_action") else "{}: {}"
+        return template.format(sender, message)
 
     def format_outgoing_message(self, message, internal_context):
         formatted = message
