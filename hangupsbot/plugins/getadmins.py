@@ -1,17 +1,10 @@
-import asyncio, logging, random, string
+# Original Author: kilr00y@esthar.net
 
 import hangups
 
 import plugins
 
-from commands import command
-
 from hangups.user import UserList
-
-import functools
-
-logger = logging.getLogger(__name__)
-
 
 def _initialise(bot):
     plugins.register_user_command(["admins"])
@@ -19,13 +12,6 @@ def _initialise(bot):
 def _get_adminlist(bot):
     return bot.get_config_option('admins')
 
-def _is_admin(bot,chatID):
-    admin_list=_get_adminlist(bot)
-    if chatID in admin_list:
-        return True
-    return False
-        
-@asyncio.coroutine
 def admins(bot,event,*args):
     admin_list=_get_adminlist(bot)
     text="<b><u>List of Admins</u></b><br />"
