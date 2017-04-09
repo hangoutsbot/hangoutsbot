@@ -14,6 +14,7 @@ class SlackMsg(object):
 
     def __init__(self, event):
         self.event = event
+        self.ts = self.event["ts"]
         self.channel = self.event.get("channel", self.event.get("group"))
         self.edited = self.event.get("subtype") == "message_changed"
         self.msg = self.event["message"] if self.edited else self.event
@@ -26,6 +27,7 @@ class BridgeInstance(WebFramework):
     def setup_plugin(self):
         self.plugin_name = "SlackRTM"
         self.slacks = {}
+        self.msg_cache = {}
 
     def applicable_configuration(self, conv_id):
         configs = []
@@ -46,11 +48,12 @@ class BridgeInstance(WebFramework):
                 identity = {"username": bridge_user["preferred_name"],
                             "icon_url": bridge_user["photo_url"]}
             message = event.passthru["original_request"]["message"]
-            slack.api_call("chat.postMessage",
-                           channel=channel["channel"],
-                           text=message,
-                           link_names=True,
-                           **identity)
+            msg = slack.api_call("chat.postMessage",
+                                 channel=channel["channel"],
+                                 text=message,
+                                 link_names=True,
+                                 **identity)
+            self.msg_cache[channel["channel"]].add(msg["ts"])
 
     def start_listening(self, bot):
         for team, config in self.configuration["teams"].items():
@@ -61,6 +64,10 @@ class BridgeInstance(WebFramework):
         logger.info("Starting RTM session for team: {}".format(team))
         slack = SlackClient(config["token"])
         self.slacks[team] = slack
+        for sync in self.configuration["syncs"]:
+            for channel in sync["slack"]:
+                if not channel["channel"] in self.msg_cache:
+                    self.msg_cache[channel["channel"]] = set()
         slack.rtm_connect()
         while True:
             events = slack.rtm_read()
@@ -77,6 +84,10 @@ class BridgeInstance(WebFramework):
         for sync in self.configuration["syncs"]:
             for channel in sync["slack"]:
                 if msg.channel == channel["channel"] and team == channel["team"]:
+                    cache = self.msg_cache[channel["channel"]]
+                    if msg.ts in cache:
+                        cache.remove(msg.ts)
+                        continue
                     for conv_id in sync["hangouts"]:
                         yield from self._send_to_internal_chat(conv_id, msg.text,
                                                                {"source_user": msg.user,
