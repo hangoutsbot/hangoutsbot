@@ -27,6 +27,7 @@ class BridgeInstance(WebFramework):
     def setup_plugin(self):
         self.plugin_name = "SlackRTM"
         self.slacks = {}
+        self.users = {}
         self.msg_cache = {}
 
     def applicable_configuration(self, conv_id):
@@ -69,6 +70,7 @@ class BridgeInstance(WebFramework):
                 if not channel["channel"] in self.msg_cache:
                     self.msg_cache[channel["channel"]] = set()
         slack.rtm_connect()
+        self.users[team] = {u["id"]: u for u in slack.api_call("users.list")["members"]}
         while True:
             events = slack.rtm_read()
             if not events:
@@ -77,10 +79,14 @@ class BridgeInstance(WebFramework):
             for event in events:
                 if event["type"] == "message":
                     yield from self._handle_msg(event, team, config)
+                elif event["type"] in ("team_join", "user_change"):
+                    user = event["user"]
+                    self.users[team][user["id"]] = user
 
     @asyncio.coroutine
     def _handle_msg(self, event, team, config):
         msg = SlackMsg(event)
+        user = self.users[team][msg.user]
         for sync in self.configuration["syncs"]:
             for channel in sync["slack"]:
                 if msg.channel == channel["channel"] and team == channel["team"]:
@@ -90,7 +96,7 @@ class BridgeInstance(WebFramework):
                         continue
                     for conv_id in sync["hangouts"]:
                         yield from self._send_to_internal_chat(conv_id, msg.text,
-                                                               {"source_user": msg.user,
+                                                               {"source_user": user["name"],
                                                                 "source_uid": msg.user,
                                                                 "source_gid": msg.channel,
                                                                 "source_title": msg.channel})
