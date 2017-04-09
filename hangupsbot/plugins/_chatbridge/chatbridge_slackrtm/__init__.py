@@ -40,13 +40,17 @@ class BridgeInstance(WebFramework):
             slack = self.slacks[channel["team"]]
             user = event.passthru["original_request"]["user"]
             bridge_user = self._get_user_details(user, {"event": event})
+            if bridge_user["chat_id"] == self.bot.user_self()["chat_id"]:
+                identity = {"as_user": True}
+            else:
+                identity = {"username": bridge_user["preferred_name"],
+                            "icon_url": bridge_user["photo_url"]}
             message = event.passthru["original_request"]["message"]
             slack.api_call("chat.postMessage",
                            channel=channel["channel"],
-                           username=bridge_user["preferred_name"],
-                           icon_url=bridge_user["photo_url"],
                            text=message,
-                           link_names=True)
+                           link_names=True,
+                           **identity)
 
     def start_listening(self, bot):
         for team, config in self.configuration["teams"].items():
