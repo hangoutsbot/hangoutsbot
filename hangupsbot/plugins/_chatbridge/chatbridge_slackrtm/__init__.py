@@ -1,5 +1,8 @@
 import asyncio
 import logging
+import mimetypes
+import os.path
+import urllib.request
 
 from slackclient import SlackClient
 
@@ -112,13 +115,36 @@ class BridgeInstance(WebFramework):
                         cache.remove(msg.ts)
                         continue
                     for conv_id in sync["hangouts"]:
-                        yield from self._send_to_internal_chat(conv_id, msg.text,
-                                                               {"source_user": user["name"],
-                                                                "source_uid": msg.user,
-                                                                "source_gid": msg.channel,
-                                                                "source_title": msg.channel,
-                                                                "source_edited": msg.edited,
-                                                                "source_action": msg.action})
+                        if msg.file:
+                            asyncio.get_event_loop().create_task(self._relay_msg_image(msg, conv_id, team, config))
+                        else:
+                            yield from self._relay_msg(msg, conv_id, team, config)
+
+    @asyncio.coroutine
+    def _relay_msg_image(self, msg, conv_id, team, config):
+        filename = os.path.basename(msg.file)
+        request = urllib.request.Request(msg.file)
+        request.add_header("Authorization", "Bearer {}".format(config["token"]))
+        response = urllib.request.urlopen(request)
+        name_ext = "." + filename.rsplit(".", 1).pop().lower()
+        mime_type = response.info().get_content_type()
+        mime_exts = mimetypes.guess_all_extensions(mime_type)
+        if name_ext.lower() not in [ext.lower() for ext in mime_exts]:
+            logger.debug("MIME '{}' does not match extension '{}', changing to {}".format(mime_type, name_ext, mime_exts[0]))
+            filename = "{}{}".format(filename, mime_exts[0])
+        image_id = yield from self.bot._client.upload_image(response, filename=filename)
+        yield from self._relay_msg(msg, conv_id, team, config, image_id)
+
+    @asyncio.coroutine
+    def _relay_msg(self, msg, conv_id, team, config, image_id=None):
+        yield from self._send_to_internal_chat(conv_id, msg.text,
+                                               {"source_user": self.users[team][msg.user]["name"],
+                                                "source_uid": msg.user,
+                                                "source_gid": msg.channel,
+                                                "source_title": msg.channel,
+                                                "source_edited": msg.edited,
+                                                "source_action": msg.action},
+                                               image_id=image_id)
 
 
 def _initialise(bot):
