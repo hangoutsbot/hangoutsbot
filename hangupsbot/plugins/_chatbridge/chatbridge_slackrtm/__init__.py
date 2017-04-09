@@ -23,10 +23,13 @@ class SlackMsg(object):
         self.action = False
         self.msg = self.event["message"] if self.edited else self.event
         self.user = self.msg.get("user")
+        self.user_name = None
         self.text = self.msg.get("text")
         self.file = None
         subtype = self.msg.get("subtype")
-        if subtype == "file_comment":
+        if subtype == "bot_message":
+            self.user_name = self.msg.get("username")
+        elif subtype == "file_comment":
             self.action = True
             self.user = self.msg["comment"]["user"]
         elif subtype in ("file_share", "file_mention") and "file" in self.msg:
@@ -106,7 +109,6 @@ class BridgeInstance(WebFramework):
     @asyncio.coroutine
     def _handle_msg(self, event, team, config):
         msg = SlackMsg(event)
-        user = self.users[team][msg.user]
         for sync in self.configuration["syncs"]:
             for channel in sync["slack"]:
                 if msg.channel == channel["channel"] and team == channel["team"]:
@@ -137,8 +139,12 @@ class BridgeInstance(WebFramework):
 
     @asyncio.coroutine
     def _relay_msg(self, msg, conv_id, team, config, image_id=None):
+        try:
+            user = self.users[team][msg.user]["name"]
+        except KeyError:
+            user = msg.user_name
         yield from self._send_to_internal_chat(conv_id, msg.text,
-                                               {"source_user": self.users[team][msg.user]["name"],
+                                               {"source_user": user,
                                                 "source_uid": msg.user,
                                                 "source_gid": msg.channel,
                                                 "source_title": msg.channel,
