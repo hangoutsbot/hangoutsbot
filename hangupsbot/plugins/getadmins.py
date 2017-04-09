@@ -8,7 +8,6 @@ def _initialise(bot):
     plugins.register_user_command(["admins"])
 
 def admins(bot,event,*args):
-    bot.get_config_option('admins')
     admin_list=bot.get_config_option('admins')
     text="<b><u>List of Admins</u></b><br />"
     for admin_id in admin_list:
