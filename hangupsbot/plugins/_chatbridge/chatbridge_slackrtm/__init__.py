@@ -15,11 +15,28 @@ class SlackMsg(object):
     def __init__(self, event):
         self.event = event
         self.ts = self.event["ts"]
-        self.channel = self.event.get("channel", self.event.get("group"))
+        self.channel = self.event.get("channel") or self.event.get("group")
         self.edited = self.event.get("subtype") == "message_changed"
+        self.action = False
         self.msg = self.event["message"] if self.edited else self.event
-        self.user = self.msg.get("user", self.msg.get("comment", {}).get("user"))
-        self.text = self.msg.get("text", self.msg.get("comment", {}).get("text"))
+        self.user = self.msg.get("user")
+        self.text = self.msg.get("text")
+        self.file = None
+        subtype = self.msg.get("subtype")
+        if subtype == "file_comment":
+            self.action = True
+            self.user = self.msg["comment"]["user"]
+        elif subtype in ("file_share", "file_mention") and "file" in self.msg:
+            self.action = True
+            if "url_private_download" in self.msg["file"]:
+                self.file = self.msg["file"]["url_private_download"]
+        elif subtype in ("channel_name", "channel_purpose", "channel_topic", "channel_join", "channel_part",
+                         "group_name", "group_purpose", "group_topic", "group_join", "group_part", "me_message"):
+            self.action = True
+        elif subtype in ("channel_archive", "channel_unarchive", "group_archive", "group_unarchive"):
+            logger.warn("Channel is being (un)archived")
+        elif self.msg.get("hidden") or subtype in ("pinned_item", "unpinned_item", "channel_unarchive", "group_unarchive"):
+            logger.debug("Skipping Slack-only feature message of type: {}".format(subtype))
 
 
 class BridgeInstance(WebFramework):
@@ -99,7 +116,9 @@ class BridgeInstance(WebFramework):
                                                                {"source_user": user["name"],
                                                                 "source_uid": msg.user,
                                                                 "source_gid": msg.channel,
-                                                                "source_title": msg.channel})
+                                                                "source_title": msg.channel,
+                                                                "source_edited": msg.edited,
+                                                                "source_action": msg.action})
 
 
 def _initialise(bot):
