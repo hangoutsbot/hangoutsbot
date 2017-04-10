@@ -10,6 +10,8 @@ from slackclient import SlackClient
 from webbridge import WebFramework
 import plugins
 
+from plugins.slackrtm.parsers import slack_markdown_to_hangups, hangups_markdown_to_slack
+
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +103,7 @@ class BridgeInstance(WebFramework):
             if attachments:
                 kwargs["attachments"] = attachments
             if text:
-                kwargs["text"] = text
+                kwargs["text"] = hangups_markdown_to_slack(text)
             msg = slack.api_call("chat.postMessage",
                                  channel=channel["channel"],
                                  link_names=True,
@@ -189,7 +191,8 @@ class BridgeInstance(WebFramework):
             channel = self.channels[team][msg.channel]["name"]
         except KeyError:
             channel = team
-        yield from self._send_to_internal_chat(conv_id, msg.text,
+        yield from self._send_to_internal_chat(conv_id,
+                                               slack_markdown_to_hangups(msg.text),
                                                {"source_user": user,
                                                 "source_uid": msg.user,
                                                 "source_gid": msg.channel,
