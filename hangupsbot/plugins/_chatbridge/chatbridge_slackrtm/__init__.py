@@ -53,6 +53,7 @@ class BridgeInstance(WebFramework):
         self.plugin_name = "SlackRTM"
         self.slacks = {}
         self.users = {}
+        self.channels = {}
         self.msg_cache = {}
 
     def applicable_configuration(self, conv_id):
@@ -122,8 +123,9 @@ class BridgeInstance(WebFramework):
                 if not channel["channel"] in self.msg_cache:
                     self.msg_cache[channel["channel"]] = set()
         slack.rtm_connect()
-        # Cache an initial list of users.
+        # Cache an initial list of users and channels.
         self.users[team] = {u["id"]: u for u in slack.api_call("users.list")["members"]}
+        self.channels[team] = {c["id"]: c for c in slack.api_call("channels.list")["channels"]}
         while True:
             events = slack.rtm_read()
             if not events:
@@ -156,6 +158,7 @@ class BridgeInstance(WebFramework):
                             asyncio.get_event_loop().create_task(self._relay_msg_image(msg, conv_id, team, config))
                         else:
                             yield from self._relay_msg(msg, conv_id, team, config)
+        self.slacks[team].api_call("channels.mark", channel=msg.channel, ts=msg.ts)
 
     @asyncio.coroutine
     def _relay_msg_image(self, msg, conv_id, team, config):
@@ -182,11 +185,15 @@ class BridgeInstance(WebFramework):
         except KeyError:
             # Bot message with no corresponding Slack user.
             user = msg.user_name
+        try:
+            channel = self.channels[team][msg.channel]["name"]
+        except KeyError:
+            channel = team
         yield from self._send_to_internal_chat(conv_id, msg.text,
                                                {"source_user": user,
                                                 "source_uid": msg.user,
                                                 "source_gid": msg.channel,
-                                                "source_title": msg.channel,
+                                                "source_title": channel,
                                                 "source_edited": msg.edited,
                                                 "source_action": msg.action},
                                                image_id=image_id)
