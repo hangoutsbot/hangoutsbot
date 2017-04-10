@@ -49,6 +49,7 @@ def echo(bot, event, *args):
         yield from command.run(bot, event, *["convecho", "id:" + convid, _text])
 
 def admins(bot,event,*args):
+    """Get a list of bot admins"""
     admin_list=bot.get_config_option('admins')
     text="<b><u>List of Admins</u></b><br />"
     for admin_id in admin_list:
