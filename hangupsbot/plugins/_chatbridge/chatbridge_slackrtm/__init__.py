@@ -62,21 +62,36 @@ class BridgeInstance(WebFramework):
 
     @asyncio.coroutine
     def _send_to_external_chat(self, config, event):
+        text = event.passthru["original_request"]["message"]
+        user = event.passthru["original_request"]["user"]
+        bridge_user = self._get_user_details(user, {"event": event})
         for channel in config["config.json"]["slack"]:
             slack = self.slacks[channel["team"]]
-            user = event.passthru["original_request"]["user"]
-            bridge_user = self._get_user_details(user, {"event": event})
             if bridge_user["chat_id"] == self.bot.user_self()["chat_id"]:
-                identity = {"as_user": True}
+                kwargs = {"as_user": True}
             else:
-                identity = {"username": bridge_user["preferred_name"],
-                            "icon_url": bridge_user["photo_url"]}
-            message = event.passthru["original_request"]["message"]
+                kwargs = {"username": bridge_user["preferred_name"],
+                          "icon_url": bridge_user["photo_url"]}
+            attachments = []
+            for attach in event.passthru["original_request"].get("attachments") or []:
+                filename = urllib.parse.unquote(urllib.parse.unquote(os.path.basename(attach))).replace("+", " ")
+                attachments.append({"fallback": attach,
+                                    "text": filename,
+                                    "image_url": attach})
+                if attach == text:
+                    # Message consists solely of the attachment URL, no need to send that.
+                    text = None
+                elif attach in text:
+                    # Message includes some text too, strip the attachment URL from the end if present.
+                    text = text.replace("\n{}".format(attach), "")
+            if attachments:
+                kwargs["attachments"] = attachments
+            if text:
+                kwargs["text"] = text
             msg = slack.api_call("chat.postMessage",
                                  channel=channel["channel"],
-                                 text=message,
                                  link_names=True,
-                                 **identity)
+                                 **kwargs)
             self.msg_cache[channel["channel"]].add(msg["ts"])
 
     def start_listening(self, bot):
