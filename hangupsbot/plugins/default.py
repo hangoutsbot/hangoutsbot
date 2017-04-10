@@ -17,7 +17,7 @@ _internal["broadcast"] = { "message": "", "conversations": [] } # /bot broadcast
 
 def _initialise(bot):
     plugins.register_admin_command(["broadcast", "users", "user", "hangouts", "rename", "leave", "reload", "quit", "config", "whereami"])
-    plugins.register_user_command(["echo", "whoami"])
+    plugins.register_user_command(["echo", "whoami", "admins"])
 
 
 def echo(bot, event, *args):
@@ -48,7 +48,18 @@ def echo(bot, event, *args):
 
         yield from command.run(bot, event, *["convecho", "id:" + convid, _text])
 
-
+def admins(bot,event,*args):
+    admin_list=bot.get_config_option('admins')
+    text="<b><u>List of Admins</u></b><br />"
+    for admin_id in admin_list:
+        user_object = bot.get_hangups_user(admin_id)
+        if user_object.is_self:
+            continue
+        fullname=user_object.full_name
+        text+="{} <br />".format(fullname)
+    yield from bot.coro_send_message(event.conv,text)
+        
+        
 def broadcast(bot, event, *args):
     """broadcast a message to chats, use with care"""
     if args:
