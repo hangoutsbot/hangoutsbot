@@ -2,6 +2,7 @@ import asyncio
 import logging
 import mimetypes
 import os.path
+import re
 import urllib.request
 
 from slackclient import SlackClient
@@ -26,23 +27,24 @@ class SlackMsg(object):
         self.user_name = None
         self.text = self.msg.get("text")
         self.file = None
-        subtype = self.msg.get("subtype")
-        if subtype == "bot_message":
+        self.type = self.msg.get("subtype")
+        if self.type == "bot_message":
             self.user_name = self.msg.get("username")
-        elif subtype == "file_comment":
+        elif self.type == "file_comment":
             self.action = True
             self.user = self.msg["comment"]["user"]
-        elif subtype in ("file_share", "file_mention") and "file" in self.msg:
+        elif self.type in ("file_share", "file_mention") and "file" in self.msg:
             self.action = True
             if "url_private_download" in self.msg["file"]:
                 self.file = self.msg["file"]["url_private_download"]
-        elif subtype in ("channel_name", "channel_purpose", "channel_topic", "channel_join", "channel_part",
+        elif self.type in ("channel_name", "channel_purpose", "channel_topic", "channel_join", "channel_part",
                          "group_name", "group_purpose", "group_topic", "group_join", "group_part", "me_message"):
             self.action = True
-        elif subtype in ("channel_archive", "channel_unarchive", "group_archive", "group_unarchive"):
+        elif self.type in ("channel_archive", "channel_unarchive", "group_archive", "group_unarchive"):
             logger.warn("Channel is being (un)archived")
-        elif self.msg.get("hidden") or subtype in ("pinned_item", "unpinned_item", "channel_unarchive", "group_unarchive"):
-            logger.debug("Skipping Slack-only feature message of type: {}".format(subtype))
+        if self.action:
+            # Strip own username from the start of the message.
+            self.text = re.sub(r"^<@{}|.*?> ".format(self.user), "", self.text)
 
 
 class BridgeInstance(WebFramework):
@@ -54,6 +56,12 @@ class BridgeInstance(WebFramework):
         self.msg_cache = {}
 
     def applicable_configuration(self, conv_id):
+        """
+        {
+          "hangouts": ["<conv-id>", ...],
+          "slack": [{"channel": "<channel-id>", "team": "<team-name>"}, ...]
+        }
+        """
         configs = []
         for sync in self.configuration["syncs"]:
             if conv_id in sync["hangouts"]:
@@ -68,12 +76,17 @@ class BridgeInstance(WebFramework):
         for channel in config["config.json"]["slack"]:
             slack = self.slacks[channel["team"]]
             if bridge_user["chat_id"] == self.bot.user_self()["chat_id"]:
+                # Use the bot's native Slack identity.
                 kwargs = {"as_user": True}
             else:
+                # Pose as the Hangouts users that sent the message.
                 kwargs = {"username": bridge_user["preferred_name"],
                           "icon_url": bridge_user["photo_url"]}
             attachments = []
+            # Display images in attachment form.
+            # Slack will also show a filename and size under the message text.
             for attach in event.passthru["original_request"].get("attachments") or []:
+                # Filenames in Hangouts URLs are double-percent-encoded.
                 filename = urllib.parse.unquote(urllib.parse.unquote(os.path.basename(attach))).replace("+", " ")
                 attachments.append({"fallback": attach,
                                     "text": filename,
@@ -92,6 +105,7 @@ class BridgeInstance(WebFramework):
                                  channel=channel["channel"],
                                  link_names=True,
                                  **kwargs)
+            # Store the message ID in the cache, so we know not to relay it back.
             self.msg_cache[channel["channel"]].add(msg["ts"])
 
     def start_listening(self, bot):
@@ -100,7 +114,7 @@ class BridgeInstance(WebFramework):
 
     @asyncio.coroutine
     def _rtm_listen(self, bot, team, config):
-        logger.info("Starting RTM session for team: {}".format(team))
+        logger.info("Starting RTM session for team '{}'".format(team))
         slack = SlackClient(config["token"])
         self.slacks[team] = slack
         for sync in self.configuration["syncs"]:
@@ -108,6 +122,7 @@ class BridgeInstance(WebFramework):
                 if not channel["channel"] in self.msg_cache:
                     self.msg_cache[channel["channel"]] = set()
         slack.rtm_connect()
+        # Cache an initial list of users.
         self.users[team] = {u["id"]: u for u in slack.api_call("users.list")["members"]}
         while True:
             events = slack.rtm_read()
@@ -118,17 +133,22 @@ class BridgeInstance(WebFramework):
                 if event["type"] == "message":
                     yield from self._handle_msg(event, team, config)
                 elif event["type"] in ("team_join", "user_change"):
+                    # A user changed, update our cache.
                     user = event["user"]
                     self.users[team][user["id"]] = user
 
     @asyncio.coroutine
     def _handle_msg(self, event, team, config):
         msg = SlackMsg(event)
+        if not msg.edited and event.get("hidden") or msg.type in ("pinned_item", "unpinned_item", "channel_unarchive", "group_unarchive"):
+            logger.debug("Skipping Slack-only feature message of type '{}'".format(msg.type))
+            return
         for sync in self.configuration["syncs"]:
             for channel in sync["slack"]:
                 if msg.channel == channel["channel"] and team == channel["team"]:
                     cache = self.msg_cache[channel["channel"]]
                     if msg.ts in cache:
+                        # We received this message from the bridge and relayed it, so don't send it back again.
                         cache.remove(msg.ts)
                         continue
                     for conv_id in sync["hangouts"]:
@@ -140,10 +160,13 @@ class BridgeInstance(WebFramework):
     @asyncio.coroutine
     def _relay_msg_image(self, msg, conv_id, team, config):
         filename = os.path.basename(msg.file)
+        logger.info("Uploading Slack image '{}' to Hangouts".format(filename))
+        # Retrieve the image content from Slack.
         request = urllib.request.Request(msg.file)
         request.add_header("Authorization", "Bearer {}".format(config["token"]))
         response = urllib.request.urlopen(request)
         name_ext = "." + filename.rsplit(".", 1).pop().lower()
+        # Check the file extension matches the MIME type.
         mime_type = response.info().get_content_type()
         mime_exts = mimetypes.guess_all_extensions(mime_type)
         if name_ext.lower() not in [ext.lower() for ext in mime_exts]:
@@ -157,6 +180,7 @@ class BridgeInstance(WebFramework):
         try:
             user = self.users[team][msg.user]["name"]
         except KeyError:
+            # Bot message with no corresponding Slack user.
             user = msg.user_name
         yield from self._send_to_internal_chat(conv_id, msg.text,
                                                {"source_user": user,
