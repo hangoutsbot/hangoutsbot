@@ -426,6 +426,15 @@ class SlackRTM(object):
             channelinfos[c['id']] = c
         self.channelinfos = channelinfos
 
+    def get_channelgroupname(self, channel, default=None):
+        if channel.startswith('C'):
+            return self.get_channelname(channel, default)
+        if channel.startswith('G'):
+            return self.get_groupname(channel, default)
+        if channel.startswith('D'):
+            return 'DM'
+        return default
+
     def get_channelname(self, channel, default=None):
         if channel not in self.channelinfos:
             logger.debug('channel not found, reloading channels')
@@ -482,7 +491,8 @@ class SlackRTM(object):
             if linktext != "":
                 out = "#%s" % linktext
             else:
-                out = "#%s" % self.get_channelname(match.group(3), 'unknown:%s' % match.group(3))
+                out = "#%s" % self.get_channelgroupname(match.group(3),
+                                                        'unknown:%s' % match.group(3))
         else:
             linktarget = match.group(1)
             if linktext == "":
@@ -707,7 +717,7 @@ class SlackRTM(object):
 
             if msg.from_ho_id != sync.hangoutid:
                 username = msg.realname4ho if sync.showslackrealnames else msg.username4ho
-                channel_name = self.get_channelname(msg.channel)
+                channel_name = self.get_channelgroupname(msg.channel)
 
                 if msg.file_attachment:
                     if sync.image_upload:
