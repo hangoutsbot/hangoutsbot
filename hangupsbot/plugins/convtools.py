@@ -1,3 +1,5 @@
+# Original Author of addme/add/addfrom/compare/hoalias: kilr00y@esthar.net
+
 import asyncio, logging, random, string
 
 import hangups
@@ -6,14 +8,104 @@ import plugins
 
 from commands import command
 
+import functools
 
 logger = logging.getLogger(__name__)
 
 
 def _initialise(bot):
-    plugins.register_admin_command(["addme", "addusers", "createconversation", "refresh", "kick"])
+    plugins.register_admin_command(["addme", "addusers", "createconversation", "refresh", "kick", "sethoalias", "gethoalias", "removehoalias", "add", "addfrom", "compare"])
+    plugins.register_shared("hoalias.list",functools.partial(get_hoaliaslist, bot))
+    return []
+
+def get_hoaliaslist(bot):
+    if not bot.memory.exists(["hoalias"]):
+        bot.memory["hoalias"] = {}
+    return bot.memory["hoalias"]
+
+@asyncio.coroutine
+def removehoalias(bot, event, *args):
+    """Remove a HO alias<br>
+    <b>Usage:</b> /bot removehoalias <hoalias>"""
+    if len(args) != 1:
+        yield from bot.coro_send_message(event.conv, "<b>ERROR!</b><br><b>Usage:</b> /bot removehoalias <hoalias>")
+    else:
+        alias_list = get_hoaliaslist(bot)
+        alias = args[0]
+        if bot.memory.exists(["hoalias",alias]):
+            alias_list.pop(alias)
+            bot.memory.save()
+            yield from bot.coro_send_message(event.conv, "Alias for <b>{}</b> deleted".format(alias))
+        else:
+            yield from bot.coro_send_message(event.conv, "There is no alias for <b>{}</b>".format(alias))
+
+@asyncio.coroutine
+def sethoalias(bot, event, *args):
+    """Set a HO alias<br>
+    <b>Usage:</b><br> /bot sethoalias <hoalias> (for current HO)<br>/bot sethoalias none (to clear current HO alias)<br>/bot sethoalias <hoalias> <convID> (for another HO)<br>/bot sethoalias none <convid> (to clear HO alias for another HO)"""
+    if len(args) < 1 or len(args) > 2 or (len(args) == 2 and len(args[1]) != 26):
+        yield from bot.coro_send_message(event.conv, "<b>ERROR!</b><br><b>Usage:</b><br> /bot sethoalias <hoalias> (for current HO)<br>/bot sethoalias none (to clear current HO alias)<br>/bot sethoalias <hoalias> <convID> (for another HO)<br>/bot sethoalias none <convid> (to clear HO alias for another HO)")
+    else:
+        alias_list = get_hoaliaslist(bot)
+        newalias = args[0]
+        if len(args)==1:
+            convID = event.conv_id
+        else:
+            convID = args[1]
+        oldalias = None
+        for _alias,_id in alias_list.items():
+            if _id == event.conv_id:
+                oldalias = _alias
+                                        
+        if bot.memory.exists(["hoalias",newalias]) and newalias.lower() != "none":
+            alias_list.pop(newalias)
+        if bot.memory.exists(["hoalias",oldalias]):
+            alias_list.pop(oldalias)
+        if newalias.lower() != "none":
+            alias_list[newalias]=convID
+        bot.memory.force_taint()
+        bot.memory.save()
+
+        if newalias == "none" and len(args)==1:
+            yield from bot.coro_send_message(event.conv, "HO alias deleted")
+        elif newalias == "none" and len(args)==2:
+            yield from bot.coro_send_message(event.conv, "HO alias for <b>{}</b> deleted".format(convID))
+        elif len(args)==1:
+            yield from bot.coro_send_message(event.conv, "HO alias set to <b>{}</b>".format(newalias))
+        else:
+            yield from bot.coro_send_message(event.conv, "HO alias for <b>{}</b> is set to <b>{}</b>".format(convID,newalias))
+
+@asyncio.coroutine
+def gethoalias(bot, event, *args):
+    """Get list of HO aliases<br>
+    <b>Usage:</b><br> /bot gethoalias (for current HO) <br> /bot gethoalias all (for all HOs)"""
+    if len(args) > 1:
+        yield from bot.coro_send_message(event.conv, "<b>ERROR!</b><br><b>Usage:</b><br> /bot gethoalias (for current HO)<br>/bot gethoalias all (for all HOs)")
+    else:
+        alias_list = get_hoaliaslist(bot)
+        if len(args)==1 and args[0].lower() == "all":
+            text="<u>List of HO Aliases</u><br />"
+            for _alias,_id in alias_list.items():
+                text+="<b>"+_alias+"</b> <i>("+_id+")</i><br />"
+            yield from bot.coro_send_message(event.conv,text)
+        else:    
+            if len(args)==1:
+                convID=args[0]
+            else:
+                convID=event.conv_id
+            alias = None
+            for _alias,_id in alias_list.items():
+                if _id == convID:
+                    alias = _alias
+            if alias == None:
+                yield from bot.coro_send_message(event.conv, "There is no alias set for this HO.")
+            elif len(args) == 1:
+                yield from bot.coro_send_message(event.conv, "HO alias for <b>{}</b> is <b>{}</b>".format(convID,alias))
+            else:
+                yield from bot.coro_send_message(event.conv, "Current HO alias is <b>{}</b>".format(alias))
 
 
+                
 @asyncio.coroutine
 def _batch_add_users(bot, target_conv, chat_ids, batch_max=20):
     chat_ids = list(set(chat_ids))
@@ -29,7 +121,7 @@ def _batch_add_users(bot, target_conv, chat_ids, batch_max=20):
     users_added = 0
     chunks = [chat_ids[i:i+batch_max] for i in range(0, len(chat_ids), batch_max)]
     for number, partial_list in enumerate(chunks):
-        logger.info("batch add users: {}/{} {} user(s) into {}".format(number+1, len(chunks), len(partial_list), target_conv))
+        logger.info("Batch add users: {}/{} {} user(s) into {}".format(number+1, len(chunks), len(partial_list), target_conv))
 
         yield from bot._client.add_user(
             hangups.hangouts_pb2.AddUserRequest(
@@ -74,16 +166,210 @@ def addusers(bot, event, *args):
         added = yield from _batch_add_users(bot, target_conv, list_add)
     logger.info("addusers: {} added to {}".format(added, target_conv))
 
-
-def addme(bot, event, *args):
-    """add yourself into a chat
-    Usage: /bot addme <conv id>"""
-    if len(args) == 1:
-        target_conv = args[0]
-        yield from addusers(bot, event, *[event.user.id_.chat_id, "into", target_conv])
-
+@asyncio.coroutine
+def add(bot, event, *args):
+    """Add users to hangout<br>
+    <b>Usage:</b> /bot add <hoalias> <userChatID>
+	<b>Note:</b> must have set hoalias, use <b>/bot gethoalias all</b> for full list"""
+    if len(args)<2:
+        yield from bot.coro_send_message(event.conv,"<b>ERROR!</b><br><b>Usage:</b><br> /bot add <hoalias> <userChatID>")
     else:
-        raise ValueError(_("supply the id of the conversation to join"))
+        destinations=[]
+        users=[]
+        alias_list = bot.call_shared("hoalias.list")
+        for arg in args:
+            if arg.isdigit():
+                users.append(arg)
+            else:
+                try: 
+                    _id=alias_list[arg]
+                except:
+                    yield from bot.coro_send_message(event.conv,"<b>ADDUSERS:</b> <i>HO alias</i> <b>{}</b> <i>does not exist</i>".format(arg))
+                else:
+                    destinations.append(arg)
+                
+        if len(users)<1 or len(destinations)<1:
+            yield from bot.coro_send_message(event.conv,"<b>ADDUSERS:</b> <i>you need to supply at least one user and one valid HOalias</i>")
+        else:
+            yield from bot.coro_send_message(event.conv,"<b>ADDUSERS:</b> <i>trying to add {} users to {} Hangouts</i>".format(len(users),len(destinations)))
+            for destination in destinations:
+                _destination=alias_list[destination]
+                for _user in users:
+                    __user=[]
+                    __user.append(_user)
+                    yield from asyncio.sleep(1)
+                    try:
+                        yield from bot._client.add_user(
+                            hangups.hangouts_pb2.AddUserRequest(
+                                request_header = bot._client.get_request_header(),
+                                invitee_id = [ hangups.hangouts_pb2.InviteeID(gaia_id = _user) ],
+                                event_request_header = hangups.hangouts_pb2.EventRequestHeader(
+                                    conversation_id = hangups.hangouts_pb2.ConversationId(id = _destination),
+                                    client_generated_id = bot._client.get_client_generated_id() )))
+                    except:
+                        text="<b>ADDUSERS:</b> adding "
+                        user_object = bot.get_hangups_user(_user)
+                        fullname = user_object.full_name
+                        text+="{}".format(fullname)
+                        text+=" to <b>{}</b>....<b>FAILED</b>.".format(destination)
+                        yield from bot.coro_send_message(event.conv,text)
+                    else:
+                        text="<b>ADDUSERS:</b> adding "
+                        user_object = bot.get_hangups_user(_user)
+                        fullname = user_object.full_name
+                        text+="{}".format(fullname)
+                        text+=" to <b>{}</b>....<b>SUCCESSFUL</b>.".format(destination)
+                        yield from bot.coro_send_message(event.conv,text)
+
+@asyncio.coroutine
+def compare(bot, event, *args):
+    """Compare users from one chat to another<br>
+    <b>Usage:</b> 
+	/bot compare diff <hangout1> <hangout2> for difference
+	/bot compare common <hangout1> <hangout2> for common users	
+	<b>Note:</b> must have set hoalias, use <b>/bot gethoalias all</b> for full list"""
+    if len(args)!=3 or (len(args)==3 and not args[0] in ["common","diff"]):
+        yield from bot.coro_send_message(event.conv,"<b>ERROR!</b><br><b>Usage:</b><br> /bot compare diff <hangout1> <hangout2><br>/bot compare common <hangout1> <hangout2>")
+    else:
+        mode=args[0]
+        alias1=args[1]
+        alias2=args[2]
+        alias_list = bot.call_shared("hoalias.list")
+        
+        try:
+            hangout1=alias_list[alias1]
+        except:
+            yield from bot.coro_send_message(event.conv,"HO alias <b>{}</b> does not exist".format(alias1))
+            return
+        
+        try:
+            hangout2=alias_list[alias2]
+        except:
+            yield from bot.coro_send_message(event.conv,"HO alias <b>{}</b> does not exist".format(alias2))
+            return
+        
+        hangout1_users=bot.get_users_in_conversation(hangout1)
+        hangout2_users=bot.get_users_in_conversation(hangout2)
+        users=[]
+        
+        if mode=="common":
+            for _user in hangout1_users:
+                if _user in hangout2_users:
+                    users.append(_user.id_.chat_id)
+            if len(users)==0:
+                text="There are no users that are in <b>{}</b> as well as in <b>{}</b>".format(alias1,alias2)
+            else:
+                text="These {} users are in <b>{}</b> as well as in <b>{}</b><br /><br />".format(len(users),alias1,alias2)
+        elif mode=="diff":
+            for _user in hangout1_users:
+                if not _user in hangout2_users:
+                    users.append(_user.id_.chat_id)
+            if len(users)==0:
+                text="All users that are in <b>{}</b> are also in <b>{}</b>".format(alias1,alias2)
+            else:
+                text="These {} users are in <b>{}</b>, but not in <b>{}</b><br /><br />".format(len(users),alias1,alias2)
+        
+        if users:
+            for _user in users:
+                user_object = bot.get_hangups_user(_user)
+                fullname=user_object.full_name
+                text+="{} <br />".format(fullname)
+                        
+
+        yield from bot.coro_send_message(event.conv,text)
+
+                    
+@asyncio.coroutine
+def addfrom(bot, event, *args):
+    """Add users from one chat to another<br>
+    <b>Usage:</b> /bot addfrom <sourcehangout> <destinationhangout>
+	<b>Note:</b> must have set hoalias, use <b>/bot gethoalias all</b> for full list"""
+    if len(args)!=2:
+        yield from bot.coro_send_message(event.conv,"<b>ERROR!</b><br><b>Usage:</b> /bot addfrom <sourcehangout> <destinationhangout>")
+    else:
+        sourcealias=args[0]
+        destinationalias=args[1]
+        alias_list = bot.call_shared("hoalias.list")
+        
+        try:
+            source=alias_list[sourcealias]
+        except:
+            yield from bot.coro_send_message(event.conv,"HO alias <b>{}</b> does not exist".format(sourcealias))
+            return
+
+        try:
+            destination=alias_list[destinationalias]
+        except:
+            yield from bot.coro_send_message(event.conv,"HO alias <b>{}</b> does not exist".format(destinationalias))
+            return
+                                            
+        source_users=bot.get_users_in_conversation(source)
+        dest_users=bot.get_users_in_conversation(destination)
+        add_users=[]
+        user_succ=0
+        
+        for _user in source_users:
+            if not _user in dest_users:
+                add_users.append(_user.id_.chat_id)
+                
+        if not add_users:
+            yield from bot.coro_send_message(event.conv,"<b>ADDFROM:</b> All the users in <b>{}</b> are already in <b>{}</b>".format(sourcealias,destinationalias))
+        else:
+            yield from bot.coro_send_message(event.conv,"<b>ADDFROM:</b> Trying to add {} users from <b>{}</b> to <b>{}</b>".format(len(add_users),sourcealias,destinationalias))
+            yield from asyncio.sleep(1)
+            try:
+                for _user in add_users:
+                    __user=[]
+                    __user.append(_user)
+                    yield from bot._client.add_user(
+                        hangups.hangouts_pb2.AddUserRequest(
+                            request_header = bot._client.get_request_header(),
+                            invitee_id = [ hangups.hangouts_pb2.InviteeID(gaia_id = _user) ],
+                            event_request_header = hangups.hangouts_pb2.EventRequestHeader(
+                                conversation_id = hangups.hangouts_pb2.ConversationId(id = destination),
+                                client_generated_id = bot._client.get_client_generated_id() )))
+            except:
+                text="<b>ADDFROM:</b> failed to add user "
+                user_object = bot.get_hangups_user(_user)
+                fullname = user_object.full_name
+                text+="<b>{}<b>".format(fullname)
+                yield from bot.coro_send_message(event.conv,text)
+            else:
+                text="<b>ADDFROM:</b> Suceeded for "
+                user_succ = len(add_users)
+                text+="{}".format(user_succ)
+                text+=" users."
+                yield from bot.coro_send_message(event.conv,text)	
+
+@asyncio.coroutine
+def addme(bot, event, *args):
+    """Add yourself into a chat<br>
+    <b>Usage:</b> /bot addme <hoalias>
+	<b>Note:</b> must have set hoalias, use <b>/bot gethoalias all</b> for full list"""
+    if len(args) != 1:
+        yield from bot.coro_send_message(event.conv, "<b>ERROR!</b><br><b>Usage:</b> /bot addme <hoalias>")
+    else:
+        bot.memory.exists(['user_data', event.user_id.chat_id])
+        alias=args[0]
+        alias_list = bot.call_shared("hoalias.list")
+        user_id = event.user.id_.chat_id
+        try:
+            group_id = alias_list[alias]
+        except:
+            yield from bot.coro_send_message(event.conv,"<b>{}</b> is unknown".format(alias))
+            return
+        try:
+            yield from bot._client.add_user(
+                hangups.hangouts_pb2.AddUserRequest(
+                    request_header = bot._client.get_request_header(),
+                    invitee_id = [ hangups.hangouts_pb2.InviteeID(gaia_id = user_id) ],
+                    event_request_header = hangups.hangouts_pb2.EventRequestHeader(
+                        conversation_id = hangups.hangouts_pb2.ConversationId(id = group_id),
+                        client_generated_id = bot._client.get_client_generated_id() )))            
+        except:
+            yield from bot.coro_send_message(event.conv,"Adding you to <b>{}</b> failed".format(alias))
+        else:
+            yield from bot.coro_send_message(event.conv,"You were added to <b>{}</b>".format(alias))	
 
 
 def createconversation(bot, event, *args):
