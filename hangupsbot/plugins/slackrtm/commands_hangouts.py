@@ -123,7 +123,7 @@ def slack_users(bot, event, *args):
 
     slackrtm.update_channelinfos()
     channelid = args[1]
-    channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
+    channelname = slackrtm.get_channelgroupname(channelid)
     if not channelname:
         yield from bot.coro_send_message(
             event.conv_id,
@@ -155,7 +155,7 @@ def slack_listsyncs(bot, event, *args):
                     break
             lines.append("{} : {} ({})\n  {} ({})\n  {}".format(
                 slackrtm.name,
-                slackrtm.get_channelname(sync.channelid),
+                slackrtm.get_channelgroupname(sync.channelid),
                 sync.channelid,
                 hangoutname,
                 sync.hangoutid,
@@ -188,7 +188,7 @@ def slack_syncto(bot, event, *args):
         return
 
     channelid = args[1]
-    channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
+    channelname = slackrtm.get_channelgroupname(channelid)
     if not channelname:
         yield from bot.coro_send_message(
             event.conv_id,
@@ -224,7 +224,7 @@ def slack_disconnect(bot, event, *args):
         return
 
     channelid = args[1]
-    channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
+    channelname = slackrtm.get_channelgroupname(channelid)
     if not channelname:
         yield from bot.coro_send_message(
             event.conv_id,
@@ -260,7 +260,7 @@ def slack_setsyncjoinmsgs(bot, event, *args):
         return
 
     channelid = args[1]
-    channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
+    channelname = slackrtm.get_channelgroupname(channelid)
     if not channelname:
         yield from bot.coro_send_message(
             event.conv_id,
@@ -308,7 +308,7 @@ def slack_setimageupload(bot, event, *args):
         return
 
     channelid = args[1]
-    channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
+    channelname = slackrtm.get_channelgroupname(channelid)
     if not channelname:
         yield from bot.coro_send_message(
             event.conv_id,
@@ -357,7 +357,7 @@ def slack_sethotag(bot, event, *args):
         return
 
     channelid = args[1]
-    channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
+    channelname = slackrtm.get_channelgroupname(channelid)
     if not channelname:
         yield from bot.coro_send_message(
             event.conv_id,
@@ -409,7 +409,7 @@ def slack_setslacktag(bot, event, *args):
         return
 
     channelid = args[1]
-    channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
+    channelname = slackrtm.get_channelgroupname(channelid)
     if not channelname:
         yield from bot.coro_send_message(
             event.conv_id,
@@ -460,7 +460,7 @@ def slack_showslackrealnames(bot, event, *args):
         return
 
     channelid = args[1]
-    channelname = slackrtm.get_groupname(channelid, slackrtm.get_channelname(channelid))
+    channelname = slackrtm.get_channelgroupname(channelid)
     if not channelname:
         yield from bot.coro_send_message(
             event.conv_id,

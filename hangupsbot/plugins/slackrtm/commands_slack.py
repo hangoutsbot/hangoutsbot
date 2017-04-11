@@ -247,13 +247,8 @@ def listsyncs(slackbot, msg, args):
             if c.id_ == sync.hangoutid:
                 hangoutname = slackbot.bot.conversations.get_name(c, truncate=False)
                 break
-        channelname = 'unknown'
-        if sync.channelid.startswith('C'):
-            channelname = slackbot.get_channelname(sync.channelid)
-        elif sync.channelid.startswith('G'):
-            channelname = slackbot.get_groupname(sync.channelid)
         message += '*%s (%s) : %s (%s)* _%s_\n' % (
-            channelname,
+            slackbot.get_channelgroupname(sync.channelid, 'unknown'),
             sync.channelid,
             hangoutname,
             sync.hangoutid,
@@ -304,7 +299,7 @@ def syncto(slackbot, msg, args):
     if msg.channel.startswith('D'):
         channelname = 'DM'
     else:
-        channelname = '#%s' % slackbot.get_channelname(msg.channel)
+        channelname = '#%s' % slackbot.get_channelgroupname(msg.channel)
 
     try:
         slackbot.config_syncto(msg.channel, hangoutid, shortname)
@@ -344,7 +339,7 @@ def disconnect(slackbot, msg, args):
     if msg.channel.startswith('D'):
         channelname = 'DM'
     else:
-        channelname = '#%s' % slackbot.get_channelname(msg.channel)
+        channelname = '#%s' % slackbot.get_channelgroupname(msg.channel)
     try:
         slackbot.config_disconnect(msg.channel, hangoutid)
     except NotSyncingError:
@@ -388,7 +383,7 @@ def setsyncjoinmsgs(slackbot, msg, args):
     if msg.channel.startswith('D'):
         channelname = 'DM'
     else:
-        channelname = '#%s' % slackbot.get_channelname(msg.channel)
+        channelname = '#%s' % slackbot.get_channelgroupname(msg.channel)
 
     if enable.lower() in ['true', 'on', 'y', 'yes']:
         enable = True
@@ -449,7 +444,7 @@ def sethotag(slackbot, msg, args):
     if msg.channel.startswith('D'):
         channelname = 'DM'
     else:
-        channelname = '#%s' % slackbot.get_channelname(msg.channel)
+        channelname = '#%s' % slackbot.get_channelgroupname(msg.channel)
 
     if hotag == "none":
         hotag = None
@@ -509,7 +504,7 @@ def setimageupload(slackbot, msg, args):
     if msg.channel.startswith('D'):
         channelname = 'DM'
     else:
-        channelname = '#%s' % slackbot.get_channelname(msg.channel)
+        channelname = '#%s' % slackbot.get_channelgroupname(msg.channel)
 
     if upload.lower() in ['true', 'on', 'y', 'yes']:
         upload = True
@@ -568,7 +563,7 @@ def setslacktag(slackbot, msg, args):
     if msg.channel.startswith('D'):
         channelname = 'DM'
     else:
-        channelname = '#%s' % slackbot.get_channelname(msg.channel)
+        channelname = '#%s' % slackbot.get_channelgroupname(msg.channel)
 
     if slacktag == "none":
         slacktag = None
@@ -627,7 +622,7 @@ def showslackrealnames(slackbot, msg, args):
     if msg.channel.startswith('D'):
         channelname = 'DM'
     else:
-        channelname = '#%s' % slackbot.get_channelname(msg.channel)
+        channelname = '#%s' % slackbot.get_channelgroupname(msg.channel)
 
     if realnames.lower() in ['true', 'on', 'y', 'yes']:
         realnames = True
