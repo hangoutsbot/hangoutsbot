@@ -537,7 +537,9 @@ class conversation_memory:
                 # perform case-insensitive search
                 filter_lower = term[5:].lower()
                 for convid, convdata in sourcelist.items():
-                    if filter_lower in convdata["title"].lower():
+                    title_lower = convdata["title"].lower()
+                    if( filter_lower in title_lower
+                            or filter_lower in title_lower.replace(" ", "") ):
                         matched[convid] = convdata
 
             elif term.startswith("chat_id:"):
