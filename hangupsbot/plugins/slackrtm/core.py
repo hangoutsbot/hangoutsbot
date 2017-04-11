@@ -734,17 +734,20 @@ class SlackRTM(object):
             logger.exception('error parsing Slack reply: %s(%s)', type(e), str(e))
             return
 
+        syncs = self.get_syncs(channelid=msg.channel)
+        if not syncs and not msg.channel.startswith('D'):
+            # since slackRTM listens to everything, we need a quick way to filter out noise
+            #   only process when syncs are available or incoming message is DM
+            # also makes slackrtm play well with other slack plugins
+            return
+
         try:
-            """XXX: emulate behaviour of legacy slackrtm - listens EVERYWHERE"""
             slackCommandHandler(self, msg)
         except Exception as e:
             logger.exception('error in handleCommands: %s(%s)', type(e), str(e))
 
-        syncs = self.get_syncs(channelid=msg.channel)
-        if not syncs and not msg.channel.startswith('D'):
-            # since slackRTM listens to everything, we need a quick way to filter out noise.
-            # this also has the added advantage of making slackrtm play well with other slack
-            # plugins
+        if not syncs:
+            # XXX: stop processing replies if no syncs are available (optimisation)
             return
 
         reffmt = re.compile(r'<((.)([^|>]*))((\|)([^>]*)|([^>]*))>')
