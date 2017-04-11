@@ -86,7 +86,10 @@ class BridgeInstance(WebFramework):
                 kwargs = {"as_user": True}
             else:
                 # Pose as the Hangouts users that sent the message.
-                kwargs = {"username": bridge_user["preferred_name"],
+                name = bridge_user["preferred_name"]
+                if "source_title" in event.passthru["chatbridge"]:
+                    name = "{} ({})".format(name, event.passthru["chatbridge"]["source_title"])
+                kwargs = {"username": name,
                           "icon_url": bridge_user["photo_url"]}
             attachments = []
             # Display images in attachment form.
