@@ -1,4 +1,7 @@
-import asyncio, logging, time
+import asyncio
+import logging
+import re
+import time
 
 import plugins
 
@@ -17,6 +20,75 @@ class CommandDispatcher(object):
         self.tracking = None
 
         self.command_tagsets = {}
+
+        self.preprocessors = { r"(?<!@)@[^@]\w+[^@]$": self.one_chat_id,
+                               r"(?<!#)#[^#]\w+[^#]$": self.one_conv_id }
+
+    def one_chat_id(self, token, internal_context):
+        user_memory = self.bot.get_memory_option("user_data")
+        if internal_context:
+            chat_ids = list(self.bot.conversations.catalog[internal_context.conv_id]["participants"])
+        else:
+            chat_ids = list(user_memory.keys())
+
+        fragment = token[1:]
+        matched_users = {}
+        for chat_id in chat_ids:
+            user_data = user_memory[chat_id]
+            if "_hangups" in user_data:
+                if "nickname" in user_data:
+                    nickname_lower =  user_data["nickname"].lower()
+                else:
+                    nickname_lower = ""
+                fullname_lower = user_data["_hangups"]["full_name"].lower()
+
+                if fragment == nickname_lower:
+                    matched_users[chat_id] = chat_id
+                    break
+
+                elif( fragment in fullname_lower or
+                        fragment in fullname_lower.replace(" ", "") ):
+                    matched_users[chat_id] = chat_id
+
+        if len(matched_users) == 1:
+            return list(matched_users)[0]
+        elif len(matched_users) == 0:
+            if internal_context:
+                return self.one_chat_id(token, False)
+            else:
+                raise ValueError("{} returned no users".format(token))
+        else:
+            print(matched_users)
+            raise ValueError("{} returned more than one user".format(token))
+
+
+    def one_conv_id(self, token, internal_context):
+        filter = "(type:GROUP)and(text:{})".format(token[1:])
+        conv_list = self.bot.conversations.get(filter)
+        if len(conv_list) == 1:
+            return next(iter(conv_list))
+        elif len(conv_list) == 0:
+            raise ValueError("{} returned no conversations".format(token))
+        else:
+            print(conv_list)
+            raise ValueError("{} returned too many conversations".format(token))
+
+    def preprocess_arguments(self, old_args, internal_context):
+        if "resolve" not in map(str.lower, old_args):
+            # optimisation
+            return old_args
+
+        new_args = []
+        for arg in old_args:
+            if arg.lower() == "resolve":
+                # do not consume the resolve keyword
+                continue
+            for pattern, callee in self.preprocessors.items():
+                if re.match(pattern, arg):
+                    arg = callee(arg, internal_context)
+            new_args.append(arg)
+
+        return new_args
 
     def set_bot(self, bot):
         self.bot = bot
@@ -172,14 +244,25 @@ class CommandDispatcher(object):
         else:
             raise KeyError("command {} not found".format(command_name))
 
+        """default: if exceptions occur in a command, output as message
+        supply keyword argument raise_exceptions=True to override behaviour"""
+        raise_exceptions = False
+        if "raise_exceptions" in kwds:
+            raise_exceptions = kwds["raise_exceptions"]
+            del kwds["raise_exceptions"]
+
         setattr(event, 'command_name', command_name)
         args = list(args[1:])
 
         try:
+            args = self.preprocess_arguments(args, internal_context=event)
             results = yield from func(bot, event, *args, **kwds)
             return results
 
         except Exception as e:
+            if raise_exceptions:
+                raise
+
             logger.exception("RUN: {}".format(func.__name__))
             yield from self.bot.coro_send_message(
                 event.conv,
