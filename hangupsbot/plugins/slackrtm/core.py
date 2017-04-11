@@ -741,9 +741,10 @@ class SlackRTM(object):
             logger.exception('error in handleCommands: %s(%s)', type(e), str(e))
 
         syncs = self.get_syncs(channelid=msg.channel)
-        if not syncs:
-            """since slackRTM listens to everything, we need a quick way to filter out noise. this also
-            has the added advantage of making slackrtm play well with other slack plugins"""
+        if not syncs and not msg.channel.startswith('D'):
+            # since slackRTM listens to everything, we need a quick way to filter out noise.
+            # this also has the added advantage of making slackrtm play well with other slack
+            # plugins
             return
 
         reffmt = re.compile(r'<((.)([^|>]*))((\|)([^>]*)|([^>]*))>')
