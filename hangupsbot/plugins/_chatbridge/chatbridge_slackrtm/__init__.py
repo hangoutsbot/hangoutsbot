@@ -105,10 +105,8 @@ class BridgeInstance(WebFramework):
                 kwargs["attachments"] = attachments
             if text:
                 kwargs["text"] = hangups_markdown_to_slack(text)
-            msg = slack.api_call("chat.postMessage",
-                                 channel=channel,
-                                 link_names=True,
-                                 **kwargs)
+            msg = self._api_call(team, "chat.postMessage",
+                                 channel=channel, link_names=True, **kwargs)
             # Store the new message ID alongside the original message.
             # We'll receive an RTM event about it shortly.
             self.msg_cache[channel][msg["ts"]] = event.passthru
@@ -116,6 +114,15 @@ class BridgeInstance(WebFramework):
     def start_listening(self, bot):
         for team, config in self.configuration["teams"].items():
             plugins.start_asyncio_task(self._rtm_listen, team, config)
+
+    def _api_call(self, team, method, *args, **kwargs):
+        resp = self.slacks[team].api_call(method, *args, **kwargs)
+        if not resp["ok"]:
+            logger.error("Error from Slack '{}' API call: {}".format(method, resp["error"]))
+            return
+        if "warning" in resp:
+            logger.warn("Warning from Slack '{}' API call: {}".format(method, resp["warning"]))
+        return resp
 
     @asyncio.coroutine
     def _rtm_listen(self, bot, team, config):
@@ -126,11 +133,13 @@ class BridgeInstance(WebFramework):
             for team, channel in sync["slack"]:
                 if not channel in self.msg_cache:
                     self.msg_cache[channel] = {}
-        slack.rtm_connect()
+        if not slack.rtm_connect():
+            logger.error("Failed to connect to RTM")
+            return
         # Cache an initial list of users and channels.
-        self.users[team] = {u["id"]: u for u in slack.api_call("users.list")["members"]}
-        self.channels[team] = {c["id"]: c for c in slack.api_call("channels.list")["channels"] +
-                                                   slack.api_call("groups.list")["groups"]}
+        self.users[team] = {u["id"]: u for u in self._api_call(team, "users.list")["members"]}
+        self.channels[team] = {c["id"]: c for c in self._api_call(team, "channels.list")["channels"] +
+                                                   self._api_call(team, "groups.list")["groups"]}
         while True:
             events = slack.rtm_read()
             if not events:
@@ -138,7 +147,10 @@ class BridgeInstance(WebFramework):
                 continue
             for event in events:
                 if event["type"] == "message":
-                    yield from self._handle_msg(event, team, config)
+                    try:
+                        yield from self._handle_msg(event, team, config)
+                    except Exception as e:
+                        logger.exception("Failed to handle message")
                 elif event["type"] in ("team_join", "user_change"):
                     # A user changed, update our cache.
                     user = event["user"]
