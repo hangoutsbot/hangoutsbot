@@ -63,7 +63,7 @@ class BridgeInstance(WebFramework):
         """
         {
           "hangouts": ["<conv-id>", ...],
-          "slack": [{"channel": "<channel-id>", "team": "<team-name>"}, ...]
+          "slack": [["<team-name>", "<channel-id>"], ...]
         }
         """
         configs = []
@@ -77,8 +77,8 @@ class BridgeInstance(WebFramework):
         text = event.passthru["original_request"]["message"]
         user = event.passthru["original_request"]["user"]
         bridge_user = self._get_user_details(user, {"event": event})
-        for channel in config["config.json"]["slack"]:
-            slack = self.slacks[channel["team"]]
+        for team, channel in config["config.json"]["slack"]:
+            slack = self.slacks[team]
             if bridge_user["chat_id"] == self.bot.user_self()["chat_id"]:
                 # Use the bot's native Slack identity.
                 kwargs = {"as_user": True}
@@ -106,12 +106,12 @@ class BridgeInstance(WebFramework):
             if text:
                 kwargs["text"] = hangups_markdown_to_slack(text)
             msg = slack.api_call("chat.postMessage",
-                                 channel=channel["channel"],
+                                 channel=channel,
                                  link_names=True,
                                  **kwargs)
             # Store the new message ID alongside the original message.
             # We'll receive an RTM event about it shortly.
-            self.msg_cache[channel["channel"]][msg["ts"]] = event.passthru
+            self.msg_cache[channel][msg["ts"]] = event.passthru
 
     def start_listening(self, bot):
         for team, config in self.configuration["teams"].items():
@@ -123,13 +123,14 @@ class BridgeInstance(WebFramework):
         slack = SlackClient(config["token"])
         self.slacks[team] = slack
         for sync in self.configuration["syncs"]:
-            for channel in sync["slack"]:
-                if not channel["channel"] in self.msg_cache:
-                    self.msg_cache[channel["channel"]] = {}
+            for team, channel in sync["slack"]:
+                if not channel in self.msg_cache:
+                    self.msg_cache[channel] = {}
         slack.rtm_connect()
         # Cache an initial list of users and channels.
         self.users[team] = {u["id"]: u for u in slack.api_call("users.list")["members"]}
-        self.channels[team] = {c["id"]: c for c in slack.api_call("channels.list")["channels"]}
+        self.channels[team] = {c["id"]: c for c in slack.api_call("channels.list")["channels"] +
+                                                   slack.api_call("groups.list")["groups"]}
         while True:
             events = slack.rtm_read()
             if not events:
@@ -150,10 +151,10 @@ class BridgeInstance(WebFramework):
             logger.debug("Skipping Slack-only feature message of type '{}'".format(msg.type))
             return
         for sync in self.configuration["syncs"]:
-            for channel in sync["slack"]:
-                if not (team, msg.channel) == (channel["team"], channel["channel"]):
+            for team_channel in sync["slack"]:
+                if not [team, msg.channel] == team_channel:
                     continue
-                cache = self.msg_cache[channel["channel"]]
+                cache = self.msg_cache[msg.channel]
                 passthru = cache.get(msg.ts)
                 for conv_id in sync["hangouts"]:
                     if passthru:
@@ -199,15 +200,15 @@ class BridgeInstance(WebFramework):
             # Bot message with no corresponding Slack user.
             user = msg.user_name
         try:
-            channel = self.channels[team][msg.channel]["name"]
+            source = self.channels[team][msg.channel]["name"]
         except KeyError:
-            channel = team
+            source = team
         yield from self._send_to_internal_chat(conv_id,
                                                slack_markdown_to_hangups(emoji.emojize(msg.text, use_aliases=True)),
                                                {"source_user": user,
                                                 "source_uid": msg.user,
                                                 "source_gid": msg.channel,
-                                                "source_title": channel,
+                                                "source_title": source,
                                                 "source_edited": msg.edited,
                                                 "source_action": msg.action},
                                                image_id=image_id)
