@@ -13,6 +13,8 @@ import plugins
 
 from plugins.slackrtm.parsers import slack_markdown_to_hangups, hangups_markdown_to_slack
 
+from .utils import convert_legacy_config
+
 
 logger = logging.getLogger(__name__)
 
@@ -227,4 +229,5 @@ class BridgeInstance(WebFramework):
 
 
 def _initialise(bot):
+    convert_legacy_config(bot)
     BridgeInstance(bot, "slackrtm")
