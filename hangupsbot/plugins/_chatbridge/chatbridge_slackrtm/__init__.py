@@ -5,6 +5,7 @@ import os.path
 import re
 import urllib.request
 
+import emoji
 from slackclient import SlackClient
 
 from webbridge import WebFramework
@@ -202,7 +203,7 @@ class BridgeInstance(WebFramework):
         except KeyError:
             channel = team
         yield from self._send_to_internal_chat(conv_id,
-                                               slack_markdown_to_hangups(msg.text),
+                                               slack_markdown_to_hangups(emoji.emojize(msg.text, use_aliases=True)),
                                                {"source_user": user,
                                                 "source_uid": msg.user,
                                                 "source_gid": msg.channel,
