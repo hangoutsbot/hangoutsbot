@@ -55,6 +55,7 @@ from .commands_hangouts import ( slacks,
                                  slack_sethotag,
                                  slack_setslacktag,
                                  slack_showslackrealnames,
+                                 slack_showhorealnames,
                                  slack_identify )
 from .core import SlackRTMThread
 from .utils import _slackrtms
@@ -94,7 +95,8 @@ def _initialise(bot):
                                      "slack_sethotag",
                                      "slack_users",
                                      "slack_setslacktag",
-                                     "slack_showslackrealnames" ])
+                                     "slack_showslackrealnames",
+                                     "slack_showhorealnames" ])
 
     plugins.register_user_command([ "slack_identify" ])
 
