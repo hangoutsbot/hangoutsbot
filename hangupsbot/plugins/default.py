@@ -50,7 +50,9 @@ def echo(bot, event, *args):
 
 def admins(bot,event,*args):
     """Get a list of bot admins"""
-    admins = ' <br>'.join([bot.get_hangups_user(uid).full_name for uid in bot.get_config_option('admins')])
+    admins = ' <br>'.join([ bot.get_hangups_user(uid).full_name 
+                            for uid in bot.get_config_option('admins')
+                            if uid != bot.user_self()["chat_id"] ])
     yield from bot.coro_send_message(event.conv,"<b><u>List of Admins</u></b><br>{}".format(admins))
         
         
