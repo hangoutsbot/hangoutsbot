@@ -108,8 +108,9 @@ class BridgeInstance(WebFramework):
                                  channel=channel["channel"],
                                  link_names=True,
                                  **kwargs)
-            # Store the message ID in the cache, so we know not to relay it back.
-            self.msg_cache[channel["channel"]].add(msg["ts"])
+            # Store the new message ID alongside the original message.
+            # We'll receive an RTM event about it shortly.
+            self.msg_cache[channel["channel"]][msg["ts"]] = event.passthru
 
     def start_listening(self, bot):
         for team, config in self.configuration["teams"].items():
@@ -123,7 +124,7 @@ class BridgeInstance(WebFramework):
         for sync in self.configuration["syncs"]:
             for channel in sync["slack"]:
                 if not channel["channel"] in self.msg_cache:
-                    self.msg_cache[channel["channel"]] = set()
+                    self.msg_cache[channel["channel"]] = {}
         slack.rtm_connect()
         # Cache an initial list of users and channels.
         self.users[team] = {u["id"]: u for u in slack.api_call("users.list")["members"]}
@@ -149,17 +150,26 @@ class BridgeInstance(WebFramework):
             return
         for sync in self.configuration["syncs"]:
             for channel in sync["slack"]:
-                if msg.channel == channel["channel"] and team == channel["team"]:
-                    cache = self.msg_cache[channel["channel"]]
-                    if msg.ts in cache:
-                        # We received this message from the bridge and relayed it, so don't send it back again.
-                        cache.remove(msg.ts)
-                        continue
-                    for conv_id in sync["hangouts"]:
-                        if msg.file:
-                            asyncio.get_event_loop().create_task(self._relay_msg_image(msg, conv_id, team, config))
-                        else:
-                            yield from self._relay_msg(msg, conv_id, team, config)
+                if not (team, msg.channel) == (channel["team"], channel["channel"]):
+                    continue
+                cache = self.msg_cache[channel["channel"]]
+                passthru = cache.get(msg.ts)
+                for conv_id in sync["hangouts"]:
+                    if passthru:
+                        # We originally received this message from the bridge.
+                        # Don't relay it back to the original hangout.
+                        if not conv_id == passthru["chatbridge"].get("source_gid"):
+                            yield from self._send_to_internal_chat(conv_id,
+                                                                   passthru["original_request"]["message"],
+                                                                   passthru["chatbridge"])
+                    elif msg.file:
+                        # Create a background task to upload the attached image to Hangouts.
+                        asyncio.get_event_loop().create_task(self._relay_msg_image(msg, conv_id, team, config))
+                    else:
+                        # Relay the message over to Hangouts.
+                        yield from self._relay_msg(msg, conv_id, team, config)
+                if passthru:
+                    del cache[msg.ts]
         self.slacks[team].api_call("channels.mark", channel=msg.channel, ts=msg.ts)
 
     @asyncio.coroutine
