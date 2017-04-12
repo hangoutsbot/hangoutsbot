@@ -171,11 +171,13 @@ class EventHandler:
                     # reprocessor - process event with hidden context from handler.attach_reprocessor()
                     yield from self.run_reprocessor(annotation.value, event)
                 elif annotation.type == 1026:
-                    event.passthru = self._passthrus[annotation.value]
-                    del self._passthrus[annotation.value]
+                    if annotation.value in self._passthrus:
+                        event.passthru = self._passthrus[annotation.value]
+                        del self._passthrus[annotation.value]
                 elif annotation.type == 1027:
-                    event.context = self._contexts[annotation.value]
-                    del self._contexts[annotation.value]
+                    if annotation.value in self._contexts:
+                        event.context = self._contexts[annotation.value]
+                        del self._contexts[annotation.value]
 
             if len(event.conv_event.segments) > 0:
                 for segment in event.conv_event.segments:
