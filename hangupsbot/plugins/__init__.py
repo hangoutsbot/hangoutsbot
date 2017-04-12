@@ -37,7 +37,8 @@ class tracker:
                 "admin": [],
                 "user": [],
                 "all": None,
-                "tagged": {}
+                "tagged": {},
+                "argument.preprocessors": []
             },
             "handlers": [],
             "shared": [],
@@ -139,6 +140,10 @@ class tracker:
     def register_asyncio_task(self, task):
         self._current["asyncio.task"].append(task)
 
+    def register_command_argument_preprocessors_group(self, name):
+        if name not in self._current["commands"]["argument.preprocessors"]:
+            self._current["commands"]["argument.preprocessors"].append(name)
+
 
 tracking = tracker()
 
@@ -186,6 +191,9 @@ def start_asyncio_task(coroutine_function, *args, **kwargs):
     asyncio.async(task).add_done_callback(asyncio_task_ended)
     tracking.register_asyncio_task(task)
     return task
+
+def register_commands_argument_preprocessor_group(name, preprocessors):
+    command.register_argument_preprocessor_group(name, preprocessors)
 
 
 """plugin loader"""
@@ -490,6 +498,10 @@ def unload(bot, module_path):
                 from sinks import aiohttp_terminate # XXX: needs to be late-imported
                 for group in plugin["aiohttp.web"]:
                     yield from aiohttp_terminate(group)
+
+            if len(plugin["commands"]["argument.preprocessors"]) > 0:
+                for groupname in plugin["commands"]["argument.preprocessors"]:
+                    del command.preprocessors[groupname]
 
             logger.info("{} unloaded".format(module_path))
 

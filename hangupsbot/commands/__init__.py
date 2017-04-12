@@ -21,8 +21,8 @@ class CommandDispatcher(object):
 
         self.command_tagsets = {}
 
-        self.preprocessors = { r"(?<!@)@[^@]\w+[^@]$": self.one_chat_id,
-                               r"(?<!#)#[^#]\w+[^#]$": self.one_conv_id }
+        self.preprocessors = { "inbuilt": { r"(?<!@)@[^@]\w+[^@]$": self.one_chat_id,
+                                            r"(?<!#)#[^#]\w+[^#]$": self.one_conv_id }}
 
     def one_chat_id(self, token, internal_context):
         user_memory = self.bot.get_memory_option("user_data")
@@ -73,19 +73,62 @@ class CommandDispatcher(object):
             print(conv_list)
             raise ValueError("{} returned too many conversations".format(token))
 
-    def preprocess_arguments(self, old_args, internal_context):
-        if "resolve" not in map(str.lower, old_args):
-            # optimisation
-            return old_args
+    def preprocess_arguments(self, args, internal_context):
+        _trigger = ( self.bot.get_config_option("commands.preprocessor.trigger")
+                        or "+resolve" ).lower()
+        _separator = ":"
+
+        """
+        simple finite state machine parser:
+
+        * arguments are processed in order of input, from left-to-right
+        * defaults trigger is +resolve" if not configured in config.json: commands.preprocessor.trigger
+          * customised trigger word must be unique enough to prevent conflicts for other plugin parameters
+          * devs: if conflict arises, other plugins have higher priority than this
+        * all examples here assume the trigger keyword is the default "+resolve"
+        * activate all resolvers via keyword:
+            +resolve
+        * activate specific resolver groups via keyword:
+            +resolve:<comma-separated list of resolver groups, no spaces> e.g.
+            +resolve:inbuilt,customalias1,customalias2
+        * deactivate all active resolvers via keyword:
+            +resolve:off
+            +resolve:false
+            +resolve:0
+        * escape trigger keyword with:
+          * quotes
+              "+resolve"
+          * backslash
+              \+resolve
+        """
+
+        resolver_groups = list(self.preprocessors.keys())
+        print(resolver_groups)
 
         new_args = []
-        for arg in old_args:
-            if arg.lower() == "resolve":
-                # do not consume the resolve keyword
+        apply_resolvers = []
+        for arg in args:
+            arg_lower = arg.lower()
+            skip_arg = False
+            if _trigger == arg_lower:
+                apply_resolvers = resolver_groups
+                skip_arg = True
+            elif arg_lower.startswith(_trigger + _separator):
+                _right = arg_lower.split(_separator, 1)[-1]
+                if not _right or _right in ("off", "false", "0"):
+                    apply_resolvers = []
+                else:
+                    apply_resolvers = _right.split(",")
+                skip_arg = True
+            if skip_arg:
+                # never consume the trigger term
                 continue
-            for pattern, callee in self.preprocessors.items():
-                if re.match(pattern, arg):
-                    arg = callee(arg, internal_context)
+            for rname in [ rname
+                          for rname in apply_resolvers
+                          if rname in resolver_groups ]:
+                for pattern, callee in self.preprocessors[rname].items():
+                    if re.match(pattern, arg):
+                        arg = callee(arg, internal_context)
             new_args.append(arg)
 
         return new_args
@@ -306,6 +349,11 @@ class CommandDispatcher(object):
         """Decorator for registering unknown command"""
         self.blocked_command = asyncio.coroutine(func)
         return func
+
+    def register_argument_preprocessor_group(self, name, preprocessors):
+        name_lower = name.lower()
+        self.preprocessors[name_lower] = preprocessors
+        plugins.tracking.register_command_argument_preprocessors_group(name_lower)
 
 # CommandDispatcher singleton
 command = CommandDispatcher()
