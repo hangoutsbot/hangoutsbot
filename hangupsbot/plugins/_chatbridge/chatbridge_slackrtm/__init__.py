@@ -13,10 +13,52 @@ import plugins
 
 from plugins.slackrtm.parsers import slack_markdown_to_hangups, hangups_markdown_to_slack
 
+from .commands import Meta, slack_identify
 from .utils import convert_legacy_config
 
 
 logger = logging.getLogger(__name__)
+
+
+class Identities(object):
+
+    def __init__(self, bot, team):
+        self.bot = bot
+        self.team = team
+        try:
+            idents = self.bot.memory.get_by_path(["slackrtm", self.team, "identities"])
+        except KeyError:
+            self.hangouts = {}
+            self.slack = {}
+        else:
+            self.hangouts = idents.get("hangouts") or {}
+            self.slack = idents.get("slack") or {}
+
+    def get_hangouts(self, user):
+        return self.hangouts.get(user)
+
+    def get_slack(self, user):
+        return self.slack.get(user)
+
+    def add_hangouts(self, user, mapping):
+        self.hangouts[user] = mapping
+        self.save()
+
+    def add_slack(self, user, mapping):
+        self.slack[user] = mapping
+        self.save()
+
+    def del_hangouts(self, user):
+        del self.hangouts[user]
+        self.save()
+
+    def del_slack(self, user):
+        del self.slack[user]
+        self.save()
+
+    def save(self):
+        self.bot.memory.set_by_path(["slackrtm", self.team, "identities"],
+                                    {"hangouts": self.hangouts, "slack": self.slack})
 
 
 class SlackMsg(object):
@@ -59,6 +101,7 @@ class BridgeInstance(WebFramework):
         self.slacks = {}
         self.users = {}
         self.channels = {}
+        self.idents = {}
         self.msg_cache = {}
 
     def applicable_configuration(self, conv_id):
@@ -147,6 +190,7 @@ class BridgeInstance(WebFramework):
         self.users[team] = {u["id"]: u for u in self._api_call(team, "users.list")["members"]}
         self.channels[team] = {c["id"]: c for c in self._api_call(team, "channels.list")["channels"] +
                                                    self._api_call(team, "groups.list")["groups"]}
+        self.idents[team] = Identities(bot, team)
         while True:
             events = slack.rtm_read()
             if not events:
@@ -229,4 +273,5 @@ class BridgeInstance(WebFramework):
 
 def _initialise(bot):
     convert_legacy_config(bot)
-    BridgeInstance(bot, "slackrtm")
+    plugins.register_user_command(["slack_identify"])
+    Meta.set_bridge(BridgeInstance(bot, "slackrtm"))
