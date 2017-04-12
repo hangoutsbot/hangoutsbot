@@ -57,8 +57,8 @@ def convert_legacy_config(bot):
               "admins": [...],
               "syncs": [
                 {
-                  "hangouts": ["<hangout-id>", ...],
-                  "slack": [["<team-name>", "<channel-id>"], ...]
+                  "hangout": "<hangout-id>",
+                  "channel": ["<team-name>", "<channel-id>"]
                 }
               ]
             }
@@ -89,8 +89,8 @@ def convert_legacy_config(bot):
         # Convert all syncs to the new config format.
         logger.debug("Found {} sync(s) for '{}' to migrate".format(len(migrate), team["name"]))
         for sync in migrate:
-            syncs.append({"hangouts": [sync["hangoutid"]],
-                          "slack": [[team["name"], sync["channelid"]]]})
+            syncs.append({"hangout": sync["hangoutid"],
+                          "channel": [team["name"], sync["channelid"]]})
     # Write a backup of the old config, then save the new config.
     logger.debug("Writing new config")
     bot.config.set_by_path(["slackrtm [legacy backup]"], config)

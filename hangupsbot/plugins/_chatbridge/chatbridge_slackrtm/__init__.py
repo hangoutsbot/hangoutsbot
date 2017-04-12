@@ -65,13 +65,15 @@ class BridgeInstance(WebFramework):
         """
         {
           "hangouts": ["<conv-id>", ...],
-          "slack": [["<team-name>", "<channel-id>"], ...]
+          "slackrtm": [["<team-name>", "<channel-id>"], ...]
         }
         """
         configs = []
         for sync in self.configuration["syncs"]:
-            if conv_id in sync["hangouts"]:
-                configs.append({"trigger": conv_id, "config.json": sync})
+            if conv_id == sync["hangout"]:
+                configs.append({"trigger": conv_id,
+                                "config.json": {"hangouts": [sync["hangout"]],
+                                                "slackrtm": [sync["channel"]]}})
         return configs
 
     @asyncio.coroutine
@@ -79,42 +81,42 @@ class BridgeInstance(WebFramework):
         text = event.passthru["original_request"]["message"]
         user = event.passthru["original_request"]["user"]
         bridge_user = self._get_user_details(user, {"event": event})
-        for team, channel in config["config.json"]["slack"]:
-            slack = self.slacks[team]
-            if bridge_user["chat_id"] == self.bot.user_self()["chat_id"]:
-                # Use the bot's native Slack identity.
-                kwargs = {"as_user": True}
-            else:
-                # Pose as the Hangouts users that sent the message.
-                name = bridge_user["preferred_name"]
-                if "source_title" in event.passthru["chatbridge"]:
-                    name = "{} ({})".format(name, event.passthru["chatbridge"]["source_title"])
-                kwargs = {"username": name,
-                          "icon_url": bridge_user["photo_url"]}
-            attachments = []
-            # Display images in attachment form.
-            # Slack will also show a filename and size under the message text.
-            for attach in event.passthru["original_request"].get("attachments") or []:
-                # Filenames in Hangouts URLs are double-percent-encoded.
-                filename = urllib.parse.unquote(urllib.parse.unquote(os.path.basename(attach))).replace("+", " ")
-                attachments.append({"fallback": attach,
-                                    "text": filename,
-                                    "image_url": attach})
-                if attach == text:
-                    # Message consists solely of the attachment URL, no need to send that.
-                    text = None
-                elif attach in text:
-                    # Message includes some text too, strip the attachment URL from the end if present.
-                    text = text.replace("\n{}".format(attach), "")
-            if attachments:
-                kwargs["attachments"] = attachments
-            if text:
-                kwargs["text"] = hangups_markdown_to_slack(text)
-            msg = self._api_call(team, "chat.postMessage",
-                                 channel=channel, link_names=True, **kwargs)
-            # Store the new message ID alongside the original message.
-            # We'll receive an RTM event about it shortly.
-            self.msg_cache[channel][msg["ts"]] = event.passthru
+        team, channel = config["config.json"]["slackrtm"][0]
+        slack = self.slacks[team]
+        if bridge_user["chat_id"] == self.bot.user_self()["chat_id"]:
+            # Use the bot's native Slack identity.
+            kwargs = {"as_user": True}
+        else:
+            # Pose as the Hangouts users that sent the message.
+            name = bridge_user["preferred_name"]
+            if "source_title" in event.passthru["chatbridge"]:
+                name = "{} ({})".format(name, event.passthru["chatbridge"]["source_title"])
+            kwargs = {"username": name,
+                      "icon_url": bridge_user["photo_url"]}
+        attachments = []
+        # Display images in attachment form.
+        # Slack will also show a filename and size under the message text.
+        for attach in event.passthru["original_request"].get("attachments") or []:
+            # Filenames in Hangouts URLs are double-percent-encoded.
+            filename = urllib.parse.unquote(urllib.parse.unquote(os.path.basename(attach))).replace("+", " ")
+            attachments.append({"fallback": attach,
+                                "text": filename,
+                                "image_url": attach})
+            if attach == text:
+                # Message consists solely of the attachment URL, no need to send that.
+                text = None
+            elif attach in text:
+                # Message includes some text too, strip the attachment URL from the end if present.
+                text = text.replace("\n{}".format(attach), "")
+        if attachments:
+            kwargs["attachments"] = attachments
+        if text:
+            kwargs["text"] = hangups_markdown_to_slack(text)
+        msg = self._api_call(team, "chat.postMessage",
+                             channel=channel, link_names=True, **kwargs)
+        # Store the new message ID alongside the original message.
+        # We'll receive an RTM event about it shortly.
+        self.msg_cache[channel][msg["ts"]] = event.passthru
 
     def start_listening(self, bot):
         for team, config in self.configuration["teams"].items():
@@ -135,9 +137,9 @@ class BridgeInstance(WebFramework):
         slack = SlackClient(config["token"])
         self.slacks[team] = slack
         for sync in self.configuration["syncs"]:
-            for team, channel in sync["slack"]:
-                if not channel in self.msg_cache:
-                    self.msg_cache[channel] = {}
+            team, channel = sync["channel"]
+            if channel not in self.msg_cache:
+                self.msg_cache[channel] = {}
         if not slack.rtm_connect():
             logger.error("Failed to connect to RTM")
             return
@@ -168,27 +170,21 @@ class BridgeInstance(WebFramework):
             logger.debug("Skipping Slack-only feature message of type '{}'".format(msg.type))
             return
         for sync in self.configuration["syncs"]:
-            for team_channel in sync["slack"]:
-                if not [team, msg.channel] == team_channel:
-                    continue
-                cache = self.msg_cache[msg.channel]
-                passthru = cache.get(msg.ts)
-                for conv_id in sync["hangouts"]:
-                    if passthru:
-                        # We originally received this message from the bridge.
-                        # Don't relay it back to the original hangout.
-                        if not conv_id == passthru["chatbridge"].get("source_gid"):
-                            yield from self._send_to_internal_chat(conv_id,
-                                                                   passthru["original_request"]["message"],
-                                                                   passthru["chatbridge"])
-                    elif msg.file:
-                        # Create a background task to upload the attached image to Hangouts.
-                        asyncio.get_event_loop().create_task(self._relay_msg_image(msg, conv_id, team, config))
-                    else:
-                        # Relay the message over to Hangouts.
-                        yield from self._relay_msg(msg, conv_id, team, config)
-                if passthru:
-                    del cache[msg.ts]
+            team_channel = sync["channel"]
+            if not [team, msg.channel] == team_channel:
+                continue
+            cache = self.msg_cache[msg.channel]
+            passthru = cache.get(msg.ts)
+            if passthru:
+                # We originally received this message from the bridge.
+                # Don't relay it back, just remove the original from our cache.
+                del cache[msg.ts]
+            elif msg.file:
+                # Create a background task to upload the attached image to Hangouts.
+                asyncio.get_event_loop().create_task(self._relay_msg_image(msg, sync["hangout"], team, config))
+            else:
+                # Relay the message over to Hangouts.
+                yield from self._relay_msg(msg, sync["hangout"], team, config)
         self.slacks[team].api_call("channels.mark", channel=msg.channel, ts=msg.ts)
 
     @asyncio.coroutine
