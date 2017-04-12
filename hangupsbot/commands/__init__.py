@@ -22,7 +22,8 @@ class CommandDispatcher(object):
         self.command_tagsets = {}
 
         self.preprocessors = { "inbuilt": { r"(?<!@)@[^@]\w+[^@]$": self.one_chat_id,
-                                            r"(?<!#)#[^#]\w+[^#]$": self.one_conv_id }}
+                                            r"(?<!#)#[^#]\w+[^#]$": self.one_conv_id,
+                                            r"#here": self.current_conv_id }}
 
     def one_chat_id(self, token, internal_context):
         user_memory = self.bot.get_memory_option("user_data")
@@ -60,7 +61,6 @@ class CommandDispatcher(object):
         else:
             raise ValueError("{} returned more than one user".format(token))
 
-
     def one_conv_id(self, token, internal_context):
         filter = "(type:GROUP)and(text:{})".format(token[1:])
         conv_list = self.bot.conversations.get(filter)
@@ -70,6 +70,9 @@ class CommandDispatcher(object):
             raise ValueError("{} returned no conversations".format(token))
         else:
             raise ValueError("{} returned too many conversations".format(token))
+
+    def current_conv_id(self, token, internal_context):
+        return internal_context.conv_id
 
     def preprocess_arguments(self, args, internal_context):
         _trigger = ( self.bot.get_config_option("commands.preprocessor.trigger")
@@ -124,7 +127,7 @@ class CommandDispatcher(object):
                           for rname in apply_resolvers
                           if rname in resolver_groups ]:
                 for pattern, callee in self.preprocessors[rname].items():
-                    if re.match(pattern, arg):
+                    if re.match(pattern, arg, flags=re.IGNORECASE):
                         arg = callee(arg, internal_context)
             new_args.append(arg)
 
