@@ -58,7 +58,6 @@ class CommandDispatcher(object):
             else:
                 raise ValueError("{} returned no users".format(token))
         else:
-            print(matched_users)
             raise ValueError("{} returned more than one user".format(token))
 
 
@@ -70,7 +69,6 @@ class CommandDispatcher(object):
         elif len(conv_list) == 0:
             raise ValueError("{} returned no conversations".format(token))
         else:
-            print(conv_list)
             raise ValueError("{} returned too many conversations".format(token))
 
     def preprocess_arguments(self, args, internal_context):
@@ -103,7 +101,6 @@ class CommandDispatcher(object):
         """
 
         resolver_groups = list(self.preprocessors.keys())
-        print(resolver_groups)
 
         new_args = []
         apply_resolvers = []
