@@ -2,14 +2,11 @@ from functools import wraps
 import re
 
 
-class Meta(object):
-    """
-    Generic class to hold a bridge reference, along with non-stored data for commands.
-    """
+bridge = None
 
-    @classmethod
-    def set_bridge(cls, bridge):
-        cls.bridge = bridge
+def set_bridge(br):
+    global bridge
+    bridge = br
 
 
 def _respond_privately(fn):
@@ -37,12 +34,12 @@ def slack_identify(bot, event, *args):
                 "/bot slack_identify clear <i>team</i>")
     identity = event.user.id_.chat_id
     team = args[1]
-    if team not in Meta.bridge.slacks:
+    if team not in bridge.slacks:
         return "No Slack team called <b>{}</b>.".format(team)
-    idents = Meta.bridge.idents[team]
+    idents = bridge.idents[team]
     if args[0] == "as":
         user_query = args[2]
-        for user_id, user in Meta.bridge.users[team].items():
+        for user_id, user in bridge.slacks[team].users.items():
             if user_query == user["id"] or user_query.lower() == user["name"]:
                 break
         else:
@@ -52,7 +49,7 @@ def slack_identify(bot, event, *args):
             if not idents.get_slack(user_id) == identity:
                 resp += "\nBut you still need to confirm your identity from Slack."
             return resp
-        Meta.bridge.idents[team].add_hangouts(identity, user_id)
+        idents.add_hangouts(identity, user_id)
         resp = "You have identified as <b>{}</b> on <b>{}</b>.".format(args[2], args[1])
         if not idents.get_slack(user_id) == identity:
             resp += "\nNow you need to confirm your identity from Slack."
