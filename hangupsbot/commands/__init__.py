@@ -121,6 +121,8 @@ class CommandDispatcher(object):
         """
 
         all_groups = list(self.preprocessors.keys())
+        all_groups.remove("inbuilt")
+        all_groups.append("inbuilt") # lowest priority: inbuilt
         if _implicit:
             # always-on
             default_groups = all_groups
@@ -185,8 +187,10 @@ class CommandDispatcher(object):
                 for pattern, callee in self.preprocessors[rname].items():
                     if re.match(pattern, arg, flags=re.IGNORECASE):
                         try:
-                            arg = callee(arg, internal_context)
-                            continue
+                            _arg = callee(arg, internal_context)
+                            if _arg:
+                                arg = _arg
+                                continue
                         except Exception as e:
                             raise
             new_args.append(arg)
