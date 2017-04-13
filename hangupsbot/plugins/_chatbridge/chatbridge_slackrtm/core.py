@@ -8,6 +8,13 @@ from slackclient import SlackClient
 logger = logging.getLogger(__name__)
 
 
+HANGOUTS = "Hangouts"
+SLACK = "Slack"
+
+def inv(source):
+    return HANGOUTS if source == SLACK else SLACK
+
+
 class SlackAPIError(Exception): pass
 
 
@@ -97,26 +104,18 @@ class Identities(object):
             self.hangouts = idents.get("hangouts") or {}
             self.slack = idents.get("slack") or {}
 
-    def get_hangouts(self, user):
-        return self.hangouts.get(user)
+    def __call__(self, key):
+        return {HANGOUTS: self.hangouts, SLACK: self.slack}[key]
 
-    def get_slack(self, user):
-        return self.slack.get(user)
+    def get(self, key, user):
+        return self(key).get(user)
 
-    def add_hangouts(self, user, mapping):
-        self.hangouts[user] = mapping
+    def add(self, key, user, mapping):
+        self(key)[user] = mapping
         self.save()
 
-    def add_slack(self, user, mapping):
-        self.slack[user] = mapping
-        self.save()
-
-    def del_hangouts(self, user):
-        del self.hangouts[user]
-        self.save()
-
-    def del_slack(self, user):
-        del self.slack[user]
+    def remove(self, key, user):
+        del self(key)[user]
         self.save()
 
     def save(self):

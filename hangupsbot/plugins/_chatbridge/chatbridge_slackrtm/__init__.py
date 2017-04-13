@@ -13,7 +13,7 @@ import plugins
 from plugins.slackrtm.parsers import slack_markdown_to_hangups, hangups_markdown_to_slack
 
 from .core import SlackWrapper, Identities, Message
-from .commands import set_bridge, slack_identify
+from .commands import set_bridge, run_slack_command, slack_identify
 from .utils import convert_legacy_config
 
 
@@ -118,7 +118,11 @@ class BridgeInstance(WebFramework):
     def _handle_direct_msg(self, msg, team):
         channel = self.slacks[team].directs[msg.channel]
         user = self.slacks[team].users[channel["user"]]
+        if not channel["user"] == msg.user:
+            # Message wasn't sent by the user, so it was probably us.
+            return
         logger.info("Got direct message '{}' from {}/{}".format(msg.ts, user["id"], user["name"]))
+        run_slack_command(msg, self.slacks[team], team)
 
     @asyncio.coroutine
     def _handle_channel_msg(self, msg, team):
