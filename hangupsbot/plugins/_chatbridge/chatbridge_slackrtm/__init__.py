@@ -20,6 +20,18 @@ from .utils import convert_legacy_config
 logger = logging.getLogger(__name__)
 
 
+class SlackAPIError(Exception): pass
+
+def _api_call(slack, method, key=None, *args, **kwargs):
+    resp = slack.api_call(method, *args, **kwargs)
+    if not resp["ok"]:
+        logger.error("Error from Slack '{}' API call: {}".format(method, resp["error"]))
+        raise SlackAPIError(resp["error"])
+    if "warning" in resp:
+        logger.warn("Warning from Slack '{}' API call: {}".format(method, resp["warning"]))
+    return resp[key] if key else resp
+
+
 class Identities(object):
 
     def __init__(self, bot, team):
@@ -27,7 +39,7 @@ class Identities(object):
         self.team = team
         try:
             idents = self.bot.memory.get_by_path(["slackrtm", self.team, "identities"])
-        except KeyError:
+        except (KeyError, TypeError):
             self.hangouts = {}
             self.slack = {}
         else:
@@ -61,12 +73,44 @@ class Identities(object):
                                     {"hangouts": self.hangouts, "slack": self.slack})
 
 
-class SlackMsg(object):
+class Cache(object):
+
+    def __init__(self, slack, team):
+        self.slack = slack
+        self.team = team
+        self.users = {}
+        self.channels = {}
+        self.directs = {}
+        self.messages = {}
+        for user in _api_call(self.slack, "users.list", "members"):
+            self.add_user(user)
+        for channel in (_api_call(self.slack, "channels.list", "channels") +
+                        _api_call(self.slack, "groups.list", "groups")):
+            self.add_channel(channel)
+        for direct in _api_call(self.slack, "im.list", "ims"):
+            self.add_direct(direct)
+        logger.info("Users ({}): {}".format(len(self.users), ", ".join(self.users.keys())))
+        logger.info("Channels ({}): {}".format(len(self.channels), ", ".join(self.channels.keys())))
+        logger.info("Directs ({}): {}".format(len(self.directs), ", ".join(self.directs.keys())))
+
+    def add_user(self, user):
+        self.users[user["id"]] = user
+
+    def add_channel(self, channel):
+        self.channels[channel["id"]] = channel
+        self.messages[channel["id"]] = {}
+
+    def add_direct(self, direct):
+        self.directs[direct["id"]] = direct
+
+
+class Message(object):
 
     def __init__(self, event):
         self.event = event
         self.ts = self.event["ts"]
         self.channel = self.event.get("channel") or self.event.get("group")
+        self.hidden = False
         self.edited = self.event.get("subtype") == "message_changed"
         self.action = False
         self.msg = self.event["message"] if self.edited else self.event
@@ -89,6 +133,10 @@ class SlackMsg(object):
             self.action = True
         elif self.type in ("channel_archive", "channel_unarchive", "group_archive", "group_unarchive"):
             logger.warn("Channel is being (un)archived")
+        if self.event.get("hidden") and not self.edited:
+            self.hidden = True
+        elif self.type in ("pinned_item", "unpinned_item", "channel_unarchive", "group_unarchive"):
+            self.hidden = True
         if self.action:
             # Strip own username from the start of the message.
             self.text = re.sub(r"^<@{}|.*?> ".format(self.user), "", self.text)
@@ -99,10 +147,8 @@ class BridgeInstance(WebFramework):
     def setup_plugin(self):
         self.plugin_name = "SlackRTM"
         self.slacks = {}
-        self.users = {}
-        self.channels = {}
+        self.caches = {}
         self.idents = {}
-        self.msg_cache = {}
 
     def applicable_configuration(self, conv_id):
         """
@@ -155,24 +201,15 @@ class BridgeInstance(WebFramework):
             kwargs["attachments"] = attachments
         if text:
             kwargs["text"] = hangups_markdown_to_slack(text)
-        msg = self._api_call(team, "chat.postMessage",
-                             channel=channel, link_names=True, **kwargs)
+        msg = _api_call(self.slacks[team], "chat.postMessage",
+                        channel=channel, link_names=True, **kwargs)
         # Store the new message ID alongside the original message.
         # We'll receive an RTM event about it shortly.
-        self.msg_cache[channel][msg["ts"]] = event.passthru
+        self.caches[team].messages[channel][msg["ts"]] = event.passthru
 
     def start_listening(self, bot):
         for team, config in self.configuration["teams"].items():
             plugins.start_asyncio_task(self._rtm_listen, team, config)
-
-    def _api_call(self, team, method, *args, **kwargs):
-        resp = self.slacks[team].api_call(method, *args, **kwargs)
-        if not resp["ok"]:
-            logger.error("Error from Slack '{}' API call: {}".format(method, resp["error"]))
-            return
-        if "warning" in resp:
-            logger.warn("Warning from Slack '{}' API call: {}".format(method, resp["warning"]))
-        return resp
 
     @asyncio.coroutine
     def _rtm_listen(self, bot, team, config):
@@ -181,15 +218,9 @@ class BridgeInstance(WebFramework):
         self.slacks[team] = slack
         for sync in self.configuration["syncs"]:
             team, channel = sync["channel"]
-            if channel not in self.msg_cache:
-                self.msg_cache[channel] = {}
         if not slack.rtm_connect():
-            logger.error("Failed to connect to RTM")
-            return
-        # Cache an initial list of users and channels.
-        self.users[team] = {u["id"]: u for u in self._api_call(team, "users.list")["members"]}
-        self.channels[team] = {c["id"]: c for c in self._api_call(team, "channels.list")["channels"] +
-                                                   self._api_call(team, "groups.list")["groups"]}
+            raise SlackAPIError("Failed to connect to RTM")
+        self.caches[team] = Cache(slack, team)
         self.idents[team] = Identities(bot, team)
         while True:
             events = slack.rtm_read()
@@ -197,27 +228,53 @@ class BridgeInstance(WebFramework):
                 yield from asyncio.sleep(0.5)
                 continue
             for event in events:
-                if event["type"] == "message":
-                    try:
-                        yield from self._handle_msg(event, team, config)
-                    except Exception as e:
-                        logger.exception("Failed to handle message")
-                elif event["type"] in ("team_join", "user_change"):
-                    # A user changed, update our cache.
-                    user = event["user"]
-                    self.users[team][user["id"]] = user
+                yield from self._handle_event(event, team, config)
+
+    @asyncio.coroutine
+    def _handle_event(self, event, team, config):
+        if event["type"] == "message":
+            try:
+                yield from self._handle_msg(event, team, config)
+            except Exception as e:
+                logger.exception("Failed to handle message")
+        elif event["type"] in ("team_join", "user_change"):
+            # A user changed, update our cache.
+            self.caches[team].add_user(event["user"])
+        elif event["type"] in ("channel_joined", "group_joined"):
+            # A group or channel appeared, add to our cache.
+            self.caches[team].add_channel(event["channel"])
+        elif event["type"] == "im_created":
+            # A DM appeared, add to our cache.
+            self.caches[team].add_direct(event["channel"])
 
     @asyncio.coroutine
     def _handle_msg(self, event, team, config):
-        msg = SlackMsg(event)
-        if not msg.edited and event.get("hidden") or msg.type in ("pinned_item", "unpinned_item", "channel_unarchive", "group_unarchive"):
+        msg = Message(event)
+        if msg.hidden:
             logger.debug("Skipping Slack-only feature message of type '{}'".format(msg.type))
             return
+        cache = self.caches[team]
+        if msg.channel in cache.channels:
+            yield from self._handle_channel_msg(msg, team, config)
+        elif msg.channel in cache.directs:
+            yield from self._handle_direct_msg(msg, team, config)
+        else:
+            logger.warn("Got message '{}' from unknown channel '{}'".format(msg.id, msg.channel))
+
+    @asyncio.coroutine
+    def _handle_direct_msg(self, msg, team, config):
+        cache = self.caches[team]
+        channel = cache.directs[msg.channel]
+        user = cache.users[channel["user"]]
+        logger.info("Got direct message '{}' from {}/{}".format(msg.ts, user["id"], user["name"]))
+
+    @asyncio.coroutine
+    def _handle_channel_msg(self, msg, team, config):
         for sync in self.configuration["syncs"]:
             team_channel = sync["channel"]
             if not [team, msg.channel] == team_channel:
                 continue
-            cache = self.msg_cache[msg.channel]
+            cache = self.caches[team].messages[msg.channel]
             passthru = cache.get(msg.ts)
             if passthru:
                 # We originally received this message from the bridge.
@@ -229,7 +286,7 @@ class BridgeInstance(WebFramework):
             else:
                 # Relay the message over to Hangouts.
                 yield from self._relay_msg(msg, sync["hangout"], team, config)
-        self.slacks[team].api_call("channels.mark", channel=msg.channel, ts=msg.ts)
+        _api_call(self.slacks[team], "channels.mark", channel=msg.channel, ts=msg.ts)
 
     @asyncio.coroutine
     def _relay_msg_image(self, msg, conv_id, team, config):
@@ -252,12 +309,12 @@ class BridgeInstance(WebFramework):
     @asyncio.coroutine
     def _relay_msg(self, msg, conv_id, team, config, image_id=None):
         try:
-            user = self.users[team][msg.user]["name"]
+            user = self.caches[team].users[msg.user]["name"]
         except KeyError:
             # Bot message with no corresponding Slack user.
             user = msg.user_name
         try:
-            source = self.channels[team][msg.channel]["name"]
+            source = self.caches[team].channels[msg.channel]["name"]
         except KeyError:
             source = team
         yield from self._send_to_internal_chat(conv_id,
