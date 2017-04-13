@@ -22,8 +22,7 @@ class CommandDispatcher(object):
         self.command_tagsets = {}
 
         self.preprocessors = { "inbuilt": { r"(?<!@)@[^@]\w+[^@]$": self.one_chat_id,
-                                            r"(?<!#)#[^#]\w+[^#]$": self.one_conv_id,
-                                            r"#here": self.current_conv_id }}
+                                            r"(?<!#)#[^#]\w+[^#]$": self.one_conv_id }}
 
     def one_chat_id(self, token, internal_context):
         user_memory = self.bot.get_memory_option("user_data")
@@ -62,7 +61,13 @@ class CommandDispatcher(object):
             raise ValueError("{} returned more than one user".format(token))
 
     def one_conv_id(self, token, internal_context):
-        filter = "(type:GROUP)and(text:{})".format(token[1:])
+        text = token[1:]
+
+        if text == "here":
+            # current conversation id
+            return internal_context.conv_id
+
+        filter = "(type:GROUP)and(text:{})".format(text)
         conv_list = self.bot.conversations.get(filter)
         if len(conv_list) == 1:
             return next(iter(conv_list))
@@ -71,24 +76,33 @@ class CommandDispatcher(object):
         else:
             raise ValueError("{} returned too many conversations".format(token))
 
-    def current_conv_id(self, token, internal_context):
-        return internal_context.conv_id
-
     def preprocess_arguments(self, args, internal_context):
+        _implicit = not self.bot.get_config_option("commands.preprocessor.explicit")
         _trigger = ( self.bot.get_config_option("commands.preprocessor.trigger")
-                        or "+resolve" ).lower()
+                        or "resolve" ).lower()
+
+        _trigger_on = "+" + _trigger
+        _trigger_off = "-" + _trigger
         _separator = ":"
 
         """
         simple finite state machine parser:
 
         * arguments are processed in order of input, from left-to-right
-        * defaults trigger is +resolve" if not configured in config.json: commands.preprocessor.trigger
+        * default setting is always post-process
+          * switch off with config.json: commands.preprocessor.explicit = true
+        * default base trigger keyword = "resolve"
+          * override with config.json: commands.preprocessor.trigger
+          * full trigger keywords are:
+            * +<trigger> (add)
+            * -<trigger> (remove)
           * customised trigger word must be unique enough to prevent conflicts for other plugin parameters
+          * all examples here assume the trigger keyword is the default
           * devs: if conflict arises, other plugins have higher priority than this
-        * all examples here assume the trigger keyword is the default "+resolve"
-        * activate all resolvers via keyword:
+        * activate all resolvers for subsequent keywords (not required if implicit):
             +resolve
+        * deactivate all resolvers for subsequent keywords:
+            -resolve
         * activate specific resolver groups via keyword:
             +resolve:<comma-separated list of resolver groups, no spaces> e.g.
             +resolve:inbuilt,customalias1,customalias2
@@ -96,6 +110,9 @@ class CommandDispatcher(object):
             +resolve:off
             +resolve:false
             +resolve:0
+        * deactivate specific resolvers via keyword:
+            -resolve:inbuilt
+            -resolve:inbuilt,customa
         * escape trigger keyword with:
           * quotes
               "+resolve"
@@ -103,32 +120,75 @@ class CommandDispatcher(object):
               \+resolve
         """
 
-        resolver_groups = list(self.preprocessors.keys())
+        all_groups = list(self.preprocessors.keys())
+        if _implicit:
+            # always-on
+            default_groups = all_groups
+        else:
+            # on-demand
+            default_groups = []
 
+        apply_resolvers = default_groups
         new_args = []
-        apply_resolvers = []
         for arg in args:
             arg_lower = arg.lower()
             skip_arg = False
-            if _trigger == arg_lower:
-                apply_resolvers = resolver_groups
+            if _trigger_on == arg_lower:
+                # explicitly turn on all resolvers
+                #   +resolve
+                apply_resolvers = all_groups
                 skip_arg = True
-            elif arg_lower.startswith(_trigger + _separator):
+            elif _trigger_off == arg_lower:
+                # explicitly turn off all resolvers
+                #   -resolve
+                apply_resolvers = []
+                skip_arg = True
+            elif arg_lower.startswith(_trigger_on + _separator):
                 _right = arg_lower.split(_separator, 1)[-1]
                 if not _right or _right in ("off", "false", "0"):
+                    # turn off all resolver groups
+                    #   +resolve:off
+                    #   +resolve:false
+                    #   +resolve:0
+                    #   +resolve:
+                    apply_resolvers = []
+                elif _right == "*":
+                    # turn on all resolver groups
+                    #   +resolve:*
+                    apply_resolvers = all_groups
+                else:
+                    # turn on specific resolver groups
+                    #   +resolve:inbuilt
+                    #   +resolve:inbuilt,customa,customb
+                    apply_resolvers = _right.split(",")
+                skip_arg = True
+            elif arg_lower.startswith(_trigger_off + _separator):
+                _right = arg_lower.split(_separator, 1)[-1]
+                if not _right or _right in ("*"):
+                    # turn off all resolver groups
+                    #   -resolve:*
+                    #   -resolve:
                     apply_resolvers = []
                 else:
-                    apply_resolvers = _right.split(",")
+                    # turn off specific groups:
+                    #   -resolve:inbuilt
+                    #   -resolve:customa,customb
+                    for _group in _right.split(","):
+                        apply_resolvers.remove(_group)
                 skip_arg = True
             if skip_arg:
                 # never consume the trigger term
                 continue
             for rname in [ rname
                           for rname in apply_resolvers
-                          if rname in resolver_groups ]:
+                          if rname in all_groups ]:
                 for pattern, callee in self.preprocessors[rname].items():
                     if re.match(pattern, arg, flags=re.IGNORECASE):
-                        arg = callee(arg, internal_context)
+                        try:
+                            arg = callee(arg, internal_context)
+                            continue
+                        except Exception as e:
+                            raise
             new_args.append(arg)
 
         return new_args
