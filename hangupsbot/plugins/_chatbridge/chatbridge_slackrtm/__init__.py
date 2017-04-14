@@ -13,7 +13,7 @@ import plugins
 from plugins.slackrtm.parsers import slack_markdown_to_hangups, hangups_markdown_to_slack
 
 from .core import SlackWrapper, Identities, Message
-from .commands import set_bridge, run_slack_command, slack_identify
+from .commands import set_bridge, run_slack_command, slack_identify, slack_sync, slack_unsync
 from .utils import convert_legacy_config
 
 
@@ -184,4 +184,5 @@ class BridgeInstance(WebFramework):
 def _initialise(bot):
     convert_legacy_config(bot)
     plugins.register_user_command(["slack_identify"])
+    plugins.register_admin_command(["slack_sync", "slack_unsync"])
     set_bridge(BridgeInstance(bot, "slackrtm"))
