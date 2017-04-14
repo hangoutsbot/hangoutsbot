@@ -18,7 +18,7 @@ def _initialise(bot):
 def get_posix_args(rawargs):
     lexer = shlex.shlex(" ".join(rawargs), posix=True)
     lexer.commenters = ""
-    lexer.wordchars += "!@#$%^&*():/.<>?[]-,=+;"
+    lexer.wordchars += "!@#$%^&*():/.<>?[]-,=+;|"
     posix_args = list(lexer)
     return posix_args
 
