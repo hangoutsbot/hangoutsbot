@@ -12,7 +12,7 @@ import plugins
 
 from plugins.slackrtm.parsers import slack_markdown_to_hangups, hangups_markdown_to_slack
 
-from .core import SlackWrapper, Identities, Message
+from .core import HANGOUTS, SLACK, SlackWrapper, Identities, Message
 from .commands import set_bridge, run_slack_command, slack_identify, slack_sync, slack_unsync
 from .utils import convert_legacy_config
 
@@ -41,6 +41,18 @@ class BridgeInstance(WebFramework):
                                 "config.json": {"hangouts": [sync["hangout"]],
                                                 "slackrtm": [sync["channel"]]}})
         return configs
+
+    def map_external_uid_with_hangups_user(self, source_uid, external_context):
+        team, channel = external_context["source_gid"]
+        identity = self.idents[team].get(SLACK, source_uid)
+        # Make sure the reverse identity holds before mapping:
+        if identity and self.idents[team].get(HANGOUTS, identity) == source_uid:
+            user = self.bot.get_hangups_user(identity)
+            if user.definitionsource:
+                logger.debug("Confirmed identity: '{}' -> '{}'".format(source_uid, identity))
+                return user
+        logger.debug("No identity to confirm for '{}'".format(source_uid))
+        return False
 
     @asyncio.coroutine
     def _send_to_external_chat(self, config, event):
@@ -174,7 +186,7 @@ class BridgeInstance(WebFramework):
                                                slack_markdown_to_hangups(emoji.emojize(msg.text, use_aliases=True)),
                                                {"source_user": user,
                                                 "source_uid": msg.user,
-                                                "source_gid": msg.channel,
+                                                "source_gid": [team, msg.channel],
                                                 "source_title": source,
                                                 "source_edited": msg.edited,
                                                 "source_action": msg.action},
