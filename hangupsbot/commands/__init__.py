@@ -56,7 +56,7 @@ class CommandDispatcher(object):
 
         if text == "me":
             # current user chat_id
-            subtokens[-1] = internal_context.user_id.chat_id
+            subtokens[-1] = internal_context.user.id_.chat_id
         else:
             user_memory = self.bot.get_memory_option("user_data")
             if all_users:
