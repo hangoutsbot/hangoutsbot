@@ -64,6 +64,26 @@ class BridgeInstance(WebFramework):
         if not message:
             message = ""
 
+        if any(a.type == 4 for a in event.conv_event._event.chat_message.annotation):
+            # This is a /me message sent from desktop Hangouts.
+            is_action = True
+            # The user's first name prefixes the message, so try to strip that.
+            user = self._get_user_details(event.passthru["chatbridge"].get("source_user"))
+            name = user.get("full_name")
+            if name:
+                # We don't have a clear-cut first name, so try to match parts of names.
+                # Try the full name first, then split successive words off the end.
+                parts = name.split()
+                for pos in range(len(parts), 0, -1):
+                    sub_name = " ".join(parts[:pos])
+                    if message.startswith(sub_name):
+                        message = message[len(sub_name) + 1:]
+                        break
+                else:
+                    # Couldn't match the user's name to the message text.
+                    # Possible mismatch between permamem and Hangouts?
+                    pass
+
         attach = None
         if hasattr(event, "conv_event") and getattr(event.conv_event, "attachments"):
             attach = event.conv_event.attachments[0]
