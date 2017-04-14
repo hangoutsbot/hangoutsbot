@@ -21,60 +21,102 @@ class CommandDispatcher(object):
 
         self.command_tagsets = {}
 
-        self.preprocessors = { "inbuilt": { r"(?<!@)@[^@]\w+[^@]$": self.one_chat_id,
-                                            r"(?<!#)#[^#]\w+[^#]$": self.one_conv_id }}
+        """
+        inbuilt argument preprocessors, recognises:
+        * one_chat_id (also resolves #conv)
+          * @user
+          * #conv|@user (tagset convuser format)
+          * abcd|@user (tagset convuser format)
+        * one_conv_id
+          * #conv
+          * #conv|* (tagset convuser format)
+          * #conv|123 (tagset convuser format)
+        * test cases that won't match:
+          * #abcd#
+          * ##abcd
+          * ##abcd##
+          * ##abcd|*
+          * @user|abcd
+          * wxyz@user
+          * @user@wxyz
+        """
 
-    def one_chat_id(self, token, internal_context):
-        user_memory = self.bot.get_memory_option("user_data")
-        if internal_context:
-            chat_ids = list(self.bot.conversations.catalog[internal_context.conv_id]["participants"])
+        self.preprocessors = { "inbuilt": {
+            r"^(#?[\w|]+[^#]\|)?@[\w]+[^@]$": self.one_chat_id,
+            r"^#[\w|]+[^#]$": self.one_conv_id }}
+
+    def one_chat_id(self, token, internal_context, all_users=False):
+        subtokens = token.split("|", 1)
+
+        if subtokens[0].startswith("#"):
+            # probably convuser format - resolve conversation id first
+            subtokens[0] = self.one_conv_id(subtokens[0], internal_context)
+
+        text = subtokens[-1][1:]
+
+        if text == "me":
+            # current user chat_id
+            subtokens[-1] = internal_context.user_id.chat_id
         else:
-            chat_ids = list(user_memory.keys())
-
-        fragment = token[1:]
-        matched_users = {}
-        for chat_id in chat_ids:
-            user_data = user_memory[chat_id]
-            if "_hangups" in user_data:
-                if "nickname" in user_data:
-                    nickname_lower =  user_data["nickname"].lower()
-                else:
-                    nickname_lower = ""
-                fullname_lower = user_data["_hangups"]["full_name"].lower()
-
-                if fragment == nickname_lower:
-                    matched_users[chat_id] = chat_id
-                    break
-
-                elif( fragment in fullname_lower or
-                        fragment in fullname_lower.replace(" ", "") ):
-                    matched_users[chat_id] = chat_id
-
-        if len(matched_users) == 1:
-            return list(matched_users)[0]
-        elif len(matched_users) == 0:
-            if internal_context:
-                return self.one_chat_id(token, False)
+            user_memory = self.bot.get_memory_option("user_data")
+            if all_users:
+                chat_ids = list(self.bot.conversations.catalog[internal_context.conv_id]["participants"])
             else:
-                raise ValueError("{} returned no users".format(token))
-        else:
-            raise ValueError("{} returned more than one user".format(token))
+                chat_ids = list(user_memory.keys())
+
+            matched_users = {}
+            for chat_id in chat_ids:
+                user_data = user_memory[chat_id]
+                if "_hangups" in user_data:
+                    if "nickname" in user_data:
+                        nickname_lower =  user_data["nickname"].lower()
+                    else:
+                        nickname_lower = ""
+                    fullname_lower = user_data["_hangups"]["full_name"].lower()
+
+                    if text == nickname_lower:
+                        matched_users[chat_id] = chat_id
+                        break
+
+                    elif( text in fullname_lower or
+                            text in fullname_lower.replace(" ", "") ):
+                        matched_users[chat_id] = chat_id
+
+            if len(matched_users) == 1:
+                subtokens[-1] = list(matched_users)[0]
+            elif len(matched_users) == 0:
+                if internal_context:
+                    # redo the user search, expanded to all users
+                    # since this is calling itself again, completely overwrite subtokens
+                    subtokens = self.one_chat_id(
+                        token,
+                        internal_context,
+                        all_users=True ).split("|", 1)
+                else:
+                    raise ValueError("{} returned no users".format(token))
+            else:
+                raise ValueError("{} returned more than one user".format(token))
+
+        return "|".join(subtokens)
 
     def one_conv_id(self, token, internal_context):
-        text = token[1:]
+        subtokens = token.split("|", 1)
 
+        text = subtokens[0][1:]
         if text == "here":
             # current conversation id
-            return internal_context.conv_id
-
-        filter = "(type:GROUP)and(text:{})".format(text)
-        conv_list = self.bot.conversations.get(filter)
-        if len(conv_list) == 1:
-            return next(iter(conv_list))
-        elif len(conv_list) == 0:
-            raise ValueError("{} returned no conversations".format(token))
+            subtokens[0] = internal_context.conv_id
         else:
-            raise ValueError("{} returned too many conversations".format(token))
+            filter = "(type:GROUP)and(text:{})".format(text)
+            conv_list = self.bot.conversations.get(filter)
+            if len(conv_list) == 1:
+                subtokens[0] = next(iter(conv_list))
+            elif len(conv_list) == 0:
+                raise ValueError("{} returned no conversations".format(token))
+            else:
+                raise ValueError("{} returned too many conversations".format(token))
+
+        return "|".join(subtokens)
 
     def preprocess_arguments(self, args, internal_context):
         _implicit = not self.bot.get_config_option("commands.preprocessor.explicit")
