@@ -118,9 +118,17 @@ class CommandDispatcher(object):
 
         return "|".join(subtokens)
 
-    def preprocess_arguments(self, args, internal_context):
-        _implicit = not self.bot.get_config_option("commands.preprocessor.explicit")
-        _trigger = ( self.bot.get_config_option("commands.preprocessor.trigger")
+    def preprocess_arguments(self, args, internal_context, force_trigger="", force_groups=[]):
+        """custom preprocessing for use by other plugins, specify:
+        * force_trigger word to override config, default
+          prevents confusion if botmin has overridden this for their own usage
+        * force_groups to a list of resolver group names
+          at least 1 must exist, otherwise all resolvers will be used (as usual)"""
+
+        _implicit = ( bool(force_groups)
+                        or not self.bot.get_config_option("commands.preprocessor.explicit") )
+        _trigger = ( force_trigger
+                        or self.bot.get_config_option("commands.preprocessor.trigger")
                         or "resolve" ).lower()
 
         _trigger_on = "+" + _trigger
@@ -162,9 +170,13 @@ class CommandDispatcher(object):
               \+resolve
         """
 
-        all_groups = list(self.preprocessors.keys())
-        all_groups.remove("inbuilt")
-        all_groups.append("inbuilt") # lowest priority: inbuilt
+        all_groups = list( [ g for g in force_groups if g in self.preprocessors.keys() ]
+                                or self.preprocessors.keys() )
+        if "inbuilt" in all_groups:
+            # lowest priority: inbuilt
+            all_groups.remove("inbuilt")
+            all_groups.append("inbuilt")
+
         if _implicit:
             # always-on
             default_groups = all_groups
