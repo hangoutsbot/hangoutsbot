@@ -125,6 +125,10 @@ class CommandDispatcher(object):
         * force_groups to a list of resolver group names
           at least 1 must exist, otherwise all resolvers will be used (as usual)"""
 
+        all_groups = list(self.preprocessors.keys())
+        force_groups = [ g for g in force_groups if g in all_groups ]
+        all_groups = force_groups or all_groups
+
         _implicit = ( bool(force_groups)
                         or not self.bot.get_config_option("commands.preprocessor.explicit") )
         _trigger = ( force_trigger
@@ -170,8 +174,6 @@ class CommandDispatcher(object):
               \+resolve
         """
 
-        all_groups = list( [ g for g in force_groups if g in self.preprocessors.keys() ]
-                                or self.preprocessors.keys() )
         if "inbuilt" in all_groups:
             # lowest priority: inbuilt
             all_groups.remove("inbuilt")
