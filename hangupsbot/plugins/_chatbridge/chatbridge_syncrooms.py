@@ -59,8 +59,23 @@ class BridgeInstance(WebFramework):
         message = event.passthru["original_request"]["message"]
         image_id = event.passthru["original_request"]["image_id"]
 
+        is_action = event.passthru["chatbridge"].get("source_action")
+
         if not message:
             message = ""
+
+        attach = None
+        if hasattr(event, "conv_event") and getattr(event.conv_event, "attachments"):
+            attach = event.conv_event.attachments[0]
+            if attach == message:
+                # Message consists solely of the attachment URL, no need to send that.
+                message = "shared an image"
+                is_action = True
+            elif attach in message:
+                # Message includes some text too, strip the attachment URL from the end if present.
+                message = message.replace("\n{}".format(attach), "")
+
+        event.passthru["chatbridge"]["source_action"] = is_action
 
         for relay_id in relay_ids:
             """XXX: media sending:
@@ -69,15 +84,10 @@ class BridgeInstance(WebFramework):
               * real events from google servers will have the medialink in event.conv_event.attachment
             """
 
-            if( hasattr(event, "conv_event")
-                    and hasattr(event.conv_event, "attachments")
-                    and len(event.conv_event.attachments) == 1 ):
-                # catch actual events with media link, upload it to get a valid image id
-                media_link = event.conv_event.attachments[0]
-                logger.info("media link in original event: {}".format(media_link))
-
-                image_id = yield from self.bot.call_shared("image_upload_single", media_link)
-                message = "shared media on hangouts"
+            # catch actual events with media link, upload it to get a valid image id
+            if attach:
+                logger.info("media link in original event: {}".format(attach))
+                image_id = yield from self.bot.call_shared("image_upload_single", attach)
 
             """standard message relay"""
 
