@@ -150,32 +150,38 @@ class TelegramBot(telepot.aio.Bot):
 
     @staticmethod
     def on_message(bot, chat_id, msg):
-        print("[MSG] {uid} : {txt}".format(uid=msg['from']['id'], txt=msg['text']))
+        logger.info("unhandled message from {} with text {}".format(
+            msg['from']['id'], msg['text'] ))
 
     @staticmethod
     def on_photo(bot, chat_id, msg):
-        print("[PIC]{uid} : {photo_id}".format(uid=msg['from']['id'], photo_id=msg['photo'][0]['file_id']))
+        logger.info("unhandled photo from {} with metadata {}".format(
+            msg['from']['id'], msg['photo'] ))
 
     @staticmethod
     def on_sticker(bot, chat_id, msg):
-        print("[STI]{uid} : {file_id}".format(uid=msg['from']['id'], file_id=msg['sticker']['file_id']))
+        logger.info("unhandled sticker from {} with metadata {}".format(
+            msg['from']['id'], msg['sticker'] ))
 
     @staticmethod
     def on_user_join(bot, chat_id, msg):
-        print("New User: {name}".format(name=msg['new_chat_member']['first_name']))
+        logger.info("unhandled new user {}".format(
+            msg['new_chat_member']['first_name'] ))
 
     @staticmethod
     def on_user_leave(bot, chat_id, msg):
-        print("{name} Left the gorup".format(name=msg['left_chat_member']['first_name']))
+        logger.info("unhandled user exit {}".format(
+            msg['left_chat_member']['first_name'] ))
 
     @staticmethod
     def on_location_share(bot, chat_id, msg):
-        print("{name} shared a location".format(name=msg['from']['first_name']))
+        logger.info("unhandled location sharing from {}".format(
+            msg['from']['first_name'] ))
 
     @staticmethod
     def on_supergroup_upgrade(bot, msg):
-        print("Group {old_chat_id} upgraded to supergroup {new_chat_id}".format(old_chat_id=msg['chat']['id'],
-                                                                                new_chat_id=msg['migrate_to_chat_id']))
+        logger.info("unhandled supergroup upgrade from uid {} to {}".format(
+            msg['chat']['id'], msg['migrate_to_chat_id'] ))
 
     def set_on_message_callback(self, func):
         self.onMessageCallback = func
@@ -273,7 +279,8 @@ class TelegramBot(telepot.aio.Bot):
                         msg['photo'] = [ msg["document"] ]
                         msg['photo'][0]["width"] = 1 # XXX: required for tg_util_get_photo_list() sort
                         yield from self.onPhotoCallback(self, chat_id, msg)
-                    elif msg["document"]["mime_type"] == "video/mp4" and msg["document"]["file_name"].endswith(".gif.mp4"):
+                    elif msg["document"]["mime_type"] == "video/mp4":
+                        logger.debug("received video/mp4 as a document: {}".format(msg))
                         # telegram converts animated gifs to mp4, upload is incompatible with hangouts
                         # treat like a photo anyway, hint to backend to resolve the issue
                         if "convert-with-gifscom" not in config or not config["convert-with-gifscom"]:
@@ -284,13 +291,16 @@ class TelegramBot(telepot.aio.Bot):
                             msg['photo'][0]["width"] = 1 # XXX: required for tg_util_get_photo_list() sort
                             yield from self.onPhotoCallback(self, chat_id, msg, original_is_gif=True)
 
+                else:
+                    logger.warning("unhandled content type: {} {}".format(content_type, msg))
+
             elif flavor == "inline_query":  # inline query e.g. "@gif cute panda"
                 query_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
-                print("inline_query")
+                logger.info("inline_query {}".format(msg))
 
             elif flavor == "chosen_inline_result":
                 result_id, from_id, query_string = telepot.glance(msg, flavor=flavor)
-                print("chosen_inline_result")
+                logger.info("chosen_inline_result {}".format(msg))
 
             else:
                 raise telepot.BadFlavor(msg)
@@ -344,7 +354,6 @@ def tg_util_sync_get_user_name(msg, chat_action='from'):
     username = False
 
     fullname = _first_name = _last_name = ""
-    print(msg[chat_action])
     if 'first_name' in msg[chat_action] and msg[chat_action]['first_name']:
         _first_name = msg[chat_action]['first_name']
     if 'last_name' in msg[chat_action] and msg[chat_action]['last_name']:
