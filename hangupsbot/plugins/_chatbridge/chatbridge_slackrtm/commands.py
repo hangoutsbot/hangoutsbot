@@ -3,6 +3,7 @@ import logging
 import re
 
 from .core import HANGOUTS, SLACK, inv
+from .parser import from_hangups
 
 
 logger = logging.getLogger(__name__)
@@ -17,11 +18,6 @@ def set_bridge(br):
     global bridge
     bridge = br
 
-
-def _html_to_slack(text):
-    text = re.sub(r"<b>(.*?)</b>", r"*\1*", text)
-    text = re.sub(r"<i>(.*?)</i>", r"_\1_", text)
-    return text
 
 def _resolve_channel(team, query):
     # Match Slack channel hyperlinks.
@@ -128,7 +124,7 @@ def reply_slack(fn):
     """
     @wraps(fn)
     def wrap(msg, slack, team):
-        resp = _html_to_slack(fn(msg, slack, team))
+        resp = from_hangups.convert(fn(msg, slack, team))
         if not resp:
             return
         slack.api_call("chat.postMessage", channel=msg.channel, as_user=True, text=resp)

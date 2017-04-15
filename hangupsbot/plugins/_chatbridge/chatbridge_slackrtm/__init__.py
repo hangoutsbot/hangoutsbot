@@ -10,10 +10,9 @@ import emoji
 from webbridge import WebFramework
 import plugins
 
-from plugins.slackrtm.parsers import slack_markdown_to_hangups, hangups_markdown_to_slack
-
 from .core import HANGOUTS, SLACK, SlackWrapper, Identities, Message
 from .commands import set_bridge, run_slack_command, slack_identify, slack_sync, slack_unsync
+from .parser import from_slack, from_hangups
 from .utils import convert_legacy_config
 
 
@@ -56,7 +55,8 @@ class BridgeInstance(WebFramework):
 
     @asyncio.coroutine
     def _send_to_external_chat(self, config, event):
-        text = event.passthru["original_request"]["message"]
+        segments = event.passthru["original_request"].get("segments")
+        text = from_hangups.convert(segments)
         user = event.passthru["original_request"]["user"]
         bridge_user = self._get_user_details(user, {"event": event})
         team, channel = config["config.json"]["slackrtm"][0]
@@ -89,7 +89,7 @@ class BridgeInstance(WebFramework):
         if attachments:
             kwargs["attachments"] = attachments
         if text:
-            kwargs["text"] = hangups_markdown_to_slack(text)
+            kwargs["text"] = text
         msg = self.slacks[team].api_call("chat.postMessage",
                                          channel=channel,
                                          link_names=True,
@@ -183,7 +183,7 @@ class BridgeInstance(WebFramework):
         except KeyError:
             source = team
         yield from self._send_to_internal_chat(conv_id,
-                                               slack_markdown_to_hangups(emoji.emojize(msg.text, use_aliases=True)),
+                                               from_slack.convert(emoji.emojize(msg.text, use_aliases=True)),
                                                {"source_user": user,
                                                 "source_uid": msg.user,
                                                 "source_gid": [team, msg.channel],
