@@ -4,6 +4,8 @@ import json
 import logging
 import requests
 
+from hangups import ChatMessageEvent
+
 import plugins
 
 from webbridge import ( WebFramework,
@@ -64,11 +66,13 @@ class BridgeInstance(WebFramework):
         if not message:
             message = ""
 
-        if any(a.type == 4 for a in event.conv_event._event.chat_message.annotation):
+        if (hasattr(event, "conv_event") and isinstance(event.conv_event, ChatMessageEvent) and
+                any(a.type == 4 for a in event.conv_event._event.chat_message.annotation)):
             # This is a /me message sent from desktop Hangouts.
             is_action = True
             # The user's first name prefixes the message, so try to strip that.
-            user = self._get_user_details(event.passthru["chatbridge"].get("source_user"))
+            user_id = event.passthru["chatbridge"].get("source_user")
+            user = self._get_user_details(user_id)
             name = user.get("full_name")
             if name:
                 # We don't have a clear-cut first name, so try to match parts of names.
@@ -82,7 +86,8 @@ class BridgeInstance(WebFramework):
                 else:
                     # Couldn't match the user's name to the message text.
                     # Possible mismatch between permamem and Hangouts?
-                    pass
+                    logger.warn("/me message: couldn't match name '{}' ({}) with message text"
+                                .format(name, user_id))
 
         attach = None
         if hasattr(event, "conv_event") and getattr(event.conv_event, "attachments"):
