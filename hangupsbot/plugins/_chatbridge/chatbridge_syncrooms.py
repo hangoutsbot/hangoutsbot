@@ -4,6 +4,8 @@ import json
 import logging
 import requests
 
+from hangups import ChatMessageEvent
+
 import plugins
 
 from webbridge import ( WebFramework,
@@ -59,8 +61,46 @@ class BridgeInstance(WebFramework):
         message = event.passthru["original_request"]["message"]
         image_id = event.passthru["original_request"]["image_id"]
 
+        is_action = event.passthru["chatbridge"].get("source_action")
+
         if not message:
             message = ""
+
+        if (hasattr(event, "conv_event") and isinstance(event.conv_event, ChatMessageEvent) and
+                any(a.type == 4 for a in event.conv_event._event.chat_message.annotation)):
+            # This is a /me message sent from desktop Hangouts.
+            is_action = True
+            # The user's first name prefixes the message, so try to strip that.
+            user_id = event.passthru["chatbridge"].get("source_user")
+            user = self._get_user_details(user_id)
+            name = user.get("full_name")
+            if name:
+                # We don't have a clear-cut first name, so try to match parts of names.
+                # Try the full name first, then split successive words off the end.
+                parts = name.split()
+                for pos in range(len(parts), 0, -1):
+                    sub_name = " ".join(parts[:pos])
+                    if message.startswith(sub_name):
+                        message = message[len(sub_name) + 1:]
+                        break
+                else:
+                    # Couldn't match the user's name to the message text.
+                    # Possible mismatch between permamem and Hangouts?
+                    logger.warn("/me message: couldn't match name '{}' ({}) with message text"
+                                .format(name, user_id))
+
+        attach = None
+        if hasattr(event, "conv_event") and getattr(event.conv_event, "attachments"):
+            attach = event.conv_event.attachments[0]
+            if attach == message:
+                # Message consists solely of the attachment URL, no need to send that.
+                message = "shared an image"
+                is_action = True
+            elif attach in message:
+                # Message includes some text too, strip the attachment URL from the end if present.
+                message = message.replace("\n{}".format(attach), "")
+
+        event.passthru["chatbridge"]["source_action"] = is_action
 
         for relay_id in relay_ids:
             """XXX: media sending:
@@ -69,15 +109,10 @@ class BridgeInstance(WebFramework):
               * real events from google servers will have the medialink in event.conv_event.attachment
             """
 
-            if( hasattr(event, "conv_event")
-                    and hasattr(event.conv_event, "attachments")
-                    and len(event.conv_event.attachments) == 1 ):
-                # catch actual events with media link, upload it to get a valid image id
-                media_link = event.conv_event.attachments[0]
-                logger.info("media link in original event: {}".format(media_link))
-
-                image_id = yield from self.bot.call_shared("image_upload_single", media_link)
-                message = "shared media on hangouts"
+            # catch actual events with media link, upload it to get a valid image id
+            if attach:
+                logger.info("media link in original event: {}".format(attach))
+                image_id = yield from self.bot.call_shared("image_upload_single", attach)
 
             """standard message relay"""
 
