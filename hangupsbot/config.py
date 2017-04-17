@@ -10,7 +10,7 @@ class Config(collections.MutableMapping):
     """Configuration JSON storage class"""
     def __init__(self, filename, default=None, failsafe_backups=0, save_delay=0):
         self.filename = filename
-        self.default = None
+        self.default = default
         self.config = {}
         self.changed = False
         self.failsafe_backups = failsafe_backups
@@ -130,10 +130,9 @@ class Config(collections.MutableMapping):
 
     def get_option(self, keyname):
         try:
-            value = self.config[keyname]
+            return self.get_by_path([keyname])
         except KeyError:
-            value = None
-        return value
+            return self.default
 
     def get_suboption(self, grouping, groupname, keyname):
         try:
