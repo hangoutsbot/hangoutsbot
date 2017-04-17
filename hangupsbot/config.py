@@ -230,6 +230,19 @@ class Config(collections.MutableMapping):
             elif isinstance(value, list):
                 defaults[key].extend(value)
 
+    def validate(self, source, path=None):
+        if path is None:
+            path = []
+        for key, value in source.items():
+            if not self.exists(path + [key]):
+                self.set_by_path(path + [key], value)
+
+            elif not isinstance(self.get_by_path(path + [key]), type(value)):
+                self.set_by_path(path + [key], value)
+
+            elif isinstance(value, dict) and len(value):
+                self.validate(value, path + [key])
+
     def __getitem__(self, key):
         return self.get_option(key)
 
