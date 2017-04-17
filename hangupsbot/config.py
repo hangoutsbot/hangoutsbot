@@ -188,10 +188,7 @@ class Config(collections.MutableMapping):
         return _exists
 
     def __getitem__(self, key):
-        try:
-            return self.config[key]
-        except KeyError:
-            return self.default
+        return self.get_option(key)
 
     def __setitem__(self, key, value):
         self.config[key] = value
