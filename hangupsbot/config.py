@@ -48,7 +48,7 @@ class Config(collections.MutableMapping):
         except IOError:
             return False
         except ValueError:
-            logger.warning("{} is corrupted, aborting backup".format(self.filename))
+            logger.warning("%s is corrupted, aborting backup", self.filename)
             return False
 
         existing = sorted(glob.glob(self.filename + ".*.bak"))
@@ -81,7 +81,7 @@ class Config(collections.MutableMapping):
                 logger.warning('Failed to remove %s, check permissions',
                                recovery_filename)
             except ValueError:
-                logger.error("corrupted recovery: {}".format(self.filename))
+                logger.error("corrupted recovery: %s", self.filename)
         return False
 
     def load(self):
