@@ -1,7 +1,5 @@
 import collections, datetime, functools, json, glob, logging, os, shutil, sys, time
-
-from threading import Timer
-
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +13,9 @@ class Config(collections.MutableMapping):
         self.failsafe_backups = failsafe_backups
         self.save_delay = save_delay
         self._last_dump = None
+        self._timer_save = None
         self.load()
 
-        self._timer_save = False
     @property
     def _changed(self):
         """return weather the config changed since the last dump
@@ -101,14 +99,22 @@ class Config(collections.MutableMapping):
         self.config = json.loads(json_str)
 
     def save(self, delay=True):
-        if self.save_delay:
-            if delay:
-                if self._timer_save and self._timer_save.is_alive():
-                    self._timer_save.cancel()
-                self._timer_save = Timer(self.save_delay, self.save, [], {"delay": False})
-                self._timer_save.start()
-                return False
+        """dump the cached data to file
 
+        Args:
+            delay: boolean, set to False to force an immediate dump
+
+        Raises:
+            IOError: the config can not be saved to the configured path
+            ValueError: the config can not be formated as json
+        """
+        if self._timer_save is not None:
+            self._timer_save.cancel()
+
+        if self.save_delay and delay:
+            self._timer_save = asyncio.get_event_loop().call_later(
+                self.save_delay, self.save, False)
+            return
 
         if not self._changed:
             # skip dumping as the file is already up to date
