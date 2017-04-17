@@ -1,5 +1,13 @@
-import collections, datetime, functools, json, glob, logging, os, shutil, sys, time
 import asyncio
+import collections
+from datetime import datetime
+import functools
+import json
+import glob
+import logging
+import os
+import shutil
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +57,9 @@ class Config(collections.MutableMapping):
             except IOError:
                 logger.warning('Failed to remove %s, check permissions', path)
 
-        backup_file = self.filename + "." + datetime.datetime.now().strftime("%Y%m%d%H%M%S") + ".bak"
+        backup_file = "%s.%s.bak" % (self.filename,
+                                     datetime.now().strftime("%Y%m%d%H%M%S"))
         shutil.copy2(self.filename, backup_file)
-
         return True
 
     def _recover_from_failsafe(self):
