@@ -91,7 +91,11 @@ class Config(collections.MutableMapping):
             logger.info("%s read", self.filename)
 
         except IOError:
-            self.config = {}
+            if not os.path.isfile(self.filename):
+                self.config = {}
+                self.save(delay=False)
+                return
+            raise
 
         except ValueError:
             if self.failsafe_backups and self._recover_from_failsafe():
