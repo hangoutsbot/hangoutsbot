@@ -5,6 +5,7 @@ import functools
 import json
 import glob
 import logging
+import operator
 import os
 import shutil
 import time
@@ -18,6 +19,7 @@ class Config(collections.MutableMapping):
         self.filename = filename
         self.default = default
         self.config = {}
+        self.defaults = {}
         self.failsafe_backups = failsafe_backups
         self.save_delay = save_delay
         self._last_dump = None
@@ -151,17 +153,32 @@ class Config(collections.MutableMapping):
         logger.info("flushing %s", self.filename)
         self.save(delay=False)
 
-    def get_by_path(self, keys_list):
-        """Get item from config by path (list of keys)"""
-        return functools.reduce(lambda d, k: d[int(k) if isinstance(d, list) else k], keys_list, self)
+    def get_by_path(self, keys_list, fallback=True):
+        try:
+            return self._get_by_path(self.config, keys_list)
+        except (KeyError, ValueError):
+            if not fallback:
+                raise
+            try:
+                return self._get_by_path(self.defaults, keys_list)
+            except (KeyError, ValueError):
+                raise KeyError('%s has no path %s and there is no default set' %
+                               (self.filename, keys_list))
 
-    def set_by_path(self, keys_list, value):
-        """Set item in config by path (list of keys)"""
-        self.get_by_path(keys_list[:-1])[keys_list[-1]] = value
+    def set_by_path(self, keys_list, value, create_path=True):
+        if create_path:
+            self.ensure_path(keys_list)
+        self.get_by_path(keys_list[:-1],
+                         fallback=False)[keys_list[-1]] = value
 
     def pop_by_path(self, keys_list):
-        popped_value = self.get_by_path(keys_list[:-1]).pop(keys_list[-1])
-        return popped_value
+        return self.get_by_path(keys_list[:-1], False).pop(keys_list[-1])
+
+    @staticmethod
+    def _get_by_path(source, path):
+        if not len(path):
+            return source
+        return functools.reduce(operator.getitem, path[:-1], source)[path[-1]]
 
     def get_option(self, keyname):
         try:
@@ -186,6 +203,19 @@ class Config(collections.MutableMapping):
             _exists = False
 
         return _exists
+    def ensure_path(self, path, base=None):
+        if base is None:
+            base = self.config
+        created = not self.exists(path)
+        last_key = None
+        for level in path:
+            try:
+                base = base.setdefault(level, {})
+                last_key = level
+            except AttributeError:
+                raise AttributeError('%s has no dict at "%s" in the path %s' %
+                                     (self.filename, last_key, path))
+        return created
 
     def __getitem__(self, key):
         return self.get_option(key)
