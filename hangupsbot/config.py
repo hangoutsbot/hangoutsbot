@@ -43,8 +43,8 @@ class Config(collections.MutableMapping):
 
     def _make_failsafe_backup(self):
         try:
-            with open(self.filename) as f:
-                json.load(f)
+            with open(self.filename) as file:
+                json.load(file)
         except IOError:
             return False
         except ValueError:
