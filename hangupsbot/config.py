@@ -56,25 +56,25 @@ class Config(collections.MutableMapping):
 
     def _recover_from_failsafe(self):
         existing = sorted(glob.glob(self.filename + ".*.bak"))
+        recovery_filename = None
         while len(existing) > 0:
             try:
                 recovery_filename = existing.pop()
-                with open(recovery_filename) as f:
-                    # test the file is valid json
-                    json.load(f)
-
-                shutil.copy2(recovery_filename, self.filename)
-                self.load(recovery=True)
-                logger.info("recovery successful: {}".format(recovery_filename))
+                with open(recovery_filename, 'r') as file:
+                    data = file.read()
+                self._loads(data)
+                self.save(delay=False)
+                logger.info("recovered %s successful from %s", self.filename,
+                            recovery_filename)
                 return True
             except IOError:
-                pass
+                logger.warning('Failed to remove %s, check permissions',
+                               recovery_filename)
             except ValueError:
                 logger.error("corrupted recovery: {}".format(self.filename))
         return False
 
-    def load(self, recovery=False):
-        """Load config from file"""
+    def load(self):
         try:
             with open(self.filename) as file:
                 data = file.read()
@@ -86,9 +86,8 @@ class Config(collections.MutableMapping):
             self.config = {}
 
         except ValueError:
-            if not recovery and self.failsafe_backups > 0 and self._recover_from_failsafe():
+            if self.failsafe_backups and self._recover_from_failsafe():
                 return
-
             raise
 
     def _loads(self, json_str):
