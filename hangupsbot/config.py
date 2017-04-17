@@ -43,7 +43,11 @@ class Config(collections.MutableMapping):
 
         existing = sorted(glob.glob(self.filename + ".*.bak"))
         while len(existing) > (self.failsafe_backups - 1):
-            os.remove(existing.pop(0))
+            path = existing.pop(0)
+            try:
+                os.remove(path)
+            except IOError:
+                logger.warning('Failed to remove %s, check permissions', path)
 
         backup_file = self.filename + "." + datetime.datetime.now().strftime("%Y%m%d%H%M%S") + ".bak"
         shutil.copy2(self.filename, backup_file)
