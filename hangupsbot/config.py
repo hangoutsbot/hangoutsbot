@@ -192,16 +192,14 @@ class Config(collections.MutableMapping):
         except KeyError:
             return self.get_option(keyname)
 
-    def exists(self, keys_list):
-        _exists = True
+    def exists(self, keys_list, fallback=False):
 
         try:
-            if self.get_by_path(keys_list) is None:
-                _exists = False
+            self.get_by_path(keys_list, fallback)
+            return True
         except (KeyError, TypeError):
-            _exists = False
+            return False
 
-        return _exists
     def ensure_path(self, path, base=None):
         if base is None:
             base = self.config
