@@ -214,6 +214,22 @@ class Config(collections.MutableMapping):
                                      (self.filename, last_key, path))
         return created
 
+    def set_defaults(self, source, path=None):
+        if path is None:
+            path = []
+        else:
+            self.ensure_path(path, base=self.defaults)
+        defaults = self._get_by_path(self.defaults, path)
+        for key, value in source.items():
+            if key not in defaults:
+                defaults[key] = value
+
+            elif isinstance(value, dict):
+                self.set_defaults(value, path + [key])
+
+            elif isinstance(value, list):
+                defaults[key].extend(value)
+
     def __getitem__(self, key):
         return self.get_option(key)
 
