@@ -148,9 +148,7 @@ class Config(collections.MutableMapping):
         logger.info("%s write %s", self.filename, interval)
 
     def flush(self):
-        if self._timer_save and self._timer_save.is_alive():
-            logger.info("flushing {}".format(self.filename))
-            self._timer_save.cancel()
+        logger.info("flushing %s", self.filename)
         self.save(delay=False)
 
     def get_by_path(self, keys_list):
