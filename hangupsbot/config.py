@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 class Config(collections.MutableMapping):
     """Configuration JSON storage class"""
-    def __init__(self, filename, default=None, failsafe_backups=0, save_delay=0):
-        self.filename = filename
+    def __init__(self, path, default=None, failsafe_backups=0, save_delay=0):
+        self.filename = path
         self.default = default
         self.config = {}
         self.defaults = {}
