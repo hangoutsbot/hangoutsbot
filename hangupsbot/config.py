@@ -188,10 +188,9 @@ class Config(collections.MutableMapping):
 
     def get_suboption(self, grouping, groupname, keyname):
         try:
-            value = self.config[grouping][groupname][keyname]
+            return self.get_by_path([grouping, groupname, keyname])
         except KeyError:
-            value = self.get_option(keyname)
-        return value
+            return self.get_option(keyname)
 
     def exists(self, keys_list):
         _exists = True
