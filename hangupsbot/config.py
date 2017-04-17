@@ -12,12 +12,26 @@ class Config(collections.MutableMapping):
         self.filename = filename
         self.default = default
         self.config = {}
-        self.changed = False
         self.failsafe_backups = failsafe_backups
         self.save_delay = save_delay
+        self._last_dump = None
         self.load()
 
         self._timer_save = False
+    @property
+    def _changed(self):
+        """return weather the config changed since the last dump
+
+        Returns:
+            boolean, True if config matches with the last dump, otherwise False
+        """
+        try:
+            current_state = json.dumps(self.config, indent=2, sort_keys=True)
+            return current_state != self._last_dump
+
+        except TypeError:
+            # currupt config
+            return True
 
     def _make_failsafe_backup(self):
         try:
@@ -60,9 +74,11 @@ class Config(collections.MutableMapping):
     def load(self, recovery=False):
         """Load config from file"""
         try:
-            with open(self.filename) as f:
-                self.config = json.load(f)
-            logger.info("{} read".format(self.filename))
+            with open(self.filename) as file:
+                data = file.read()
+            self._loads(data)
+            self._last_dump = data
+            logger.info("%s read", self.filename)
 
         except IOError:
             self.config = {}
@@ -73,15 +89,16 @@ class Config(collections.MutableMapping):
 
             raise
 
-        self.changed = False
+    def _loads(self, json_str):
+        """Load config from JSON string
 
-    def force_taint(self):
-        self.changed = True
+        Args:
+            json_str: string, a json formated string that overrides the config
 
-    def loads(self, json_str):
-        """Load config from JSON string"""
+        Raises:
+            ValueError: the string is not a valid json representing of a dict
+        """
         self.config = json.loads(json_str)
-        self.changed = True
 
     def save(self, delay=True):
         if self.save_delay:
@@ -92,21 +109,22 @@ class Config(collections.MutableMapping):
                 self._timer_save.start()
                 return False
 
-        """Save config to file (only if config has changed)"""
-        if self.changed:
-            start_time = time.time()
 
-            if self.failsafe_backups:
-                self._make_failsafe_backup()
+        if not self._changed:
+            # skip dumping as the file is already up to date
+            return
 
-            with open(self.filename, 'w') as f:
-                json.dump(self.config, f, indent=2, sort_keys=True)
-                self.changed = False
-            interval = time.time() - start_time
+        start_time = time.time()
 
-            logger.info("{} write {}".format(self.filename, interval))
+        if self.failsafe_backups:
+            self._make_failsafe_backup()
 
-        return self.changed
+        self._last_dump = json.dumps(self.config, indent=2, sort_keys=True)
+        with open(self.filename, 'w') as file:
+            file.write(self._last_dump)
+
+        interval = time.time() - start_time
+        logger.info("%s write %s", self.filename, interval)
 
     def flush(self):
         if self._timer_save and self._timer_save.is_alive():
@@ -121,11 +139,9 @@ class Config(collections.MutableMapping):
     def set_by_path(self, keys_list, value):
         """Set item in config by path (list of keys)"""
         self.get_by_path(keys_list[:-1])[keys_list[-1]] = value
-        self.changed = True
 
     def pop_by_path(self, keys_list):
         popped_value = self.get_by_path(keys_list[:-1]).pop(keys_list[-1])
-        self.changed = True
         return popped_value
 
     def get_option(self, keyname):
@@ -160,14 +176,18 @@ class Config(collections.MutableMapping):
 
     def __setitem__(self, key, value):
         self.config[key] = value
-        self.changed = True
 
     def __delitem__(self, key):
         del self.config[key]
-        self.changed = True
 
     def __iter__(self):
         return iter(self.config)
 
     def __len__(self):
         return len(self.config)
+
+    @staticmethod
+    def force_taint():
+        """[DEPRECATED] toggle the changed state to True"""
+        logger.warning(('[DEPRECATED] .force_taint is no more needed to mark '
+                        'the config for a needed dump.'), stack_info=True)
