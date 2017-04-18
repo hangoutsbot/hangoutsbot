@@ -365,8 +365,6 @@ class Config(collections.MutableMapping):
     def validate(self, source, path=None):
         """ensure that the entrys in source are all available in the config
 
-        also override to defaults if the type of an entry does not match
-
         Args:
             source: default dict structure with values
             path: list of keys to the dict to validate
