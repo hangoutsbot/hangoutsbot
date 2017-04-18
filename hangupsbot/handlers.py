@@ -256,9 +256,12 @@ class EventHandler:
                 return
 
         # Parse message
-        event.text = event.text.replace(u'\xa0', u' ') # convert non-breaking space in Latin1 (ISO 8859-1)
+        # First do some unicode cleanup - convert non-breaking spaces and smart quotes to ascii
+        event.text = event.text.replace(u'\xa0', u' ') \
+                               .replace(u'\u201c', '"') \
+                               .replace(u'\u201d', '"')
         try:
-            line_args = shlex.split(event.text, posix=False)
+            line_args = shlex.split(event.text)
         except Exception as e:
             logger.exception(e)
             yield from self.bot.coro_send_message(event.conv, _("{}: {}").format(
@@ -273,7 +276,7 @@ class EventHandler:
                 yield from self.bot.coro_send_message(event.conv, _('{}: Missing parameter(s)').format(
                     event.user.full_name))
             return
-        
+
         commands = command.get_available_commands(self.bot, event.user.id_.chat_id, event.conv_id)
 
         supplied_command = line_args[1].lower()
