@@ -1,3 +1,4 @@
+import aiohttp
 import asyncio
 import logging
 import re
@@ -18,76 +19,70 @@ def inv(source):
 class SlackAPIError(Exception): pass
 
 
-class SlackWrapper(SlackClient):
+class Slack(object):
     """
-    An extension of SlackClient to provide user/channel caches, and automatically start RTM.
+    A tiny async Slack client for the RTM APIs.
     """
 
     def __init__(self, token):
-        self.slack = super().__init__(token)
-        if not self.rtm_connect():
-            raise SlackAPIError("Failed to start RTM session")
-        # Ideally SlackClient would give us this information from RTM init...
-        self.users = {}
-        self.channels = {}
-        self.directs = {}
-        self.messages = {}
-        for user in self.api_call("users.list", "members"):
-            self.cache_user(user)
-        logger.debug("Users ({}): {}".format(len(self.users), ", ".join(self.users.keys())))
-        for channel in (self.api_call("channels.list", "channels") +
-                        self.api_call("groups.list", "groups")):
-            self.cache_channel(channel)
-        logger.debug("Channels ({}): {}".format(len(self.channels), ", ".join(self.channels.keys())))
-        for direct in self.api_call("im.list", "ims"):
-            self.cache_direct(direct)
-        logger.debug("Directs ({}): {}".format(len(self.directs), ", ".join(self.directs.keys())))
-
-    def cache_user(self, user):
-        self.users[user["id"]] = user
-
-    def cache_channel(self, channel):
-        self.channels[channel["id"]] = channel
-        self.messages[channel["id"]] = {}
-
-    def cache_direct(self, direct):
-        self.directs[direct["id"]] = direct
-
-    def api_call(self, method, key=None, *args, **kwargs):
-        """
-        Make a HTTP API call.  Throws SlackAPIError on failure.
-        """
-        logger.debug("Calling Slack API '{}'".format(method))
-        resp = super().api_call(method, *args, **kwargs)
-        if not resp["ok"]:
-            raise SlackAPIError(resp["error"])
-        return resp[key] if key else resp
+        self.token = token
+        self.sess = aiohttp.ClientSession()
+        self.team = self.users = self.channels = self.directs = None
+        # When we send messages asynchronously, we'll receive an RTM event before the HTTP request
+        # returns. This lock will block event parsing whilst we're sending, to make sure the caller
+        # can finish processing the new message (e.g. storing the ID) before receiving the event.
+        self.lock = asyncio.BoundedSemaphore()
 
     @asyncio.coroutine
-    def rtm_listen(self, callback, *args, **kwargs):
-        """
-        Listen over RTM forever, maintaining the cache if we find new users or channels.
-        """
+    def msg(self, **kwargs):
+        logger.debug("Sending message")
+        with (yield from self.lock):
+            # Block event processing whilst we wait for the message to go through. Processing will
+            # resume once the caller yields or returns.
+            resp = yield from self.sess.post("https://slack.com/api/chat.postMessage",
+                                             data=dict(kwargs, token=self.token))
+            json = yield from resp.json()
+        if not json["ok"]:
+            raise SlackAPIError(json["error"])
+        return json
+
+    @asyncio.coroutine
+    def rtm(self, callback, *args, **kwargs):
+        logger.debug("Requesting RTM session")
+        resp = yield from self.sess.post("https://slack.com/api/rtm.start",
+                                         data={"token": self.token})
+        json = yield from resp.json()
+        if not json["ok"]:
+            raise SlackAPIError(json["error"])
+        # Cache useful information about users and channels, to save on queries later.
+        self.team = json["team"]
+        self.users = {u["id"]: u for u in json["users"]}
+        logger.debug("Users ({}): {}".format(len(self.users), self.users.keys()))
+        self.channels = {c["id"]: c for c in json["channels"] + json["groups"]}
+        logger.debug("Channels ({}): {}".format(len(self.channels), self.channels.keys()))
+        self.directs = {c["id"]: c for c in json["ims"]}
+        logger.debug("Directs ({}): {}".format(len(self.directs), self.directs.keys()))
+        sock = yield from self.sess.ws_connect(json["url"])
+        logger.debug("Connected to websocket")
         while True:
-            events = self.rtm_read()
-            if not events:
-                yield from asyncio.sleep(0.5)
-                continue
-            for event in events:
-                logger.debug("Received a '{}' event".format(event["type"]))
-                if event["type"] in ("team_join", "user_change"):
-                    # A user changed, update our cache.
-                    self.cache_user(event["user"])
-                elif event["type"] in ("channel_joined", "group_joined"):
-                    # A group or channel appeared, add to our cache.
-                    self.cache_channel(event["channel"])
-                elif event["type"] == "im_created":
-                    # A DM appeared, add to our cache.
-                    self.cache_direct(event["channel"])
-                try:
-                    yield from callback(event, *args, **kwargs)
-                except Exception:
-                    logger.exception("Failed to handle event")
+            event = yield from sock.receive_json()
+            with (yield from self.lock):
+                # No critical section here, just wait for any pending messages to be sent.
+                pass
+            logger.debug("Received a '{}' event".format(event["type"]))
+            if event["type"] in ("team_join", "user_change"):
+                # A user appears or changed, update our cache.
+                self.users[event["user"]["id"]] = event["user"]
+            elif event["type"] in ("channel_joined", "group_joined"):
+                # A group or channel appeared, add to our cache.
+                self.channels[event["channel"]["id"]] = event["channel"]
+            elif event["type"] == "im_created":
+                # A DM appeared, add to our cache.
+                self.directs[event["channel"]["id"]] = event["channel"]
+            try:
+                yield from callback(event, *args, **kwargs)
+            except Exception:
+                logger.exception("Failed callback for event")
 
 
 class Identities(object):

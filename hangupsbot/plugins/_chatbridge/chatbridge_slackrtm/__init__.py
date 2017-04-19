@@ -1,4 +1,5 @@
 import asyncio
+from collections import defaultdict
 import logging
 import mimetypes
 import os.path
@@ -10,7 +11,7 @@ import emoji
 from webbridge import WebFramework
 import plugins
 
-from .core import HANGOUTS, SLACK, SlackWrapper, Identities, Message
+from .core import HANGOUTS, SLACK, Slack, Identities, Message
 from .commands import set_bridge, run_slack_command, slack_identify, slack_sync, slack_unsync
 from .parser import from_slack, from_hangups
 from .utils import convert_legacy_config
@@ -25,6 +26,8 @@ class BridgeInstance(WebFramework):
         self.plugin_name = "SlackRTM"
         self.slacks = {}
         self.idents = {}
+        # A defaultdict with depth 2: messages[team][channel][ts] = {...}
+        self.messages = defaultdict(lambda: defaultdict(dict))
 
     def applicable_configuration(self, conv_id):
         """
@@ -90,23 +93,20 @@ class BridgeInstance(WebFramework):
             kwargs["attachments"] = attachments
         if text:
             kwargs["text"] = text
-        msg = self.slacks[team].api_call("chat.postMessage",
-                                         channel=channel,
-                                         link_names=True,
-                                         **kwargs)
+        msg = yield from self.slacks[team].msg(channel=channel, link_names=True, **kwargs)
         # Store the new message ID alongside the original message.
         # We'll receive an RTM event about it shortly.
-        self.slacks[team].messages[channel][msg["ts"]] = event.passthru
+        self.messages[team][channel][msg["ts"]] = event.passthru
 
     def start_listening(self, bot):
         for team, config in self.configuration["teams"].items():
             self.idents[team] = Identities(bot, team)
             try:
-                self.slacks[team] = SlackWrapper(config["token"])
+                self.slacks[team] = Slack(config["token"])
             except Exception:
                 logger.exception("Failed to connect to Slack")
             else:
-                plugins.start_asyncio_task(self.slacks[team].rtm_listen(self._handle_event, team))
+                plugins.start_asyncio_task(self.slacks[team].rtm(self._handle_event, team))
 
     @asyncio.coroutine
     def _handle_event(self, event, team):
@@ -124,7 +124,7 @@ class BridgeInstance(WebFramework):
         elif msg.channel in self.slacks[team].directs:
             yield from self._handle_direct_msg(msg, team)
         else:
-            logger.warn("Got message '{}' from unknown channel '{}'".format(msg.id, msg.channel))
+            logger.warn("Got message '{}' from unknown channel '{}'".format(msg.ts, msg.channel))
 
     @asyncio.coroutine
     def _handle_direct_msg(self, msg, team):
@@ -142,10 +142,16 @@ class BridgeInstance(WebFramework):
             team_channel = sync["channel"]
             if not [team, msg.channel] == team_channel:
                 continue
-            if msg.ts in self.slacks[team].messages[msg.channel]:
+            # Update our channel member cache.
+            members = self.slacks[team].channels[msg.channel]["members"]
+            if msg.type in ("channel_join", "group_join") and msg.user not in members:
+                members.append(msg.user)
+            elif msg.type in ("channel_leave", "group_leave") and msg.user in members:
+                members.remove(msg.user)
+            if msg.ts in self.messages[team][msg.channel]:
                 # We originally received this message from the bridge.
                 # Don't relay it back, just remove the original from our cache.
-                del self.slacks[team].messages[msg.channel][msg.ts]
+                del self.messages[team][msg.channel][msg.ts]
             elif msg.file:
                 # Create a background task to upload the attached image to Hangouts.
                 asyncio.get_event_loop().create_task(self._relay_msg_image(msg, sync["hangout"], team))
