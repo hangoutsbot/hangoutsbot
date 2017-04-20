@@ -79,15 +79,19 @@ def convert_legacy_config(bot):
     for team in config:
         logger.debug("Migrating team '{}'".format(team["name"]))
         teams[team["name"]] = {"token": team["key"], "admins": team["admins"]}
-        # Fetch v2 syncs from user data.
-        migrate = bot.user_memory_get(team["name"], "synced_conversations") or []
-        # Fetch v3 syncs from plugin data.
         try:
-            migrate += bot.memory.get_by_path(["slackrtm", team["name"], "synced_conversations"])
-        except KeyError:
-            continue
+            # Fetch v3 syncs from plugin data.
+            migrate = bot.memory.get_by_path(["slackrtm", team["name"], "synced_conversations"])
+            logger.debug("Found {} sync(s) in v3 config for '{}' to migrate".format(len(migrate), team["name"]))
+        except (KeyError, TypeError):
+            # Fetch v2 syncs from user data, if v3 data doesn't exist.
+            migrate = bot.user_memory_get(team["name"], "synced_conversations")
+            if migrate is None:
+                migrate = []
+                logger.warn("No syncs for '{}' found in either v2 or v3 config".format(team["name"]))
+            else:
+                logger.debug("Found {} sync(s) in v2 config for '{}' to migrate".format(len(migrate), team["name"]))
         # Convert all syncs to the new config format.
-        logger.debug("Found {} sync(s) for '{}' to migrate".format(len(migrate), team["name"]))
         for sync in migrate:
             syncs.append({"hangout": sync["hangoutid"],
                           "channel": [team["name"], sync["channelid"]]})
