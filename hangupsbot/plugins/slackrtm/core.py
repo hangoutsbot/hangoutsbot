@@ -955,6 +955,7 @@ class SlackRTMThread(threading.Thread):
         self._loop = loop
         self._config = config
         self._listener = None
+        self.isFullyLoaded = threading.Event()
 
     def run(self):
         logger.debug('SlackRTMThread.run()')
@@ -967,6 +968,7 @@ class SlackRTMThread(threading.Thread):
             self._listener = SlackRTM(self._config, self._bot, self._loop, threaded=True)
             _slackrtms.append(self._listener)
             last_ping = int(time.time())
+            self.isFullyLoaded.set()
             while True:
                 if self.stopped():
                     return

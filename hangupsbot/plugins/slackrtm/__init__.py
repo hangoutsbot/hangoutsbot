@@ -79,6 +79,7 @@ def _initialise(bot):
             t = SlackRTMThread(bot, loop, sinkConfig)
             t.daemon = True
             t.start()
+            t.isFullyLoaded.wait()
             threads.append(t)
     logger.info("%d sink thread(s) started", len(threads))
 
