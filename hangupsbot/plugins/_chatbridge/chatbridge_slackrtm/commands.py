@@ -1,3 +1,4 @@
+import asyncio
 from functools import wraps
 import logging
 import re
@@ -122,12 +123,12 @@ def reply_slack(fn):
     """
     Decorator: run a Slack command, and send the result privately to the calling Slack user.
     """
-    @wraps(fn)
+    @asyncio.coroutine
     def wrap(msg, slack, team):
-        resp = from_hangups.convert(fn(msg, slack, team))
+        resp = fn(msg, slack, team)
         if not resp:
             return
-        slack.api_call("chat.postMessage", channel=msg.channel, as_user=True, text=resp)
+        yield from slack.msg(channel=msg.channel, as_user=True, text=from_hangups.convert(resp))
     return wrap
 
 
@@ -181,7 +182,7 @@ def run_slack_command(msg, slack, team):
             if not (len(args) == 3 and args[1] == "to"):
                 return "Usage: <b>sync <i>channel</i> to <i>hangout</i></b>"
             return sync(team, args[0], args[2])
-        elif name == "sync":
+        elif name == "unsync":
             if not (len(args) == 3 and args[1] == "from"):
                 return "Usage: <b>unsync <i>channel</i> from <i>hangout</i></b>"
             return unsync(team, args[0], args[2])

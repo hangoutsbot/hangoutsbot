@@ -134,7 +134,7 @@ class BridgeInstance(WebFramework):
             # Message wasn't sent by the user, so it was probably us.
             return
         logger.info("Got direct message '{}' from {}/{}".format(msg.ts, user["id"], user["name"]))
-        run_slack_command(msg, self.slacks[team], team)
+        yield from run_slack_command(msg, self.slacks[team], team)
 
     @asyncio.coroutine
     def _handle_channel_msg(self, msg, team):
