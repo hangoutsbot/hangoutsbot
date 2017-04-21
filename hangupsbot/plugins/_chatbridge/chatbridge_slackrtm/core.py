@@ -1,5 +1,6 @@
 import aiohttp
 import asyncio
+from collections import defaultdict
 import logging
 import re
 
@@ -14,6 +15,16 @@ SLACK = "Slack"
 
 def inv(source):
     return HANGOUTS if source == SLACK else SLACK
+
+
+class Base(object):
+    """
+    Container for bridge and Slack instances.
+    """
+
+    bridges = defaultdict(list)
+    slacks = {}
+    idents = {}
 
 
 class SlackAPIError(Exception): pass
@@ -47,7 +58,7 @@ class Slack(object):
         return json
 
     @asyncio.coroutine
-    def rtm(self, callback, *args, **kwargs):
+    def rtm(self, callbacks, *args, **kwargs):
         logger.debug("Requesting RTM session")
         resp = yield from self.sess.post("https://slack.com/api/rtm.start",
                                          data={"token": self.token})
@@ -80,7 +91,8 @@ class Slack(object):
                 # A DM appeared, add to our cache.
                 self.directs[event["channel"]["id"]] = event["channel"]
             try:
-                yield from callback(event, *args, **kwargs)
+                for callback in callbacks:
+                    yield from callback(event, *args, **kwargs)
             except Exception:
                 logger.exception("Failed callback for event")
 

@@ -11,8 +11,8 @@ import emoji
 from webbridge import WebFramework
 import plugins
 
-from .core import HANGOUTS, SLACK, Slack, Identities, Message
-from .commands import set_bridge, run_slack_command, slack_identify, slack_sync, slack_unsync
+from .core import HANGOUTS, SLACK, Base, Slack, Identities, Message
+from .commands import run_slack_command, slack_identify, slack_sync, slack_unsync
 from .parser import from_slack, from_hangups
 from .utils import convert_legacy_config
 
@@ -22,33 +22,33 @@ logger = logging.getLogger(__name__)
 
 class BridgeInstance(WebFramework):
 
+    def __init__(self, bot, configkey, sync):
+        super().__init__(bot, configkey)
+        self.team, self.channel = sync["channel"]
+        self.hangout = sync["hangout"]
+
     def setup_plugin(self):
         self.plugin_name = "SlackRTM"
-        self.slacks = {}
-        self.idents = {}
-        # A defaultdict with depth 2: messages[team][channel][ts] = {...}
-        self.messages = defaultdict(lambda: defaultdict(dict))
+        self.messages = {}
 
     def applicable_configuration(self, conv_id):
         """
         {
-          "hangouts": ["<conv-id>", ...],
-          "slackrtm": [["<team-name>", "<channel-id>"], ...]
+          "hangouts": ["<conv-id>"],
+          "slackrtm": [["<team-name>", "<channel-id>"]]
         }
         """
-        configs = []
-        for sync in self.configuration["syncs"]:
-            if conv_id == sync["hangout"]:
-                configs.append({"trigger": conv_id,
-                                "config.json": {"hangouts": [sync["hangout"]],
-                                                "slackrtm": [sync["channel"]]}})
-        return configs
+        if not conv_id == self.hangout:
+            return []
+        return [{"trigger": conv_id,
+                 "config.json": {"hangouts": [self.hangout],
+                                 "slackrtm": [[self.team, self.channel]]}}]
 
     def map_external_uid_with_hangups_user(self, source_uid, external_context):
         team, channel = external_context["source_gid"]
-        identity = self.idents[team].get(SLACK, source_uid)
+        identity = Base.idents[team].get(SLACK, source_uid)
         # Make sure the reverse identity holds before mapping:
-        if identity and self.idents[team].get(HANGOUTS, identity) == source_uid:
+        if identity and Base.idents[team].get(HANGOUTS, identity) == source_uid:
             user = self.bot.get_hangups_user(identity)
             if user.definitionsource:
                 logger.debug("Confirmed identity: '{}' -> '{}'".format(source_uid, identity))
@@ -59,11 +59,10 @@ class BridgeInstance(WebFramework):
     @asyncio.coroutine
     def _send_to_external_chat(self, config, event):
         segments = event.passthru["original_request"].get("segments")
-        text = from_hangups.convert(segments)
+        message = event.passthru["original_request"].get("message")
+        text = from_hangups.convert(segments or message)
         user = event.passthru["original_request"]["user"]
         bridge_user = self._get_user_details(user, {"event": event})
-        team, channel = config["config.json"]["slackrtm"][0]
-        slack = self.slacks[team]
         if bridge_user["chat_id"] == self.bot.user_self()["chat_id"]:
             # Use the bot's native Slack identity.
             kwargs = {"as_user": True}
@@ -93,74 +92,62 @@ class BridgeInstance(WebFramework):
             kwargs["attachments"] = attachments
         if text:
             kwargs["text"] = text
-        msg = yield from self.slacks[team].msg(channel=channel, link_names=True, **kwargs)
+        msg = yield from Base.slacks[self.team].msg(channel=self.channel, link_names=True, **kwargs)
         # Store the new message ID alongside the original message.
         # We'll receive an RTM event about it shortly.
-        self.messages[team][channel][msg["ts"]] = event.passthru
-
-    def start_listening(self, bot):
-        for team, config in self.configuration["teams"].items():
-            self.idents[team] = Identities(bot, team)
-            try:
-                self.slacks[team] = Slack(config["token"])
-            except Exception:
-                logger.exception("Failed to connect to Slack")
-            else:
-                plugins.start_asyncio_task(self.slacks[team].rtm(self._handle_event, team))
+        self.messages[msg["ts"]] = event.passthru
 
     @asyncio.coroutine
-    def _handle_event(self, event, team):
+    def _handle_event(self, event):
         if event["type"] == "message":
             msg = Message(event)
             if msg.hidden:
                 logger.debug("Skipping Slack-only feature message of type '{}'".format(msg.type))
                 return
-            yield from self._handle_msg(Message(event), team)
+            yield from self._handle_msg(Message(event))
 
     @asyncio.coroutine
-    def _handle_msg(self, msg, team):
-        if msg.channel in self.slacks[team].channels:
-            yield from self._handle_channel_msg(msg, team)
-        elif msg.channel in self.slacks[team].directs:
-            yield from self._handle_direct_msg(msg, team)
+    def _handle_msg(self, msg):
+        if msg.channel in Base.slacks[self.team].channels:
+            yield from self._handle_channel_msg(msg)
+        elif msg.channel in Base.slacks[self.team].directs:
+            yield from self._handle_direct_msg(msg)
         else:
             logger.warn("Got message '{}' from unknown channel '{}'".format(msg.ts, msg.channel))
 
     @asyncio.coroutine
-    def _handle_direct_msg(self, msg, team):
-        channel = self.slacks[team].directs[msg.channel]
-        user = self.slacks[team].users[channel["user"]]
+    def _handle_direct_msg(self, msg):
+        channel = Base.slacks[self.team].directs[msg.channel]
+        user = Base.slacks[self.team].users[channel["user"]]
         if not channel["user"] == msg.user:
             # Message wasn't sent by the user, so it was probably us.
             return
         logger.info("Got direct message '{}' from {}/{}".format(msg.ts, user["id"], user["name"]))
-        yield from run_slack_command(msg, self.slacks[team], team)
+        yield from run_slack_command(msg, Base.slacks[self.team])
 
     @asyncio.coroutine
-    def _handle_channel_msg(self, msg, team):
-        for sync in self.configuration["syncs"]:
-            team_channel = sync["channel"]
-            if not [team, msg.channel] == team_channel:
-                continue
-            # Update our channel member cache.
-            members = self.slacks[team].channels[msg.channel]["members"]
-            if msg.type in ("channel_join", "group_join") and msg.user not in members:
-                members.append(msg.user)
-            elif msg.type in ("channel_leave", "group_leave") and msg.user in members:
-                members.remove(msg.user)
-            if msg.ts in self.messages[team][msg.channel]:
-                # We originally received this message from the bridge.
-                # Don't relay it back, just remove the original from our cache.
-                del self.messages[team][msg.channel][msg.ts]
-            elif msg.file:
-                # Create a background task to upload the attached image to Hangouts.
-                asyncio.get_event_loop().create_task(self._relay_msg_image(msg, sync["hangout"], team))
-            else:
-                # Relay the message over to Hangouts.
-                yield from self._relay_msg(msg, sync["hangout"], team)
+    def _handle_channel_msg(self, msg):
+        if not msg.channel == self.channel:
+            return
+        # Update our channel member cache.
+        members = Base.slacks[self.team].channels[msg.channel]["members"]
+        if msg.type in ("channel_join", "group_join") and msg.user not in members:
+            members.append(msg.user)
+        elif msg.type in ("channel_leave", "group_leave") and msg.user in members:
+            members.remove(msg.user)
+        if msg.ts in self.messages:
+            # We originally received this message from the bridge.
+            # Don't relay it back, just remove the original from our cache.
+            del self.messages[msg.ts]
+        elif msg.file:
+            # Create a background task to upload the attached image to Hangouts.
+            asyncio.get_event_loop().create_task(self._relay_msg_image(msg, self.hangout))
+        else:
+            # Relay the message over to Hangouts.
+            yield from self._relay_msg(msg, self.hangout)
 
     @asyncio.coroutine
-    def _relay_msg_image(self, msg, conv_id, team):
+    def _relay_msg_image(self, msg, conv_id):
         filename = os.path.basename(msg.file)
         logger.info("Uploading Slack image '{}' to Hangouts".format(filename))
         # Retrieve the image content from Slack.
@@ -175,24 +162,24 @@ class BridgeInstance(WebFramework):
             logger.debug("MIME '{}' does not match extension '{}', changing to {}".format(mime_type, name_ext, mime_exts[0]))
             filename = "{}{}".format(filename, mime_exts[0])
         image_id = yield from self.bot._client.upload_image(response, filename=filename)
-        yield from self._relay_msg(msg, conv_id, team, image_id)
+        yield from self._relay_msg(msg, conv_id, image_id)
 
     @asyncio.coroutine
-    def _relay_msg(self, msg, conv_id, team, image_id=None):
+    def _relay_msg(self, msg, conv_id, image_id=None):
         try:
-            user = self.slacks[team].users[msg.user]["name"]
+            user = Base.slacks[self.team].users[msg.user]["name"]
         except KeyError:
             # Bot message with no corresponding Slack user.
             user = msg.user_name
         try:
-            source = self.slacks[team].channels[msg.channel]["name"]
+            source = Base.slacks[self.team].channels[msg.channel]["name"]
         except KeyError:
-            source = team
+            source = self.team
         yield from self._send_to_internal_chat(conv_id,
                                                from_slack.convert(emoji.emojize(msg.text, use_aliases=True)),
                                                {"source_user": user,
                                                 "source_uid": msg.user,
-                                                "source_gid": [team, msg.channel],
+                                                "source_gid": [self.team, msg.channel],
                                                 "source_title": source,
                                                 "source_edited": msg.edited,
                                                 "source_action": msg.action},
@@ -203,4 +190,12 @@ def _initialise(bot):
     convert_legacy_config(bot)
     plugins.register_user_command(["slack_identify"])
     plugins.register_admin_command(["slack_sync", "slack_unsync"])
-    set_bridge(BridgeInstance(bot, "slackrtm"))
+    root = bot.get_config_option("slackrtm") or {}
+    for team, config in root.get("teams", {}).items():
+        Base.slacks[team] = Slack(config["token"])
+        Base.idents[team] = Identities(bot, team)
+    for sync in root.get("syncs", []):
+        team, channel = sync["channel"]
+        Base.bridges[team].append(BridgeInstance(bot, "slackrtm", sync))
+    for team, slack in Base.slacks.items():
+        plugins.start_asyncio_task(slack.rtm([bridge._handle_event for bridge in Base.bridges[team]]))
