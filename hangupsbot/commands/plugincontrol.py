@@ -30,6 +30,7 @@ def function_name(fn):
 @command.register(admin=True)
 def plugininfo(bot, event, *args):
     """dumps plugin information"""
+
     text_plugins = []
 
     for module_path, plugin in plugins.tracking.list.items():
@@ -101,6 +102,8 @@ def plugininfo(bot, event, *args):
 
 @command.register(admin=True)
 def pluginunload(bot, event, *args):
+    """unloads a previously unloaded plugin, requires plugins. prefix"""
+
     if args:
         module_path = args[0]
 
@@ -119,6 +122,8 @@ def pluginunload(bot, event, *args):
 
 @command.register(admin=True)
 def pluginload(bot, event, *args):
+    """loads a previously unloaded plugin, requires plugins. prefix"""
+
     if args:
         module_path = args[0]
 
@@ -139,6 +144,8 @@ def pluginload(bot, event, *args):
 
 @command.register(admin=True)
 def pluginreload(bot, event, *args):
+    """reloads a previously loaded plugin, requires plugins. prefix"""
+
     if args:
         module_path = args[0]
 
@@ -156,3 +163,148 @@ def pluginreload(bot, event, *args):
         message = "<b>module path required</b>"
 
     yield from bot.coro_send_message(event.conv_id, message)
+
+
+@command.register(admin=True)
+def getplugins(bot, event, *args):
+    """list all plugins loaded by the bot, and all available plugins"""
+
+    config_plugins = bot.config.get_by_path(["plugins"]) or False
+    if not isinstance(config_plugins, list):
+        yield from bot.coro_send_message(
+            event.conv_id,
+            "this command only works with manually-configured plugins key in config.json")
+        return
+
+    lines = []
+    all_plugins = plugins.retrieve_all_plugins(allow_underscore=True) or []
+    loaded_plugins = plugins.get_configured_plugins(bot) or []
+
+    lines.append("**{} loaded plugins (config.json)**".format(len(loaded_plugins)))
+
+    for _plugin in sorted(loaded_plugins):
+        lines.append("* {}".format(_plugin.replace("_", "\\_")))
+
+    lines.append("**{} available plugins**".format(len(all_plugins)))
+
+    for _plugin in sorted(all_plugins):
+        if _plugin not in loaded_plugins:
+            lines.append("* {}".format(_plugin.replace("_", "\\_")))
+
+    yield from bot.coro_send_message(event.conv_id, "\n".join(lines))
+
+
+def _strip_plugin_path(path):
+    """remove "plugins." prefix if it exist"""
+    return path[8:] if path.startswith("plugins.") else path
+
+
+@command.register(admin=True)
+def removeplugin(bot, event, plugin, *args):
+    """unloads a plugin from the bot and removes it from the config, does not require plugins. prefix"""
+
+    config_plugins = bot.config.get_by_path(["plugins"]) or False
+    if not isinstance(config_plugins, list):
+        yield from bot.coro_send_message(
+            event.conv_id,
+            "this command only works with manually-configured plugins key in config.json")
+        return
+
+    lines = []
+    loaded_plugins = plugins.get_configured_plugins(bot) or []
+    all_plugins = plugins.retrieve_all_plugins(allow_underscore=True)
+
+    lines.append("**remove plugin: {}**".format(plugin.replace("_", "\\_")))
+
+    plugin = _strip_plugin_path(plugin)
+
+    if not plugin:
+        yield from bot.coro_send_message(
+            event.conv_id,
+            "invalid plugin name")
+        return
+
+    if plugin not in all_plugins:
+        yield from bot.coro_send_message(
+            event.conv_id,
+            "plugin does not exist: {}".format(plugin.replace("_", "\\_")) )
+        return
+
+    if plugin in loaded_plugins:
+        try:
+            module_path = "plugins.{}".format(plugin)
+            escaped_module_path = module_path.replace("_", "\\_")
+            yield from plugins.unload(bot, module_path)
+            lines.append('* **unloaded: {}**'.format(escaped_module_path))
+        except (RuntimeError, KeyError) as e:
+            lines.append('* error unloading {}: {}'.format(escaped_module_path, str(e)))
+    else:
+        lines.append('* not loaded on bot start')
+
+    if plugin in config_plugins:
+        config_plugins.remove(plugin)
+        bot.config.set_by_path(["plugins"], config_plugins)
+        bot.config.save()
+        lines.append('* **removed from config.json**')
+    else:
+        lines.append('* not in config.json')
+
+    if len(lines) == 1:
+        lines = [ "no action was taken for {}".format(plugin.replace("_", "\\_")) ]
+
+    yield from bot.coro_send_message(event.conv_id, "\n".join(lines))
+
+
+@command.register(admin=True)
+def addplugin(bot, event, plugin, *args):
+    """loads a plugin on the bot and adds it to the config, does not require plugins. prefix"""
+
+    config_plugins = bot.config.get_by_path(["plugins"]) or False
+    if not isinstance(config_plugins, list):
+        yield from bot.coro_send_message(
+            event.conv_id,
+            "this command only works with manually-configured plugins key in config.json" )
+        return
+
+    lines = []
+    loaded_plugins = plugins.get_configured_plugins(bot) or []
+    all_plugins = plugins.retrieve_all_plugins(allow_underscore=True)
+
+    plugin = _strip_plugin_path(plugin)
+
+    if not plugin:
+        yield from bot.coro_send_message(
+            event.conv_id,
+            "invalid plugin name")
+        return
+
+    if plugin not in all_plugins:
+        yield from bot.coro_send_message(
+            event.conv_id,
+            "plugin does not exist: {}".format(plugin.replace("_", "\\_")) )
+        return
+
+    lines.append("**add plugin: {}**".format(plugin.replace("_", "\\_")))
+
+    if plugin in loaded_plugins:
+        lines.append('* already loaded on bot start')
+    else:
+        module_path = "plugins.{}".format(plugin)
+        escaped_module_path = module_path.replace("_", "\\_")
+        try:
+            if plugins.load(bot, module_path):
+                lines.append('* **loaded: {}**'.format(escaped_module_path))
+            else:
+                lines.append('* failed to load: {}'.format(escaped_module_path))
+        except RuntimeError as e:
+            lines.append('* error loading {}: {}'.format(escaped_module_path, str(e)))
+
+    if plugin in config_plugins:
+        lines.append('* already in config.json')
+    else:
+        config_plugins.append(plugin)
+        bot.config.set_by_path(["plugins"], config_plugins)
+        bot.config.save()
+        lines.append('* **added to config.json**')
+
+    yield from bot.coro_send_message(event.conv_id, "\n".join(lines))

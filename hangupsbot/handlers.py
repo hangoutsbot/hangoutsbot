@@ -134,9 +134,10 @@ class EventHandler:
                             yield from self.run_reprocessor(_id, event)
 
             """auto opt-in - opted-out users who chat with the bot will be opted-in again"""
-            if self.bot.conversations.catalog[event.conv_id]["type"] == "ONE_TO_ONE":
+            if not event.from_bot and self.bot.conversations.catalog[event.conv_id]["type"] == "ONE_TO_ONE":
                 if self.bot.memory.exists(["user_data", event.user.id_.chat_id, "optout"]):
-                    if self.bot.memory.get_by_path(["user_data", event.user.id_.chat_id, "optout"]):
+                    optout = self.bot.memory.get_by_path(["user_data", event.user.id_.chat_id, "optout"])
+                    if isinstance(optout, bool) and optout:
                         yield from command.run(self.bot, event, *["optout"])
                         logger.info("auto opt-in for {}".format(event.user.id_.chat_id))
                         return
@@ -167,7 +168,10 @@ class EventHandler:
 
         # check that a bot alias is used e.g. /bot
         if not event.text.split()[0].lower() in self.bot_command:
-            return
+            if self.bot.conversations.catalog[event.conv_id]["type"] == "ONE_TO_ONE" and self.bot.get_config_option('auto_alias_one_to_one'):
+                event.text = u" ".join((self.bot_command[0], event.text)) # Insert default alias if not already present
+            else:
+                return
 
         # Parse message
         event.text = event.text.replace(u'\xa0', u' ') # convert non-breaking space in Latin1 (ISO 8859-1)

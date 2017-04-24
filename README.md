@@ -25,21 +25,18 @@ Please see:
 * **Cross-chat Syncouts** :
   Half of your team is on Slack? No problem! You can connect them into the same room to communicate.
   Support for other chat clients coming soon.
-* [**Hubot Integration**](https://github.com/hangoutsbot/hangoutsbot/wiki/Hubot-Integration):
+* **[Hubot Integration](https://github.com/hangoutsbot/hangoutsbot/wiki/Hubot-Integration)**:
   Hangupsbot allows you to connect to [Hubot](https://hubot.github.com/), instantly providing you access
   to hundreds of developed chat tools and plugins.
 * **Plugins and sinks** :
-  The bot has [instructions for developing your own plugins and sinks]
-  (https://github.com/hangoutsbot/hangoutsbot/wiki/Authoring-Bot-Extensions), allowing the bot to interact
+  The bot has [instructions for developing your own plugins and sinks](https://github.com/hangoutsbot/hangoutsbot/wiki/Authoring-Bot-Extensions), allowing the bot to interact
   with external services such as your company website, Google scripts and much more.
 * **Plugin mania** :
-  games, nickname support, subscribed keywords, customizable API - [**the list goes on**]
-    (https://github.com/hangoutsbot/hangoutsbot/wiki/Plugin-List)!
+  games, nickname support, subscribed keywords, customizable API - **[the list goes on](https://github.com/hangoutsbot/hangoutsbot/wiki/Plugin-List)**!
 
 # Running The Bot
 
-Note: **First run?** See the [installation instructions]
-  (https://github.com/hangoutsbot/hangoutsbot/blob/master/INSTALL.md)
+Note: **First run?** See the [installation instructions](https://github.com/hangoutsbot/hangoutsbot/blob/master/INSTALL.md)
 
 To execute: `python3 hangupsbot.py`
 
@@ -67,10 +64,8 @@ Configuration directives can be specified in `config.json`.
 Please note that the `config.json` file supplied with the repository is not 
   supposed to be edited/changed. It is the reference file used by the bot to 
   create the actual configuration file located elsewhere in the system. To find out 
-  where the actual file is, please see the [**Additional Configuration** section]
-  (https://github.com/hangoutsbot/hangoutsbot/blob/master/INSTALL.md#additional-configuration)
-  in the [installation]
-  (https://github.com/hangoutsbot/hangoutsbot/blob/master/INSTALL.md)
+  where the actual file is, please see the [**Additional Configuration** section](https://github.com/hangoutsbot/hangoutsbot/blob/master/INSTALL.md#additional-configuration)
+  in the [installation](https://github.com/hangoutsbot/hangoutsbot/blob/master/INSTALL.md)
   instructions.
 
 Most configuration directives are specified **globally**
@@ -95,20 +90,16 @@ Some plugins may require extra configuration.
   `config.json` is the the configuration provider for the bot and its plugins.
 
 Some interesting plugins:
-* [mentions plugin]
-  (https://github.com/hangoutsbot/hangoutsbot/wiki/Mentions-Plugin)
+* [mentions plugin](https://github.com/hangoutsbot/hangoutsbot/wiki/Mentions-Plugin)
   * alert users when their names are mentioned in a chat
-* [subscribe plugin]
-  (https://github.com/hangoutsbot/hangoutsbot/wiki/Subscribe-Plugin)
+* [subscribe plugin](https://github.com/hangoutsbot/hangoutsbot/wiki/Subscribe-Plugin)
   * alert users when keywords they are subscribed to are said in a chat
-* [syncout / syncrooms plugins]
-  (https://github.com/hangoutsbot/hangoutsbot/wiki/Syncouts-Plugin)
+* [syncout / syncrooms plugins](https://github.com/hangoutsbot/hangoutsbot/wiki/Syncouts-Plugin)
   * relay chat messages between different hangout group conversations (syncrooms)
   * configure via bot commands (syncrooms_config)
   * automated translation via Google Translate of relayed messages (syncrooms_autotranslate)
 
-The wiki has a more comprehensive **[list of plugins]
-  (https://github.com/hangoutsbot/hangoutsbot/wiki/Plugin-List)**...
+The wiki has a more comprehensive **[list of plugins](https://github.com/hangoutsbot/hangoutsbot/wiki/Plugin-List)**...
 
 # Interacting with the Bot
 

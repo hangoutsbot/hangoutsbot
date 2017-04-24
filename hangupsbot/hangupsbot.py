@@ -416,7 +416,7 @@ class HangupsBot(object):
 
 
     @asyncio.coroutine
-    def get_1to1(self, chat_id):
+    def get_1to1(self, chat_id, context=None):
         """find/create a 1-to-1 conversation with specified user
         config.autocreate-1to1 = false to revert to legacy behaviour of finding existing 1-to-1
         config.bot_introduction = "some text or html" to show to users when a new conversation
@@ -424,9 +424,19 @@ class HangupsBot(object):
         """
 
         if self.memory.exists(["user_data", chat_id, "optout"]):
-            if self.memory.get_by_path(["user_data", chat_id, "optout"]):
+            optout = self.memory.get_by_path(["user_data", chat_id, "optout"])
+            if( isinstance(optout, list)
+                    and context and 'initiator_convid' in context
+                    and context['initiator_convid'] in optout ):
+                logger.info("get_1on1: user {} has optout for {}".format(chat_id, context['initiator_convid']))
+                return False
+            elif isinstance(optout, bool) and optout:
                 logger.info("get_1on1: user {} has optout".format(chat_id))
                 return False
+
+        if chat_id == self.user_self()["chat_id"]:
+            logger.warning("1to1 conversations with myself are not supported", stack_info=True)
+            return False
 
         conversation = None
 
