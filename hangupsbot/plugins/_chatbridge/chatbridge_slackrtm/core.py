@@ -22,9 +22,28 @@ class Base(object):
     Container for bridge and Slack instances.
     """
 
+    bot = None
     bridges = defaultdict(list)
     slacks = {}
     idents = {}
+
+    @classmethod
+    def add_slack(cls, team, slack):
+        cls.slacks[team] = slack
+        cls.idents[team] = Identities(cls.bot, team)
+
+    @classmethod
+    def add_bridge(cls, bridge):
+        logger.info("Registering new bridge: {} {} <--> {}".format(bridge.team, bridge.channel, bridge.hangout))
+        Base.bridges[bridge.team].append(bridge)
+        Base.slacks[bridge.team].callbacks.append(bridge._handle_event)
+
+    @classmethod
+    def remove_bridge(cls, bridge):
+        logger.info("Unregistering bridge: {} {} <-/-> {}".format(bridge.team, bridge.channel, bridge.hangout))
+        Base.bridges[bridge.team].remove(bridge)
+        Base.slacks[bridge.team].callbacks.remove(bridge._handle_event)
+        # TODO: The bridge is still receiving hangups events via _send_to_external_chat!
 
 
 class SlackAPIError(Exception): pass
@@ -43,6 +62,7 @@ class Slack(object):
         # returns. This lock will block event parsing whilst we're sending, to make sure the caller
         # can finish processing the new message (e.g. storing the ID) before receiving the event.
         self.lock = asyncio.BoundedSemaphore()
+        self.callbacks = []
 
     @asyncio.coroutine
     def msg(self, **kwargs):
@@ -58,7 +78,7 @@ class Slack(object):
         return json
 
     @asyncio.coroutine
-    def rtm(self, callbacks, *args, **kwargs):
+    def rtm(self):
         logger.debug("Requesting RTM session")
         resp = yield from self.sess.post("https://slack.com/api/rtm.start",
                                          data={"token": self.token})
@@ -91,8 +111,8 @@ class Slack(object):
                 # A DM appeared, add to our cache.
                 self.directs[event["channel"]["id"]] = event["channel"]
             try:
-                for callback in callbacks:
-                    yield from callback(event, *args, **kwargs)
+                for callback in self.callbacks:
+                    yield from callback(event)
             except Exception:
                 logger.exception("Failed callback for event")
 
