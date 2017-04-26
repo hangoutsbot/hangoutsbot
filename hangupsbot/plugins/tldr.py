@@ -22,7 +22,7 @@ def _initialise(bot):
 
 
 def tldrecho(bot, event, *args):
-    """defines whether the tldr is sent as a private message or into the main chat"""
+    """<br/>/bot <i><b>tldrecho</b></i><br/>Defines whether the full tldr is echoed to a PM or into the main chat.<br /><u>Usage</u><br />/bot <i><b>tldrecho</b></i>"""
 
     # If no memory entry exists for the conversation, create it.
     if not bot.memory.exists(['conversations']):
@@ -35,7 +35,7 @@ def tldrecho(bot, event, *args):
     else:
         # No path was found. Is this your first setup?
         new_tldr = 0
-    
+
     if tldr_echo_options[new_tldr] is not "GLOBAL":
         # Update the tldr_echo setting
         bot.memory.set_by_path(['conversations', event.conv_id, 'tldr_echo'], new_tldr)
@@ -55,13 +55,7 @@ def tldrecho(bot, event, *args):
 
 
 def tldr(bot, event, *args):
-    """read and manage tldr entries for a given conversation
-
-    * /bot tldr <number> - retrieve a specific numbered entry
-    * /bot tldr <text> - add <text> as an entry
-    * /bot tldr edit <number> <text> - replace the specified entry with the new <text>
-    * /bot tldr clear <number> - clear specified numbered entry
-    * /bot tldr clear all - clear all entries"""
+    """<br />/bot <i><b>tldr</b> [[raw] <id>]</i><br />Retrieve the stored tldr for the hangout. If <id> included, just retrieve the numbered entry. If 'raw' included before <id>, return the entry with no formatting for easy copy/paste.<br /><u>Usage</u><br />/bot <i><b>tldr</b> 2</i><br />---<br />/bot <i><b>tldr</b> <entry></i><br />Add an entry to the tldr<br /><u>Usage</u><br />/bot <i><b>tldr</b> The quick brown fox jumps over the lazy dog.</i><br />---<br />/bot <i><b>tldr edit</b> <id> <entry></i><br />Replace the specified tldr entry with the new entry.<br /><u>Usage</u><br />/bot <i><b>tldr edit</b> 2 Lorem ipsum dolor sit amet.</i><br />---<br />/bot <i><b>tldr clear</b> <id>/all</i><br />Clear the specified tldr entry, or clear it all.<br /><u>Usage</u><br />/bot <i><b>tldr clear</b> 2</i>"""
 
     # If no memory entry exists for the conversation, create it.
     if not bot.memory.exists(['conversations']):
@@ -120,25 +114,34 @@ def tldr_base(bot, conv_id, parameters):
     conv_tldr = bot.memory.get_by_path(['tldr', conv_id])
 
     display = False
+    raw = False
     if not parameters:
         display = True
     elif len(parameters) == 1 and parameters[0].isdigit():
         display = int(parameters[0]) - 1
+    elif parameters[0] == "raw":
+        if len(parameters) == 2 and parameters[1].isdigit():
+            raw = True
+            display = int(parameters[1]) - 1
 
     if display is not False:
         # Display all messages or a specific message
         html = []
         for num, timestamp in enumerate(sorted(conv_tldr, key=float)):
             if display is True or display == num:
-                html.append(_("{}. {} <b>{} ago</b>").format(str(num + 1),
-                                                             conv_tldr[timestamp],
-                                                             _time_ago(float(timestamp))))
+                if raw is False:
+                    html.append(_("{}. {} <b>{} ago</b>").format(str(num + 1),
+                                                                conv_tldr[timestamp],
+                                                                _time_ago(float(timestamp))))
+                elif raw is True:
+                    html.append(_("{}").format(conv_tldr[timestamp]))
 
         if len(html) == 0:
             html.append(_("TL;DR not found."))
             display = False
         else:
-            html.insert(0, _("<b>TL;DR ({} stored):</b>").format(len(conv_tldr)))
+            if raw is False:
+                html.insert(0, _("<b>TL;DR ({} stored):</b>").format(len(conv_tldr)))
         message = _("\n".join(html))
 
         return message, display
