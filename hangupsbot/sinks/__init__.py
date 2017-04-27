@@ -195,7 +195,7 @@ def aiohttp_terminate(groups):
         yield from handler.finish_connections(1.0)
         server.close()
         yield from server.wait_closed()
-        yield from app.finish()
+        yield from app.cleanup()
 
         logger.info("aiohttp: terminating {} {}".format(constructors[3], constructors))
         removed.append(constructors)
