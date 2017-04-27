@@ -156,6 +156,14 @@ The wiki also has a
 **Bot isn't responding to messages:**
 * Check that the chats are not going into the 'Invites' section of Hangouts.
 
+**Bot doesn't want to login**
+* Try to login via lynx on the console of your server
+* If the above doesn't work try:
+1. Login into the Bot account on your normal PC in a browser
+2. Open up https://accounts.google.com/displayunlockcaptcha
+3. Start the Bot
+4. Fill in the Captcha on your normal PC
+
 # Extending
 
 Please see https://github.com/hangoutsbot/hangoutsbot/wiki/Authoring-Bot-Extensions
