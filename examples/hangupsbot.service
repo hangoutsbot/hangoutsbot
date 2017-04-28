@@ -4,20 +4,25 @@
 # (with your own local modifications) as a reference.
 #
 # This file may be copied to /etc/systemd/system/ and modified with your own
-# local changes, such as the user to run the daemon as, and where the daemon
+# local changes, such as the user and group to run the daemon as, and where the daemon
 # is located
 
 [Unit]
-Description=Hangouts Helper Bot
-After=network-online.target
-
+Description=hangouts bot
+After=multi-user.target
+ 
+ 
 [Service]
-ExecStart=/usr/local/hangoutsbot/hangupsbot/hangupsbot.py
-User=hangupsbot
-Group=hangupsbot
-
-Restart=on-failure
-SyslogIdentifier=hangupsbot
-
+Type=idle
+WorkingDirectory=/home/hangoutsbot/hangoutsbot
+ExecStart=/usr/bin/python3 /home/hangoutsbot/hangoutsbot/hangupsbot/hangupsbot.py
+User=botuser
+Group=users
+ 
+ 
+Restart=always
+SyslogIdentifier=hangupsbot-bot
+ 
+ 
 [Install]
 WantedBy=multi-user.target
