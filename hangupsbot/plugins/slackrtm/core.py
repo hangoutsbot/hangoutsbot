@@ -975,6 +975,9 @@ class SlackRTMThread(threading.Thread):
                 replies = self._listener.rtm_read()
                 if replies:
                     for reply in replies:
+                        if "type" not in reply:
+                            logger.warning("no type available for {}".format(reply))
+                            continue
                         if reply["type"] == "hello":
                             # discard the initial api reply
                             continue
