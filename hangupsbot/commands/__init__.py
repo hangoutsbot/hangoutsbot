@@ -45,6 +45,15 @@ class CommandDispatcher(object):
             r"^(#?[\w|]+[^#]\|)?@[\w]+[^@]$": self.one_chat_id,
             r"^#[\w|]+[^#]$": self.one_conv_id }}
 
+        """
+        disable implicit argument preprocessors on some commands
+        these are special use-cases that should be rare with supplied functionality
+        """
+        self.preprocessors_explicit = [ "plugins.mentions.mention",
+                                        "plugins.subscribe.subscribe",
+                                        "plugins.subscribe.unsubscribe",
+                                        "plugins.subscribe.testsubscribe" ]
+
     def one_chat_id(self, token, internal_context, all_users=False):
         subtokens = token.split("|", 1)
 
@@ -85,7 +94,7 @@ class CommandDispatcher(object):
             if len(matched_users) == 1:
                 subtokens[-1] = list(matched_users)[0]
             elif len(matched_users) == 0:
-                if internal_context:
+                if not all_users:
                     # redo the user search, expanded to all users
                     # since this is calling itself again, completely overwrite subtokens
                     subtokens = self.one_chat_id(
@@ -138,6 +147,9 @@ class CommandDispatcher(object):
         _trigger_on = "+" + _trigger
         _trigger_off = "-" + _trigger
         _separator = ":"
+
+        if internal_context.command_path in self.preprocessors_explicit and _implicit:
+            _implicit = False
 
         """
         simple finite state machine parser:
@@ -415,9 +427,11 @@ class CommandDispatcher(object):
             del kwds["raise_exceptions"]
 
         setattr(event, 'command_name', command_name)
-        args = list(args[1:])
+        setattr(event, 'command_module', func.__module__ )
+        setattr(event, 'command_path', func.__module__ + '.' + command_name)
 
         try:
+            args = list(args[1:])
             args = self.preprocess_arguments(args, internal_context=event)
             results = yield from func(bot, event, *args, **kwds)
             return results
