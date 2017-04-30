@@ -4,6 +4,8 @@ import uuid
 
 from collections import namedtuple
 
+from hangups import ChatMessageEvent
+
 import plugins
 import threadmanager
 
@@ -189,6 +191,7 @@ class WebFramework:
         user = event.user
         message = event.text
         image_id = None
+        is_action = False
 
         if "original_request" not in passthru:
             """user has raised an event that needs to be repeated
@@ -198,7 +201,39 @@ class WebFramework:
 
             logger.info("hangouts user raised an event, first seen by {}".format(self.plugin_name))
 
-            passthru["original_request"] = { "message": event.text,
+            if (hasattr(event, "conv_event") and isinstance(event.conv_event, ChatMessageEvent) and
+                    any(a.type == 4 for a in event.conv_event._event.chat_message.annotation)):
+                # This is a /me message sent from desktop Hangouts.
+                is_action = True
+                # The user's first name prefixes the message, so try to strip that.
+                name = self._get_user_details(event.user).get("full_name")
+                if name:
+                    # We don't have a clear-cut first name, so try to match parts of names.
+                    # Try the full name first, then split successive words off the end.
+                    parts = name.split()
+                    for pos in range(len(parts), 0, -1):
+                        sub_name = " ".join(parts[:pos])
+                        if message.startswith(sub_name):
+                            message = message[len(sub_name) + 1:]
+                            break
+                    else:
+                        # Couldn't match the user's name to the message text.
+                        # Possible mismatch between permamem and Hangouts?
+                        logger.warn("/me message: couldn't match name '{}' ({}) with message text"
+                                    .format(name, user_id))
+
+            attach = None
+            if hasattr(event, "conv_event") and getattr(event.conv_event, "attachments"):
+                attach = event.conv_event.attachments[0]
+                if attach == message:
+                    # Message consists solely of the attachment URL, no need to send that.
+                    message = "shared an image"
+                    is_action = True
+                elif attach in message:
+                    # Message includes some text too, strip the attachment URL from the end if present.
+                    message = message.replace("\n{}".format(attach), "")
+
+            passthru["original_request"] = { "message": message,
                                              "image_id": None, # XXX: should be attachments
                                              "attachments": event.conv_event.attachments,
                                              "segments": event.conv_event.segments,
@@ -208,6 +243,8 @@ class WebFramework:
                                        "source_user": event.user,
                                        "source_uid": event.user.id_.chat_id,
                                        "source_gid": conv_id,
+                                       "source_action": is_action,
+                                       "source_edit": False,
                                        "source_plugin": self.plugin_name }
 
         for config in applicable_configurations:
