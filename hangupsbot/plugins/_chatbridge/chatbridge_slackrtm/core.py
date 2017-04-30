@@ -100,6 +100,9 @@ class Slack(object):
             with (yield from self.lock):
                 # No critical section here, just wait for any pending messages to be sent.
                 pass
+            if "type" not in event:
+                logger.warn("Received strange message with no type")
+                continue
             logger.debug("Received a '{}' event".format(event["type"]))
             if event["type"] in ("team_join", "user_change"):
                 # A user appears or changed, update our cache.
