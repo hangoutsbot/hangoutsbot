@@ -93,8 +93,10 @@ def _handle_autoreply(bot, event, command):
 
             if isinstance(kwds, list):
                 for kw in kwds:
-                    if _words_in_text(kw, event.text) or kw == "*":
+                    matched = _words_in_text(kw, event.text)
+                    if matched or kw == "*":
                         logger.info("matched chat: {}".format(kw))
+                        event.regex_match = matched
                         yield from send_reply(bot, event, message)
                         break
 
@@ -178,7 +180,9 @@ def _words_in_text(word, text):
 
     regexword = "(?<!\w)" + word + "(?!\w)"
 
-    return True if re.search(regexword, text, re.IGNORECASE) else False
+    match = re.search(regexword, text, re.IGNORECASE)
+
+    return match.group(0) if match else False
 
 
 def autoreply(bot, event, cmd=None, *args):
