@@ -17,7 +17,7 @@ def _initialise(bot):
     _migrate_mention_config_to_memory(bot)
     plugins.register_handler(_handle_mention, "message")
     plugins.register_user_command(["pushbulletapi", "setnickname", "bemorespecific"])
-    plugins.register_admin_command(["mention"])
+    plugins.register_admin_command(["mention", "mentions"])
 
 
 def _migrate_mention_config_to_memory(bot):
@@ -62,7 +62,14 @@ def mention(bot, event, *args):
     """alert a @mentioned user"""
 
     """allow mentions to be disabled via global or per-conversation config"""
-    config_mentions_enabled = False if bot.get_config_suboption(event.conv.id_, 'mentions.enabled') is False else True
+    # check for a per-conversation setting
+    conv_mention = True
+    try:
+      conv_mention = bot.memory.get_by_path(["convmem", event.conv_id, "mentions"])
+    except KeyError:
+      pass
+
+    config_mentions_enabled = False if (bot.get_config_suboption(event.conv.id_, 'mentions.enabled') is False or conv_mention is False) else True
     if not config_mentions_enabled:
         logger.info("mentions explicitly disabled by config for {}".format(event.conv_id))
         return
@@ -415,6 +422,57 @@ def bemorespecific(bot, event, *args):
             event.conv,
             _('<em>"be more specific" for mentions toggled OFF</em>'))
 
+def mentions(bot, event, *args):
+  """set mentions on or off for this conversation
+      /bot mentions <on|off>"""
+
+  convs = bot.memory.get_by_path(['convmem'])
+  conv_id = event.conv_id
+
+  if conv_id not in convs:
+    logger.warning("Conversation memory not found for {}".format(conv_id))
+  else:
+    logger.debug("Conversation memory found for {}".format(conv_id))
+
+    conv = convs[conv_id]
+    if "mentions" not in conv:
+      mentions = "enabled"
+      logger.debug("Mentions for this hangout are not currently disabled")
+    else:
+      if conv["mentions"] is False:
+        mentions = "disabled"
+        logger.debug("Mentions for this hangout are currently disabled")
+      else:
+        mentions = "enabled"
+        logger.debug("Mentions for this hangout are currently enabled")
+
+    if len(args) == 1:
+      setting = args[0]
+
+      if setting.lower() in ('false', '0', 'off'):
+        value = False
+        yield from bot.coro_send_message(
+          event.conv,
+          _("Disabling mentions for this conversation"))
+      elif setting.lower() in ('true', '1', 'on'):
+        value = True
+        yield from bot.coro_send_message(
+          event.conv,
+          _("Enabling mentions for this conversation"))
+      else:
+        yield from bot.coro_send_message(
+          event.conv,
+          _("Unknown option"))
+        return
+
+      logging.info("Setting mentions to {} for hangout {}".format(value, conv_id))
+      bot.memory.set_by_path(["convmem", conv_id, "mentions"], value)
+      bot.memory.save()
+
+    else:
+      yield from bot.coro_send_message(
+        event.conv,
+        _("Mentions for this hangout are {}".format(mentions)))
 
 def setnickname(bot, event, *args):
     """allow users to set a nickname for sync relay
