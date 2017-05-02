@@ -70,6 +70,8 @@ class tracker:
                         command.register_tags(command_name, type_tags[type])
                         break
 
+        self.reset()
+
     def register_command(self, type, command_names, tags=None):
         """call during plugin init to register commands"""
         self._current["commands"][type].extend(command_names)
@@ -125,6 +127,28 @@ class tracker:
     def register_handler(self, function, type, priority):
         self._current["handlers"].append((function, type, priority))
 
+    def deregister_handler(self, function, module_path=None, strict=True):
+        if module_path is None:
+            module_path = list(tracking.list.keys())
+        elif isinstance(module_path, str):
+            module_path = [ module_path ]
+        elif isinstance(module_path, list):
+            pass
+        else:
+            raise TypeError("invalid module_path {}".format(repr(module_path)))
+
+        for m in module_path:
+            if m not in tracking.list and strict is True:
+                raise ValueError("module_path {} does not exist".format(m))
+            for h in tracking.list[m]["handlers"]:
+                if h[0] == function:
+                    logger.debug("untrack {} handler {}".format(m, h))
+                    tracking.list[m]["handlers"].remove(h)
+                    return
+
+        if strict:
+            raise ValueError("{} tracker not found: {}".format(module_path, function))
+
     def register_shared(self, id, objectref, forgiving):
         self._current["shared"].append((id, objectref, forgiving))
 
@@ -170,10 +194,15 @@ def register_admin_command(command_names, tags=None):
         command_names = [command_names]
     tracking.register_command("admin", command_names, tags=tags)
 
-def register_handler(function, type="message", priority=50):
+def register_handler(function, type="message", priority=50, extra_metadata={}):
     """register external handler"""
     bot_handlers = tracking.bot._handlers
-    bot_handlers.register_handler(function, type, priority)
+    return bot_handlers.register_handler(function, type, priority, extra_metadata=extra_metadata)
+
+def deregister_handler(function, type="message"):
+    """deregister external handler"""
+    bot_handlers = tracking.bot._handlers
+    bot_handlers.deregister_handler(function, type)
 
 def register_shared(id, objectref, forgiving=True):
     """register shared object"""

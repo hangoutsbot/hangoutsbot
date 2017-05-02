@@ -34,7 +34,7 @@ FakeUserID = namedtuple( 'userID', [ 'chat_id',
 class WebFramework:
     instance_number = 0
 
-    def __init__(self, bot, configkey, RequestHandler=IncomingRequestHandler):
+    def __init__(self, bot, configkey, RequestHandler=IncomingRequestHandler, extra_metadata={}):
         self.uid = False
         self.plugin_name = False
 
@@ -54,10 +54,16 @@ class WebFramework:
             self.uid = "{}-{}".format(self.plugin_name, WebFramework.instance_number)
             WebFramework.instance_number = WebFramework.instance_number + 1
 
-        plugins.register_handler(self._broadcast, type="sending")
-        plugins.register_handler(self._repeat, type="allmessages")
+        extra_metadata.update({ "bridge.uid": self.uid })
+
+        self._handler_broadcast = plugins.register_handler(self._broadcast, type="sending", extra_metadata=extra_metadata)
+        self._handler_repeat = plugins.register_handler(self._repeat, type="allmessages", extra_metadata=extra_metadata)
 
         self.start_listening(bot)
+
+    def close(self):
+        plugins.deregister_handler(self._handler_broadcast, type="sending")
+        plugins.deregister_handler(self._handler_repeat, type="allmessages")
 
     def load_configuration(self, configkey):
         self.configuration = self.bot.get_config_option(self.configkey) or []
