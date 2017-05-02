@@ -206,7 +206,11 @@ class SlackRTMSync(object):
         self.showslackrealnames = showslackrealnames
         self.showhorealnames = showhorealnames
 
-        self._bridgeinstance = BridgeInstance(hangoutsbot, "slackrtm")
+        handler_metadata = {}
+        handler_metadata.update({ "module": "slackrtm", "module.path": "plugins.slackrtm" }) # required: late-registration
+        handler_metadata.update({ "channel": channelid, "hangouts":  hangoutid }) # example: extra identification
+        self._bridgeinstance = BridgeInstance(hangoutsbot, "slackrtm", extra_metadata = handler_metadata)
+
         self._bridgeinstance.set_extra_configuration(hangoutid, channelid)
 
     @staticmethod
@@ -577,6 +581,7 @@ class SlackRTM(object):
             if s.channelid == channel and s.hangoutid == hangoutid:
                 sync = s
                 logger.info('removing running sync: %s', s)
+                s._bridgeinstance.close()
                 self.syncs.remove(s)
         if not sync:
             raise NotSyncingError
