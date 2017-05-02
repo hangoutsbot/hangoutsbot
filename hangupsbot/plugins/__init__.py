@@ -194,8 +194,9 @@ def register_admin_command(command_names, tags=None):
         command_names = [command_names]
     tracking.register_command("admin", command_names, tags=tags)
 
-def register_handler(function, type="message", priority=50, extra_metadata={}):
+def register_handler(function, type="message", priority=50, extra_metadata=None):
     """register external handler"""
+    extra_metadata = extra_metadata or {}
     bot_handlers = tracking.bot._handlers
     return bot_handlers.register_handler(function, type, priority, extra_metadata=extra_metadata)
 

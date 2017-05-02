@@ -47,7 +47,7 @@ class EventHandler:
                              {},
                              forgiving=True )
 
-    def register_handler(self, function, type="message", priority=50, extra_metadata={}):
+    def register_handler(self, function, type="message", priority=50, extra_metadata=None):
         """
         register hangouts event handler
         * extra_metadata is function-specific, and will be added along with standard plugin-defined metadata
@@ -56,6 +56,7 @@ class EventHandler:
         * returns actual handler that will be used
         """
 
+        extra_metadata = extra_metadata or {}
         extra_metadata["function.original"] = function
 
         # determine the actual handler function that will be registered
