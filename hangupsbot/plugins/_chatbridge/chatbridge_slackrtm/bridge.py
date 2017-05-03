@@ -1,10 +1,12 @@
 import asyncio
 from collections import defaultdict
+from io import BytesIO
+import json
 import logging
 import mimetypes
 import os.path
 import re
-import urllib.request
+import urllib.parse
 
 import emoji
 
@@ -89,7 +91,7 @@ class BridgeInstance(WebFramework):
                 # Message includes some text too, strip the attachment URL from the end if present.
                 text = text.replace("\n{}".format(attach), "")
         if attachments:
-            kwargs["attachments"] = attachments
+            kwargs["attachments"] = json.dumps(attachments)
         if text:
             kwargs["text"] = text
         msg = yield from Base.slacks[self.team].msg(channel=self.channel, link_names=True, **kwargs)
@@ -151,17 +153,17 @@ class BridgeInstance(WebFramework):
         filename = os.path.basename(msg.file)
         logger.info("Uploading Slack image '{}' to Hangouts".format(filename))
         # Retrieve the image content from Slack.
-        request = urllib.request.Request(msg.file)
-        request.add_header("Authorization", "Bearer {}".format(config["token"]))
-        response = urllib.request.urlopen(request)
+        resp = yield from Base.slacks[self.team].sess.get(msg.file,
+                headers={"Authorization": "Bearer {}".format(Base.slacks[self.team].token)})
         name_ext = "." + filename.rsplit(".", 1).pop().lower()
         # Check the file extension matches the MIME type.
-        mime_type = response.info().get_content_type()
+        mime_type = resp.content_type
         mime_exts = mimetypes.guess_all_extensions(mime_type)
         if name_ext.lower() not in [ext.lower() for ext in mime_exts]:
             logger.debug("MIME '{}' does not match extension '{}', changing to {}".format(mime_type, name_ext, mime_exts[0]))
             filename = "{}{}".format(filename, mime_exts[0])
-        image_id = yield from self.bot._client.upload_image(response, filename=filename)
+        image = yield from resp.read()
+        image_id = yield from self.bot._client.upload_image(BytesIO(image), filename=filename)
         yield from self._relay_msg(msg, conv_id, image_id)
 
     @asyncio.coroutine
