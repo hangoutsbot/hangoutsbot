@@ -24,7 +24,10 @@ logger = logging.getLogger(__name__)
 class BridgeInstance(WebFramework):
 
     def __init__(self, bot, configkey, sync):
-        super().__init__(bot, configkey)
+        meta = {"module": "chatbridge_slackrtm",
+                "module.path": "plugins._chatbridge.chatbridge_slackrtm"}
+        meta.update(sync)
+        super().__init__(bot, configkey, extra_metadata=meta)
         self.sync = sync
         self.team, self.channel = sync["channel"]
         self.hangout = sync["hangout"]

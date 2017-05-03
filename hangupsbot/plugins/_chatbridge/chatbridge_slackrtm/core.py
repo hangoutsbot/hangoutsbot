@@ -43,7 +43,7 @@ class Base(object):
         logger.info("Unregistering bridge: {} {} <-/-> {}".format(bridge.team, bridge.channel, bridge.hangout))
         Base.bridges[bridge.team].remove(bridge)
         Base.slacks[bridge.team].callbacks.remove(bridge._handle_event)
-        # TODO: The bridge is still receiving hangups events via _send_to_external_chat!
+        bridge.close()
 
 
 class SlackAPIError(Exception): pass

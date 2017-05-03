@@ -100,12 +100,12 @@ def unsync(team, channel, hangout):
     for team, bridges in Base.bridges.items():
         for bridge in bridges:
             if bridge.team == team and bridge.channel == channel["id"] and bridge.hangout == hangout:
-                # Destroy the bridge and its event callback.
-                Base.remove_bridge(bridge)
                 # Remove the sync from the config list.
                 syncs = Base.bot.config.get_by_path(["slackrtm", "syncs"])
                 syncs.remove(bridge.sync)
                 Base.bot.config.set_by_path(["slackrtm", "syncs"], syncs)
+                # Destroy the bridge and its event callback.
+                Base.remove_bridge(bridge)
                 return ("No longer syncing <b>#{}</b> on <b>{}</b> to hangout <b>{}</b>."
                         .format(channel["name"], team, hangout))
     return "This channel/hangout pair isn't currently being synced."
