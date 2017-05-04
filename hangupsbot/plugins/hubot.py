@@ -2,7 +2,6 @@ import aiohttp
 import asyncio
 import json
 import logging
-import requests
 
 import plugins
 
@@ -112,4 +111,3 @@ class IncomingMessages(IncomingRequestHandler):
 
 def _initialise(bot):
     HubotBridge(bot, "hubot", IncomingMessages)
-
