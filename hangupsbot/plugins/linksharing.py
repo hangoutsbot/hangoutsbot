@@ -32,7 +32,6 @@ def _set_linksharing(bot, convid, status):
         ),
     )
     yield from bot._client.set_group_link_sharing_enabled(request)
-    return True
 
 def _get_linksharing(bot, convid):
     """shared function, returns the url of the group link, or throws an error"""
@@ -48,29 +47,17 @@ def _get_linksharing(bot, convid):
 
     return url
 
-def linksharing(bot, event, *args):
-    """
-    set or get link sharing from conv
+def linksharing(bot, event, cmd, *args):
+    """set or get link sharing from conv
     Use: /bot linksharing <get|on|off> [<convid>]
     """
-    convid = event.conv_id
-    command_syntax = "/bot linksharing <get|on|off> [<convid>]"
-    if 1 > len(args) > 2:
-        yield from bot.coro_send_message(event.conv, "<b>Use:</b> {}".format(command_syntax))
-        return
-    else:
-        cmd = args[0]
-        channel = args[1] if len(args) == 2 else convid
-        if cmd == "on" or cmd == "off":
-            value = cmd == "on"
+    channel = args[0] if len(args) == 1 else event.conv_id
+    
+    if cmd == "on" or cmd == "off":
+        yield from bot.call_shared("linksharing.set", channel, cmd == "on")
+        message = "linksharing enabled" if cmd == "on"  else "linksharing disabled"
+    elif cmd == "get":
+        url = yield from bot.call_shared("linksharing.get", channel)
+        message = "linksharing url: {}".format(url)
 
-            message = "linksharing enabled" if value else "linksharing disabled"
-            response = yield from bot.call_shared("linksharing.set", channel, value)
-        elif cmd == "get":
-            url = yield from bot.call_shared("linksharing.get", channel)
-            message = "linksharing url: {}".format(url)
-        else:
-            yield from bot.coro_send_message(event.conv, "<b>Use:</b> {}".format(command_syntax))
-            return
-
-    yield from bot.coro_send_message(convid, message)
+    yield from bot.coro_send_message(channel, message if 'message' in locals() else linksharing.__doc__)
