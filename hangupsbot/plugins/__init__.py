@@ -125,6 +125,11 @@ class tracker:
         logger.debug("{} - [{}] tags: {}".format(command_name, type, tags))
 
     def register_handler(self, function, type, priority):
+        if self._current["metadata"] is None:
+            # late-binded handler are not registered in self._current
+            # prevents potential memory leaks from unwanted references
+            return
+
         self._current["handlers"].append((function, type, priority))
 
     def deregister_handler(self, function, module_path=None, strict=True):
@@ -142,7 +147,7 @@ class tracker:
                 raise ValueError("module_path {} does not exist".format(m))
             for h in tracking.list[m]["handlers"]:
                 if h[0] == function:
-                    logger.debug("untrack {} handler {}".format(m, h))
+                    logger.debug("untrack handler added by {} {}".format(m, h))
                     tracking.list[m]["handlers"].remove(h)
                     return
 
@@ -161,8 +166,14 @@ class tracker:
         if group not in self._current["aiohttp.web"]:
             self._current["aiohttp.web"].append(group)
 
-    def register_asyncio_task(self, task):
-        self._current["asyncio.task"].append(task)
+    def register_asyncio_task(self, task, module_path=None):
+        if self._current["metadata"] is None:
+            if module_path is None:
+                raise RuntimeError("module_path must be supplied for late-binded tasks")
+            else:
+                self.list[module_path]["asyncio.task"].append(task)
+        else:
+            self._current["asyncio.task"].append(task)
 
     def register_command_argument_preprocessors_group(self, name):
         if name not in self._current["commands"]["argument.preprocessors"]:
@@ -511,6 +522,7 @@ def unload(bot, module_path):
                     if handler[2]["module.path"] == module_path:
                         logger.debug("removing handler {} {}".format(type, handler))
                         bot._handlers.pluggables[type].remove(handler)
+                        tracking.deregister_handler(handler[0], handler[2]["module.path"])
 
             shared = plugin["shared"]
             for shared_def in shared:
