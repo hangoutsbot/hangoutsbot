@@ -124,13 +124,16 @@ class tracker:
 
         logger.debug("{} - [{}] tags: {}".format(command_name, type, tags))
 
-    def register_handler(self, function, type, priority):
-        if self._current["metadata"] is None:
-            # late-binded handler are not registered in self._current
-            # prevents potential memory leaks from unwanted references
-            return
+    def register_handler(self, function, type, priority, module_path=None):
+        _tuple = (function, type, priority)
 
-        self._current["handlers"].append((function, type, priority))
+        if self._current["metadata"] is None:
+            if module_path is None:
+                raise RuntimeError("module_path must be supplied for late-binded handlers")
+            else:
+                self.list[module_path]["handlers"].append(_tuple)
+
+        self._current["handlers"].append(_tuple)
 
     def deregister_handler(self, function, module_path=None, strict=True):
         if module_path is None:
