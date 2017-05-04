@@ -637,10 +637,7 @@ class HangupsBot(object):
             asyncio.async(
                 self._handlers.handle_call(event)
             ).add_done_callback(lambda future: future.result())
-        
-        elif type(conv_event) is hangups.conversation_event.GroupLinkSharingModificationEvent:
-            logger.warning("_on_event(): GroupLinkSharing - TODO")
-            
+
         else:
             """
             XXX: Unsupported Events:
