@@ -17,7 +17,6 @@ see https://github.com/hangoutsbot/hangoutsbot/wiki/Chatbridge-Framework
 
 name                 | platform | stability | devs                                           | v2 plugin base |
 ---------------------|----------|-----------|------------------------------------------------|----------------|
-chatbridge_hubot     | hubot    | broken    |                                                |                |
 chatbridge_slack     | slack    | stable    | web-sink + external instance reference example | slack          |
 chatbridge_telegram  | telegram | stable    | asyncio longpoll example                       | telegram       |
 chatbridge_syncrooms | hangouts | stable    |                                                | syncrooms      |
