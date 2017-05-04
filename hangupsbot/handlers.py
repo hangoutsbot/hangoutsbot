@@ -89,7 +89,7 @@ class EventHandler:
         self.pluggables[type].append((_handler, priority, _metadata))
         self.pluggables[type].sort(key=lambda tup: tup[1])
 
-        plugins.tracking.register_handler(_handler, type, priority)
+        plugins.tracking.register_handler(_handler, type, priority, module_path=_metadata["module.path"])
 
         return _handler
 
