@@ -8,7 +8,10 @@ import os
 import random
 import re
 
-from aiohttp.helpers import FormData
+try:
+    from aiohttp.helpers import FormData
+except ImportError:
+    FormData = aiohttp.formdata.FormData()
 
 import telepot.aio
 import telepot.exception
