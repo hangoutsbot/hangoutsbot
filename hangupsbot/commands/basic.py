@@ -1,4 +1,5 @@
 import logging
+import importlib
 import sys
 import re
 
@@ -230,14 +231,27 @@ def optout(bot, event, *args):
 
 @command.register
 def version(bot, event, *args):
-    """get the version of the bot"""
-    yield from bot.coro_send_message(event.conv, _("Bot Version: <b>{}</b>").format(__version__))
+    """get the version of the bot and dependencies (admin-only)"""
 
-    try:
-        from hangups import __version__ as __hangups_version__
-        yield from bot.coro_send_message(event.conv, _("Hangups Version: <b>{}</b>").format(__hangups_version__))
-    except ImportError:
-        pass
+    version_info = []
+
+    version_info.append(_("Bot Version: **{}**").format(__version__)) # hangoutsbot
+    version_info.append(_("Python Version: **{}**").format(sys.version.split()[0])) # python
+
+    # display extra version information only if user is an admin
+
+    admins_list = bot.get_config_suboption(event.conv_id, 'admins')
+    if event.user.id_.chat_id in admins_list:
+        # depedencies
+        modules = args or [ "aiohttp", "appdirs", "emoji", "hangups", "telepot" ]
+        for module_name in modules:
+            try:
+                _module = importlib.import_module(module_name)
+                version_info.append(_("* {} **{}**").format(module_name, _module.__version__))
+            except(ImportError, AttributeError):
+                pass
+
+    yield from bot.coro_send_message(event.conv, "\n".join(version_info))
 
 
 @command.register(admin=True)
