@@ -8,13 +8,10 @@ import os
 import random
 import re
 
-try:
-    from aiohttp.helpers import FormData
-except ImportError:
-    FormData = aiohttp.formdata.FormData()
-
 import telepot.aio
 import telepot.exception
+
+from telepot.aio.loop import MessageLoop
 
 import hangups
 
@@ -60,7 +57,7 @@ def convert_online_mp4_to_gif(source_url, fallback_url=False):
     url = "https://api.gifs.com/media/upload"
 
     headers = { "Gifs-Api-Key": api_key }
-    data = FormData()
+    data = aiohttp.formdata.FormData()
     data.add_field('file', raw_image)
     data.add_field('title', 'example.mp4')
 
@@ -1168,7 +1165,7 @@ def _initialise(bot):
     tg_bot.add_command("/unsyncprofile", tg_command_unsync_profile)
     tg_bot.add_command("/getme", tg_command_get_me)
 
-    plugins.start_asyncio_task(tg_bot.message_loop(timeout=50))
+    plugins.start_asyncio_task(MessageLoop(tg_bot).run_forever())
     plugins.start_asyncio_task(tg_bot.setup_bot_info())
 
     plugins.register_admin_command(["telesync"])

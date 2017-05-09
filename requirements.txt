@@ -18,7 +18,7 @@ git+https://github.com/carpedm20/emoji          # plugins: slack, slackrtm
 git+https://github.com/loisaidasam/pyslack.git  # plugins: slack
 slackclient >=0.16                              # plugins: slackrtm
 selenium                                        # plugins: image_screenshot
-telepot                                         # plugins: telesync
+telepot>=11.0                                   # plugins: telesync
 cleverwrap                                      # plugins: cleverbot
 TwitterAPI                                      # plugins: twitter
 google-api-python-client                        # plugins: spotify
