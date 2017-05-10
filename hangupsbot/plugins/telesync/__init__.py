@@ -30,9 +30,12 @@ logger = logging.getLogger(__name__)
 reg_code_prefix = "VERIFY"
 
 
+ClientSession = aiohttp.ClientSession()
+
 @asyncio.coroutine
 def convert_online_mp4_to_gif(source_url, fallback_url=False):
     """experimental utility function to convert telegram mp4s back into gifs"""
+    global ClientSession
 
     config = _telesync_config(tg_bot.ho_bot)
 
@@ -49,7 +52,7 @@ def convert_online_mp4_to_gif(source_url, fallback_url=False):
         api_key = "gifs56d63999f0f34"
 
     # retrieve the source image
-    api_request = yield from aiohttp.request('get', source_url)
+    api_request = yield from ClientSession.get(source_url)
     raw_image = yield from api_request.read()
 
     # upload it to gifs.com for conversion
@@ -61,7 +64,7 @@ def convert_online_mp4_to_gif(source_url, fallback_url=False):
     data.add_field('file', raw_image)
     data.add_field('title', 'example.mp4')
 
-    response = yield from aiohttp.post(url, data=data, headers=headers)
+    response = yield from ClientSession.post(url, data=data, headers=headers)
     if response.status != 200:
         return fallback_url or source_url
 
