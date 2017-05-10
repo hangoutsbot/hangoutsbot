@@ -16,6 +16,14 @@ logger = logging.getLogger(__name__)
 
 _externals = { "bot": None }
 
+
+try:
+    aiohttp_clienterror = aiohttp.ClientError
+except AttributeError:
+    aiohttp_clienterror = aiohttp.errors.ClientError
+    logger.warning("[DEPRECATED]: aiohttp < 2.0")
+
+
 def _initialise(bot):
     _externals["bot"] = bot
     plugins.register_shared('image_validate_link', image_validate_link)
@@ -117,7 +125,7 @@ def image_upload_single(image_uri):
             logger.warning("not image/image-like, filename={}, headers={}".format(filename, r.headers))
             return False
 
-    except (aiohttp.errors.ClientError) as exc:
+    except (aiohttp_clienterror) as exc:
         logger.warning("failed to get {} - {}".format(filename, exc))
         return False
 
