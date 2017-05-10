@@ -239,7 +239,6 @@ class TelegramBot(telepot.aio.Bot):
 
         else:
             flavor = telepot.flavor(msg)
-
             if flavor == "chat":  # chat message
                 content_type, chat_type, chat_id = telepot.glance(msg)
                 if content_type == 'text':
@@ -290,7 +289,13 @@ class TelegramBot(telepot.aio.Bot):
                             msg['photo'] = [ msg["document"] ]
                             msg['photo'][0]["width"] = 1 # XXX: required for tg_util_get_photo_list() sort
                             yield from self.onPhotoCallback(self, chat_id, msg, original_is_gif=True)
-
+                    elif msg["document"]["mime_type"].startswith("image/"):
+                        # treat images like photos
+                        msg['photo'] = [ msg["document"] ]
+                        msg['photo'][0]["width"] = 1 # XXX: required for tg_util_get_photo_list() sort
+                        yield from self.onPhotoCallback(self, chat_id, msg)
+                    else:
+                        logger.warning("unhandled document: {}".format(msg))
                 else:
                     logger.warning("unhandled content type: {} {}".format(content_type, msg))
 
