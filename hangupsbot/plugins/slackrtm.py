@@ -1207,6 +1207,12 @@ class SlackRTM(object):
             fullname = event.user.full_name
             if sync.hotag:
                 fullname = '%s (%s)' % (fullname, sync.hotag)
+            # these cracy ingress people always add Unicode symbols to HO titles, we have to them out
+            clean_fullname = ""
+            for c in fullname:
+                if ord(c) <= 255:
+                    clean_fullname += c
+            fullname = clean_fullname
             try:
                 photo_url = "http:"+self.bot._user_list.get_user(event.user_id).photo_url
             except Exception as e:
