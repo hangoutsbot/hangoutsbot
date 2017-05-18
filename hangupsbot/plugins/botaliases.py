@@ -15,7 +15,7 @@ def _initialise(bot):
     else:
         myself = bot.user_self()
         # basic
-        bot_command_aliases = ["/bot"]
+        bot_command_aliases = []
         # /<first name fragment>
         first_fragment = myself["full_name"].split()[0].lower()
         if first_fragment and first_fragment != "unknown":
