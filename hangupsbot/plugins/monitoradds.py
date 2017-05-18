@@ -22,7 +22,7 @@ def _initialise(bot):
 
 def _watch_new_adds(bot, event, command):
     # Check if watching for new adds is enabled
-    if not bot.get_config_suboption(event.conv_id, 'watch_new_adds'):
+    if not bot.get_config_suboption(event.conv_id, 'watch_new_adds') and not bot.get_config_suboption(event.conv_id, 'notify_on_unauthorized_add'):
         return
 
     # Generate list of added or removed users
@@ -49,6 +49,14 @@ def _watch_new_adds(bot, event, command):
             # The mods are likely not configured. Continuing...
             pass
 
+        if bot.get_config_suboption(event.conv_id, 'notify_on_unauthorized_add'):
+            for admin in admins_list:
+                yield from bot.coro_send_to_user(admin,
+                """<b>Unauthorized Add:</b><br /><b>{0}</b> invited <b>{1}</b> to hangout <i>{2}</i> without authorization""".format(
+                event.user.full_name,
+                names,
+                bot.conversations.get_name(event.conv)))
+
         html = _("<b>!!! WARNING !!!</b><br />"
                  "<br />"
                  "<b>{0}</b> invited <b>{1}</b> without authorization.<br />"
@@ -56,7 +64,8 @@ def _watch_new_adds(bot, event, command):
                  "<b>{1}</b>: Please leave this hangout and ask a moderator to add you. "
                  "Thank you for your understanding.").format(event.user.full_name, names)
 
-        yield from bot.coro_send_message(event.conv, html)
+        if bot.get_config_suboption(event.conv_id, 'watch_new_adds'):
+            yield from bot.coro_send_message(event.conv, html)
 
 def addmod(bot, event, *args):
     """add user id(s) to the whitelist of who can add to a hangout"""
