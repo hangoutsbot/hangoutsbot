@@ -952,6 +952,12 @@ class SlackRTM(object):
                           as_user=True,
                           link_names=True)
 
+    def close(self):
+        logger.debug("closing all bridge instances")
+        for s in self.syncs:
+            s._bridgeinstance.close()
+
+
 class SlackRTMThread(threading.Thread):
     def __init__(self, bot, loop, config):
         super(SlackRTMThread, self).__init__()
@@ -969,6 +975,7 @@ class SlackRTMThread(threading.Thread):
         start_ts = time.time()
         try:
             if self._listener and self._listener in _slackrtms:
+                self._listener.close()
                 _slackrtms.remove(self._listener)
             self._listener = SlackRTM(self._config, self._bot, self._loop, threaded=True)
             _slackrtms.append(self._listener)
@@ -1022,6 +1029,7 @@ class SlackRTMThread(threading.Thread):
 
     def stop(self):
         if self._listener and self._listener in _slackrtms:
+            self._listener.close()
             _slackrtms.remove(self._listener)
         self._stop.set()
 
