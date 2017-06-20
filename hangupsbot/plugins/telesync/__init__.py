@@ -133,6 +133,14 @@ class TelegramBot(telepot.async.Bot):
         tg_admins = self.ho_bot.config.get_by_path(['telesync'])['admins']
         return True if str(user_id) in tg_admins else False
 
+    def is_blacklisted_word(self, msg):
+        tg_blacklisted_words = self.ho_bot.config.get_by_path(['telesync'])['blacklisted_words']
+        msg_lower = msg.lower()
+        for word in tg_blacklisted_words:
+            if word.lower() in msg_lower:
+                return True
+        return False
+
     @asyncio.coroutine
     def handle(self, msg):
 
@@ -156,6 +164,9 @@ class TelegramBot(telepot.async.Bot):
                                 pass
                             else:
                                 yield from self.sendMessage(chat_id, "Unknown command: {cmd}".format(cmd=cmd))
+
+                    elif TelegramBot.is_blacklisted_word(self, msg['text']):
+                        pass
 
                     else:  # plain text message
                         yield from self.onMessageCallback(self, chat_id, msg)
@@ -265,7 +276,7 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
         chat_title = ""
         if "sync_chat_titles" not in config or config["sync_chat_titles"]:
             chat_title = ' <b>({gname})</b>'.format(gname=tg_util_get_group_name(msg))
-        text = "<b>{uname}</b>{chat_title}: {text}".format(uname=tg_util_sync_get_user_name(msg),
+        text = "<b>{uname}</b>: {text}".format(uname=tg_util_sync_get_user_name(msg),
                                                            chat_title=chat_title,
                                                            text=msg['text'])
 
@@ -568,6 +579,68 @@ def tg_command_add_bot_admin(bot, chat_id, args):
 
     yield from bot.sendMessage(chat_id, text)
 
+@asyncio.coroutine
+def tg_command_add_blacklisted_word(bot, chat_id, args):
+    user_id = args['user_id']
+    params = args['params']
+    chat_type = args['chat_type']
+
+    if 'private' != chat_type:
+        yield from bot.sendMessage(chat_id, "This command must be invoked in private chat")
+        return
+
+    if not bot.is_telegram_admin(user_id):
+        yield from bot.sendMessage(chat_id, "Only admins can do that")
+        return
+
+    if len(params) != 1:
+        yield from bot.sendMessage(chat_id, "Illegal or Missing arguments!!!")
+        return
+
+    text = ""
+
+    tg_conf = bot.ho_bot.config.get_by_path(['telesync'])
+    if str(params[0]) not in tg_conf['blacklisted_words']:
+        tg_conf['blacklisted_words'].append(str(params[0]))
+        bot.ho_bot.config.set_by_path(['telesync'], tg_conf)
+        text = "added word to blacklist"
+    else:
+        text = "word is already blacklisted"
+
+    yield from bot.sendMessage(chat_id, text)
+
+
+@asyncio.coroutine
+def tg_command_remove_blacklisted_word(bot, chat_id, args):
+    user_id = args['user_id']
+    params = args['params']
+    chat_type = args['chat_type']
+
+    if 'private' != chat_type:
+        yield from bot.sendMessage(chat_id, "This command must be invoked in private chat")
+        return
+
+    if not bot.is_telegram_admin(user_id):
+        yield from bot.sendMessage(chat_id, "Only admins can do that")
+        return
+
+    if len(params) != 1:
+        yield from bot.sendMessage(chat_id, "Illegal or Missing arguments!!!")
+        return
+
+    target_user = str(params[0])
+
+    text = ""
+    tg_conf = bot.ho_bot.config.get_by_path(['telesync'])
+    if target_user in tg_conf['blacklisted_words']:
+        tg_conf['blacklisted_words'].remove(target_user)
+        bot.ho_bot.config.set_by_path(['telesync'], tg_conf)
+        text = "removed word from blacklist"
+    else:
+        text = "word is not blacklisted"
+
+    yield from bot.sendMessage(chat_id, text)
+
 
 @asyncio.coroutine
 def tg_command_remove_bot_admin(bot, chat_id, args):
@@ -691,6 +764,18 @@ def tg_command_get_me(bot, chat_id, args):
     else:
         yield from bot.sendMessage(chat_id, "Only admins can do that")
 
+@asyncio.coroutine
+def tg_command_ao(bot, chat_id, args):
+    params = args['params']
+
+    tg2ho_dict = tg_bot.ho_bot.memory.get_by_path(['telesync'])['tg2ho']
+    if len(params) == 0:
+        try:
+            yield from bot.sendMessage(chat_id, "Was hier geschrieben wird hinter /ao bleibt auch hier!")
+        except KeyError as ke:
+            yield from bot.sendMessage(chat_id, "AO plugin is not active. KeyError: {e}".format(e=ke))
+
+
 
 # TELEGRAM DEFINITIONS END
 
@@ -732,6 +817,8 @@ def _initialise(bot):
     tg_bot.add_command("/syncprofile", tg_command_sync_profile)
     tg_bot.add_command("/unsyncprofile", tg_command_unsync_profile)
     tg_bot.add_command("/getme", tg_command_get_me)
+    tg_bot.add_command("/addblacklist", tg_command_add_blacklisted_word)
+    tg_bot.add_command("/removeblacklist", tg_command_remove_blacklisted_word)
 
     loop = asyncio.get_event_loop()
     # run telegram bot
@@ -878,7 +965,7 @@ def _on_hangouts_message(bot, event, command=""):
         chat_title = ""
         if "sync_chat_titles" not in config_dict or config_dict["sync_chat_titles"]:
             chat_title = ' <b>({gname})</b>'.format(gname=event.conv.name)
-        text = '<a href="{user_gplus}">{uname}</a>{chat_title}: {text}'.format(uname=event.user.full_name,
+        text = '<a href="{user_gplus}">{uname}</a>: {text}'.format(uname=event.user.full_name,
                                                                                user_gplus=user_gplus,
                                                                                chat_title=chat_title,
                                                                                text=sync_text)
