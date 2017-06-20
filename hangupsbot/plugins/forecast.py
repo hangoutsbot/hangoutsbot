@@ -1,8 +1,9 @@
+# coding: utf-8
 """
-Use forecast.io to get current weather forecast for a given location.
+Use DarkSky.net to get current weather forecast for a given location.
 
 Instructions:
-    * Get an API key from https://developer.forecast.io/
+    * Get an API key from https://darksky.net/dev/
     * Store API key in config.json:forecast_api_key
 """
 import logging
@@ -44,7 +45,7 @@ def setweatherlocation(bot, event, *args):
     yield from bot.coro_send_message(event.conv_id, _('This hangouts default location has been set to {}.'.format(location)))
 
 def weather(bot, event, *args):
-    """Returns weather information from Forecast.io
+    """Returns weather information from darksky.net
     <b>/bot weather <location></b> Get location's current weather.
     <b>/bot weather</b> Get the hangouts default location's current weather. If the default location is not set talk to a hangout admin.
     """
@@ -55,7 +56,7 @@ def weather(bot, event, *args):
         yield from bot.coro_send_message(event.conv_id, 'There was an error retrieving the weather, guess you need to look outside.')
 
 def forecast(bot, event, *args):
-    """Returns a brief textual forecast from Forecast.io
+    """Returns a brief textual forecast from darksky.net
     <b>/bot weather <location></b> Get location's current forecast.
     <b>/bot weather</b> Get the hangouts default location's forecast. If default location is not set talk to a hangout admin.
     """
@@ -122,11 +123,11 @@ def _lookup_address(location):
 
 def _lookup_weather(coords):
     """
-    Retrieve the current forecast for the specified coordinates from forecast.io
+    Retrieve the current forecast for the specified coordinates from darksky.net
     Limit of 1,000 requests a day
     """
 
-    forecast_io_url = 'https://api.forecast.io/forecast/{0}/{1},{2}?units=auto'.format(_internal['forecast_api_key'],coords['lat'], coords['lng'])
+    forecast_io_url = 'https://api.darksky.net/forecast/{0}/{1},{2}?units=auto'.format(_internal['forecast_api_key'],coords['lat'], coords['lng'])
     r = requests.get(forecast_io_url)
 
     try:
@@ -154,7 +155,7 @@ def _lookup_weather(coords):
         logger.error("Forecast Error: {}".format(e))
         current = dict()
     except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError, requests.exceptions.Timeout):
-        logger.error('unable to connect with api.forecast.io: %d - %s', resp.status_code, resp.text)
+        logger.error('unable to connect with api.darksky.net: %d - %s', resp.status_code, resp.text)
         return None
 
     return current

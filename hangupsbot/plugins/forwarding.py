@@ -26,12 +26,10 @@ def _handle_forwarding(bot, event, command):
         for _conv_id in forward_to_list:
             html_identity = "<b><a href='https://plus.google.com/u/0/{}/about'>{}</a></b><b>:</b> ".format(event.user_id.chat_id, event.user.full_name)
 
-            html_message = ""
-            for segment in event.conv_event.segments:
-                html_message += segment.text
+            html_message = event.text
 
             if not event.conv_event.attachments:
-                yield from bot.coro_send_message( _conv_id, 
+                yield from bot.coro_send_message( _conv_id,
                                                   html_identity + html_message )
 
             for link in event.conv_event.attachments:

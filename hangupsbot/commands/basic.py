@@ -1,4 +1,6 @@
-import logging, sys, resource
+import logging
+import sys
+import re
 
 import plugins
 
@@ -7,6 +9,11 @@ from commands import command
 
 
 logger = logging.getLogger(__name__)
+
+try:
+    import resource
+except ImportError:
+    logger.warning("resource is unavailable on your system")
 
 
 def _initialise(bot): pass # prevents commands from being automatically added
@@ -52,6 +59,17 @@ def help(bot, event, cmd=None, *args):
             help_lines.append('')
             help_lines.append(_('<b>Admin commands:</b>'))
             help_lines.append(', '.join(sorted(commands_admin)))
+
+        help_lines.append("")
+        help_lines.append("<b>Command-specific help:</b>")
+        help_lines.append("/bot help <command name>")
+
+        bot_aliases = [ _alias for _alias in bot._handlers.bot_command if len(_alias) < 9 ]
+        if len(bot_aliases) > 1:
+            help_lines.append("")
+            help_lines.append("<b>My short-hand names:</b>")
+            help_lines.append(', '.join(sorted(bot_aliases)))
+
     else:
         if cmd in command.commands and (cmd in commands_admin or cmd in commands_nonadmin):
             command_fn = command.commands[cmd]
@@ -61,7 +79,33 @@ def help(bot, event, cmd=None, *args):
             yield from command.unknown_command(bot, event)
             return
 
-        help_lines.append("<b>{}</b>: {}".format(command_fn.__name__, command_fn.__doc__))
+        if "__doc__" in dir(command_fn) and command_fn.__doc__:
+            _docstring = command_fn.__doc__.strip()
+        else:
+            _docstring = "_{}_".format(_("command help not available"))
+
+        """docstrings: apply (very) limited markdown-like formatting to command help"""
+
+        # simple bullet lists
+        _docstring = re.sub(r'\n +\* +', '\n* ', _docstring)
+
+        """docstrings: handle generic whitespace
+            manually parse line-breaks: single break -> space; multiple breaks -> paragraph
+            XXX: the markdown parser is iffy on line-break processing"""
+
+        # turn standalone linebreaks into space, preserves multiple linebreaks
+        _docstring = re.sub(r"(?<!\n)\n(?= *[^ \t\n\r\f\v\*])", " ", _docstring)
+        # convert multiple consecutive spaces into single space
+        _docstring = re.sub(r" +", " ", _docstring)
+        # convert consecutive linebreaks into double linebreak (pseudo-paragraph)
+        _docstring = re.sub(r" *\n\n+ *(?!\*)", "\n\n", _docstring)
+
+        help_lines.append("<b>{}</b>: {}".format(command_fn.__name__, _docstring))
+
+    # replace /bot with the first alias in the command handler
+    # XXX: [botalias] maintained backward compatibility, please avoid using it
+    help_lines = [ re.sub(r"(?<!\S)\/bot(?!\S)", bot._handlers.bot_command[0], _line)
+                   for _line in help_lines ]
 
     yield from bot.coro_send_to_user_and_conversation(
         event.user.id_.chat_id,
@@ -95,21 +139,91 @@ def ping(bot, event, *args):
 
 @command.register
 def optout(bot, event, *args):
-    """toggle opt-out of bot PM"""
-    optout = False
+    """toggle opt-out of bot private messages globally or on a per-conversation basis:
+
+    * /bot optout - toggles global optout on/off, or displays per-conversation optouts
+    * /bot optout [name|convid] - toggles per-conversation optout (overrides global settings)
+    * /bot optout all - clears per-conversation opt-out and forces global optout"""
+
     chat_id = event.user.id_.chat_id
     bot.initialise_memory(chat_id, "user_data")
+
+    optout = False
     if bot.memory.exists(["user_data", chat_id, "optout"]):
         optout = bot.memory.get_by_path(["user_data", chat_id, "optout"])
-    optout = not optout
+
+    target_conv = False
+    if args:
+        search_string = ' '.join(args).strip()
+        if search_string == 'all':
+            target_conv = "all"
+        else:
+            search_results = []
+            if( search_string in bot.conversations.catalog
+                    and bot.conversations.catalog[search_string]['type'] == "GROUP" ):
+                # directly match convid of a group conv
+                target_conv = search_string
+            else:
+                # search for conversation title text, must return single group
+                for conv_id, conv_data in bot.conversations.get("text:{0}".format(search_string)).items():
+                    if conv_data['type'] == "GROUP":
+                        search_results.append(conv_id)
+                num_of_results = len(search_results)
+                if num_of_results == 1:
+                    target_conv = search_results[0]
+                else:
+                    yield from bot.coro_send_message(
+                        event.conv,
+                        _("<i>{}, search did not match a single group conversation</i>").format(event.user.full_name))
+                    return
+
+    type_optout = type(optout)
+
+    if type_optout is list:
+        if not target_conv:
+            if not optout:
+                # force global optout
+                optout = True
+            else:
+                # user will receive list of opted-out conversations
+                pass
+        elif target_conv.lower() == 'all':
+            # convert list optout to bool optout
+            optout = True
+        elif target_conv in optout:
+            # remove existing conversation optout
+            optout.remove(target_conv)
+        elif target_conv in bot.conversations.catalog:
+            # optout from a specific conversation
+            optout.append(target_conv)
+            optout = list(set(optout))
+    elif type_optout is bool:
+        if not target_conv:
+            # toggle global optout
+            optout = not optout
+        elif target_conv.lower() == 'all':
+            # force global optout
+            optout = True
+        elif target_conv in bot.conversations.catalog:
+            # convert bool optout to list optout
+            optout = [ target_conv ]
+        else:
+            raise ValueError('no conversation was matched')
+    else:
+        raise TypeError('unrecognised {} for optout, value={}'.format(type_optout, optout))
 
     bot.memory.set_by_path(["user_data", chat_id, "optout"], optout)
     bot.memory.save()
 
-    if optout:
+    message = _('<i>{}, you <b>opted-in</b> for bot private messages</i>').format(event.user.full_name)
+
+    if isinstance(optout, bool) and optout:
         message = _('<i>{}, you <b>opted-out</b> from bot private messages</i>').format(event.user.full_name)
-    else:
-        message = _('<i>{}, you <b>opted-in</b> for bot private messages</i>').format(event.user.full_name)
+    elif isinstance(optout, list) and optout:
+        message = _('<i>{}, you are <b>opted-out</b> from the following conversations:\n{}</i>').format(
+            event.user.full_name,
+            "\n".join([ "* {}".format(bot.conversations.get_name(conv_id))
+                        for conv_id in optout ]))
 
     yield from bot.coro_send_message(event.conv, message)
 
@@ -123,6 +237,11 @@ def version(bot, event, *args):
 @command.register(admin=True)
 def resourcememory(bot, event, *args):
     """print basic information about memory usage with resource library"""
+
+    if "resource" not in sys.modules:
+        yield from bot.coro_send_message(event.conv,  "<i>resource module not available</i>")
+        return
+
     # http://fa.bianp.net/blog/2013/different-ways-to-get-memory-consumption-or-lessons-learned-from-memory_profiler/
     rusage_denom = 1024.
     if sys.platform == 'darwin':
