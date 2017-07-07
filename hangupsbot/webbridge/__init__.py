@@ -357,7 +357,10 @@ class WebFramework:
             if photo_url and not photo_url.startswith("http"):
                 photo_url = "https:" + photo_url
 
-        if nickname:
+        name_preference = self.bot.config.get_option("chatbridge_preferred_name")
+        if name_preference == "both" and nickname and not full_name == nickname:
+            preferred_name = "{} ({})".format(full_name, nickname)
+        elif name_preference == "nick" and nickname:
             preferred_name = nickname
         else:
             preferred_name = full_name
