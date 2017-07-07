@@ -34,7 +34,7 @@ def identify(source, sender, team, query=None, clear=False):
     slack = Base.slacks[team]
     if query:
         if source == HANGOUTS:
-            for user_id, user in slack.users[team].items():
+            for user_id, user in slack.users.items():
                 if query == user["id"] or query.lower() == user["name"]:
                     user_name = user["name"]
                     break
@@ -48,13 +48,16 @@ def identify(source, sender, team, query=None, clear=False):
             user_name = user.full_name
         if idents.get(source, sender) == user_id:
             resp = "You are already identified as <b>{}</b>.".format(user_name)
-            if not idents.get(dest, user_id) == sender:
-                resp += "\nBut you still need to confirm your identity from {}.".format(dest)
-            return resp
-        idents.add(source, sender, user_id)
-        resp = "You have identified as <b>{}</b>.".format(user_name)
+        else:
+            idents.add(source, sender, user_id)
+            resp = "You have identified as <b>{}</b>.".format(user_name)
         if not idents.get(dest, user_id) == sender:
-            resp += "\nNow you need to confirm your identity from {}.".format(dest)
+            resp += "\nConfirm your identity from {} with this command:".format(dest)
+            if dest == HANGOUTS:
+                cmd = "/bot slack_identify as {} {}".format(team, slack.users[sender]["name"])
+            else:
+                cmd = "identify as {}".format(sender)
+            resp += "\n<b>{}</b>".format(cmd)
         return resp
     elif clear:
         if idents.get(source, sender):
