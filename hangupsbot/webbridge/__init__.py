@@ -318,7 +318,8 @@ class WebFramework:
         source_user = external_context.get("source_user") or self.plugin_name
         bridge_user = self._get_user_details(source_user, external_context)
         source_title = external_context.get("source_title")
-        source_attrs = [source_title] if source_title else []
+        hide_preference = self.bot.config.get_option("chatbridge_hide_source")
+        source_attrs = [source_title] if source_title and not hide_preference else []
         if external_context.get("source_edited"):
             source_attrs.append("edited")
 
