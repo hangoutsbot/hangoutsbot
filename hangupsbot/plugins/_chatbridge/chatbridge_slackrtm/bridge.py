@@ -14,7 +14,6 @@ from webbridge import WebFramework
 import plugins
 
 from .core import HANGOUTS, SLACK, Base, Message
-from .commands import run_slack_command
 from .parser import from_slack, from_hangups
 
 
@@ -101,34 +100,6 @@ class BridgeInstance(WebFramework):
         # Store the new message ID alongside the original message.
         # We'll receive an RTM event about it shortly.
         self.messages[msg["ts"]] = event.passthru
-
-    @asyncio.coroutine
-    def _handle_event(self, event):
-        if event["type"] == "message":
-            msg = Message(event)
-            if msg.hidden:
-                logger.debug("Skipping Slack-only feature message of type '{}'".format(msg.type))
-                return
-            yield from self._handle_msg(Message(event))
-
-    @asyncio.coroutine
-    def _handle_msg(self, msg):
-        if msg.channel in Base.slacks[self.team].channels:
-            yield from self._handle_channel_msg(msg)
-        elif msg.channel in Base.slacks[self.team].directs:
-            yield from self._handle_direct_msg(msg)
-        else:
-            logger.warn("Got message '{}' from unknown channel '{}'".format(msg.ts, msg.channel))
-
-    @asyncio.coroutine
-    def _handle_direct_msg(self, msg):
-        channel = Base.slacks[self.team].directs[msg.channel]
-        user = Base.slacks[self.team].users[channel["user"]]
-        if not channel["user"] == msg.user:
-            # Message wasn't sent by the user, so it was probably us.
-            return
-        logger.info("Got direct message '{}' from {}/{}".format(msg.ts, user["id"], user["name"]))
-        yield from run_slack_command(msg, Base.slacks[self.team], self.team)
 
     @asyncio.coroutine
     def _handle_channel_msg(self, msg):

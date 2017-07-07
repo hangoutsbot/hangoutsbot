@@ -13,7 +13,7 @@ def _initialise(bot):
     root = bot.get_config_option("slackrtm") or {}
     Base.bot = bot
     for team, config in root.get("teams", {}).items():
-        Base.add_slack(team, Slack(config["token"]))
+        Base.add_slack(team, Slack(team, config["token"]))
     for sync in root.get("syncs", []):
         Base.add_bridge(BridgeInstance(bot, "slackrtm", sync))
     for slack in Base.slacks.values():

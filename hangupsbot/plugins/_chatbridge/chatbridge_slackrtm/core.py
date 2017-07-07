@@ -36,13 +36,13 @@ class Base(object):
     def add_bridge(cls, bridge):
         logger.info("Registering new bridge: {} {} <--> {}".format(bridge.team, bridge.channel, bridge.hangout))
         Base.bridges[bridge.team].append(bridge)
-        Base.slacks[bridge.team].callbacks.append(bridge._handle_event)
+        Base.slacks[bridge.team].callbacks.append(bridge._handle_channel_msg)
 
     @classmethod
     def remove_bridge(cls, bridge):
         logger.info("Unregistering bridge: {} {} <-/-> {}".format(bridge.team, bridge.channel, bridge.hangout))
         Base.bridges[bridge.team].remove(bridge)
-        Base.slacks[bridge.team].callbacks.remove(bridge._handle_event)
+        Base.slacks[bridge.team].callbacks.remove(bridge._handle_channel_msg)
         bridge.close()
 
 
@@ -54,7 +54,8 @@ class Slack(object):
     A tiny async Slack client for the RTM APIs.
     """
 
-    def __init__(self, token):
+    def __init__(self, name, token):
+        self.name = name
         self.token = token
         self.sess = aiohttp.ClientSession()
         self.team = self.users = self.channels = self.directs = None
@@ -97,9 +98,6 @@ class Slack(object):
         logger.debug("Connected to websocket")
         while True:
             event = yield from sock.receive_json()
-            with (yield from self.lock):
-                # No critical section here, just wait for any pending messages to be sent.
-                pass
             if "type" not in event:
                 logger.warn("Received strange message with no type")
                 continue
@@ -113,11 +111,35 @@ class Slack(object):
             elif event["type"] == "im_created":
                 # A DM appeared, add to our cache.
                 self.directs[event["channel"]["id"]] = event["channel"]
-            try:
-                for callback in self.callbacks:
-                    yield from callback(event)
-            except Exception:
-                logger.exception("Failed callback for event")
+            elif event["type"] == "message":
+                with (yield from self.lock):
+                    # No critical section here, just wait for any pending messages to be sent.
+                    pass
+                msg = Message(event)
+                if msg.hidden:
+                    logger.debug("Skipping Slack-only feature message of type '{}'".format(msg.type))
+                    continue
+                if msg.channel in self.channels:
+                    logger.info("Got channel message '{}' in {} from {}".format(msg.ts, msg.channel, msg.user))
+                    # Message received in a channel.
+                    for callback in self.callbacks:
+                        try:
+                            yield from callback(msg)
+                        except Exception:
+                            logger.exception("Failed callback for event")
+                elif msg.channel in self.directs:
+                    logger.info("Got direct message '{}' from {}".format(msg.ts, msg.user))
+                    # Private message to the bot.
+                    channel = self.directs[msg.channel]
+                    user = self.users[channel["user"]]
+                    if not channel["user"] == msg.user:
+                        # Message wasn't sent by the user, so it was probably us.
+                        continue
+                    # XXX: Circular dependency on core.*, commands.run_slack_command.
+                    from .commands import run_slack_command
+                    yield from run_slack_command(msg, self)
+                else:
+                    logger.warn("Got message '{}' from unknown channel '{}'".format(msg.ts, msg.channel))
 
 
 class Identities(object):

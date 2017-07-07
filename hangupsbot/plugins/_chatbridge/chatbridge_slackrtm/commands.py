@@ -131,8 +131,8 @@ def reply_slack(fn):
     Decorator: run a Slack command, and send the result privately to the calling Slack user.
     """
     @asyncio.coroutine
-    def wrap(msg, slack, team):
-        resp = fn(msg, slack, team)
+    def wrap(msg, slack):
+        resp = fn(msg, slack)
         if not resp:
             return
         yield from slack.msg(channel=msg.channel, as_user=True, text=from_hangups.convert(resp))
@@ -171,14 +171,14 @@ def slack_unsync(bot, event, *args):
 
 
 @reply_slack
-def run_slack_command(msg, slack, team):
+def run_slack_command(msg, slack):
     args = msg.text.split()
     try:
         name = args.pop(0)
     except IndexError:
         return
     try:
-        admins = Base.bot.config.get_by_path(["slackrtm", "teams", team, "admins"])
+        admins = Base.bot.config.get_by_path(["slackrtm", "teams", slack.name, "admins"])
     except (KeyError, TypeError):
         admins = []
     if name == "identify":
@@ -188,13 +188,13 @@ def run_slack_command(msg, slack, team):
             kwargs = {"query": args[1]}
         else:
             kwargs = {"clear": True}
-        return identify(SLACK, msg.user, team, **kwargs)
+        return identify(SLACK, msg.user, slack.name, **kwargs)
     elif msg.user in admins:
         if name == "sync":
             if not (len(args) == 3 and args[1] == "to"):
                 return "Usage: <b>sync <i>channel</i> to <i>hangout</i></b>"
-            return sync(team, args[0], args[2])
+            return sync(slack.name, args[0], args[2])
         elif name == "unsync":
             if not (len(args) == 3 and args[1] == "from"):
                 return "Usage: <b>unsync <i>channel</i> from <i>hangout</i></b>"
-            return unsync(team, args[0], args[2])
+            return unsync(slack.name, args[0], args[2])
