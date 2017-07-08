@@ -18,10 +18,12 @@ class SlackMessageParser(message_parser.ChatMessageParser):
                     Token("sl_s", *tag(r"~"), is_strikethrough=True),
                     Token("sl_pre", *tag(r"```"), skip=True),
                     Token("sl_code", *tag(r"`"), skip=True),
-                    Token("sl_link1", r"<(?P<url>[^>]+?)\|(?P<text>.+?)>", text=MatchGroup("text"),
-                          link_target=MatchGroup("url", func=message_parser.url_complete)),
-                    Token("sl_link2", r"<(?P<url>.+?)>", text=MatchGroup("url"),
-                          link_target=MatchGroup("url", func=message_parser.url_complete))]
+                    # Don't use func=message_parser.url_complete here.
+                    # We want to preserve Slack-specific targets (e.g. user links).
+                    Token("sl_link1", r"<(?P<url>[^>]+?)\|(?P<text>.+?)>",
+                          text=MatchGroup("text"), link_target=MatchGroup("url")),
+                    Token("sl_link2", r"<(?P<url>.+?)>",
+                          text=MatchGroup("url"), link_target=MatchGroup("url"))]
 
     def __init__(self, from_slack):
         if from_slack:
@@ -35,7 +37,7 @@ class SlackMessageParser(message_parser.ChatMessageParser):
         self.strike = "~"
         self.from_slack = from_slack
 
-    def convert(self, source):
+    def convert(self, source, slack):
         if isinstance(source, str):
             # Parse, then convert reparser.Segment to hangups.ChatMessageSegment.
             segments = [ChatMessageSegment(seg.text, **seg.params) for seg in self.parse(source)]
@@ -51,8 +53,21 @@ class SlackMessageParser(message_parser.ChatMessageParser):
             text = seg.text
             if seg.link_target:
                 if self.from_slack:
-                    # Markdown link: [label](target)
-                    text = "[{}]({})".format(text, seg.link_target)
+                    if seg.link_target[0] == "@":
+                        # User link, just replace with the plain username.
+                        user = seg.link_target[1:]
+                        if user in slack.users:
+                            user = slack.users[user]["name"]
+                        text = "@{}".format(user)
+                    elif seg.link_target[0] == "#":
+                        # Channel link, just replace with the plain channel name.
+                        channel = seg.link_target[1:]
+                        if channel in slack.channels:
+                            channel = slack.channels[channel]["name"]
+                        text = "#{}".format(channel)
+                    else:
+                        # Markdown link: [label](target)
+                        text = "[{}]({})".format(text, message_parser.url_complete(seg.link_target))
                 else:
                     if text == seg.link_target:
                         # Slack implicit link: <target>

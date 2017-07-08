@@ -64,7 +64,7 @@ class BridgeInstance(WebFramework):
     def _send_to_external_chat(self, config, event):
         segments = event.passthru["original_request"].get("segments")
         message = event.passthru["original_request"].get("message")
-        text = from_hangups.convert(segments or message)
+        text = from_hangups.convert(segments or message, Base.slacks[self.team])
         user = event.passthru["original_request"]["user"]
         bridge_user = self._get_user_details(user, {"event": event})
         if bridge_user["chat_id"] == self.bot.user_self()["chat_id"]:
@@ -152,7 +152,8 @@ class BridgeInstance(WebFramework):
         except KeyError:
             source = self.team
         yield from self._send_to_internal_chat(conv_id,
-                                               from_slack.convert(emoji.emojize(msg.text, use_aliases=True)),
+                                               from_slack.convert(emoji.emojize(msg.text, use_aliases=True),
+                                                                  Base.slacks[self.team]),
                                                {"source_user": user,
                                                 "source_uid": msg.user,
                                                 "source_gid": [self.team, msg.channel],

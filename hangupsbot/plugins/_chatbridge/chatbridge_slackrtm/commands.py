@@ -138,7 +138,7 @@ def reply_slack(fn):
         resp = fn(msg, slack)
         if not resp:
             return
-        yield from slack.msg(channel=msg.channel, as_user=True, text=from_hangups.convert(resp))
+        yield from slack.msg(channel=msg.channel, as_user=True, text=from_hangups.convert(resp, slack))
     return wrap
 
 
