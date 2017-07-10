@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import appdirs, argparse, asyncio, gettext, logging, logging.config, os, shutil, signal, sys, time
+from concurrent.futures import ThreadPoolExecutor
 
 import hangups
 
@@ -147,6 +148,8 @@ class HangupsBot(object):
         if cookies:
             # Start asyncio event loop
             loop = asyncio.get_event_loop()
+            threads = self.get_config_option("max_threads") or 5
+            loop.set_default_executor(ThreadPoolExecutor(max_workers=threads))
 
             # initialise pluggable framework
             hooks.load(self)
