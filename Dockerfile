@@ -9,6 +9,7 @@ COPY hangupsbot/ ./
 VOLUME /data
 RUN mkdir -p /root/.local/share && ln -s /data /root/.local/share/hangupsbot
 ADD docker-entrypoint.sh .
+RUN ["chmod", "+x", "docker-entrypoint.sh"]
 ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["python", "hangupsbot.py"]
 ARG PORTS="9001 9002 9003"
