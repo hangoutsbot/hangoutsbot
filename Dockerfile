@@ -1,15 +1,19 @@
 FROM python:latest
-LABEL description="Google Hangouts Bot"
-LABEL maintainer="http://github.com/hangoutsbot/hangoutsbot"
+LABEL description="Google Hangouts Bot" \
+    maintainer="http://github.com/hangoutsbot/hangoutsbot"
 WORKDIR /app
-ADD requirements.txt .
+COPY requirements.txt .
 RUN pip install -r requirements.txt
-RUN mkdir /data
-COPY hangupsbot/ ./
+COPY ["docker-entrypoint.sh", "hangupsbot/", "./"]
+RUN mkdir /data && \    
+    mkdir -p /root/.local/share && \
+    ln -s /data /root/.local/share/hangupsbot && \
+    mkdir /plugins && \
+    ln -s /plugins /app/plugins/dockerplugins && \
+    chmod +x docker-entrypoint.sh
+
 VOLUME /data
-RUN mkdir -p /root/.local/share && ln -s /data /root/.local/share/hangupsbot
-ADD docker-entrypoint.sh .
-RUN ["chmod", "+x", "docker-entrypoint.sh"]
+VOLUME /plugins
 ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["python", "hangupsbot.py"]
 ARG PORTS="9001 9002 9003"

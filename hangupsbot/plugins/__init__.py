@@ -200,13 +200,19 @@ def retrieve_all_plugins(plugin_path=None, must_start_with=False, allow_undersco
       if allow_underscore=True
     """
 
+    plugin_list = []
     if not plugin_path:
         plugin_path = os.path.dirname(os.path.realpath(sys.argv[0])) + os.sep + "plugins"
-
-    plugin_list = []
+        # need to be able to mount a separate directory to load external plugins at runtime in docker
+        dockerplugin_path = plugin_path + os.sep + "dockerplugins"
+        if os.path.isdir(dockerplugin_path):
+            plugin_list.extend(retrieve_all_plugins(dockerplugin_path))
 
     nodes = os.listdir(plugin_path)
-
+    if "dockerplugins" in nodes:
+        nodes.remove("dockerplugins")
+        # docker plugins already be in plugin_list
+        
     for node_name in nodes:
         full_path = os.path.join(plugin_path, node_name)
         module_names = [ os.path.splitext(node_name)[0] ] # node_name without .py extension
@@ -240,7 +246,9 @@ def retrieve_all_plugins(plugin_path=None, must_start_with=False, allow_undersco
                 module_names.append(module_names[0] + "." + sm)
 
         plugin_list.extend(module_names)
-
+        
+    # dockerplugins to override stock plugins, not duplicate 
+    plugin_list = list(set(plugin_list))
     logger.debug("retrieved {}: {}.{}".format(len(plugin_list), must_start_with or "plugins", plugin_list))
     return plugin_list
 
@@ -310,7 +318,15 @@ def load_user_plugins(bot):
     plugin_list = get_configured_plugins(bot)
 
     for module in plugin_list:
-        module_path = "plugins.{}".format(module)
+
+        dockerplugins_basedir = os.path.dirname(os.path.realpath(sys.argv[0])) + os.sep + "plugins" + os.sep + "dockerplugins"
+        module_filepath = dockerplugins_basedir + os.sep + module.replace('.', os.sep)
+        
+        if os.path.isfile(module_filepath + ".py") or os.path.isdir(module_filepath):
+            module_path = "plugins.dockerplugins.{}".format(module)
+        else:
+            module_path = "plugins.{}".format(module)
+        
         load(bot, module_path)
 
 
@@ -329,8 +345,8 @@ def load(bot, module_path, module_name=None):
     """loads a single plugin-like object as identified by module_path, and initialise it"""
 
     if module_name is None:
-        module_name = module_path.split(".")[-1]
-
+        module_name = module_path.split(".")[-1]        
+        
     if module_path in tracking.list:
         raise RuntimeError("{} already loaded".format(module_path))
 
