@@ -211,7 +211,7 @@ def retrieve_all_plugins(plugin_path=None, must_start_with=False, allow_undersco
     nodes = os.listdir(plugin_path)
     if "dockerplugins" in nodes:
         nodes.remove("dockerplugins")
-        # docker plugins already be in plugin_list
+        # docker plugins already in plugin_list
         
     for node_name in nodes:
         full_path = os.path.join(plugin_path, node_name)
