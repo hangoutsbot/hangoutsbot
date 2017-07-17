@@ -151,3 +151,8 @@ To run detatched, as a daemon:
 ```
 docker run -d -v $HOME/hob-data-dir:/data hangoutsbot/hangoutsbot
 ```
+
+To add custom plugins, map your local plugins directory to /plugins in the container:
+```
+docker run -d -v $HOME/hob-data-dir:/data -v $HOME/plugins:/plugins hangoutsbot/hangoutsbot
+```
