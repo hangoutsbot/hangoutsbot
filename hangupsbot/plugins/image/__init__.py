@@ -14,7 +14,16 @@ import plugins
 logger = logging.getLogger(__name__)
 
 
-_externals = { "bot": None }
+_externals = { "bot": None,
+               "ClientSession": aiohttp.ClientSession() }
+
+
+try:
+    aiohttp_clienterror = aiohttp.ClientError
+except AttributeError:
+    aiohttp_clienterror = aiohttp.errors.ClientError
+    logger.warning("[DEPRECATED]: aiohttp < 2.0")
+
 
 def _initialise(bot):
     _externals["bot"] = bot
@@ -82,7 +91,7 @@ def image_upload_single(image_uri):
     filename = os.path.basename(image_uri)
     logger.info("fetching {}".format(filename))
     try:
-        r = yield from aiohttp.request('get', image_uri)
+        r = yield from _externals["ClientSession"].get(image_uri)
         content_type = r.headers['Content-Type']
 
         image_handling = False # must == True if valid image, can contain additonal directives
@@ -104,7 +113,9 @@ def image_upload_single(image_uri):
                 image_handling = "image_convert_to_png"
 
         if image_handling:
+            logger.debug("reading {}".format(image_uri))
             raw = yield from r.read()
+            logger.debug("finished {}".format(image_uri))
             if image_handling is not "standard":
                 try:
                     results = yield from getattr(sys.modules[__name__], image_handling)(raw)
@@ -117,7 +128,7 @@ def image_upload_single(image_uri):
             logger.warning("not image/image-like, filename={}, headers={}".format(filename, r.headers))
             return False
 
-    except (aiohttp.errors.ClientError) as exc:
+    except (aiohttp_clienterror) as exc:
         logger.warning("failed to get {} - {}".format(filename, exc))
         return False
 

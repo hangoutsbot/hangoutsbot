@@ -8,10 +8,10 @@ import os
 import random
 import re
 
-from aiohttp.helpers import FormData
-
 import telepot.aio
 import telepot.exception
+
+from telepot.aio.loop import MessageLoop
 
 import hangups
 
@@ -30,9 +30,12 @@ logger = logging.getLogger(__name__)
 reg_code_prefix = "VERIFY"
 
 
+ClientSession = aiohttp.ClientSession()
+
 @asyncio.coroutine
 def convert_online_mp4_to_gif(source_url, fallback_url=False):
     """experimental utility function to convert telegram mp4s back into gifs"""
+    global ClientSession
 
     config = _telesync_config(tg_bot.ho_bot)
 
@@ -49,7 +52,7 @@ def convert_online_mp4_to_gif(source_url, fallback_url=False):
         api_key = "gifs56d63999f0f34"
 
     # retrieve the source image
-    api_request = yield from aiohttp.request('get', source_url)
+    api_request = yield from ClientSession.get(source_url)
     raw_image = yield from api_request.read()
 
     # upload it to gifs.com for conversion
@@ -57,11 +60,11 @@ def convert_online_mp4_to_gif(source_url, fallback_url=False):
     url = "https://api.gifs.com/media/upload"
 
     headers = { "Gifs-Api-Key": api_key }
-    data = FormData()
+    data = aiohttp.formdata.FormData()
     data.add_field('file', raw_image)
     data.add_field('title', 'example.mp4')
 
-    response = yield from aiohttp.post(url, data=data, headers=headers)
+    response = yield from ClientSession.post(url, data=data, headers=headers)
     if response.status != 200:
         return fallback_url or source_url
 
@@ -239,7 +242,6 @@ class TelegramBot(telepot.aio.Bot):
 
         else:
             flavor = telepot.flavor(msg)
-
             if flavor == "chat":  # chat message
                 content_type, chat_type, chat_id = telepot.glance(msg)
                 if content_type == 'text':
@@ -290,7 +292,13 @@ class TelegramBot(telepot.aio.Bot):
                             msg['photo'] = [ msg["document"] ]
                             msg['photo'][0]["width"] = 1 # XXX: required for tg_util_get_photo_list() sort
                             yield from self.onPhotoCallback(self, chat_id, msg, original_is_gif=True)
-
+                    elif msg["document"]["mime_type"].startswith("image/"):
+                        # treat images like photos
+                        msg['photo'] = [ msg["document"] ]
+                        msg['photo'][0]["width"] = 1 # XXX: required for tg_util_get_photo_list() sort
+                        yield from self.onPhotoCallback(self, chat_id, msg)
+                    else:
+                        logger.warning("unhandled document: {}".format(msg))
                 else:
                     logger.warning("unhandled content type: {} {}".format(content_type, msg))
 
@@ -1165,7 +1173,7 @@ def _initialise(bot):
     tg_bot.add_command("/unsyncprofile", tg_command_unsync_profile)
     tg_bot.add_command("/getme", tg_command_get_me)
 
-    plugins.start_asyncio_task(tg_bot.message_loop())
+    plugins.start_asyncio_task(MessageLoop(tg_bot).run_forever())
     plugins.start_asyncio_task(tg_bot.setup_bot_info())
 
     plugins.register_admin_command(["telesync"])

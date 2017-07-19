@@ -206,7 +206,11 @@ class SlackRTMSync(object):
         self.showslackrealnames = showslackrealnames
         self.showhorealnames = showhorealnames
 
-        self._bridgeinstance = BridgeInstance(hangoutsbot, "slackrtm")
+        handler_metadata = {}
+        handler_metadata.update({ "module": "slackrtm", "module.path": "plugins.slackrtm" }) # required: late-registration
+        handler_metadata.update({ "channel": channelid, "hangouts":  hangoutid }) # example: extra identification
+        self._bridgeinstance = BridgeInstance(hangoutsbot, "slackrtm", extra_metadata = handler_metadata)
+
         self._bridgeinstance.set_extra_configuration(hangoutid, channelid)
 
     @staticmethod
@@ -577,6 +581,7 @@ class SlackRTM(object):
             if s.channelid == channel and s.hangoutid == hangoutid:
                 sync = s
                 logger.info('removing running sync: %s', s)
+                s._bridgeinstance.close()
                 self.syncs.remove(s)
         if not sync:
             raise NotSyncingError
@@ -947,6 +952,12 @@ class SlackRTM(object):
                           as_user=True,
                           link_names=True)
 
+    def close(self):
+        logger.debug("closing all bridge instances")
+        for s in self.syncs:
+            s._bridgeinstance.close()
+
+
 class SlackRTMThread(threading.Thread):
     def __init__(self, bot, loop, config):
         super(SlackRTMThread, self).__init__()
@@ -955,6 +966,7 @@ class SlackRTMThread(threading.Thread):
         self._loop = loop
         self._config = config
         self._listener = None
+        self.isFullyLoaded = threading.Event()
 
     def run(self):
         logger.debug('SlackRTMThread.run()')
@@ -963,16 +975,21 @@ class SlackRTMThread(threading.Thread):
         start_ts = time.time()
         try:
             if self._listener and self._listener in _slackrtms:
+                self._listener.close()
                 _slackrtms.remove(self._listener)
             self._listener = SlackRTM(self._config, self._bot, self._loop, threaded=True)
             _slackrtms.append(self._listener)
             last_ping = int(time.time())
+            self.isFullyLoaded.set()
             while True:
                 if self.stopped():
                     return
                 replies = self._listener.rtm_read()
                 if replies:
                     for reply in replies:
+                        if "type" not in reply:
+                            logger.warning("no type available for {}".format(reply))
+                            continue
                         if reply["type"] == "hello":
                             # discard the initial api reply
                             continue
@@ -1012,6 +1029,7 @@ class SlackRTMThread(threading.Thread):
 
     def stop(self):
         if self._listener and self._listener in _slackrtms:
+            self._listener.close()
             _slackrtms.remove(self._listener)
         self._stop.set()
 

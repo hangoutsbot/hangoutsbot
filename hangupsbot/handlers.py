@@ -47,23 +47,85 @@ class EventHandler:
                              {},
                              forgiving=True )
 
-    def register_handler(self, function, type="message", priority=50):
-        """registers extra event handlers"""
+    def register_handler(self, function, type="message", priority=50, extra_metadata=None):
+        """
+        register hangouts event handler
+        * extra_metadata is function-specific, and will be added along with standard plugin-defined metadata
+        * depending on event type, may perform transparent conversion of function into coroutine for convenience
+          * reference to original function is stored as part of handler metadata
+        * returns actual handler that will be used
+        """
+
+        extra_metadata = extra_metadata or {}
+        extra_metadata["function.original"] = function
+
+        # determine the actual handler function that will be registered
+        _handler = function
         if type in ["allmessages", "call", "membership", "message", "rename", "history", "typing", "watermark"]:
             if not asyncio.iscoroutine(function):
-                # transparently convert into coroutine
-                function = asyncio.coroutine(function)
+                _handler = asyncio.coroutine(_handler)
         elif type in ["sending"]:
-            if asyncio.iscoroutine(function):
+            if asyncio.iscoroutine(_handler):
                 raise RuntimeError("{} handler cannot be a coroutine".format(type))
         else:
             raise ValueError("unknown event type for handler: {}".format(type))
 
         current_plugin = plugins.tracking.current()
-        self.pluggables[type].append((function, priority, current_plugin["metadata"]))
+
+        # build handler-specific metadata
+        _metadata = {}
+        if current_plugin["metadata"] is None:
+            # late registration - after plugins.tracking.end(), metadata key is reset to None
+            _metadata = extra_metadata
+        else:
+            _metadata.update(current_plugin["metadata"])
+            _metadata.update(extra_metadata)
+
+        if not _metadata.get("module"):
+            raise ValueError("module not defined")
+        if not _metadata.get("module.path"):
+            raise ValueError("module.path not defined")
+
+        self.pluggables[type].append((_handler, priority, _metadata))
         self.pluggables[type].sort(key=lambda tup: tup[1])
 
-        plugins.tracking.register_handler(function, type, priority)
+        plugins.tracking.register_handler(_handler, type, priority, module_path=_metadata["module.path"])
+
+        return _handler
+
+    def deregister_handler(self, function, type=None, strict=True):
+        """
+        deregister a handler and stop processing it on events
+        * also removes it from plugins.tracking
+        * highly recommended to supply type (e.g. "sending", "message", etc) for optimisation
+        """
+
+        if type is None:
+            type = list(self.pluggables.keys())
+        elif isinstance(type, str):
+            type = [ type ]
+        elif isinstance(type, list):
+            pass
+        else:
+            raise TypeError("invalid type {}".format(repr(type)))
+
+        for t in type:
+            if t not in self.pluggables and strict is True:
+                raise ValueError("type {} does not exist".format(t))
+            for h in self.pluggables[t]:
+                # match by either a wrapped coroutine or original source function
+                if h[0] == function or h[2]["function.original"] == function:
+                    # remove from tracking
+                    plugins.tracking.deregister_handler(h[0], module_path=h[2]["module.path"])
+
+                    # remove from being processed
+                    logger.debug("deregister {} handler {}".format(t, h))
+                    self.pluggables[t].remove(h)
+
+                    return # remove first encountered only
+
+        if strict:
+            raise ValueError("{} handler(s) {}".format(type, function))
 
     def register_passthru(self, variable):
         _id = str(uuid.uuid4())

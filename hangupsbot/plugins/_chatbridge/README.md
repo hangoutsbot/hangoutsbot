@@ -1,40 +1,32 @@
-# chat bridge plugins
+# chatbridge-aware plugins
 
 status: **experimental**
 
-chat platform bridging plugins that:
+see https://github.com/hangoutsbot/hangoutsbot/wiki/Chatbridge-Framework
 
-* interoperate without being cognisant of each other
-* allows abitrary chaining without need for supergroup
-* transparent traversal of bot command results
-* unified api model based on updated webbridge
-
-# relaying model
-
-"broadcast-relay" model utilising `allmessages` and `sending` handler
-
-more info: https://github.com/hangoutsbot/hangoutsbot/wiki/WIP:-Chatbridge-API-Standardisation
-
-# stability
+# general notes
 
 * chatbridges will work with the same config keys as their plugin base, where applicable
+  * advanced plugins may migrate configurations automatically
 * do not run  both the base plugin and their chatbridge successor at the same time!
+* documentation for each plugin is on their own wiki pages
 
-| platform | notes         | devs                                           | plugin base       |
-|----------|---------------|------------------------------------------------|-------------------|
-| hubot    | may be broken |                                                |                   |
-| slack    | stable        | web-sink + external instance reference example | slack (legacy)    |
-| telegram | stable        | asyncio longpoll example                       | telegram (legacy) |
-| hangouts | stable        |                                                | syncrooms         |
+# base plugins
 
-# TODO/MISSING
+* located in this folder, useful for basic integration
 
-* more control over source user/platform and message formatting
-* audience awareness, re: https://github.com/hangoutsbot/hangoutsbot/issues/380
-* better html/markdown processing
-* proper documentation
+name                 | platform | stability | devs                                           | v2 plugin base |
+---------------------|----------|-----------|------------------------------------------------|----------------|
+chatbridge_slack     | slack    | stable    | web-sink + external instance reference example | slack          |
+chatbridge_telegram  | telegram | stable    | asyncio longpoll example                       | telegram       |
+chatbridge_syncrooms | hangouts | stable    |                                                | syncrooms      |
 
-*devs are invited to help fix these issues* :)
+# other compatible plugins
 
-* sporadic comments in the source code
-* dev branch: https://github.com/hangoutsbot/hangoutsbot/tree/framework/context
+* located outside of this folder, may be moved before release
+* implements more feature-rich integration
+
+name     | platform | stability | devs               | v2 plugin base |
+---------|----------|-----------|--------------------|----------------|
+telesync | telegram | stable    |                    | telesync       |
+slackrtm | slack    | stable    | undergoing rewrite | slackrtm       |
