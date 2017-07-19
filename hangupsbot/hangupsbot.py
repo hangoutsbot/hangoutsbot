@@ -163,23 +163,22 @@ class HangupsBot(object):
 
                     loop.run_until_complete(self._client.connect())
 
+                except SystemExit:
                     logger.info("bot is exiting")
+                    raise
 
+                except:                             # pylint:disable=bare-except
+                    logger.exception("CLIENT: unrecoverable low-level error")
+                finally:
                     loop.run_until_complete(plugins.unload_all(self))
 
                     self.memory.flush()
                     self.config.flush()
 
-                    sys.exit(0)
-                except Exception as e:
-                    logger.exception("CLIENT: unrecoverable low-level error")
-                    print('Client unexpectedly disconnected:\n{}'.format(e))
-
-                    loop.run_until_complete(plugins.unload_all(self))
-
-                    logger.info('Waiting {} seconds...'.format(5 + retry * 5))
-                    time.sleep(5 + retry * 5)
-                    logger.info('Trying to connect again (try {} of {})...'.format(retry + 1, self._max_retries))
+                logger.info('Waiting %s seconds...', 5 + retry * 5)
+                time.sleep(5 + retry * 5)
+                logger.info('Trying to connect again (try %s of %s)...',
+                            retry + 1, self._max_retries)
 
             logger.error('Maximum number of retries reached! Exiting...')
 
@@ -189,9 +188,9 @@ class HangupsBot(object):
 
     def stop(self):
         """Disconnect from Hangouts"""
-        asyncio.async(
-            self._client.disconnect()
-        ).add_done_callback(lambda future: future.result())
+        waiter = asyncio.async(self._client.disconnect())
+        waiter.add_done_callback(lambda future: future.result())
+        waiter.add_done_callback(lambda x: sys.exit(0))
 
 
     def send_message(self, conversation, text, context=None, image_id=None):
