@@ -15,6 +15,8 @@ from handlers import handler
 from commands import command
 
 logger = logging.getLogger(__name__)
+_telesync_dir = os.path.dirname(os.path.realpath(__file__))
+_photos_dir = os.path.join(_telesync_dir, 'telesync_photos')
 
 
 # TELEGRAM BOT
@@ -315,8 +317,7 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
 
         photo_id = msg['sticker']['file_id']
 
-        # TODO: find a better way to handling file paths
-        photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_id + ".jpg"
+        photo_path = _photos_dir + '/' + photo_id + ".jpg"
 
         text = "Uploading sticker from <b>{uname}</b> in <b>{gname}</b>...".format(
             uname=tg_util_sync_get_user_name(msg),
@@ -354,8 +355,7 @@ def tg_on_photo(tg_bot, tg_chat_id, msg):
 
         photo_id = photos[len(photos) - 1]['file_id']  # get photo id so we can download it
 
-        # TODO: find a better way to handling file paths
-        photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_id + ".jpg"
+        photo_path = _photos_dir + '/' + photo_id + ".jpg"
 
         text = "Uploading photo from <b>{uname}</b> in <b>{gname}</b>...".format(
             uname=tg_util_sync_get_user_name(msg),
@@ -886,7 +886,7 @@ def _on_hangouts_message(bot, event, command=""):
                                       disable_web_page_preview=True)
         if has_photo:
             photo_name = "{rand}-{file_name}".format(rand=random.randint(1, 100000), file_name=photo_file_name)
-            photo_path = 'hangupsbot/plugins/telesync/telesync_photos/' + photo_name
+            photo_path = _photos_dir + '/' + photo_name
 
             file_dir = os.path.dirname(photo_path)
             if not os.path.exists(file_dir):
