@@ -9,7 +9,7 @@ RUN mkdir /data && \
     mkdir -p /root/.local/share && \
     ln -s /data /root/.local/share/hangupsbot && \
     mkdir /plugins && \
-    ln -s /plugins /app/plugins/dockerplugins && \
+    ln -s /plugins /app/plugins/dockerplugins
 
 VOLUME /data
 VOLUME /plugins
