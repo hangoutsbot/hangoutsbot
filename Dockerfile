@@ -10,7 +10,6 @@ RUN mkdir /data && \
     ln -s /data /root/.local/share/hangupsbot && \
     mkdir /plugins && \
     ln -s /plugins /app/plugins/dockerplugins && \
-    chmod +x docker-entrypoint.sh
 
 VOLUME /data
 VOLUME /plugins
