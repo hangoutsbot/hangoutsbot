@@ -48,11 +48,18 @@ class SlackMessageParser(message_parser.ChatMessageParser):
         current = []
         for seg in segments:
             if seg.type_ == hangouts_pb2.SEGMENT_TYPE_LINE_BREAK:
+                # Insert closing tags for all current formatting, in reverse order.
+                for chars in reversed(current):
+                    formatted += chars
+                # Start a new line.
                 formatted += "\n"
+                # Now reinsert the current formatting.
+                for chars in current:
+                    formatted += chars
                 continue
-            text = seg.text
-            if seg.link_target:
-                if self.from_slack:
+            if self.from_slack:
+                text = seg.text.replace("&gt;", ">").replace("&lt;", "<").replace("&amp;", "&")
+                if seg.link_target:
                     if seg.link_target[0] == "@":
                         # User link, just replace with the plain username.
                         user = seg.link_target[1:]
@@ -68,7 +75,9 @@ class SlackMessageParser(message_parser.ChatMessageParser):
                     else:
                         # Markdown link: [label](target)
                         text = "[{}]({})".format(text, message_parser.url_complete(seg.link_target))
-                else:
+            else:
+                text = seg.text.replace("&", "&amp;").replace(">", "&gt;").replace("<", "&lt;")
+                if seg.link_target:
                     if text == seg.link_target:
                         # Slack implicit link: <target>
                         text = "<{}>".format(seg.link_target)
