@@ -9,8 +9,9 @@ def _initialise(bot):
 
 def catfact(bot, event, number=1):
     try:
-        r = requests.get("http://catfacts-api.appspot.com/api/facts?number={}".format(number))
-        html_text = '<br>'.join(r.json()['facts'])
+        r = requests.get("https://catfact.ninja/facts?limit={}".format(number))
+        facts = [fact['fact'] for fact in r.json()['data']]
+        html_text = '<br>'.join(facts)
     except:
         html_text = "Unable to get catfacts right now"
         logger.exception(html_text)
