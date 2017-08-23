@@ -204,6 +204,10 @@ class Message(object):
             self.action = True
         elif self.type in ("channel_archive", "channel_unarchive", "group_archive", "group_unarchive"):
             logger.warn("Channel is being (un)archived")
+        if self.msg.get("attachments"):
+            # Take a plain text representation of each attachment, if available.
+            attaches = [attach.get("fallback", attach.get("text")) for attach in self.msg["attachments"]]
+            self.text = "\n".join(filter(None, [self.text] + attaches))
         if self.event.get("hidden") and not self.edited:
             self.hidden = True
         elif self.type in ("pinned_item", "unpinned_item", "channel_unarchive", "group_unarchive"):
