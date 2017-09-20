@@ -25,6 +25,9 @@ import spotipy.util
 
 logger = logging.getLogger(__name__)
 
+class _MissingAuth(Exception):
+    """Could not find a token to authenticate an api-call"""
+
 
 class SpotifyTrack:
     def __init__(self, track_id, track_name, track_artist):
@@ -66,7 +69,10 @@ def _watch_for_music_link(bot, event, command):
         logger.info("Music link: {}".format(link))
 
         if "spotify" in link:
-            sp = spotipy.Spotify() # track info doesn't require user auth
+            try:
+                sp = spotify_client(bot)
+            except _MissingAuth:
+                break
             tr = sp.track(link)
             track = SpotifyTrack(tr["id"], tr["name"], tr["artists"][0]["name"])
             success = add_to_playlist(bot, event, track)
@@ -80,7 +86,10 @@ def _watch_for_music_link(bot, event, command):
                 return
 
             if query:
-                success = add_to_spotify(bot, event, query)
+                try:
+                    success = add_to_spotify(bot, event, query)
+                except _MissingAuth:
+                    break
             else:
                 success = _("<em>Unable to get the song title :(</em>")
 
@@ -134,7 +143,10 @@ def spotify(bot, event, *args):
                 result = remove_from_playlist(bot, event, args[1])
         else:
             query = " ".join(args)
-            result = add_to_spotify(bot, event, query)
+            try:
+                result = add_to_spotify(bot, event, query)
+            except _MissingAuth:
+                result = _('Authentication is missing to file spotify requests')
 
     yield from bot.coro_send_message(event.conv_id, result)
 
@@ -155,7 +167,7 @@ def extract_music_links(text):
 def add_to_spotify(bot, event, query):
     """Searches Spotify for the query and adds the first search result
     to the playlist. Returns a status string."""
-    track = search_spotify(query)
+    track = search_spotify(bot, query)
     if track:
         return add_to_playlist(bot, event, track)
     else:
@@ -164,7 +176,7 @@ def add_to_spotify(bot, event, query):
         return result
 
 
-def search_spotify(query):
+def search_spotify(bot, query):
     """Searches spotify for the cleaned query and returns the first search
     result, if one exists."""
     bl_following = ["official", "with", "prod", "by", "from"]
@@ -174,7 +186,7 @@ def search_spotify(query):
                    "in the open"]
 
     gs = _clean(query)
-    result = _search(gs)
+    result = _search(bot, gs)
     if result: return result
 
     # Discard hashtags and mentions.
@@ -184,19 +196,19 @@ def search_spotify(query):
     # Discard everything in a group following certain words.
     for b in bl_following:
         gs[:] = [re.split(b, g, flags=re.IGNORECASE)[0] for g in gs]
-    result = _search(gs)
+    result = _search(bot, gs)
     if result: return result
 
     # Discard certain words.
     for b in bl_remove:
         match = re.compile(re.escape(b), re.IGNORECASE)
         gs[:] = [match.sub("", g) for g in gs]
-    result = _search(gs)
+    result = _search(bot, gs)
     if result: return result
 
     # Aggressively discard groups.
     gs[:] = [g for g in gs if not any(b in g.lower() for b in bl_contains)]
-    return _search(gs)
+    return _search(bot, gs)
 
 
 def _clean(query):
@@ -230,9 +242,9 @@ def _clean(query):
     return gs
 
 
-def _search(groups):
+def _search(bot, groups):
     try:
-        sp = spotipy.Spotify() # search doesn't require user auth
+        sp = spotify_client(bot)
         query = " ".join(filter(None, groups))
         logger.info("Searching Spotify for '{}'".format(query))
         results = sp.search(query)
@@ -359,7 +371,11 @@ def title_from_soundcloud(bot, url):
 
 def spotify_client(bot):
     """Spotify access requires user authorization. The refresh token is stored
-    in memory to circumvent logging in after the initial authorization."""
+    in memory to circumvent logging in after the initial authorization.
+
+    Raises:
+        _MissingAuth: there is no auth configured in the bot config
+    """
     try:
         spotify_client_id = bot.config.get_by_path(
             ["spotify", "spotify", "client_id"])
@@ -371,7 +387,7 @@ def spotify_client(bot):
     except (KeyError, TypeError) as e:
         logger.error("<b>Spotify authorization isn't configured:</b> {}"
                      .format(e))
-        return None
+        raise _MissingAuth() from None
 
     if bot.memory.exists(["spotify", "token"]):
         old_spotify_token = bot.memory.get_by_path(["spotify", "token"])
