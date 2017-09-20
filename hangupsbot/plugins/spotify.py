@@ -44,6 +44,11 @@ class SpotifyPlaylist:
 
 
 def _initialise():
+    # suppress a noisy stacktrace and disable logging of every request which
+    # also exposes the api-token to the log.
+    logging.getLogger("googleapiclient.discovery_cache").setLevel(logging.ERROR)
+    logging.getLogger("googleapiclient.discovery").setLevel(logging.WARNING)
+
     plugins.register_handler(_watch_for_music_link, type="message")
     plugins.register_user_command(["spotify"])
 
