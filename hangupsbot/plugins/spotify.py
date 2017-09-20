@@ -4,24 +4,19 @@ Creates a Spotify playlist per chat and adds music automatically by listening
 for YouTube, Soundcloud, and Spotify links (or manually with a Spotify query).
 """
 
-import aiohttp
 import asyncio
-import io
-import json
 import logging
-import os
 import re
-import plugins
 
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError as YouTubeHTTPError
 from requests.exceptions import HTTPError as SoundcloudHTTPError
-from spotipy.client import SpotifyException
+from spotipy.client import Spotify, SpotifyException
+from spotipy.util import prompt_for_user_token as spotify_get_auth_stdin
 
 import soundcloud
-import spotipy
-import spotipy.util
 
+import plugins
 
 logger = logging.getLogger(__name__)
 
@@ -399,7 +394,7 @@ def spotify_client(bot):
     else:
         old_spotify_token = ""
 
-    spotify_token = spotipy.util.prompt_for_user_token(
+    spotify_token = spotify_get_auth_stdin(
         spotify_user,
         scope="playlist-modify-public playlist-modify-private",
         client_id=spotify_client_id,
@@ -409,4 +404,4 @@ def spotify_client(bot):
     if old_spotify_token and old_spotify_token != spotify_token:
         bot.memory.set_by_path(["spotify", "token"], spotify_token)
 
-    return spotipy.Spotify(auth=spotify_token)
+    return Spotify(auth=spotify_token)
