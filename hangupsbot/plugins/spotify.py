@@ -20,6 +20,35 @@ import plugins
 
 logger = logging.getLogger(__name__)
 
+
+_DETECT_LINKS = re.compile(
+    (r"(https?://)?([a-z0-9.]*?\.)?"
+     "(youtube.com/|youtu.be/|soundcloud.com/|spotify.com/track/)"
+     r"([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])"))
+_YOUTUBE_ID = re.compile(
+    r"^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*")
+_HAS_PROTOCOLL = re.compile("https?://")
+
+_CLEANUP_CHAR = re.compile(
+    r"\s*[-‐‒–—―−~\(\)\[\]\{\}\<\>\|‖¦:;‘’“”\"«»„‚‘]+\s*")
+_CLEANUP_HASHTAG_MENTION = re.compile(r"(@[A-Za-z0-9]+)|(#[A-Za-z0-9]+)")
+_CLEANUP_FOLLOWING = ("official", "with", "prod", "by", "from")
+_CLEANUP_REMOVE = ("freestyle", "acoustic", "original", "&")
+_CLEANUP_CONTAINS = ("live", "session", "sessions", "edit", "premiere", "cover",
+                     "lyric", "lyrics", "records", "release", "video", "audio",
+                     "in the open")
+_CLEANUP_FEAT = re.compile(r"(f(ea)?t(.|\s+))(?i)")
+
+_BLACKLIST_EXACT = ("official", "audio", r"audio\s+stream", "lyric", "lyrics",
+                    r"with\s+lyrics?", "explicit", "clean", "hq", "hd",
+                    r"explicit\s+version", r"clean\s+version", "mv", "m/v",
+                    r"original\s+version", "interscope", "4ad")
+_BLACKLIST_FOLLOWING = (r"official\s+video", r"official\s+music",
+                        r"official\s+audio", r"official\s+lyric",
+                        r"official\s+lyrics", r"official\s+clip",
+                        r"video\s+lyric", r"video\s+lyrics",
+                        r"video\s+clip", r"full\s+video")
+
 class _MissingAuth(Exception):
     """Could not find a token to authenticate an api-call"""
 
@@ -154,14 +183,11 @@ def spotify(bot, event, *args):
 def extract_music_links(text):
     """Returns an array of music URLs. Currently searches only for YouTube,
     Soundcloud, and Spotify links."""
-    m = re.compile(("(https?://)?([a-z0-9.]*?\.)?(youtube.com/|youtu.be/|"
-                    "soundcloud.com/|spotify.com/track/)"
-                    "([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])"))
-    links = m.findall(text)
+    links = _DETECT_LINKS.findall(text)
     links = ["".join(link) for link in links]
 
     # Turn all URIs into URLs (necessary for the Spotify API).
-    return [l if re.match("https?://", l) else "https://" + l for l in links]
+    return [l if _HAS_PROTOCOLL.match(l) else "https://" + l for l in links]
 
 
 def add_to_spotify(bot, event, query):
@@ -179,35 +205,29 @@ def add_to_spotify(bot, event, query):
 def search_spotify(bot, query):
     """Searches spotify for the cleaned query and returns the first search
     result, if one exists."""
-    bl_following = ["official", "with", "prod", "by", "from"]
-    bl_remove = ["freestyle", "acoustic", "original", "&"]
-    bl_contains = ["live", "session", "sessions", "edit", "premiere", "cover",
-                   "lyric", "lyrics", "records", "release", "video", "audio",
-                   "in the open"]
 
     gs = _clean(query)
     result = _search(bot, gs)
     if result: return result
 
     # Discard hashtags and mentions.
-    gs[:] = [" ".join(re.sub("(@[A-Za-z0-9]+)|(#[A-Za-z0-9]+)",
-                             " ", g).split()) for g in gs]
+    gs[:] = [" ".join(_CLEANUP_HASHTAG_MENTION.sub(" ", g).split()) for g in gs]
 
     # Discard everything in a group following certain words.
-    for b in bl_following:
+    for b in _CLEANUP_FOLLOWING:
         gs[:] = [re.split(b, g, flags=re.IGNORECASE)[0] for g in gs]
     result = _search(bot, gs)
     if result: return result
 
     # Discard certain words.
-    for b in bl_remove:
+    for b in _CLEANUP_REMOVE:
         match = re.compile(re.escape(b), re.IGNORECASE)
         gs[:] = [match.sub("", g) for g in gs]
     result = _search(bot, gs)
     if result: return result
 
     # Aggressively discard groups.
-    gs[:] = [g for g in gs if not any(b in g.lower() for b in bl_contains)]
+    gs[:] = [g for g in gs if not any(b in g.lower() for b in _CLEANUP_CONTAINS)]
     return _search(bot, gs)
 
 
@@ -215,29 +235,16 @@ def _clean(query):
     """Splits the query into groups and attempts to remove extraneous groups
     unrelated to the song title/artist. Returns a list of groups."""
 
-    # Blacklists.
-    bl_exact = ["official", "audio", "audio\s+stream", "lyric", "lyrics",
-                "with\s+lyrics?", "explicit", "clean", "explicit\s+version",
-                "clean\s+version", "original\s+version", "hq", "hd", "mv", "m/v",
-                "interscope", "4ad"]
-    bl_following = ["official\s+video", "official\s+music", "official\s+audio",
-                    "official\s+lyric", "official\s+lyrics", "official\s+clip",
-                    "video\s+lyric", "video\s+lyrics", "video\s+clip",
-                    "full\s+video"]
-
     # Split into groups.
-    gs = list(filter(
-        None,
-        re.split(u"\s*[-‐‒–—―−~\(\)\[\]\{\}\<\>\|‖¦:;‘’“”\"«»„‚‘]+\s*",
-                 query)))
+    gs = list(filter(None, _CLEANUP_CHAR.split(query)))
 
     # Discard groups that match with anything in the blacklists.
-    gs[:] = [g for g in gs if g.lower() not in bl_exact]
-    for b in bl_following:
+    gs[:] = [g for g in gs if g.lower() not in _BLACKLIST_EXACT]
+    for b in _BLACKLIST_FOLLOWING:
         gs[:] = [re.split(b, g, flags=re.IGNORECASE)[0] for g in gs]
 
     # Discard featured artists.
-    gs[:] = [re.split("(f(ea)?t(.|\s+))(?i)", g)[0] for g in gs]
+    gs[:] = [_CLEANUP_FEAT.split(g)[0] for g in gs]
 
     return gs
 
@@ -328,8 +335,7 @@ def title_from_youtube(bot, url):
 
     # Regex by mantish from http://stackoverflow.com/a/9102270 to get the
     # video id from a YouTube URL.
-    match = re.match(
-        "^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*", url)
+    match = _YOUTUBE_ID.match(url)
     if match and len(match.group(2)) == 11:
         video_id = match.group(2)
     else:
