@@ -4,6 +4,8 @@ Creates a Spotify playlist per chat and adds music automatically by listening
 for YouTube, Soundcloud, and Spotify links (or manually with a Spotify query).
 """
 
+from collections import namedtuple
+
 import asyncio
 import logging
 import re
@@ -52,39 +54,35 @@ _BLACKLIST_FOLLOWING = (r"official\s+video", r"official\s+music",
 class _MissingAuth(Exception):
     """Could not find a token to authenticate an api-call"""
 
-
-class SpotifyTrack:
-    def __init__(self, track_id, track_name, track_artist):
-        self.id = track_id
-        self.name = track_name
-        self.artist = track_artist
-
-
-class SpotifyPlaylist:
-    def __init__(self, playlist_owner, playlist_id, playlist_url):
-        self.owner = playlist_owner
-        self.id = playlist_id
-        self.url = playlist_url
-
+# pylint:disable=invalid-name
+SpotifyTrack = namedtuple("SpotifyTrack", ("id_", "name", "artist"))
+SpotifyPlaylist = namedtuple("SpotifyPlaylist", ("owner", "id_", "url"))
+# pylint:enable=invalid-name
 
 def _initialise():
+    """setup logging, register the user command and listen to messages"""
     # suppress a noisy stacktrace and disable logging of every request which
     # also exposes the api-token to the log.
     logging.getLogger("googleapiclient.discovery_cache").setLevel(logging.ERROR)
     logging.getLogger("googleapiclient.discovery").setLevel(logging.WARNING)
 
-    plugins.register_handler(_watch_for_music_link, type="message")
+    plugins.register_handler(_watch_for_music_link, "message")
     plugins.register_user_command(["spotify"])
 
-
 @asyncio.coroutine
-def _watch_for_music_link(bot, event, command):
+def _watch_for_music_link(bot, event):
+    """resolve music links to their titles and add the tracks to spotify
+
+    Args:
+        bot (hangupsbot.HangupsBot): the running instance
+        event (event.ConversationEvent): the currently handled instance
+    """
     if event.user.is_self:
         return
 
     # Start with Spotify off.
     enabled = bot.conversation_memory_get(event.conv_id, "spotify_enabled")
-    if enabled == None:
+    if enabled is None:
         bot.conversation_memory_set(event.conv_id, "spotify_enabled", False)
         return
 
@@ -92,26 +90,29 @@ def _watch_for_music_link(bot, event, command):
         return
 
     links = extract_music_links(event.text)
-    if not links: return
+    if not links:
+        return
 
     for link in links:
-        logger.info("Music link: {}".format(link))
+        logger.info("Music link: %s", link)
 
         if "spotify" in link:
             try:
-                sp = spotify_client(bot)
+                spotify_client = get_spotify_client(bot)
             except _MissingAuth:
                 break
-            tr = sp.track(link)
-            track = SpotifyTrack(tr["id"], tr["name"], tr["artists"][0]["name"])
+            raw_track = spotify_client.track(link)
+            track = SpotifyTrack(raw_track["id"],
+                                 raw_track["name"],
+                                 raw_track["artists"][0]["name"])
             success = add_to_playlist(bot, event, track)
         else:
             if "youtube" in link or "youtu.be" in link:
-                query = title_from_youtube(bot, link)
+                query = get_title_from_youtube(bot, link)
             elif "soundcloud" in link:
-                query = title_from_soundcloud(bot, link)
+                query = get_title_from_soundcloud(bot, link)
             else:
-                logger.debug("Why are we here? {}".format(link))
+                logger.debug("Why are we here? %s", link)
                 return
 
             if query:
@@ -123,7 +124,6 @@ def _watch_for_music_link(bot, event, command):
                 success = _("<em>Unable to get the song title :(</em>")
 
         yield from bot.coro_send_message(event.conv.id_, success)
-
 
 def spotify(bot, event, *args):
     """Commands to manage the Spotify playlist.
@@ -140,21 +140,21 @@ def spotify(bot, event, *args):
     """
     # Start with Spotify off.
     enabled = bot.conversation_memory_get(event.conv_id, "spotify_enabled")
-    if enabled == None:
+    if enabled is None:
         enabled = False
         bot.conversation_memory_set(event.conv_id, "spotify_enabled", enabled)
 
     if not args:
-        s = "on" if enabled else "off"
-        result = _("<em>Spotify is <b>{}</b>.</em>".format(s))
+        state = "on" if enabled else "off"
+        result = _("<em>Spotify is <b>{}</b>.</em>".format(state))
     else:
         command = args[0]
 
         if command == "on" or command == "off":
-            s = "was" if enabled else "wasn't"
+            state = "was" if enabled else "wasn't"
             enabled = command == "on"
             result = _("<em>Spotify {} on. Now it's <b>{}</b>.</em>"
-                       .format(s, command))
+                       .format(state, command))
             bot.conversation_memory_set(
                 event.conv_id, "spotify_enabled", enabled)
         elif not enabled:
@@ -163,7 +163,7 @@ def spotify(bot, event, *args):
         elif command == "help" and len(args) == 1:
             result = _("<em>Did you mean <b>/bot help spotify</b>?</em>")
         elif command == "playlist" and len(args) == 1:
-            playlist = chat_playlist(bot, event)
+            playlist = get_chat_playlist(bot, event)
             result = _("<em>Spotify playlist: {}</em>".format(playlist.url))
         elif command == "remove" and len(args) < 3:
             if len(args) == 1 or not "spotify.com/track/" in args[1]:
@@ -175,14 +175,19 @@ def spotify(bot, event, *args):
             try:
                 result = add_to_spotify(bot, event, query)
             except _MissingAuth:
-                result = _('Authentication is missing to file spotify requests')
+                result = _("Authentication is missing to file spotify requests")
 
     yield from bot.coro_send_message(event.conv_id, result)
 
-
 def extract_music_links(text):
-    """Returns an array of music URLs. Currently searches only for YouTube,
-    Soundcloud, and Spotify links."""
+    """get media urls from YouTube, Soundcloud or Spotify
+
+    Args:
+        text (str): the source event text
+
+    Returns:
+        list: a list of strings, the found media urls
+    """
     links = _DETECT_LINKS.findall(text)
     links = ["".join(link) for link in links]
 
@@ -191,115 +196,187 @@ def extract_music_links(text):
 
 
 def add_to_spotify(bot, event, query):
-    """Searches Spotify for the query and adds the first search result
-    to the playlist. Returns a status string."""
+    """Searches Spotify for the query and adds a found track to the playlist.
+
+    Args:
+        bot (hangupsbot.HangupsBot): the running instance
+        event (event.ConversationEvent): the currently handled instance
+
+    Returns:
+        str: a status string
+
+    Raises:
+        _MissingAuth: the spotify auth is not configured
+    """
     track = search_spotify(bot, query)
     if track:
         return add_to_playlist(bot, event, track)
-    else:
-        result = _("<em>No tracks found for '{}'.</em>".format(query))
-        logger.info(result)
-        return result
-
+    result = _("<em>No tracks found for '{}'.</em>".format(query))
+    logger.info(result)
+    return result
 
 def search_spotify(bot, query):
-    """Searches spotify for the cleaned query and returns the first search
-    result, if one exists."""
+    """Searches spotify for the cleaned query
 
-    gs = _clean(query)
-    result = _search(bot, gs)
-    if result: return result
+    Args:
+        bot (hangupsbot.HangupsBot): the running instance
+        query (str)
+
+    Returns:
+        str: the first search result
+
+    Raises:
+        _MissingAuth: the spotify auth is not configured
+    """
+    groups = _clean(query)
+    result = _search(bot, groups)
+    if result:
+        return result
 
     # Discard hashtags and mentions.
-    gs[:] = [" ".join(_CLEANUP_HASHTAG_MENTION.sub(" ", g).split()) for g in gs]
+    groups = [" ".join(_CLEANUP_HASHTAG_MENTION.sub(" ", g).split())
+              for g in groups]
 
     # Discard everything in a group following certain words.
-    for b in _CLEANUP_FOLLOWING:
-        gs[:] = [re.split(b, g, flags=re.IGNORECASE)[0] for g in gs]
-    result = _search(bot, gs)
-    if result: return result
+    for item in _CLEANUP_FOLLOWING:
+        groups = [re.split(item, g, flags=re.IGNORECASE)[0] for g in groups]
+    result = _search(bot, groups)
+    if result:
+        return result
 
     # Discard certain words.
-    for b in _CLEANUP_REMOVE:
-        match = re.compile(re.escape(b), re.IGNORECASE)
-        gs[:] = [match.sub("", g) for g in gs]
-    result = _search(bot, gs)
-    if result: return result
+    for item in _CLEANUP_REMOVE:
+        match = re.compile(re.escape(item), re.IGNORECASE)
+        groups = [match.sub("", g) for g in groups]
+    result = _search(bot, groups)
+    if result:
+        return result
 
     # Aggressively discard groups.
-    gs[:] = [g for g in gs if not any(b in g.lower() for b in _CLEANUP_CONTAINS)]
-    return _search(bot, gs)
-
+    groups = [g for g in groups
+              if not any(item in g.lower() for item in _CLEANUP_CONTAINS)]
+    return _search(bot, groups)
 
 def _clean(query):
-    """Splits the query into groups and attempts to remove extraneous groups
-    unrelated to the song title/artist. Returns a list of groups."""
+    """Splits the query into groups and removes unrelated items.
 
+    Args:
+        query (str): noisy track title with extras
+
+    Returns:
+        list: a list of string, expected items: the track title and artist
+    """
     # Split into groups.
-    gs = list(filter(None, _CLEANUP_CHAR.split(query)))
+    groups = list(filter(None, _CLEANUP_CHAR.split(query)))
 
     # Discard groups that match with anything in the blacklists.
-    gs[:] = [g for g in gs if g.lower() not in _BLACKLIST_EXACT]
-    for b in _BLACKLIST_FOLLOWING:
-        gs[:] = [re.split(b, g, flags=re.IGNORECASE)[0] for g in gs]
+    groups = [g for g in groups if g.lower() not in _BLACKLIST_EXACT]
+    for item in _BLACKLIST_FOLLOWING:
+        groups = [re.split(item, g, flags=re.IGNORECASE)[0] for g in groups]
 
     # Discard featured artists.
-    gs[:] = [_CLEANUP_FEAT.split(g)[0] for g in gs]
+    groups = [_CLEANUP_FEAT.split(g)[0] for g in groups]
 
-    return gs
-
+    return groups
 
 def _search(bot, groups):
-    try:
-        sp = spotify_client(bot)
-        query = " ".join(filter(None, groups))
-        logger.info("Searching Spotify for '{}'".format(query))
-        results = sp.search(query)
-    except SpotifyException as e:
-        logger.error("<b>Error when searching Spotify:</b> {}".format(e))
-        return ""
+    """perform an api-request to get tracks from spotify
 
-    if results["tracks"]["total"]:
-        tr = results["tracks"]["items"][0]
-        return SpotifyTrack(tr["id"], tr["name"], tr["artists"][0]["name"])
-    else:
+    Args:
+        bot (hangupsbot.HangupsBot): the running instance
+        groups (list): a list of string, expect tracktitle and artist
+
+    Returns:
+        list: a list of `SpotifyTrack`s
+
+    Raises:
+        _MissingAuth: there is no auth configured in the bot config
+    """
+    try:
+        spotify_client = get_spotify_client(bot)
+        query = " ".join(filter(None, groups))
+        logger.info("Searching Spotify for '%s'", query)
+        results = spotify_client.search(query)
+    except SpotifyException as err:
+        logger.error("Error when searching Spotify: %s", repr(err))
         return None
 
+    if results["tracks"]["total"]:
+        raw_track = results["tracks"]["items"][0]
+        return SpotifyTrack(
+            raw_track["id"], raw_track["name"], raw_track["artists"][0]["name"])
+    return None
 
 def add_to_playlist(bot, event, track):
-    playlist = chat_playlist(bot, event)
+    """add a track to the conversations spotify playlist
 
+    Args:
+        bot (hangupsbot.HangupsBot): the running instance
+        event (event.ConversationEvent): the currently handled instance
+        track (SpotifyTrack): the track to add
+
+    Returns:
+        str: a status string
+
+    Raises:
+        _MissingAuth: there is no auth configured in the bot config
+    """
+    playlist = get_chat_playlist(bot, event)
+
+    spotify_client = get_spotify_client(bot)
     try:
-        spotify_client(bot).user_playlist_remove_all_occurrences_of_tracks(
-            playlist.owner, playlist.id, [track.id])
-        spotify_client(bot).user_playlist_add_tracks(
-            playlist.owner, playlist.id, [track.id])
+        spotify_client.user_playlist_remove_all_occurrences_of_tracks(
+            playlist.owner, playlist.id_, [track.id_])
+        spotify_client.user_playlist_add_tracks(
+            playlist.owner, playlist.id_, [track.id_])
         return _("<em>Added <b>{} by {}</b></em>"
                  .format(track.name, track.artist))
-    except SpotifyException as e:
-        return _("<em><b>Unable to add track:</b> {}</em>".format(e))
+    except SpotifyException as err:
+        return _("<em><b>Unable to add track:</b> {}</em>".format(err))
 
+def remove_from_playlist(bot, event, track_url):
+    """remove a track from the conversations spotify playlist
 
-def remove_from_playlist(bot, event, track):
-    playlist = chat_playlist(bot, event)
+    Args:
+        bot (hangupsbot.HangupsBot): the running instance
+        event (event.ConversationEvent): the currently handled instance
+        track (SpotifyTrack): the track to remove
+
+    Returns:
+        str: a status string
+
+    Raises:
+        _MissingAuth: there is no auth configured in the bot config
+    """
+    playlist = get_chat_playlist(bot, event)
 
     try:
-        sp = spotify_client(bot)
-        sp.user_playlist_remove_all_occurrences_of_tracks(
-            playlist.owner, playlist.id, [track])
-        tr = sp.track(track)
+        spotify_client = get_spotify_client(bot)
+        spotify_client.user_playlist_remove_all_occurrences_of_tracks(
+            playlist.owner, playlist.id_, [track_url])
+        raw_track = spotify_client.track(track_url)
         return _("<em>Removed track <b>{} by {}</b>.</em>"
-                 .format(tr["name"], tr["artists"][0]["name"]))
-    except SpotifyException as e:
-        return _("<em><b>Unable to remove track:</b> {}</em>".format(e))
+                 .format(raw_track["name"], raw_track["artists"][0]["name"]))
+    except SpotifyException as err:
+        return _("<em><b>Unable to remove track:</b> {}</em>".format(err))
 
+def get_chat_playlist(bot, event):
+    """get a cached playlist for the conversation or create a new one
 
-def chat_playlist(bot, event):
-    """Creates a playlist for the chat if it doesn't exist."""
+    Args:
+        bot (hangupsbot.HangupsBot): the running instance
+        event (event.ConversationEvent): the currently handled instance
+
+    Returns:
+        SpotifyPlaylist: the conversations playlist
+
+    Raises:
+        _MissingAuth: there is no auth configured in the bot config
+    """
     try:
         spotify_user = bot.config.get_by_path(["spotify", "spotify", "user"])
-    except (KeyError, TypeError) as e:
-        logger.error("<b>Spotify user isn't configured:</b> {}".format(e))
+    except (KeyError, TypeError) as err:
+        logger.error("Spotify user isn't configured: %s", err)
         spotify_user = None
 
     playlist_id = bot.conversation_memory_get(event.conv_id,
@@ -308,14 +385,15 @@ def chat_playlist(bot, event):
                                                "spotify_playlist_url")
     if not playlist_id:
         playlist_name = bot.conversations.get_name(event.conv_id)
-        if not playlist_name: playlist_name = event.conv_id
+        if not playlist_name:
+            playlist_name = event.conv_id
 
-        playlist = spotify_client(bot).user_playlist_create(
+        playlist = get_spotify_client(bot).user_playlist_create(
             spotify_user, playlist_name)
         playlist_id = playlist["id"]
         playlist_url = playlist["external_urls"]["spotify"]
-        logger.info("New Spotify playlist created: ({}, {})"
-                    .format(playlist_id, playlist_url))
+        logger.info("New Spotify playlist created: (%s, %s)",
+                    playlist_id, playlist_url)
 
         bot.conversation_memory_set(
             event.conv_id, "spotify_playlist_id", playlist_id)
@@ -324,14 +402,22 @@ def chat_playlist(bot, event):
 
     return SpotifyPlaylist(spotify_user, playlist_id, playlist_url)
 
+def get_title_from_youtube(bot, url):
+    """get the title of a youtube video
 
-def title_from_youtube(bot, url):
+    Args:
+        bot (hangupsbot.HangupsBot): the running instance
+        url (str): the video URI
+
+    Returns:
+        str: the videos title
+    """
     try:
         youtube_api_key = bot.config.get_by_path(["spotify", "youtube"])
         youtube_client = build("youtube", "v3", developerKey=youtube_api_key)
-    except (KeyError, TypeError) as e:
-        logger.error("<b>YouTube API key isn't configured:</b> {}".format(e))
-        return ""
+    except (KeyError, TypeError) as err:
+        logger.error("YouTube API key isn't configured: %s", err)
+        return None
 
     # Regex by mantish from http://stackoverflow.com/a/9102270 to get the
     # video id from a YouTube URL.
@@ -339,45 +425,59 @@ def title_from_youtube(bot, url):
     if match and len(match.group(2)) == 11:
         video_id = match.group(2)
     else:
-        logger.error("Unable to extract video id: {}".format(url))
-        return ""
+        logger.error("Unable to extract video id: %s", url)
+        return None
 
     # YouTube response is JSON.
     try:
-        response = youtube_client.videos().list(part="snippet",
-                                                id=video_id).execute()
+        response = youtube_client.videos().list(      # pylint:disable=no-member
+            part="snippet", id=video_id).execute()
         items = response.get("items", [])
         if items:
             return items[0]["snippet"]["title"]
-        else:
-            logger.error("<b>YouTube response was empty:</b> {}"
-                         .format(response))
-            return ""
-    except YouTubeHTTPError as e:
-        logger.error("Unable to get video entry from {}, {}".format(url, e))
-        return ""
+        logger.error("YouTube response was empty: %s", response)
+        return None
+    except YouTubeHTTPError as err:
+        logger.error("Unable to get video entry from %s, %s", url, err)
+        return None
 
+def get_title_from_soundcloud(bot, url):
+    """get the title of a soundcloud track
 
-def title_from_soundcloud(bot, url):
+    Args:
+        bot (hangupsbot.HangupsBot): the running instance
+        url (str): the tracks URI
+
+    Returns:
+        str: the tracks title
+    """
     try:
         soundcloud_id = bot.config.get_by_path(["spotify", "soundcloud"])
         soundcloud_client = soundcloud.Client(client_id=soundcloud_id)
-    except (KeyError, TypeError) as e:
-        logger.error("<b>Soundcloud client ID isn't configured:</b> {}"
-                     .format(e))
-        return ""
+    except (KeyError, TypeError) as err:
+        logger.error("Soundcloud client ID isn't configured: %s", err)
+        return None
 
     try:
         track = soundcloud_client.get("/resolve", url=url)
         return track.title
-    except SoundcloudHTTPError as e:
-        logger.error("Unable to resolve url {}, {}".format(url, e))
-        return ""
+    except SoundcloudHTTPError as err:
+        logger.error("Unable to resolve url %s, %s", url, err)
+        return None
 
+def get_spotify_client(bot):
+    """get a spotify client with configured auth or start the auth process
 
-def spotify_client(bot):
-    """Spotify access requires user authorization. The refresh token is stored
+    Spotify access requires user authorization. The refresh token is stored
     in memory to circumvent logging in after the initial authorization.
+
+    Auth is captured via stdin
+
+    Args:
+        bot (hangupsbot.HangupsBot): the running instance
+
+    Returns:
+        Spotify: `spotify.client.Spotify`, the spotify client
 
     Raises:
         _MissingAuth: there is no auth configured in the bot config
@@ -390,9 +490,8 @@ def spotify_client(bot):
         spotify_redirect_uri = bot.config.get_by_path(
             ["spotify", "spotify", "redirect_uri"])
         spotify_user = bot.config.get_by_path(["spotify", "spotify", "user"])
-    except (KeyError, TypeError) as e:
-        logger.error("<b>Spotify authorization isn't configured:</b> {}"
-                     .format(e))
+    except (KeyError, TypeError) as err:
+        logger.error("Spotify authorization isn't configured: %s", err)
         raise _MissingAuth() from None
 
     if bot.memory.exists(["spotify", "token"]):
