@@ -10,6 +10,7 @@ from collections import namedtuple
 
 import asyncio
 import logging
+import os
 import re
 
 from googleapiclient.discovery import build
@@ -18,6 +19,7 @@ from requests.exceptions import HTTPError as SoundcloudHTTPError
 from spotipy.client import Spotify, SpotifyException
 from spotipy.util import prompt_for_user_token as spotify_get_auth_stdin
 
+import appdirs
 import soundcloud
 
 import plugins
@@ -64,12 +66,26 @@ SpotifyTrack = namedtuple("SpotifyTrack", ("id_", "name", "artist"))
 SpotifyPlaylist = namedtuple("SpotifyPlaylist", ("owner", "id_", "url"))
 # pylint:enable=invalid-name
 
-def _initialise():
-    """setup logging, register the user command and listen to messages"""
+def _initialise(bot):
+    """setup logging and storage, register the user command, listen to messages
+
+    Args:
+        bot (hangupsbot.HangupsBot): the running instance
+    """
     # suppress a noisy stacktrace and disable logging of every request which
     # also exposes the api-token to the log.
     logging.getLogger("googleapiclient.discovery_cache").setLevel(logging.ERROR)
     logging.getLogger("googleapiclient.discovery").setLevel(logging.WARNING)
+
+    # the spotify module stores user data in random locations, set a static one
+    if not bot.config.exists(["spotify", "spotify"]):
+        bot.config.config.setdefault("spotify", {}).setdefault("spotify", {})
+    config_path = ["spotify", "spotify", "storage"]
+    if not bot.config.exists(config_path):
+        bot_id = bot.user_self()["chat_id"]
+        real_path = appdirs.user_data_dir(appname="spotify", version=bot_id)
+        bot.config.set_by_path(config_path, real_path)
+        bot.config.save()
 
     plugins.register_handler(_watch_for_music_link, "message")
     plugins.register_user_command(["spotify"])
@@ -526,6 +542,7 @@ def get_spotify_client(bot):
         spotify_redirect_uri = bot.config.get_by_path(
             ["spotify", "spotify", "redirect_uri"])
         spotify_user = bot.config.get_by_path(["spotify", "spotify", "user"])
+        storage_path = bot.config.get_by_path(["spotify", "spotify", "storage"])
     except (KeyError, TypeError) as err:
         logger.error("Spotify authorization isn't configured: %s", err)
         raise _MissingAuth() from None
@@ -535,12 +552,18 @@ def get_spotify_client(bot):
     else:
         old_spotify_token = ""
 
+    if not os.path.exists(storage_path):
+        os.makedirs(storage_path)
+
+    old_cwd = os.getcwd()
+    os.chdir(storage_path)
     spotify_token = spotify_get_auth_stdin(
         spotify_user,
         scope="playlist-modify-public playlist-modify-private",
         client_id=spotify_client_id,
         client_secret=spotify_client_secret,
         redirect_uri=spotify_redirect_uri)
+    os.chdir(old_cwd)
 
     if old_spotify_token and old_spotify_token != spotify_token:
         bot.memory.set_by_path(["spotify", "token"], spotify_token)
