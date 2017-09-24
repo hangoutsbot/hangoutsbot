@@ -101,7 +101,7 @@ class Slack(object):
             if "type" not in event:
                 logger.warn("Received strange message with no type")
                 continue
-            logger.debug("Received a '{}' event".format(event["type"]))
+            logger.debug("Received a '{}' event, ts = {}".format(event["type"], event.get("ts")))
             if event["type"] in ("team_join", "user_change"):
                 # A user appears or changed, update our cache.
                 self.users[event["user"]["id"]] = event["user"]
@@ -118,6 +118,9 @@ class Slack(object):
                 msg = Message(event)
                 if msg.hidden:
                     logger.debug("Skipping Slack-only feature message of type '{}'".format(msg.type))
+                    continue
+                if msg.edited and not msg.edited == msg.user:
+                    logger.debug("Skipping message edited by non-author (possible link unfurl)".format(msg.type))
                     continue
                 if msg.channel in self.channels:
                     logger.info("Got channel message '{}' in {} from {}".format(msg.ts, msg.channel, msg.user))
@@ -208,6 +211,9 @@ class Message(object):
             # Take a plain text representation of each attachment, if available.
             attaches = [attach.get("fallback", attach.get("text")) for attach in self.msg["attachments"]]
             self.text = "\n".join(filter(None, [self.text] + attaches))
+        if self.edited and self.msg.get("edited", {}).get("user"):
+            # Store the editing user's ID if known.
+            self.edited = self.msg["edited"]["user"]
         if self.event.get("hidden") and not self.edited:
             self.hidden = True
         elif self.type in ("pinned_item", "unpinned_item", "channel_unarchive", "group_unarchive"):
