@@ -144,6 +144,16 @@ class Slack(object):
                 else:
                     logger.warn("Got message '{}' from unknown channel '{}'".format(msg.ts, msg.channel))
 
+    @asyncio.coroutine
+    def loop(self):
+        while True:
+            try:
+                yield from self.rtm()
+            except Exception as e:
+                logger.exception("Disconnected from Slack")
+            logger.debug("Waiting 5 seconds to reconnect")
+            yield from asyncio.sleep(5)
+
 
 class Identities(object):
 

@@ -17,4 +17,4 @@ def _initialise(bot):
     for sync in root.get("syncs", []):
         Base.add_bridge(BridgeInstance(bot, "slackrtm", sync))
     for slack in Base.slacks.values():
-        plugins.start_asyncio_task(slack.rtm())
+        plugins.start_asyncio_task(slack.loop())
