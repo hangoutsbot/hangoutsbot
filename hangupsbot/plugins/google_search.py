@@ -70,7 +70,7 @@ def s(bot, event, *args):
 
 
 def g(bot, event, *args):
-    """Get a page from result"""
+    """get page content from result"""
     term = " ".join(args)
     result = bot.user_memory_get(
         event.user.id_.chat_id, 'google_search_result')
