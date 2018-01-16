@@ -354,6 +354,9 @@ def tg_util_create_gmaps_url(lat, long, https=True):
     return "{https}://maps.google.com/maps?q={lat},{long}".format(https='https' if https else 'http', lat=lat,
                                                                   long=long)
 
+def tg_util_create_telegram_me_link(username, https=True):
+    return "{https}://t.me/{username}".format(https='https' if https else 'http', username=username)
+
 def tg_util_sync_get_user_name(msg, chat_action='from'):
     bot = tg_bot.ho_bot
     telesync_config = bot.get_config_option("telesync") or {}
@@ -677,7 +680,7 @@ def tg_command_whoami(bot, chat_id, args):
     if 'private' == chat_type:
         yield from bot.sendMessage(chat_id, "Your Telegram user id: {user_id}".format(user_id=user_id))
     else:
-        yield from bot.sendMessage(chat_id, "This command can only be used in private chats")
+        yield from bot.sendMessage(chat_id, "Shhh! This should only be between us. Whisper it to me in PM here: @{username}".format(username=bot.username))
 
 
 @asyncio.coroutine
@@ -750,7 +753,7 @@ def tg_command_add_bot_admin(bot, chat_id, args):
     chat_type = args['chat_type']
 
     if 'private' != chat_type:
-        yield from bot.sendMessage(chat_id, "This command must be invoked in private chat")
+        yield from bot.sendMessage(chat_id, "Shhh! This should only be between us. Whisper it to me in PM here: @{username}".format(username=bot.username))
         return
 
     if not bot.is_telegram_admin(user_id):
@@ -782,7 +785,7 @@ def tg_command_remove_bot_admin(bot, chat_id, args):
     chat_type = args['chat_type']
 
     if 'private' != chat_type:
-        yield from bot.sendMessage(chat_id, "This command must be invoked in private chat")
+        yield from bot.sendMessage(chat_id, "Shhh! This should only be between us. Whisper it to me in PM here: @{username}".format(username=bot.username))
         return
 
     if not bot.is_telegram_admin(user_id):
@@ -835,7 +838,7 @@ def tg_command_tldr(bot, chat_id, args):
 @asyncio.coroutine
 def tg_command_sync_profile(bot, chat_id, args):
     if 'private' != args['chat_type']:
-        yield from bot.sendMessage(chat_id, "Command must be run in private chat!")
+        yield from bot.sendMessage(chat_id, "Shhh! This should only be between us. Whisper it to me in PM here: @{username}".format(username=bot.username))
         return
 
     telegram_uid = str(args['user_id'])
@@ -846,11 +849,11 @@ def tg_command_sync_profile(bot, chat_id, args):
 
     if telegram_uid in tg2ho_dict:
         if isinstance(tg2ho_dict[telegram_uid], str):
-            yield from bot.sendMessage(chat_id, "profile is not fully synced")
+            yield from bot.sendMessage(chat_id, "Your profile is not fully synced")
             del ho2tg_dict[tg2ho_dict[telegram_uid]] # remove old registration code
             logger.info("{} is waiting verification".format(telegram_uid))
         else:
-            yield from bot.sendMessage(chat_id, "profile is already synced")
+            yield from bot.sendMessage(chat_id, "Your profile is already synced")
             logger.info("{} is synced to {}".format(telegram_uid, tg2ho_dict[telegram_uid]))
             return
 
@@ -863,15 +866,17 @@ def tg_command_sync_profile(bot, chat_id, args):
     hangoutsbot.memory.set_by_path(['profilesync'], new_memory)
     hangoutsbot.memory.save()
 
-    yield from bot.sendMessage( chat_id,
-                                "please paste the following code in a private hangout with the bot: "
-                                    "/bot syncprofile {}".format(registration_code))
+    yield from bot.sendMessage(chat_id, "Paste the following command in a private hangout with me. This can be found here: https://hangouts.google.com/chat/person/{}".format(bot.ho_bot.user_self()["chat_id"]))
+    message = "/bot syncprofile {}".format(str(registration_code))
+    message = re.sub(r"(?<!\S)\/bot(?!\S)", bot.ho_bot._handlers.bot_command[0], message)
+
+    yield from bot.sendMessage(chat_id, message)
 
 
 @asyncio.coroutine
 def tg_command_unsync_profile(bot, chat_id, args):
     if 'private' != args['chat_type']:
-        yield from bot.sendMessage(chat_id, "Command must be run in private chat!")
+        yield from bot.sendMessage(chat_id, "Shhh! This should only be between us. Whisper it to me in PM here: @{username}".format(username=bot.username))
         return
 
     telegram_uid = str(args['user_id'])
@@ -897,7 +902,7 @@ def tg_command_unsync_profile(bot, chat_id, args):
         hangoutsbot.memory.set_by_path(['profilesync'], new_memory)
         hangoutsbot.memory.save()
 
-        yield from bot.sendMessage(chat_id, "all profile references removed")
+        yield from bot.sendMessage(chat_id, "Successfully removed sync of your profile.")
         logger.info("removed profile references for {}".format(telegram_uid))
     else:
         yield from bot.sendMessage(chat_id, "no profile found")
@@ -915,7 +920,7 @@ def tg_command_get_me(bot, chat_id, args):
     user_id = args['user_id']
     chat_type = args['chat_type']
     if 'private' != chat_type:
-        yield from bot.sendMessage(chat_id, "Command must be run in private chat!")
+        yield from bot.sendMessage(chat_id, "Shhh! This should only be between us. Whisper it to me in PM here: @{username}".format(username=bot.username))
         return
 
     if bot.is_telegram_admin(user_id):
@@ -1197,7 +1202,7 @@ def syncprofile(bot, event, *args):
     parameters = list(args)
 
     if len(parameters) != 1:
-        yield from bot.coro_send_message(event.conv_id, "supply registration id as single parameter")
+        yield from bot.coro_send_message(event.conv_id, "Are you sure you've started this process with me in Telegram?\nTry sending <b>/syncprofile</b> to me here first: {url}".format(url=tg_util_create_telegram_me_link(tg_bot.username, https=True)))
 
     else:
         registration_code = str(parameters[0])
@@ -1212,12 +1217,12 @@ def syncprofile(bot, event, *args):
 
             yield from bot.coro_send_message(
                 event.conv_id,
-                "profile is already synced" )
+                "Your profile is already synced" )
 
         elif not registration_code.startswith(reg_code_prefix):
             yield from bot.coro_send_message(
                 event.conv_id,
-                "execute /syncprofile command in a private chat with the bot on telegram first" )
+                "Are you sure you've started this process with me in Telegram?\nTry sending <b>/syncprofile</b> to me here first: {url}".format(url=tg_util_create_telegram_me_link(tg_bot.username, https=True)))
 
         elif registration_code in ho2tg_dict:
             ho_id = registration_code
@@ -1239,11 +1244,11 @@ def syncprofile(bot, event, *args):
 
             yield from bot.coro_send_message(
                 event.conv_id,
-                "profile sync successfully set up" )
+                "Successfully set up profile sync.")
         else:
             yield from bot.coro_send_message(
                 event.conv_id,
-                "execute /syncprofile command in a private chat with the bot on telegram first" )
+                "Are you sure you've started this process with me in Telegram?\nTry sending <b>/syncprofile</b> to me here first: {url}".format(url=tg_util_create_telegram_me_link(tg_bot.username, https=True)))
 
 
 def telesync(bot, event, *args):
