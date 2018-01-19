@@ -137,7 +137,10 @@ def tldr_base(bot, conv_id, parameters):
                     html.append(_("{}").format(conv_tldr[timestamp]))
 
         if len(html) == 0:
-            html.append(_("TL;DR not found."))
+            if bot.conversations.catalog[conv_id]["type"] == "ONE_TO_ONE":
+                html.append(_("TL;DR not found.<br/>If you're looking the TL;DR from a group hangout, I'm good but I'm not psychic ;-)<br/>You'll have to send the command in the hangout from which you're expecting to read it."))
+            else:
+                html.append(_("TL;DR not found."))
             display = False
         else:
             if raw is False:
