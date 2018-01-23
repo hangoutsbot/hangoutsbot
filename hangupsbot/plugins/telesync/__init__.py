@@ -402,24 +402,9 @@ def tg_util_sync_get_user_name(msg, chat_action='from'):
             logger.info("unmapped/invalid hangouts user for {}".format(telegram_uid))
 
     if chat_id:
-        # guaranteed full name
+        # guaranteed preferred name
         hangups_user = bot.get_hangups_user(chat_id)
-        full_name = hangups_user.full_name
-
-        # determine if the hangoutsbot user has /setnickname
-        nickname = False
-        if bot.memory.exists(['user_data', chat_id, "nickname"]):
-            nickname = bot.memory.get_by_path(['user_data', chat_id, "nickname"])
-
-        if "prefer_fullname" in telesync_config and telesync_config["prefer_fullname"]:
-            preferred_name = full_name
-        elif nickname:
-            preferred_name = nickname
-        else:
-            preferred_name = full_name
-
-        # links with different visible content are no longer supported by hangouts clients
-        username = preferred_name
+        username = tg_bot.chatbridge._get_user_details(hangups_user)["preferred_name"]
         logger.info("mapped telegram id: {} to {}, {}".format(telegram_uid, chat_id, username))
 
     return username
