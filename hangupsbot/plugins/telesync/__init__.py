@@ -488,13 +488,6 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
 
         ho_photo_id = None
         if "enable_sticker_sync" in config and config["enable_sticker_sync"]:
-            yield from tg_bot.chatbridge._send_to_internal_chat(
-                ho_conv_id,
-                "_uploading sticker from {} in {}_".format(user, chat_title),
-                {   "config": config,
-                    "source_user": user,
-                    "source_uid": msg['from']['id'],
-                    "source_title": chat_title })
             ho_photo_id = yield from tg_bot.get_hangouts_image_id_from_telegram_photo_id(msg['sticker']['file_id'])
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
@@ -519,18 +512,6 @@ def tg_on_photo(tg_bot, tg_chat_id, msg, original_is_gif=False):
         config = _telesync_config(tg_bot.ho_bot)
 
         user = tg_util_sync_get_user_name(msg)
-
-        text = "_uploading photo from {} in {}_".format(
-            user,
-            chat_title )
-
-        yield from tg_bot.chatbridge._send_to_internal_chat(
-            ho_conv_id,
-            text,
-            {   "config": config,
-                "source_user": user,
-                "source_uid": msg['from']['id'],
-                "source_title": chat_title })
 
         tg_photos = tg_util_get_photo_list(msg)
         tg_photo_id = tg_photos[len(tg_photos) - 1]['file_id']
