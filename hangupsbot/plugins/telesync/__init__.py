@@ -993,7 +993,7 @@ class BridgeInstance(WebFramework):
             username = bridge_user["preferred_name"]
         if bridge_user["chat_id"]:
             # wrap linked profiles with a g+ link
-            username = "[{1}](https://plus.google.com/u/0/{0}/about)".format( bridge_user["chat_id"],
+            username = "[{1}](https://plus.google.com/{0})".format( bridge_user["chat_id"],
                                                                               username )
 
         chat_title = format(self.bot.conversations.get_name(conv_id))
@@ -1209,7 +1209,7 @@ def syncprofile(bot, event, *args):
             ho_id = registration_code
             telegram_uid = str(ho2tg_dict[registration_code])
 
-            user_gplus = 'https://plus.google.com/u/0/{}/about'.format(hangouts_uid)
+            user_gplus = 'https://plus.google.com/{}'.format(hangouts_uid)
 
             tg2ho_dict[telegram_uid] = {
                 'registration_code': registration_code,
