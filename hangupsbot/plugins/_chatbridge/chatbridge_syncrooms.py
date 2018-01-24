@@ -62,6 +62,8 @@ class BridgeInstance(WebFramework):
         attach = None
         if hasattr(event, "conv_event") and getattr(event.conv_event, "attachments"):
             attach = event.conv_event.attachments[0]
+            if not message:
+                message = "shared an image"
 
         for relay_id in relay_ids:
             """XXX: media sending:
