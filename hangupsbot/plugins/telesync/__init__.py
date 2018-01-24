@@ -498,14 +498,18 @@ def tg_on_photo(tg_bot, tg_chat_id, msg, original_is_gif=False):
         ho_photo_id = yield from tg_bot.get_hangouts_image_id_from_telegram_photo_id(tg_photo_id,
                                                                                      original_is_gif=original_is_gif)
 
-        if ho_photo_id:
-            text = "sent a photo"
-        else:
-            text = "sent a photo, but telesync could not load it"
+        text = ""
+        if msg.get("text"):
+            text = msg["text"]
+        elif msg.get("caption"):
+            text = msg["caption"]
+
+        if not ho_photo_id:
+            text += "\n[photo failed to upload]"
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
-            text,
+            text.strip() or "sent an image",
             {   "config": config,
                 "source_user": user,
                 "source_uid": msg['from']['id'],
