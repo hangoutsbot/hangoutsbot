@@ -986,8 +986,6 @@ class BridgeInstance(WebFramework):
 
         for eid in external_ids:
 
-            divider = ":"
-
             """XXX: media sending:
 
             * if media link is already available, send it immediately
@@ -1003,7 +1001,6 @@ class BridgeInstance(WebFramework):
                     logger.info("media link in original request: {}".format(media_link))
 
                     yield from self._send_deferred_media(media_link, eid, bridge_user["preferred_name"])
-                    divider = ""
 
                 elif isinstance(event, FakeEvent):
                     if( "image_id" in event.passthru["original_request"]
@@ -1029,7 +1026,6 @@ class BridgeInstance(WebFramework):
                     logger.info("media link in original event: {}".format(media_link))
 
                     yield from self._send_deferred_media(media_link, eid, bridge_user["preferred_name"])
-                    divider = ""
 
                 """standard message relay"""
 
@@ -1040,14 +1036,12 @@ class BridgeInstance(WebFramework):
                 if( "sync_chat_titles" not in config["config.json"]
                         or( config["config.json"]["sync_chat_titles"] and chat_title )):
 
-                    formatted_text = "{} ({}){} {}".format( username,
-                                                            chat_title,
-                                                            divider,
-                                                            message )
+                    formatted_text = "{} ({}): {}".format(username,
+                                                          chat_title,
+                                                          message)
                 else:
-                    formatted_text = "{}{} {}".format( username,
-                                                       divider,
-                                                       message )
+                    formatted_text = "{}: {}".format(username,
+                                                     message)
 
                 logger.info("sending {}: {}".format(eid, formatted_text))
                 yield from tg_bot.sendMessage( eid,
