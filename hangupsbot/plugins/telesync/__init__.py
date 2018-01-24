@@ -428,29 +428,24 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
     if 'sync_reply_to' in config and config['sync_reply_to'] and 'reply_to_message' in msg:
         """specialised formatting for reply-to telegram messages"""
 
-        content_type, chat_type, chat_id = telepot.glance(msg['reply_to_message'])
+        r_msg = msg['reply_to_message']
 
-        if msg['reply_to_message']['from']['first_name'].lower() == tg_bot.name.lower():
-            r_text = ( msg['reply_to_message']['text'].split(':')
-                       if 'text' in msg['reply_to_message'] else content_type )
+        content_type, chat_type, chat_id = telepot.glance(r_msg)
+        r_user = None
+        r_text = r_msg.get('text', r_msg.get('caption', content_type))
 
-            r2_user = r_text[0]
-        else:
-            r_text = ( ['', msg['reply_to_message']['text']]
-                       if 'text' in msg['reply_to_message'] else content_type )
+        if r_msg['from']['first_name'].lower() == tg_bot.name.lower():
+            if ': ' in r_text:
+                r_user, r_text = r_text.split(': ', 1)
 
-            r2_user = tg_util_sync_get_user_name(msg['reply_to_message'])
+        if len(r_text) > 30:
+            r_text = r_text[:30] + "..."
 
-        if content_type == 'text':
-            r2_text = r_text[1]
-            r2_text = ( r2_text
-                        if len(r2_text) < 30 else r2_text[0:30] + "..." )
+        quote = ["_{}_".format(r_text)]
+        if r_user:
+            quote.insert(0, "**{}**".format(r_user))
 
-        else:
-            r2_text = content_type
-
-        r2_format = "\n| **{}**\n| _{}_\n{}"
-        original_message = r2_format.format(r2_user, r2_text, original_message)
+        original_message = "\n| {}\n{}".format("\n| ".join(quote), original_message)
 
     yield from tg_bot.chatbridge._send_to_internal_chat(
         ho_conv_id,
