@@ -967,10 +967,7 @@ class BridgeInstance(WebFramework):
 
         bridge_user = self._get_user_details(user, { "event": event })
         telesync_config = config['config.json']
-        if "prefer_fullname" in telesync_config and telesync_config["prefer_fullname"]:
-            username = bridge_user["full_name"]
-        else:
-            username = bridge_user["preferred_name"]
+        username = bridge_user["preferred_name"]
         if bridge_user["chat_id"]:
             # wrap linked profiles with a g+ link
             username = "[{1}](https://plus.google.com/{0})".format( bridge_user["chat_id"],
