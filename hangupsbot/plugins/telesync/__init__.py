@@ -434,9 +434,11 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
         r_user = None
         r_text = r_msg.get('text', r_msg.get('caption', content_type))
 
-        if r_msg['from']['first_name'].lower() == tg_bot.name.lower():
+        if r_msg['from']['id'] == tg_bot.id:
             if ': ' in r_text:
                 r_user, r_text = r_text.split(': ', 1)
+        else:
+            r_user = user
 
         if len(r_text) > 30:
             r_text = r_text[:30] + "..."
