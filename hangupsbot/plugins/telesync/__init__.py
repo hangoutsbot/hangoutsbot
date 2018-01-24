@@ -942,13 +942,13 @@ class BridgeInstance(WebFramework):
         return applicable_configurations
 
     @asyncio.coroutine
-    def _send_deferred_media(self, media_link, eid):
+    def _send_deferred_media(self, media_link, eid, sender=None):
         if media_link.endswith((".gif", ".gifv", ".webm", ".mp4")):
-            yield from tg_bot.sendDocument( eid,
-                                            media_link )
+            send_func = tg_bot.sendDocument
         else:
-            yield from tg_bot.sendPhoto( eid,
-                                         media_link )
+            send_func = tg_bot.sendPhoto
+        caption = "{}: shared media".format(sender) if sender else None
+        yield from send_func(eid, media_link, caption=caption)
 
     @asyncio.coroutine
     def _send_to_external_chat(self, config, event):
@@ -1004,7 +1004,7 @@ class BridgeInstance(WebFramework):
                     media_link = event.passthru["original_request"]["attachments"][0]
                     logger.info("media link in original request: {}".format(media_link))
 
-                    yield from self._send_deferred_media(media_link, eid)
+                    yield from self._send_deferred_media(media_link, eid, bridge_user["preferred_name"])
                     message = "shared media"
                     divider = ""
 
@@ -1020,7 +1020,8 @@ class BridgeInstance(WebFramework):
                             self.bot._handlers.image_uri_from(
                                 image_id,
                                 self._send_deferred_media,
-                                eid ))
+                                eid,
+                                bridge_user["preferred_name"]))
 
                 elif( hasattr(event, "conv_event")
                         and hasattr(event.conv_event, "attachments")
@@ -1030,7 +1031,7 @@ class BridgeInstance(WebFramework):
                     media_link = event.conv_event.attachments[0]
                     logger.info("media link in original event: {}".format(media_link))
 
-                    yield from self._send_deferred_media(media_link, eid)
+                    yield from self._send_deferred_media(media_link, eid, bridge_user["preferred_name"])
                     message = "shared media"
                     divider = ""
 
