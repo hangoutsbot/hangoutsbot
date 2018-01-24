@@ -1000,7 +1000,6 @@ class BridgeInstance(WebFramework):
                     logger.info("media link in original request: {}".format(media_link))
 
                     yield from self._send_deferred_media(media_link, eid, bridge_user["preferred_name"])
-                    message = "shared media"
                     divider = ""
 
                 elif isinstance(event, FakeEvent):
@@ -1027,10 +1026,13 @@ class BridgeInstance(WebFramework):
                     logger.info("media link in original event: {}".format(media_link))
 
                     yield from self._send_deferred_media(media_link, eid, bridge_user["preferred_name"])
-                    message = "shared media"
                     divider = ""
 
                 """standard message relay"""
+
+                if not message:
+                    # Message was purely an image, no accompanying text.
+                    return
 
                 if( "sync_chat_titles" not in config["config.json"]
                         or( config["config.json"]["sync_chat_titles"] and chat_title )):
