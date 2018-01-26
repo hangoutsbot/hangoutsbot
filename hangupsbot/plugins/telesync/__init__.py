@@ -438,7 +438,7 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
             if ': ' in r_text:
                 r_user, r_text = r_text.split(': ', 1)
         else:
-            r_user = user
+            r_user = tg_util_sync_get_user_name(r_msg)
 
         if len(r_text) > 30:
             r_text = r_text[:30] + "..."
