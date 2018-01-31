@@ -38,6 +38,8 @@ class HangupsBot(object):
 
         self.shared = {} # safe place to store references to objects
 
+        self.bridges = {} # WebFramework will register bridges here by uid
+
         self._client = None
         self._cookies_path = cookies_path
         self._max_retries = max_retries
@@ -496,6 +498,21 @@ class HangupsBot(object):
                 self.memory.save()
 
         return conversation
+
+    @asyncio.coroutine
+    def send_to_bridged_1to1(self, user_id, bridge_id, message):
+        if bridge_id is None or bridge_id in self.conversations.catalog:
+            # Bridge ID is in fact a hangout, defer to existing handling.
+            conv = yield from self.get_1to1(user_id)
+            yield from self.coro_send_message(conv.id_, message)
+        elif bridge_id in self.bridges:
+            # Defer to the bridge to handle sending this message.
+            bridge = self.bridges[bridge_id]
+            # Strip formatting -- we don't know what format the external side is expecting.
+            # Turn it into segments and just keep the plain text.
+            segments = simple_parse_to_segments(message)
+            message = "".join(segment.text for segment in segments)
+            yield from bridge.send_to_external_1to1(user_id, message)
 
 
     def initialise_memory(self, chat_id, datatype):

@@ -56,6 +56,9 @@ class WebFramework:
 
         extra_metadata.update({ "bridge.uid": self.uid })
 
+        # Add to bot's tracking of bridges.
+        bot.bridges[self.uid] = self
+
         self._handler_broadcast = plugins.register_handler(self._broadcast, type="sending", extra_metadata=extra_metadata)
         self._handler_repeat = plugins.register_handler(self._repeat, type="allmessages", extra_metadata=extra_metadata)
 
@@ -64,6 +67,7 @@ class WebFramework:
     def close(self):
         plugins.deregister_handler(self._handler_broadcast, type="sending")
         plugins.deregister_handler(self._handler_repeat, type="allmessages")
+        del self.bot.bridges[self.uid]
 
     def load_configuration(self, configkey):
         self.configuration = self.bot.get_config_option(self.configkey) or []
@@ -257,6 +261,10 @@ class WebFramework:
             yield from self._send_to_external_chat(config, event)
 
     @asyncio.coroutine
+    def send_to_external_1to1(self, user_id, message):
+        logger.warning("send_to_external_1to1 should be overridden by derived class")
+
+    @asyncio.coroutine
     def _send_to_external_chat(self, config, event):
         pass
 
@@ -272,7 +280,7 @@ class WebFramework:
         if "source_title" in external_context:
             source_title = external_context["source_title"]
 
-        source_gid = self.plugin_name
+        source_gid = self.uid
         if "source_gid" in external_context:
             source_gid = external_context["source_gid"]
 
