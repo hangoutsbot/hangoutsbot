@@ -1162,25 +1162,26 @@ def syncprofile(bot, event, *args):
 
     parameters = list(args)
 
-    if len(parameters) != 1:
+    ho2tg_dict = bot.memory.get_by_path(['profilesync'])['ho2tg']
+    tg2ho_dict = bot.memory.get_by_path(['profilesync'])['tg2ho']
+
+    hangouts_uid = str(event.user_id.chat_id)
+
+    if( hangouts_uid in ho2tg_dict
+            and ho2tg_dict[hangouts_uid] in tg2ho_dict
+            and not isinstance(tg2ho_dict[ho2tg_dict[hangouts_uid]], str) ):
+
+        yield from bot.coro_send_message(
+            event.conv_id,
+            "Your profile is already synced" )
+
+    elif len(parameters) != 1:
         yield from bot.coro_send_message(event.conv_id, "Are you sure you've started this process with me in Telegram?\nTry sending <b>/syncprofile</b> to me here first: {url}".format(url=tg_util_create_telegram_me_link(tg_bot.username, https=True)))
 
     else:
         registration_code = str(parameters[0])
-        ho2tg_dict = bot.memory.get_by_path(['profilesync'])['ho2tg']
-        tg2ho_dict = bot.memory.get_by_path(['profilesync'])['tg2ho']
 
-        hangouts_uid = str(event.user_id.chat_id)
-
-        if( hangouts_uid in ho2tg_dict
-                and ho2tg_dict[hangouts_uid] in tg2ho_dict
-                and not isinstance(tg2ho_dict[ho2tg_dict[hangouts_uid]], str) ):
-
-            yield from bot.coro_send_message(
-                event.conv_id,
-                "Your profile is already synced" )
-
-        elif not registration_code.startswith(reg_code_prefix):
+        if not registration_code.startswith(reg_code_prefix):
             yield from bot.coro_send_message(
                 event.conv_id,
                 "Are you sure you've started this process with me in Telegram?\nTry sending <b>/syncprofile</b> to me here first: {url}".format(url=tg_util_create_telegram_me_link(tg_bot.username, https=True)))
