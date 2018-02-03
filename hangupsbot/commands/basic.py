@@ -112,7 +112,8 @@ def help(bot, event, cmd=None, *args):
 
     user_id, bridge_id = event_to_user_bridge(event)
     yield from bot.send_to_bridged_1to1(user_id, bridge_id, "<br />".join(help_lines))
-    yield from bot.coro_send_message(event.conv_id, _("<i>{}, I've sent you some help ;)</i>").format(event.user.full_name))
+    if bot.conversations.catalog[event.conv_id]["type"] != "ONE_TO_ONE":
+        yield from bot.coro_send_message(event.conv_id, _("<i>{}, I've sent you some help ;)</i>").format(event.user.full_name))
 
 
 @command.register(admin=True)

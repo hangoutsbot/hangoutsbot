@@ -82,7 +82,8 @@ def tldr(bot, event, *args):
     if display is True and tldr_echo_options[tldr_echo] is 'PM':
         user_id, bridge_id = event_to_user_bridge(event)
         yield from bot.send_to_bridged_1to1(user_id, bridge_id, message)
-        yield from bot.coro_send_message(event.conv_id, _("<i>{}, I've sent you the info in a PM</i>").format(event.user.full_name))
+        if bot.conversations.catalog[event.conv_id]["type"] != "ONE_TO_ONE":
+            yield from bot.coro_send_message(event.conv_id, _("<i>{}, I've sent you the info in a PM</i>").format(event.user.full_name))
     else:
         yield from bot.coro_send_message(event.conv_id, message)
 
