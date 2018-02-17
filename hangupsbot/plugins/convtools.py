@@ -243,36 +243,27 @@ def kick(bot, event, *args):
     """kick users from a conversation
     Usage: /bot kick
     [<optional conversation id, current if not specified>]
-    [<user ids, space-separated if more than one>]
-    [quietly]"""
-    parameters = list(args)
+    [<user ids, space-separated if more than one>]"""
 
     source_conv = event.conv_id
+    if args[0] in bot.conversations.catalog:
+        source_conv = args[0]
+        args = args[1:]
+
     remove = []
-    test = False
-    quietly = False
+    admins_list = bot.get_config_suboption(source_conv, "admins")
 
-    for parameter in parameters:
-        if parameter in bot.conversations.catalog:
-            source_conv = parameter
-        elif parameter in bot.conversations.catalog[source_conv]["participants"]:
-            remove.append(parameter)
-        elif parameter == "test":
-            test = True
-        elif parameter == "quietly":
-            quietly = True
+    for user_id in args:
+        if user_id not in bot.conversations.catalog[source_conv]["participants"]:
+            logger.debug("Skipping unknown user ID: {}".format(user_id))
+        elif user_id in admins_list:
+            # Don't allow non-admins running the command (e.g. tag permissions) to remove actual bot admins.
+            logger.debug("Skipping admin user ID: {}".format(user_id))
         else:
-            raise ValueError(_("supply optional conversation id and valid user ids to kick"))
-
-    if len(remove) <= 0:
+            remove.append(user_id)
+    if not remove:
         raise ValueError(_("supply at least one valid user id to kick"))
 
-    arguments = ["refresh", source_conv, "without"] + remove
-
-    if test:
-        arguments.append("test")
-
-    if quietly:
-        arguments.append("quietly")
-
-    yield from command.run(bot, event, *arguments)
+    logger.debug("Removing users: {}".format(remove))
+    for user_id in remove:
+        yield from bot.remove_user(source_conv, user_id)
