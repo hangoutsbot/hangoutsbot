@@ -843,6 +843,57 @@ class HangupsBot(object):
             yield from self.coro_send_message(conv_id, public_message, context=context)
 
 
+    @asyncio.coroutine
+    def add_user(self, chat_id, *user_ids):
+        """Add one or more users to this conversation.
+        Args:
+            user_ids (str...): IDs of the new users.
+        Raises:
+            TypeError: If conversation is not a group.
+            NetworkError: If conversation cannot be invited to.
+        """
+        conv = self._conv_list.get(chat_id)
+        if not conv._conversation.type == hangups.hangouts_pb2.CONVERSATION_TYPE_GROUP:
+            raise TypeError('Conversation is not a group')
+        try:
+            yield from self._client.add_user(
+                hangups.hangouts_pb2.AddUserRequest(
+                    request_header=self._client.get_request_header(),
+                    event_request_header=conv._get_event_request_header(),
+                    invitee_id=[hangups.hangouts_pb2.InviteeID(gaia_id=user_id)
+                                for user_id in user_ids],
+                )
+            )
+        except exceptions.NetworkError as e:
+            logger.warning('Failed to add user: {}'.format(e))
+            raise
+
+
+    @asyncio.coroutine
+    def remove_user(self, chat_id, user_id):
+        """Remove a user from this conversation.
+        Args:
+            user_id (str): ID of the existing user.
+        Raises:
+            TypeError: If conversation is not a group.
+            NetworkError: If conversation cannot be removed from.
+        """
+        conv = self._conv_list.get(chat_id)
+        if not conv._conversation.type == hangups.hangouts_pb2.CONVERSATION_TYPE_GROUP:
+            raise TypeError('Conversation is not a group')
+        try:
+            yield from self._client.remove_user(
+                hangups.hangouts_pb2.RemoveUserRequest(
+                    request_header=self._client.get_request_header(),
+                    event_request_header=conv._get_event_request_header(),
+                    participant_id=hangups.hangouts_pb2.ParticipantId(gaia_id=user_id),
+                )
+            )
+        except exceptions.NetworkError as e:
+            logger.warning('Failed to remove user: {}'.format(e))
+            raise
+
+
     def user_self(self):
         myself = {
             "chat_id": None,
