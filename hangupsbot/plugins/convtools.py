@@ -6,7 +6,6 @@ import plugins
 
 from commands import command
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -27,18 +26,19 @@ def _batch_add_users(bot, target_conv, chat_ids, batch_max=20):
     chat_ids = not_there
 
     users_added = 0
-    chunks = [chat_ids[i:i+batch_max] for i in range(0, len(chat_ids), batch_max)]
+    chunks = [chat_ids[i:i + batch_max] for i in range(0, len(chat_ids), batch_max)]
     for number, partial_list in enumerate(chunks):
-        logger.info("batch add users: {}/{} {} user(s) into {}".format(number+1, len(chunks), len(partial_list), target_conv))
+        logger.info(
+            "batch add users: {}/{} {} user(s) into {}".format(number + 1, len(chunks), len(partial_list), target_conv))
 
         yield from bot._client.add_user(
             hangups.hangouts_pb2.AddUserRequest(
-                request_header = bot._client.get_request_header(),
-                invitee_id = [ hangups.hangouts_pb2.InviteeID(gaia_id = chat_id)
-                               for chat_id in partial_list ],
-                event_request_header = hangups.hangouts_pb2.EventRequestHeader(
-                    conversation_id = hangups.hangouts_pb2.ConversationId(id = target_conv),
-                    client_generated_id = bot._client.get_client_generated_id() )))
+                request_header=bot._client.get_request_header(),
+                invitee_id=[hangups.hangouts_pb2.InviteeID(gaia_id=chat_id)
+                            for chat_id in partial_list],
+                event_request_header=hangups.hangouts_pb2.EventRequestHeader(
+                    conversation_id=hangups.hangouts_pb2.ConversationId(id=target_conv),
+                    client_generated_id=bot._client.get_client_generated_id())))
 
         users_added = users_added + len(partial_list)
         yield from asyncio.sleep(0.5)
@@ -91,7 +91,7 @@ def createconversation(bot, event, *args):
     Usage: /bot createconversation <user id(s)>"""
     parameters = list(args)
 
-    force_group = True # only create groups
+    force_group = True  # only create groups
 
     if "group" in parameters:
         # block maintained for legacy command support
@@ -104,11 +104,11 @@ def createconversation(bot, event, *args):
 
     _response = yield from bot._client.create_conversation(
         hangups.hangouts_pb2.CreateConversationRequest(
-            request_header = bot._client.get_request_header(),
-            type = hangups.hangouts_pb2.CONVERSATION_TYPE_GROUP,
-            client_generated_id = bot._client.get_client_generated_id(),
-            invitee_id = [ hangups.hangouts_pb2.InviteeID(gaia_id = chat_id)
-                           for chat_id in user_ids ]))
+            request_header=bot._client.get_request_header(),
+            type=hangups.hangouts_pb2.CONVERSATION_TYPE_GROUP,
+            client_generated_id=bot._client.get_client_generated_id(),
+            invitee_id=[hangups.hangouts_pb2.InviteeID(gaia_id=chat_id)
+                        for chat_id in user_ids]))
     new_conversation_id = _response.conversation.conversation_id.id
 
     yield from bot.coro_send_message(new_conversation_id, "<i>conversation created</i>")
@@ -189,7 +189,8 @@ def refresh(bot, event, *args):
 
     list_added = list(set(list_added))
 
-    logger.debug("refresh: from conversation {} removed {} added {}".format(source_conv, len(list_removed), len(list_added)))
+    logger.debug(
+        "refresh: from conversation {} removed {} added {}".format(source_conv, len(list_removed), len(list_added)))
 
     if test:
         yield from bot.coro_send_message(event.conv_id,
@@ -197,9 +198,11 @@ def refresh(bot, event, *args):
                                            "<b>rename old: {}</b><br />"
                                            "<b>removed {}:</b> {}<br />"
                                            "<b>added {}:</b> {}").format(source_conv,
-                                                                         old_title if renameold else _("<em>unchanged</em>"),
+                                                                         old_title if renameold else _(
+                                                                             "<em>unchanged</em>"),
                                                                          len(text_removed_users),
-                                                                         ", ".join(text_removed_users) or _("<em>none</em>"),
+                                                                         ", ".join(text_removed_users) or _(
+                                                                             "<em>none</em>"),
                                                                          len(list_added),
                                                                          " ".join(list_added) or _("<em>none</em>")))
     else:
@@ -207,10 +210,10 @@ def refresh(bot, event, *args):
 
             _response = yield from bot._client.create_conversation(
                 hangups.hangouts_pb2.CreateConversationRequest(
-                    request_header = bot._client.get_request_header(),
-                    type = hangups.hangouts_pb2.CONVERSATION_TYPE_GROUP,
-                    client_generated_id = bot._client.get_client_generated_id(),
-                    invitee_id = []))
+                    request_header=bot._client.get_request_header(),
+                    type=hangups.hangouts_pb2.CONVERSATION_TYPE_GROUP,
+                    client_generated_id=bot._client.get_client_generated_id(),
+                    invitee_id=[]))
             new_conversation_id = _response.conversation.conversation_id.id
 
             yield from bot.coro_send_message(new_conversation_id, _("<i>refreshing group...</i><br />"))
@@ -226,14 +229,15 @@ def refresh(bot, event, *args):
             if not quietly:
                 yield from bot.coro_send_message(source_conv, _("<i>group has been obsoleted</i>"))
 
-            yield from bot.coro_send_message( event.conv_id,
-                                              _("refreshed: <b><pre>{}</pre></b> (original id: <pre>{}</pre>).<br />"
-                                                "new conversation id: <b><pre>{}</pre></b>.<br />"
-                                                "removed {}: {}").format( new_title,
-                                                                          source_conv,
-                                                                          new_conversation_id,
-                                                                          len(text_removed_users),
-                                                                          ", ".join(text_removed_users) or _("<em>none</em>") ))
+            yield from bot.coro_send_message(event.conv_id,
+                                             _("refreshed: <b><pre>{}</pre></b> (original id: <pre>{}</pre>).<br />"
+                                               "new conversation id: <b><pre>{}</pre></b>.<br />"
+                                               "removed {}: {}").format(new_title,
+                                                                        source_conv,
+                                                                        new_conversation_id,
+                                                                        len(text_removed_users),
+                                                                        ", ".join(text_removed_users) or _(
+                                                                            "<em>none</em>")))
 
         else:
             yield from bot.coro_send_message(event.conv_id, _("<b>nobody to add in the new conversation</b>"))
@@ -243,14 +247,12 @@ def kick(bot, event, *args):
     """kick users from a conversation
     Usage: /bot kick
     [<optional conversation id, current if not specified>]
-    [<user ids, space-separated if more than one>]
-    [quietly]"""
+    [<user ids, space-separated if more than one>]"""
     parameters = list(args)
 
     source_conv = event.conv_id
     remove = []
     test = False
-    quietly = False
 
     for parameter in parameters:
         if parameter in bot.conversations.catalog:
@@ -259,20 +261,30 @@ def kick(bot, event, *args):
             remove.append(parameter)
         elif parameter == "test":
             test = True
-        elif parameter == "quietly":
-            quietly = True
         else:
             raise ValueError(_("supply optional conversation id and valid user ids to kick"))
 
     if len(remove) <= 0:
         raise ValueError(_("supply at least one valid user id to kick"))
 
-    arguments = ["refresh", source_conv, "without"] + remove
-
     if test:
-        arguments.append("test")
+        yield from bot.coro_send_message(event.conv_id, _("Run without test to kick: {}".format(",".join(remove))))
+    else:
+        yield from remove_users(bot, remove, source_conv)
 
-    if quietly:
-        arguments.append("quietly")
 
-    yield from command.run(bot, event, *arguments)
+@asyncio.coroutine
+def remove_users(bot, users, chat_id):
+    users_removed = 0
+    for user in users:
+        response = yield from bot._client.remove_user(
+            hangups.hangouts_pb2.RemoveUserRequest(
+                request_header=bot._client.get_request_header(),
+                participant_id=hangups.hangouts_pb2.ParticipantId(gaia_id=user, chat_id=user),
+                event_request_header=hangups.hangouts_pb2.EventRequestHeader(
+                    conversation_id=hangups.hangouts_pb2.ConversationId(id=chat_id),
+                    client_generated_id=bot._client.get_client_generated_id())))
+        if response:
+            users_removed += 1
+        yield from asyncio.sleep(0.5)
+    return users_removed
