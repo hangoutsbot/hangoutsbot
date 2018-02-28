@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 def _initialise(bot):
     plugins.register_admin_command(["addme", "addusers", "createconversation", "refresh", "kick"])
+    plugins.register_shared('remove_users', remove_users)
 
 
 @asyncio.coroutine
