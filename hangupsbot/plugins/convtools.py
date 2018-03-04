@@ -1,5 +1,6 @@
 import asyncio, logging, random, string
 
+import functools
 import hangups
 
 import plugins
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def _initialise(bot):
     plugins.register_admin_command(["addme", "addusers", "createconversation", "refresh", "kick"])
-    plugins.register_shared('remove_users', remove_users)
+    plugins.register_shared('remove_users', functools.partial(remove_users, bot))
 
 
 @asyncio.coroutine
