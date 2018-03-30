@@ -43,5 +43,24 @@ class BridgeInstance(SyncroomsBridgeInstance):
     # _send_to_external_chat() inherited from syncrooms
 
 
+    def format_incoming_message(self, message, external_context):
+        conv_id = external_context["source_gid"]
+
+        source_user = external_context.get("source_user") or self.plugin_name
+        bridge_user = self._get_user_details(source_user, external_context)
+        source_title = external_context.get("source_title")
+
+        show_source = self.configuration[conv_id].get("show_source", True)
+        show_sender = self.configuration[conv_id].get("show_sender", False)
+
+        source = "<b>{}</b><br/>".format(source_title) if show_source else ""
+        sender = "<b>{}</b>".format(bridge_user["preferred_name"]) if show_sender else ""
+        if sender and external_context.get("source_edited"):
+            sender = "{} (edited)".format(sender)
+
+        template = "<i>{}{} {}</i>" if external_context.get("source_action") else "{}{}: {}"
+        return template.format(source, sender, message)
+
+
 def _initialise(bot):
     BridgeInstance(bot, "forwarding")
