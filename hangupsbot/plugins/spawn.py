@@ -177,3 +177,16 @@ def _spawn(bot, event, *args):
             event.user.id_.chat_id, event.conv_id, stderr_str)
     if len(stdout_str) > 0:
         yield from bot.coro_send_message(event.conv_id, stdout_str)
+
+        text = stdout_str
+
+        if text.startswith(('https://', 'http://', '//')):
+            try:
+                image_id = yield from bot.call_shared('image_validate_and_upload_single', text)
+            except KeyError:
+                logger.warning("image plugin not loaded - using in-built fallback")
+                image_id = yield from image_validate_and_upload_single(text, bot)
+
+            if image_id:
+                yield from bot.coro_send_message(event.conv.id_, None, image_id=image_id)
+
