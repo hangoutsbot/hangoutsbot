@@ -16,9 +16,6 @@ def _initialise(bot):
 @asyncio.coroutine
 def _watch_image_link(bot, event, command):
     # Don't handle events caused by the bot himself
-    if event.user.is_self:
-        return
-
     text = event.text
 
     if text.startswith(('https://', 'http://', '//')):
