@@ -60,7 +60,7 @@ class BridgeInstance(WebFramework):
         image_id = event.passthru["original_request"]["image_id"]
 
         attach = None
-        if event.passthru["original_request"]["attachments"]:
+        if event.passthru["original_request"].get("attachments"):
             attach = event.passthru["original_request"]["attachments"][0]
         elif hasattr(event, "conv_event") and getattr(event.conv_event, "attachments"):
             attach = event.conv_event.attachments[0]
