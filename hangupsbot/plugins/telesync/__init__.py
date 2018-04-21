@@ -469,7 +469,14 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
         user = tg_util_sync_get_user_name(msg)
 
         ho_photo_id = None
-        if "enable_sticker_sync" in config and config["enable_sticker_sync"]:
+
+        # Fetch the telesync config for the current conv, or the global config if none found.
+        # Possible sticker setting states:
+        # - disabled everywhere: n/a (default)
+        # - disabled in all except few: per-conv = True
+        # - enabled everywhere: global = True
+        # - enabled in all except few: global = True, per-conv = False
+        if tg_bot.ho_bot.get_config_suboption(ho_conv_id, "telesync").get("enable_sticker_sync"):
             ho_photo_id = yield from tg_bot.get_hangouts_image_id_from_telegram_photo_id(msg['sticker']['file_id'])
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
