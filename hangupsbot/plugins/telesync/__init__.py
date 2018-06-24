@@ -455,7 +455,8 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
         {   "config": config,
             "source_user": user,
             "source_uid": msg['from']['id'],
-            "source_title": chat_title })
+            "source_title": chat_title,
+            "source_edited": 'edit_date' in msg })
 
 
 @asyncio.coroutine
@@ -485,7 +486,8 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
             {   "config": config,
                 "source_user": user,
                 "source_uid": msg['from']['id'],
-                "source_title": chat_title },
+                "source_title": chat_title,
+                "source_action": True },
             image_id=ho_photo_id )
         logger.info("sticker posted to hangouts")
 
@@ -522,7 +524,8 @@ def tg_on_photo(tg_bot, tg_chat_id, msg, original_is_gif=False):
             {   "config": config,
                 "source_user": user,
                 "source_uid": msg['from']['id'],
-                "source_title": chat_title },
+                "source_title": chat_title,
+                "source_action": not bool(text.strip()) },
             image_id=ho_photo_id )
 
         logger.info("photo posted to hangouts")
@@ -542,8 +545,7 @@ def tg_on_user_join(tg_bot, tg_chat_id, msg):
 
         config = _telesync_config(tg_bot.ho_bot)
 
-        formatted_line = "*{}* added **{}** to *{}*".format(
-            tg_util_sync_get_user_name(msg, chat_action='new_chat_member'),
+        formatted_line = "added **{}** to *{}*".format(
             ", ".join([ new_user["username"]
                         for new_user in msg["new_chat_members"] ]),
             chat_title )
@@ -552,9 +554,10 @@ def tg_on_user_join(tg_bot, tg_chat_id, msg):
             ho_conv_id,
             formatted_line,
             {   "config": config,
-                "source_user": "telesync",
+                "source_user": tg_util_sync_get_user_name(msg, chat_action='new_chat_member'),
                 "source_uid": False,
-                "source_title": chat_title })
+                "source_title": chat_title,
+                "source_action": True })
 
         logger.info("join {} {}".format( ho_conv_id,
                                          formatted_line ))
@@ -574,17 +577,17 @@ def tg_on_user_leave(tg_bot, tg_chat_id, msg):
 
         config = _telesync_config(tg_bot.ho_bot)
 
-        formatted_line = "**{}** left *{}*".format(
-            msg["left_chat_member"]["username"],
+        formatted_line = "left *{}*".format(
             chat_title )
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
             formatted_line,
             {   "config": config,
-                "source_user": "telesync",
+                "source_user": msg["left_chat_member"]["username"],
                 "source_uid": False,
-                "source_title": chat_title })
+                "source_title": chat_title,
+                "source_action": True })
 
         logger.info("left {} {}".format( ho_conv_id,
                                          formatted_line ))
@@ -605,16 +608,13 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
         config = _telesync_config(tg_bot.ho_bot)
 
         user = tg_util_sync_get_user_name(msg)
-        text = maps_url
-
-        formatted_line = "<b>{}</b>: {}".format( user,
-                                                 text )
+        formatted_line = maps_url
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
             formatted_line,
             {   "config": config,
-                "source_user": "telesync",
+                "source_user": user,
                 "source_uid": False,
                 "source_title": chat_title })
 
