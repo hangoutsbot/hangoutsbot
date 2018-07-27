@@ -1062,21 +1062,6 @@ class BridgeInstance(WebFramework):
             except:
                 raise
 
-    def format_incoming_message(self, message, external_context):
-        config = external_context["config"]
-        source_user = external_context["source_user"]
-        source_title = external_context["source_title"]
-
-        if( "sync_chat_titles" not in config
-                or( config["sync_chat_titles"] and source_title )):
-            formatted = "<b>{}</b> ({}): {}".format( source_user,
-                                                     source_title,
-                                                     message )
-        else:
-            formatted = "<b>{}</b>: {}".format( source_user, message )
-
-        return formatted
-
     def map_external_uid_with_hangups_user(self, source_uid, external_context):
         telegram_uid = str(source_uid)
         profilesync_keys = [ "profilesync", "tg2ho", telegram_uid ]
