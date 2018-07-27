@@ -443,7 +443,8 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
         if len(r_text) > 30:
             r_text = r_text[:30] + "..."
 
-        quote = ["_{}_".format(r_text)]
+        # Don't trigger @all from a quoted message.
+        quote = ["_{}_".format(re.sub(r"@all\b", "@-all", r_text))]
         if r_user:
             quote.insert(0, "**{}**".format(r_user))
 
