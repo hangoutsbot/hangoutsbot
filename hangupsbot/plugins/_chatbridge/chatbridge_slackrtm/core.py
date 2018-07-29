@@ -205,18 +205,18 @@ class Message(object):
         self.type = self.msg.get("subtype")
         if self.type == "bot_message":
             self.user_name = self.msg.get("username")
-        elif self.type == "file_comment":
-            self.action = True
-            self.user = self.msg["comment"]["user"]
-        elif self.type in ("file_share", "file_mention") and "file" in self.msg:
-            self.action = True
-            if "url_private_download" in self.msg["file"]:
-                self.file = self.msg["file"]["url_private_download"]
         elif self.type in ("channel_name", "channel_purpose", "channel_topic", "channel_join", "channel_part",
                            "group_name", "group_purpose", "group_topic", "group_join", "group_part", "me_message"):
             self.action = True
         elif self.type in ("channel_archive", "channel_unarchive", "group_archive", "group_unarchive"):
             logger.warn("Channel is being (un)archived")
+        if self.msg.get("files") and "url_private_download" in self.msg["files"][0]:
+            self.file = self.msg["files"][0]["url_private_download"]
+            if not self.text:
+                self.action = True
+                self.text = "uploaded a file"
+                if self.msg["files"][0].get("title"):
+                    self.text += ": {}".format(self.msg["files"][0]["title"])
         if self.msg.get("attachments"):
             # Take a plain text representation of each attachment, if available.
             attaches = [attach.get("fallback", attach.get("text")) for attach in self.msg["attachments"]]
