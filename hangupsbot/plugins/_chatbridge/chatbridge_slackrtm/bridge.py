@@ -8,9 +8,10 @@ import os.path
 import re
 import urllib.parse
 
+from hangups import hangouts_pb2
 import emoji
 
-from webbridge import WebFramework
+from webbridge import WebFramework, FakeEvent
 import plugins
 
 from .core import HANGOUTS, SLACK, Base, Message
@@ -161,3 +162,36 @@ class BridgeInstance(WebFramework):
                                                 "source_edited": msg.edited,
                                                 "source_action": msg.action},
                                                image_id=image_id)
+
+
+@asyncio.coroutine
+def on_membership_change(bot, event, command=""):
+    root = bot.get_config_option("slackrtm") or {}
+    syncs = [sync["channel"] for sync in root.get("syncs", []) if sync["hangout"] == event.conv_id]
+    if not syncs:
+        return
+    join = event.conv_event.type_ == hangouts_pb2.MEMBERSHIP_CHANGE_TYPE_JOIN
+    users = [event.conv.get_user(user_id) for user_id in event.conv_event.participant_ids]
+    if users == [event.user]:
+        text = "{} the hangout".format("joined" if join else "left")
+    else:
+        text = "{} {} {} the hangout".format("added" if join else "removed",
+                                             ", ".join(user.full_name for user in users),
+                                             "to" if join else "from")
+    for team, channel in syncs:
+        for bridge in Base.bridges[team]:
+            if bridge.channel == channel:
+                config = bridge.applicable_configuration(event.conv_id)
+                passthru = {"original_request": {"message": text,
+                                                 "image_id": None,
+                                                 "segments": None,
+                                                 "user": event.user},
+                            "chatbridge": {"source_title": bot.conversations.get_name(event.conv_id),
+                                           "source_user": event.user,
+                                           "source_uid": event.user.id_.chat_id,
+                                           "source_gid": event.conv_id,
+                                           "source_action": True,
+                                           "source_edit": False,
+                                           "source_plugin": bridge.plugin_name}}
+                fake = FakeEvent(text, event.user, passthru, event.conv_id)
+                yield from bridge._send_to_external_chat(config, fake)
