@@ -189,7 +189,7 @@ class HangupsBot(object):
 
     def stop(self):
         """Disconnect from Hangouts"""
-        asyncio.async(
+        asyncio.ensure_future(
             self._client.disconnect()
         ).add_done_callback(lambda future: future.result())
 
@@ -202,7 +202,7 @@ class HangupsBot(object):
             # replicate old behaviour (no html/markdown parsing) if no new features are used
             context["parser"] = False
 
-        asyncio.async(
+        asyncio.ensure_future(
             self.coro_send_message( conversation,
                                     text,
                                     context=context,
@@ -216,7 +216,7 @@ class HangupsBot(object):
 
         segments = simple_parse_to_segments(html)
 
-        asyncio.async(
+        asyncio.ensure_future(
             self.coro_send_message( conversation,
                                     segments,
                                     context=context,
@@ -228,7 +228,7 @@ class HangupsBot(object):
         logger.debug(  '[DEPRECATED]: yield from bot.coro_send_message()'
                         ' instead of send_message_segments()')
 
-        asyncio.async(
+        asyncio.ensure_future(
             self.coro_send_message( conversation,
                                     segments,
                                     context=context,
@@ -569,13 +569,13 @@ class HangupsBot(object):
     def _on_status_changes(self, state_update):
         notification_type = state_update.WhichOneof('state_update')
         if notification_type == 'typing_notification':
-            asyncio.async(
+            asyncio.ensure_future(
                 self._handlers.handle_typing_notification(
                     TypingEvent(self, state_update.typing_notification)
                 )
             ).add_done_callback(lambda future: future.result())
         elif notification_type == 'watermark_notification':
-            asyncio.async(
+            asyncio.ensure_future(
                 self._handlers.handle_watermark_notification(
                     WatermarkEvent(self, state_update.watermark_notification)
                 )
@@ -612,29 +612,29 @@ class HangupsBot(object):
 
         if isinstance(conv_event, hangups.ChatMessageEvent):
             self._execute_hook("on_chat_message", event)
-            asyncio.async(
+            asyncio.ensure_future(
                 self._handlers.handle_chat_message(event)
             ).add_done_callback(lambda future: future.result())
 
         elif isinstance(conv_event, hangups.MembershipChangeEvent):
             self._execute_hook("on_membership_change", event)
-            asyncio.async(
+            asyncio.ensure_future(
                 self._handlers.handle_chat_membership(event)
             ).add_done_callback(lambda future: future.result())
 
         elif isinstance(conv_event, hangups.RenameEvent):
             self._execute_hook("on_rename", event)
-            asyncio.async(
+            asyncio.ensure_future(
                 self._handlers.handle_chat_rename(event)
             ).add_done_callback(lambda future: future.result())
 
         elif isinstance(conv_event, hangups.OTREvent):
-            asyncio.async(
+            asyncio.ensure_future(
                 self._handlers.handle_chat_history(event)
             ).add_done_callback(lambda future: future.result())
 
         elif type(conv_event) is hangups.conversation_event.HangoutEvent:
-            asyncio.async(
+            asyncio.ensure_future(
                 self._handlers.handle_call(event)
             ).add_done_callback(lambda future: future.result())
 

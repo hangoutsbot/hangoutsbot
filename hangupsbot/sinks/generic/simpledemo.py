@@ -86,4 +86,4 @@ class webhookReceiver(BaseHTTPRequestHandler):
         payload = json.loads(data_string)
 
         # process the payload
-        asyncio.async(self.process_payload(path, query_string, payload))
+        asyncio.ensure_future(self.process_payload(path, query_string, payload))

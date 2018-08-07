@@ -211,7 +211,7 @@ def interceptMail(maildata):
             item["img"].append(img)
             item["content"] = subject # remove body if there is an image - an image says more than 1000 words
             logger.info('feeding image data into bot - size: ' + str(len(img)) )
-    try: task = asyncio.async(my_message(mainloop, item), loop=mainloop) # will become mainloop.create_task
+    try: task = asyncio.ensure_future(my_message(mainloop, item), loop=mainloop) # will become mainloop.create_task
     except: logger.exception('cannot post into bot')
     forward = True
     return forward

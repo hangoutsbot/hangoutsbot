@@ -766,7 +766,7 @@ class SlackRTM(object):
                     if sync.image_upload:
 
                         self.loop.call_soon_threadsafe(
-                            asyncio.async,
+                            asyncio.ensure_future,
                             self.upload_image(
                                 msg.file_attachment,
                                 sync,
@@ -780,7 +780,7 @@ class SlackRTM(object):
                         response += msg.file_attachment
 
                 self.loop.call_soon_threadsafe(
-                    asyncio.async,
+                    asyncio.ensure_future,
                     sync._bridgeinstance._send_to_internal_chat(
                         sync.hangoutid,
                         message,

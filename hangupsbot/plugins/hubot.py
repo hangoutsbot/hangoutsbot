@@ -90,7 +90,7 @@ class HubotBridge():
         headers = {'content-type': 'application/json'}
 
         connector = aiohttp.TCPConnector(verify_ssl=False)
-        asyncio.async(
+        asyncio.ensure_future(
             aiohttp.request('post', url, data = json.dumps(payload), headers = headers, connector=connector)
         ).add_done_callback(lambda future: future.result())
 
