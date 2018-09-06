@@ -74,7 +74,8 @@ class BridgeInstance(WebFramework):
         else:
             # Pose as the Hangouts users that sent the message.
             name = bridge_user["preferred_name"]
-            if "source_title" in event.passthru["chatbridge"]:
+            hide_preference = self.bot.config.get_option("chatbridge_hide_source")
+            if "source_title" in event.passthru["chatbridge"] and not hide_preference:
                 name = "{} ({})".format(name, event.passthru["chatbridge"]["source_title"])
             kwargs = {"username": name,
                       "icon_url": bridge_user["photo_url"]}
@@ -126,20 +127,33 @@ class BridgeInstance(WebFramework):
     @asyncio.coroutine
     def _relay_msg_image(self, msg, conv_id):
         filename = os.path.basename(msg.file)
-        logger.info("Uploading Slack image '{}' to Hangouts".format(filename))
-        # Retrieve the image content from Slack.
-        resp = yield from Base.slacks[self.team].sess.get(msg.file,
-                headers={"Authorization": "Bearer {}".format(Base.slacks[self.team].token)})
-        name_ext = "." + filename.rsplit(".", 1).pop().lower()
-        # Check the file extension matches the MIME type.
-        mime_type = resp.content_type
-        mime_exts = mimetypes.guess_all_extensions(mime_type)
-        if name_ext.lower() not in [ext.lower() for ext in mime_exts]:
-            logger.debug("MIME '{}' does not match extension '{}', changing to {}".format(mime_type, name_ext, mime_exts[0]))
-            filename = "{}{}".format(filename, mime_exts[0])
-        image = yield from resp.read()
-        image_id = yield from self.bot._client.upload_image(BytesIO(image), filename=filename)
-        yield from self._relay_msg(msg, conv_id, image_id)
+        logger.info("Uploading Slack image '{}' to Hangouts - {}".format(filename, json.dumps(msg.file)))
+        for retry_count in range(3):
+            try:
+                logger.debug("Attempt {} at downloading file".format(retry_count+1))
+                # Retrieve the image content from Slack.
+                resp = yield from Base.slacks[self.team].sess.get(msg.file,
+                                                                  headers={"Authorization": "Bearer {}".format(
+                                                                      Base.slacks[self.team].token)})
+                # logger.debug(resp)
+                name_ext = "." + filename.rsplit(".", 1).pop().lower()
+                # Check the file extension matches the MIME type.
+                mime_type = resp.content_type
+                mime_exts = mimetypes.guess_all_extensions(mime_type)
+                if name_ext.lower() not in [ext.lower() for ext in mime_exts]:
+                    raise ValueError("MIME '{}' does not match extension '{}', we probably didn't get the right file." +
+                                     " Attempt [{}/3]"
+                                     .format(mime_type, name_ext, retry_count+1))
+                image = yield from resp.read()
+                with open('last_response_{}'.format(filename), 'wb') as f:
+                    f.write(bytes(image))
+                # logger.debug(json.dumps(image))
+                image_id = yield from self.bot._client.upload_image(BytesIO(image), filename=filename)
+                yield from self._relay_msg(msg, conv_id, image_id)
+                break
+            except ValueError as err:
+                logger.error(err)
+                yield from asyncio.sleep(2)
 
     @asyncio.coroutine
     def _relay_msg(self, msg, conv_id, image_id=None):
