@@ -39,7 +39,8 @@ def meme(bot, event, *args):
         if len(results['result']) > 0:
             instanceImageUrl = random.choice(results['result'])['instanceImageUrl']
 
-            image_data = urllib.request.urlopen(instanceImageUrl)
+            req = urllib.request.Request(instanceImageUrl, headers={'User-Agent': 'Mozilla/5.0'})
+            image_data = urllib.request.urlopen(req)
             filename = os.path.basename(instanceImageUrl)
             legacy_segments = [hangups.ChatMessageSegment( instanceImageUrl,
                                                            hangups.SegmentType.LINK,
