@@ -318,7 +318,8 @@ class WebFramework:
         source_user = external_context.get("source_user") or self.plugin_name
         bridge_user = self._get_user_details(source_user, external_context)
         source_title = external_context.get("source_title")
-        source_attrs = [source_title] if source_title else []
+        hide_preference = self.bot.config.get_option("chatbridge_hide_source")
+        source_attrs = [source_title] if source_title and not hide_preference else []
         if external_context.get("source_edited"):
             source_attrs.append("edited")
 
@@ -357,7 +358,10 @@ class WebFramework:
             if photo_url and not photo_url.startswith("http"):
                 photo_url = "https:" + photo_url
 
-        if nickname:
+        name_preference = self.bot.config.get_option("chatbridge_preferred_name")
+        if name_preference == "both" and nickname and not full_name == nickname:
+            preferred_name = "{} ({})".format(full_name, nickname)
+        elif name_preference == "nick" and nickname:
             preferred_name = nickname
         else:
             preferred_name = full_name
