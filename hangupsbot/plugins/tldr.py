@@ -16,7 +16,7 @@ def _initialise(bot):
     bot.register_shared("plugin_tldr_shared", tldr_shared)
 
     # Set the global option
-    if not bot.get_config_option('tldr_echo'):
+    if not bot.config.exists(['tldr_echo']):
         bot.config.set_by_path(["tldr_echo"], 1) # tldr_echo_options[1] is "GROUP"
         bot.config.save()
 
@@ -35,9 +35,16 @@ def tldrecho(bot, event, *args):
     else:
         # No path was found. Is this your first setup?
         new_tldr = 0
+    
+    if tldr_echo_options[new_tldr] is not "GLOBAL":
+        # Update the tldr_echo setting
+        bot.memory.set_by_path(['conversations', event.conv_id, 'tldr_echo'], new_tldr)
+    else:
+        # If setting is global then clear the conversation memory entry
+        conv_settings = bot.memory.get_by_path(['conversations', event.conv_id])
+        del conv_settings['tldr_echo'] # remove setting
+        bot.memory.set_by_path(['conversations', event.conv_id], conv_settings)
 
-    # Toggle the tldr
-    bot.memory.set_by_path(['conversations', event.conv_id, 'tldr_echo'], new_tldr)
     bot.memory.save()
 
     # Echo the current tldr setting
@@ -162,10 +169,12 @@ def tldr_base(bot, conv_id, parameters):
                 popped_tldr = conv_tldr.pop(sorted_keys[key_index])
                 for conv in conv_id_list:
                     bot.memory.set_by_path(['tldr', conv], conv_tldr)
+                bot.memory.save()
                 message = _('TL;DR #{} removed - "{}"').format(parameters[1], popped_tldr)
         elif len(parameters) == 2 and parameters[1].lower() == "all":
             for conv in conv_id_list:
                 bot.memory.set_by_path(['tldr', conv], {})
+            bot.memory.save()
             message = _("All TL;DRs cleared.")
         else:
             message = _("Nothing specified to clear.")
@@ -184,6 +193,7 @@ def tldr_base(bot, conv_id, parameters):
                 conv_tldr[sorted_keys[key_index]] = tldr
                 for conv in conv_id_list:
                     bot.memory.set_by_path(['tldr', conv], conv_tldr)
+                bot.memory.save()
                 message = _('TL;DR #{} edited - "{}" -> "{}"').format(parameters[1], edited_tldr, tldr)
         else:
             message = _('Unknown Command at "tldr edit."')
@@ -197,11 +207,10 @@ def tldr_base(bot, conv_id, parameters):
             conv_tldr[str(time.time())] = tldr
             for conv in conv_id_list:
                 bot.memory.set_by_path(['tldr', conv], conv_tldr)
+            bot.memory.save()
             message = _('<em>{}</em> added to TL;DR. Count: {}').format(tldr, len(conv_tldr))
 
             return message, display
-
-    bot.memory.save()
 
 
 def _time_ago(timestamp):
