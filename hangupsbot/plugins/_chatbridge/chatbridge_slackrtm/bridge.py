@@ -145,8 +145,6 @@ class BridgeInstance(WebFramework):
                                      " Attempt [{}/3]"
                                      .format(mime_type, name_ext, retry_count+1))
                 image = yield from resp.read()
-                with open('last_response_{}'.format(filename), 'wb') as f:
-                    f.write(bytes(image))
                 # logger.debug(json.dumps(image))
                 image_id = yield from self.bot._client.upload_image(BytesIO(image), filename=filename)
                 yield from self._relay_msg(msg, conv_id, image_id)
