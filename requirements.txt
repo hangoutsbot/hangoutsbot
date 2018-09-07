@@ -1,6 +1,6 @@
 # BOT DEPENDENCIES #
 
-git+https://github.com/tdryer/hangups.git@v0.4.4
+git+https://github.com/tdryer/hangups.git
 appdirs
 asyncio
 aiohttp>=1.3,<3

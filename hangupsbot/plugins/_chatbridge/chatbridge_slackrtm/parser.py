@@ -6,8 +6,8 @@ def tag(start, end=None):
     """
     An extension of the Markdown tags, allows reversing the start and end tags.
     """
-    return (message_parser.markdown_start.format(tag=start),
-            message_parser.markdown_end.format(tag=end or start))
+    return (message_parser.MARKDOWN_START.format(tag=start),
+            message_parser.MARKDOWN_END.format(tag=end or start))
 
 
 class SlackMessageParser(message_parser.ChatMessageParser):
