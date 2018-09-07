@@ -38,7 +38,7 @@ def coro_reprocess_the_event(bot, event, id):
 
 
 def reprocess_the_event(bot, event, id):
-    asyncio.async(
+    asyncio.ensure_future(
         bot.coro_send_message(
             event.conv_id,
             """<em>non-coroutine responding to message with uuid: {}</em><br />"""

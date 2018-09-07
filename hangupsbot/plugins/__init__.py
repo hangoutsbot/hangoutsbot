@@ -232,7 +232,7 @@ def start_asyncio_task(coroutine_function, *args, **kwargs):
         task = loop.create_task(coroutine_function)
     else:
         raise RuntimeError("coroutine function must be supplied")
-    asyncio.async(task).add_done_callback(asyncio_task_ended)
+    asyncio.ensure_future(task).add_done_callback(asyncio_task_ended)
     tracking.register_asyncio_task(task)
     return task
 

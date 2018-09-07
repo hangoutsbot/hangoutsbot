@@ -5,7 +5,7 @@ This section describes the most common way to prepare a system for Hangoutsbot a
 
 **Docker Users:** See the the end of this file for the **Docker Usage** section.
 
-1. Ensure that your system has Python 3.4.2 or newer - we recommend Python 3.5. It's
+1. Ensure that your system has Python 3.4.4 or newer - we recommend Python 3.5. It's
    most likely already installed on your system if you are using a fairly new Linux 
    distribution. The Python package manager `pip3` is also required and is usually 
    shipped with whatever version of Python your system comes with.

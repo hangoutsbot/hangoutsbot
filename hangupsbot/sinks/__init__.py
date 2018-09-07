@@ -156,11 +156,11 @@ def aiohttp_start(bot, name, port, certfile, RequestHandlerClass, group, callbac
     loop = asyncio.get_event_loop()
     server = loop.create_server(handler, name, port, ssl=sslcontext)
 
-    asyncio.async(server).add_done_callback(functools.partial( aiohttp_started,
-                                                               handler=handler,
-                                                               app=app,
-                                                               group=group,
-                                                               callback=callback ))
+    asyncio.ensure_future(server).add_done_callback(functools.partial( aiohttp_started,
+                                                                       handler=handler,
+                                                                       app=app,
+                                                                       group=group,
+                                                                       callback=callback ))
 
     tracking.register_aiohttp_web(group)
 
