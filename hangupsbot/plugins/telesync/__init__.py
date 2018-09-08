@@ -948,6 +948,14 @@ class BridgeInstance(WebFramework):
         return applicable_configurations
 
     @asyncio.coroutine
+    def send_to_external_1to1(self, user_id, message):
+        chat = yield from tg_bot.getChat(user_id)
+        yield from tg_bot.sendMessage(chat["id"],
+                                      message,
+                                      parse_mode='Markdown',
+                                      disable_web_page_preview=True)
+
+    @asyncio.coroutine
     def _send_deferred_media(self, media_link, eid):
         if media_link.endswith((".gif", ".gifv", ".webm", ".mp4")):
             yield from tg_bot.sendDocument( eid,
