@@ -63,6 +63,12 @@ class BridgeInstance(WebFramework):
 
     @asyncio.coroutine
     def _send_to_external_chat(self, config, event):
+        if event.passthru["original_request"].get("image_id"):
+            # We need to resolve this ID to an image before we process it.
+            handler = self.bot._handlers.image_uri_from(event.passthru["original_request"]["image_id"],
+                                                        self._retry_external_with_image, config, event)
+            asyncio.get_event_loop().create_task(handler)
+            return
         segments = event.passthru["original_request"].get("segments")
         message = event.passthru["original_request"].get("message")
         text = from_hangups.convert(segments or message, Base.slacks[self.team])
@@ -102,6 +108,16 @@ class BridgeInstance(WebFramework):
         # Store the new message ID alongside the original message.
         # We'll receive an RTM event about it shortly.
         self.messages[msg["ts"]] = event.passthru
+
+    @asyncio.coroutine
+    def _retry_external_with_image(self, image_url, config, event):
+        # Replace the image ID with the attachment URL.
+        if event.passthru["original_request"].get("attachments"):
+            event.passthru["original_request"]["attachments"].append(image_url)
+        else:
+            event.passthru["original_request"]["attachments"] = [image_url]
+        event.passthru["original_request"]["image_id"] = None
+        yield from self._send_to_external_chat(config, event)
 
     @asyncio.coroutine
     def _handle_channel_msg(self, msg):
