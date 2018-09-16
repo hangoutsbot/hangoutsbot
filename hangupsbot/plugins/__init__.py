@@ -504,6 +504,19 @@ def unload(bot, module_path):
         plugin = tracking.list[module_path]
         loop = asyncio.get_event_loop()
 
+        # Look for an optional function finali[sz]e, akin to initiali[sz]e.
+        public_functions = [o for o in getmembers(sys.modules[module_path], isfunction)]
+        try:
+            for function_name, the_function in public_functions:
+                if function_name in ("_finalise", "_finalize"):
+                    argc = len(inspect.signature(the_function).parameters)
+                    if argc == 0:
+                        the_function()
+                    elif argc == 1:
+                        the_function(bot)
+        except Exception as e:
+            logger.exception("EXCEPTION during plugin deinit: {}".format(module_path))
+
         if len(plugin["threads"]) == 0:
             all_commands = plugin["commands"]["all"]
             for command_name in all_commands:
