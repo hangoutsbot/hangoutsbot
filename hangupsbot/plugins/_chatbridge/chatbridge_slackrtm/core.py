@@ -28,9 +28,17 @@ class Base(object):
     idents = {}
 
     @classmethod
-    def add_slack(cls, team, slack):
-        cls.slacks[team] = slack
-        cls.idents[team] = Identities(cls.bot, team)
+    def add_slack(cls, slack):
+        cls.slacks[slack.name] = slack
+        cls.idents[slack.name] = Identities(cls.bot, slack.name)
+
+    @classmethod
+    def remove_slack(cls, slack):
+        slack.stop()
+        for bridge in list(Base.bridges[slack.name]):
+            Base.remove_bridge(bridge)
+        del cls.idents[slack.name]
+        del cls.slacks[slack.name]
 
     @classmethod
     def add_bridge(cls, bridge):
@@ -64,6 +72,8 @@ class Slack(object):
         # can finish processing the new message (e.g. storing the ID) before receiving the event.
         self.lock = asyncio.BoundedSemaphore()
         self.callbacks = []
+        # Internal tracking of the RTM task, used to cancel on plugin unload.
+        self._task = None
 
     @asyncio.coroutine
     def msg(self, **kwargs):
@@ -149,10 +159,22 @@ class Slack(object):
         while True:
             try:
                 yield from self.rtm()
-            except Exception as e:
+            except asyncio.CancelledError:
+                logger.debug("Unloading or cancelled")
+                return
+            except Exception:
                 logger.exception("Disconnected from Slack")
             logger.debug("Waiting 5 seconds to reconnect")
             yield from asyncio.sleep(5)
+
+    def start(self):
+        if not self._task:
+            self._task = asyncio.ensure_future(self.loop())
+
+    def stop(self):
+        if self._task:
+            self._task.cancel()
+            self._task = None
 
 
 class Identities(object):
