@@ -49,17 +49,30 @@ class BridgeInstance(SyncroomsBridgeInstance):
         source_user = external_context.get("source_user") or self.plugin_name
         bridge_user = self._get_user_details(source_user, external_context)
         source_title = external_context.get("source_title")
+        source_action = external_context.get("source_action", False)
+        source_edited = external_context.get("source_edited", False)
 
         show_source = self.configuration[conv_id].get("show_source", True)
         show_sender = self.configuration[conv_id].get("show_sender", False)
 
-        source = "<b>{}</b><br/>".format(source_title) if show_source else ""
-        sender = "<b>{}</b>".format(bridge_user["preferred_name"]) if show_sender else ""
-        if sender and external_context.get("source_edited"):
-            sender = "{} (edited)".format(sender)
+        text = ""
+        if show_source:
+            text += "<b>{}</b>".format(source_title)
+            if source_edited and not show_sender:
+                text += " (edited)"
+            text += "<br>"
+        if show_sender:
+            text += "<b>{}</b>".format(bridge_user["preferred_name"])
+            if source_edited:
+                text += " (edited)"
+            if not source_action:
+                text += ":"
+            text += " "
+        text += message
+        if source_action:
+            text = "<i>{}</i>".format(text)
 
-        template = "<i>{}{} {}</i>" if external_context.get("source_action") else "{}{}: {}"
-        return template.format(source, sender, message)
+        return text
 
 
 def _initialise(bot):
