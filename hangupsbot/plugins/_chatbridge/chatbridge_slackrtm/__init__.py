@@ -13,9 +13,14 @@ def _initialise(bot):
     root = bot.get_config_option("slackrtm") or {}
     Base.bot = bot
     for team, config in root.get("teams", {}).items():
-        Base.add_slack(team, Slack(team, config["token"]))
+        Base.add_slack(Slack(team, config["token"]))
     for sync in root.get("syncs", []):
         Base.add_bridge(BridgeInstance(bot, "slackrtm", sync))
     for slack in Base.slacks.values():
-        plugins.start_asyncio_task(slack.loop())
+        slack.start()
     plugins.register_handler(on_membership_change, type="membership")
+
+def _finalise(bot):
+    for slack in list(Base.slacks.values()):
+        Base.remove_slack(slack)
+    Base.bot = None

@@ -931,6 +931,7 @@ def tg_command_get_me(bot, chat_id, args):
 # HANGOUTSBOT
 
 tg_bot = None
+tg_loop = None
 
 # (Chat) BridgeInstance
 
@@ -1152,6 +1153,7 @@ def _initialise(bot):
         bot.memory.save()
 
     global tg_bot
+    global tg_loop
 
     tg_bot = TelegramBot(bot)
 
@@ -1173,13 +1175,24 @@ def _initialise(bot):
     tg_bot.add_command("/unsyncprofile", tg_command_unsync_profile)
     tg_bot.add_command("/getme", tg_command_get_me)
 
-    plugins.start_asyncio_task(MessageLoop(tg_bot).run_forever())
+    tg_loop = MessageLoop(tg_bot)
+
+    plugins.start_asyncio_task(tg_loop.run_forever())
     plugins.start_asyncio_task(tg_bot.setup_bot_info())
 
     plugins.register_admin_command(["telesync"])
     plugins.register_user_command(["syncprofile"])
 
     plugins.register_handler(_on_membership_change, type="membership")
+
+def _finalise(bot):
+    global tg_bot
+    global tg_loop
+    if tg_bot:
+        tg_bot.chatbridge.close()
+    if tg_loop:
+        tg_loop.cancel()
+
 
 def _telesync_config(bot):
     # immediately halt configuration load if it isn't available
