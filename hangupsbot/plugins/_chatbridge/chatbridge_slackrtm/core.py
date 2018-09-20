@@ -248,6 +248,8 @@ class Message(object):
             self.edited = self.msg["edited"]["user"]
         if self.event.get("hidden") and not self.edited:
             self.hidden = True
+        elif self.event.get("is_ephemeral"):
+            self.hidden = True
         elif self.type in ("pinned_item", "unpinned_item", "channel_unarchive", "group_unarchive"):
             self.hidden = True
         if self.action:
