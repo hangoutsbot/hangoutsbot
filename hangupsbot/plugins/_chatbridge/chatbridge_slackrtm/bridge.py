@@ -123,12 +123,6 @@ class BridgeInstance(WebFramework):
     def _handle_channel_msg(self, msg):
         if not msg.channel == self.channel:
             return
-        # Update our channel member cache.
-        members = Base.slacks[self.team].channels[msg.channel]["members"]
-        if msg.type in ("channel_join", "group_join") and msg.user not in members:
-            members.append(msg.user)
-        elif msg.type in ("channel_leave", "group_leave") and msg.user in members:
-            members.remove(msg.user)
         if msg.ts in self.messages:
             # We originally received this message from the bridge.
             # Don't relay it back, just remove the original from our cache.
