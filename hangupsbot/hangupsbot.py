@@ -938,6 +938,28 @@ class HangupsBot(object):
         )
 
 
+    @asyncio.coroutine
+    def modify_otr_status(self, chat_id, otr=hangups.hangouts_pb2.OFF_THE_RECORD_STATUS_OFF_THE_RECORD):
+        """Set the OTR mode of this conversation.
+
+        Args:
+            chat_id: conversation ID
+            otr: ``OFF_THE_RECORD_STATUS_OFF_THE_RECORD`` to disable history,
+                or ``OFF_THE_RECORD_STATUS_ON_THE_RECORD`` enable it.
+
+        Raises:
+            NetworkError: If the request fails.
+        """
+        conv = self._conv_list.get(chat_id)
+        yield from self._client.modify_otr_status(
+            hangups.hangouts_pb2.ModifyOTRStatusRequest(
+                request_header=self._client.get_request_header(),
+                otr_status=otr,
+                event_request_header=conv._get_event_request_header(),
+            )
+        )
+
+
     def user_self(self):
         myself = {
             "chat_id": None,
