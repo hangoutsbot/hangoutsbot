@@ -644,6 +644,11 @@ class HangupsBot(object):
                 self._handlers.handle_chat_rename(event)
             ).add_done_callback(lambda future: future.result())
 
+        elif isinstance(conv_event, hangups.GroupLinkSharingModificationEvent):
+            asyncio.ensure_future(
+                self._handlers.handle_chat_link_share(event)
+            ).add_done_callback(lambda future: future.result())
+
         elif isinstance(conv_event, hangups.OTREvent):
             asyncio.ensure_future(
                 self._handlers.handle_chat_history(event)
@@ -909,6 +914,28 @@ class HangupsBot(object):
         except exceptions.NetworkError as e:
             logger.warning('Failed to remove user: {}'.format(e))
             raise
+
+
+    @asyncio.coroutine
+    def set_group_link_sharing_enabled(self, chat_id, joins=hangups.hangouts_pb2.GROUP_LINK_SHARING_STATUS_ON):
+        """Set the OTR mode of this conversation.
+
+        Args:
+            chat_id: conversation ID
+            otr: ``GROUP_LINK_SHARING_STATUS_ON`` to enable link joins,
+                or ``GROUP_LINK_SHARING_STATUS_OFF`` enable them.
+
+        Raises:
+            NetworkError: If the request fails.
+        """
+        conv = self._conv_list.get(chat_id)
+        yield from self._client.set_group_link_sharing_enabled(
+            hangups.hangouts_pb2.SetGroupLinkSharingEnabledRequest(
+                request_header=self._client.get_request_header(),
+                event_request_header=conv._get_event_request_header(),
+                group_link_sharing_status=joins,
+            )
+        )
 
 
     def user_self(self):

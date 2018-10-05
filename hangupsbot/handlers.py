@@ -34,6 +34,7 @@ class EventHandler:
                             "membership": [],
                             "message": [],
                             "rename": [],
+                            "linkshare": [],
                             "history": [],
                             "sending":[],
                             "typing": [],
@@ -61,7 +62,7 @@ class EventHandler:
 
         # determine the actual handler function that will be registered
         _handler = function
-        if type in ["allmessages", "call", "membership", "message", "rename", "history", "typing", "watermark"]:
+        if type in ["allmessages", "call", "membership", "message", "rename", "linkshare", "history", "typing", "watermark"]:
             if not asyncio.iscoroutine(function):
                 _handler = asyncio.coroutine(_handler)
         elif type in ["sending"]:
@@ -368,6 +369,11 @@ class EventHandler:
         yield from self.run_pluggable_omnibus("rename", self.bot, event, command)
 
     @asyncio.coroutine
+    def handle_chat_link_share(self, event):
+        """handle conversation link join status change"""
+        yield from self.run_pluggable_omnibus("linkshare", self.bot, event, command)
+
+    @asyncio.coroutine
     def handle_chat_history(self, event):
         """handle conversation OTR status change"""
         yield from self.run_pluggable_omnibus("history", self.bot, event, command)
@@ -453,6 +459,8 @@ class HandlerBridge:
             event_type = "membership"
         elif event is hangups.RenameEvent:
             event_type = "rename"
+        elif event is hangups.GroupLinkSharingModificationEvent:
+            event_type = "linkshare"
         elif event is hangups.OTREvent:
             event_type = "history"
         elif type(event) is str:
