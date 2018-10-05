@@ -237,7 +237,7 @@ class WebFramework:
                 attach = event.conv_event.attachments[0]
                 if attach == message:
                     # Message consists solely of the attachment URL, no need to send that.
-                    message = "shared an image"
+                    message = ""
                     is_action = True
                 elif attach in message:
                     # Message includes some text too, strip the attachment URL from the end if present.

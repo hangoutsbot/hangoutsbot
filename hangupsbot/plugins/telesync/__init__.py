@@ -354,6 +354,9 @@ def tg_util_create_gmaps_url(lat, long, https=True):
     return "{https}://maps.google.com/maps?q={lat},{long}".format(https='https' if https else 'http', lat=lat,
                                                                   long=long)
 
+def tg_util_create_telegram_me_link(username, https=True):
+    return "{https}://t.me/{username}".format(https='https' if https else 'http', username=username)
+
 def tg_util_sync_get_user_name(msg, chat_action='from'):
     bot = tg_bot.ho_bot
     telesync_config = bot.get_config_option("telesync") or {}
@@ -399,24 +402,9 @@ def tg_util_sync_get_user_name(msg, chat_action='from'):
             logger.info("unmapped/invalid hangouts user for {}".format(telegram_uid))
 
     if chat_id:
-        # guaranteed full name
+        # guaranteed preferred name
         hangups_user = bot.get_hangups_user(chat_id)
-        full_name = hangups_user.full_name
-
-        # determine if the hangoutsbot user has /setnickname
-        nickname = False
-        if bot.memory.exists(['user_data', chat_id, "nickname"]):
-            nickname = bot.memory.get_by_path(['user_data', chat_id, "nickname"])
-
-        if "prefer_fullname" in telesync_config and telesync_config["prefer_fullname"]:
-            preferred_name = full_name
-        elif nickname:
-            preferred_name = nickname
-        else:
-            preferred_name = full_name
-
-        # links with different visible content are no longer supported by hangouts clients
-        username = preferred_name
+        username = tg_bot.chatbridge._get_user_details(hangups_user)["preferred_name"]
         logger.info("mapped telegram id: {} to {}, {}".format(telegram_uid, chat_id, username))
 
     return username
@@ -440,29 +428,27 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
     if 'sync_reply_to' in config and config['sync_reply_to'] and 'reply_to_message' in msg:
         """specialised formatting for reply-to telegram messages"""
 
-        content_type, chat_type, chat_id = telepot.glance(msg['reply_to_message'])
+        r_msg = msg['reply_to_message']
 
-        if msg['reply_to_message']['from']['first_name'].lower() == tg_bot.name.lower():
-            r_text = ( msg['reply_to_message']['text'].split(':')
-                       if 'text' in msg['reply_to_message'] else content_type )
+        content_type, chat_type, chat_id = telepot.glance(r_msg)
+        r_user = None
+        r_text = r_msg.get('text', r_msg.get('caption', content_type))
 
-            r2_user = r_text[0]
+        if r_msg['from']['id'] == tg_bot.id:
+            if ': ' in r_text:
+                r_user, r_text = r_text.split(': ', 1)
         else:
-            r_text = ( ['', msg['reply_to_message']['text']]
-                       if 'text' in msg['reply_to_message'] else content_type )
+            r_user = tg_util_sync_get_user_name(r_msg)
 
-            r2_user = tg_util_sync_get_user_name(msg['reply_to_message'])
+        if len(r_text) > 30:
+            r_text = r_text[:30] + "..."
 
-        if content_type == 'text':
-            r2_text = r_text[1]
-            r2_text = ( r2_text
-                        if len(r2_text) < 30 else r2_text[0:30] + "..." )
+        # Don't trigger @all from a quoted message.
+        quote = ["_{}_".format(re.sub(r"@all\b", "@-all", r_text))]
+        if r_user:
+            quote.insert(0, "**{}**".format(r_user))
 
-        else:
-            r2_text = content_type
-
-        r2_format = "\n| **{}**\n| _{}_\n{}"
-        original_message = r2_format.format(r2_user, r2_text, original_message)
+        original_message = "\n| {}\n{}".format("\n| ".join(quote), original_message)
 
     yield from tg_bot.chatbridge._send_to_internal_chat(
         ho_conv_id,
@@ -470,7 +456,8 @@ def tg_on_message(tg_bot, tg_chat_id, msg):
         {   "config": config,
             "source_user": user,
             "source_uid": msg['from']['id'],
-            "source_title": chat_title })
+            "source_title": chat_title,
+            "source_edited": 'edit_date' in msg })
 
 
 @asyncio.coroutine
@@ -484,23 +471,24 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
         user = tg_util_sync_get_user_name(msg)
 
         ho_photo_id = None
-        if "enable_sticker_sync" in config and config["enable_sticker_sync"]:
-            yield from tg_bot.chatbridge._send_to_internal_chat(
-                ho_conv_id,
-                "_uploading sticker from {} in {}_".format(user, chat_title),
-                {   "config": config,
-                    "source_user": user,
-                    "source_uid": msg['from']['id'],
-                    "source_title": chat_title })
+
+        # Fetch the telesync config for the current conv, or the global config if none found.
+        # Possible sticker setting states:
+        # - disabled everywhere: n/a (default)
+        # - disabled in all except few: per-conv = True
+        # - enabled everywhere: global = True
+        # - enabled in all except few: global = True, per-conv = False
+        if tg_bot.ho_bot.get_config_suboption(ho_conv_id, "telesync").get("enable_sticker_sync"):
             ho_photo_id = yield from tg_bot.get_hangouts_image_id_from_telegram_photo_id(msg['sticker']['file_id'])
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
-            "sent {} sticker".format(msg["sticker"]['emoji']),
+            " ".join(filter(None, ("sent", msg["sticker"].get("emoji"), "sticker"))),
             {   "config": config,
                 "source_user": user,
                 "source_uid": msg['from']['id'],
-                "source_title": chat_title },
+                "source_title": chat_title,
+                "source_action": True },
             image_id=ho_photo_id )
         logger.info("sticker posted to hangouts")
 
@@ -517,35 +505,28 @@ def tg_on_photo(tg_bot, tg_chat_id, msg, original_is_gif=False):
 
         user = tg_util_sync_get_user_name(msg)
 
-        text = "_uploading photo from {} in {}_".format(
-            user,
-            chat_title )
-
-        yield from tg_bot.chatbridge._send_to_internal_chat(
-            ho_conv_id,
-            text,
-            {   "config": config,
-                "source_user": user,
-                "source_uid": msg['from']['id'],
-                "source_title": chat_title })
-
         tg_photos = tg_util_get_photo_list(msg)
         tg_photo_id = tg_photos[len(tg_photos) - 1]['file_id']
         ho_photo_id = yield from tg_bot.get_hangouts_image_id_from_telegram_photo_id(tg_photo_id,
                                                                                      original_is_gif=original_is_gif)
 
-        if ho_photo_id:
-            text = "sent a photo"
-        else:
-            text = "sent a photo, but telesync could not load it"
+        text = ""
+        if msg.get("text"):
+            text = msg["text"]
+        elif msg.get("caption"):
+            text = msg["caption"]
+
+        if not ho_photo_id:
+            text += "\n[photo failed to upload]"
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
-            text,
+            text.strip() or "sent an image",
             {   "config": config,
                 "source_user": user,
                 "source_uid": msg['from']['id'],
-                "source_title": chat_title },
+                "source_title": chat_title,
+                "source_action": not bool(text.strip()) },
             image_id=ho_photo_id )
 
         logger.info("photo posted to hangouts")
@@ -565,8 +546,7 @@ def tg_on_user_join(tg_bot, tg_chat_id, msg):
 
         config = _telesync_config(tg_bot.ho_bot)
 
-        formatted_line = "*{}* added **{}** to *{}*".format(
-            tg_util_sync_get_user_name(msg, chat_action='new_chat_member'),
+        formatted_line = "added **{}** to *{}*".format(
             ", ".join([ new_user["username"]
                         for new_user in msg["new_chat_members"] ]),
             chat_title )
@@ -575,9 +555,10 @@ def tg_on_user_join(tg_bot, tg_chat_id, msg):
             ho_conv_id,
             formatted_line,
             {   "config": config,
-                "source_user": "telesync",
+                "source_user": tg_util_sync_get_user_name(msg, chat_action='new_chat_member'),
                 "source_uid": False,
-                "source_title": chat_title })
+                "source_title": chat_title,
+                "source_action": True })
 
         logger.info("join {} {}".format( ho_conv_id,
                                          formatted_line ))
@@ -597,17 +578,17 @@ def tg_on_user_leave(tg_bot, tg_chat_id, msg):
 
         config = _telesync_config(tg_bot.ho_bot)
 
-        formatted_line = "**{}** left *{}*".format(
-            msg["left_chat_member"]["username"],
+        formatted_line = "left *{}*".format(
             chat_title )
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
             formatted_line,
             {   "config": config,
-                "source_user": "telesync",
+                "source_user": msg["left_chat_member"]["username"],
                 "source_uid": False,
-                "source_title": chat_title })
+                "source_title": chat_title,
+                "source_action": True })
 
         logger.info("left {} {}".format( ho_conv_id,
                                          formatted_line ))
@@ -628,16 +609,13 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
         config = _telesync_config(tg_bot.ho_bot)
 
         user = tg_util_sync_get_user_name(msg)
-        text = maps_url
-
-        formatted_line = "<b>{}</b>: {}".format( user,
-                                                 text )
+        formatted_line = maps_url
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
             formatted_line,
             {   "config": config,
-                "source_user": "telesync",
+                "source_user": user,
                 "source_uid": False,
                 "source_title": chat_title })
 
@@ -677,7 +655,7 @@ def tg_command_whoami(bot, chat_id, args):
     if 'private' == chat_type:
         yield from bot.sendMessage(chat_id, "Your Telegram user id: {user_id}".format(user_id=user_id))
     else:
-        yield from bot.sendMessage(chat_id, "This command can only be used in private chats")
+        yield from bot.sendMessage(chat_id, "Shhh! This should only be between us. Whisper it to me in PM here: @{username}".format(username=bot.username))
 
 
 @asyncio.coroutine
@@ -750,7 +728,7 @@ def tg_command_add_bot_admin(bot, chat_id, args):
     chat_type = args['chat_type']
 
     if 'private' != chat_type:
-        yield from bot.sendMessage(chat_id, "This command must be invoked in private chat")
+        yield from bot.sendMessage(chat_id, "Shhh! This should only be between us. Whisper it to me in PM here: @{username}".format(username=bot.username))
         return
 
     if not bot.is_telegram_admin(user_id):
@@ -782,7 +760,7 @@ def tg_command_remove_bot_admin(bot, chat_id, args):
     chat_type = args['chat_type']
 
     if 'private' != chat_type:
-        yield from bot.sendMessage(chat_id, "This command must be invoked in private chat")
+        yield from bot.sendMessage(chat_id, "Shhh! This should only be between us. Whisper it to me in PM here: @{username}".format(username=bot.username))
         return
 
     if not bot.is_telegram_admin(user_id):
@@ -812,7 +790,7 @@ def tg_command_remove_bot_admin(bot, chat_id, args):
 @asyncio.coroutine
 def tg_command_sync_profile(bot, chat_id, args):
     if 'private' != args['chat_type']:
-        yield from bot.sendMessage(chat_id, "Command must be run in private chat!")
+        yield from bot.sendMessage(chat_id, "Shhh! This should only be between us. Whisper it to me in PM here: @{username}".format(username=bot.username))
         return
 
     telegram_uid = str(args['user_id'])
@@ -823,11 +801,11 @@ def tg_command_sync_profile(bot, chat_id, args):
 
     if telegram_uid in tg2ho_dict:
         if isinstance(tg2ho_dict[telegram_uid], str):
-            yield from bot.sendMessage(chat_id, "profile is not fully synced")
+            yield from bot.sendMessage(chat_id, "Your profile is not fully synced")
             del ho2tg_dict[tg2ho_dict[telegram_uid]] # remove old registration code
             logger.info("{} is waiting verification".format(telegram_uid))
         else:
-            yield from bot.sendMessage(chat_id, "profile is already synced")
+            yield from bot.sendMessage(chat_id, "Your profile is already synced")
             logger.info("{} is synced to {}".format(telegram_uid, tg2ho_dict[telegram_uid]))
             return
 
@@ -840,15 +818,17 @@ def tg_command_sync_profile(bot, chat_id, args):
     hangoutsbot.memory.set_by_path(['profilesync'], new_memory)
     hangoutsbot.memory.save()
 
-    yield from bot.sendMessage( chat_id,
-                                "please paste the following code in a private hangout with the bot: "
-                                    "/bot syncprofile {}".format(registration_code))
+    yield from bot.sendMessage(chat_id, "Paste the following command in a private hangout with me. This can be found here: https://hangouts.google.com/chat/person/{}".format(bot.ho_bot.user_self()["chat_id"]))
+    message = "/bot syncprofile {}".format(str(registration_code))
+    message = re.sub(r"(?<!\S)\/bot(?!\S)", bot.ho_bot._handlers.bot_command[0], message)
+
+    yield from bot.sendMessage(chat_id, message)
 
 
 @asyncio.coroutine
 def tg_command_unsync_profile(bot, chat_id, args):
     if 'private' != args['chat_type']:
-        yield from bot.sendMessage(chat_id, "Command must be run in private chat!")
+        yield from bot.sendMessage(chat_id, "Shhh! This should only be between us. Whisper it to me in PM here: @{username}".format(username=bot.username))
         return
 
     telegram_uid = str(args['user_id'])
@@ -874,7 +854,7 @@ def tg_command_unsync_profile(bot, chat_id, args):
         hangoutsbot.memory.set_by_path(['profilesync'], new_memory)
         hangoutsbot.memory.save()
 
-        yield from bot.sendMessage(chat_id, "all profile references removed")
+        yield from bot.sendMessage(chat_id, "Successfully removed sync of your profile.")
         logger.info("removed profile references for {}".format(telegram_uid))
     else:
         yield from bot.sendMessage(chat_id, "no profile found")
@@ -892,7 +872,7 @@ def tg_command_get_me(bot, chat_id, args):
     user_id = args['user_id']
     chat_type = args['chat_type']
     if 'private' != chat_type:
-        yield from bot.sendMessage(chat_id, "Command must be run in private chat!")
+        yield from bot.sendMessage(chat_id, "Shhh! This should only be between us. Whisper it to me in PM here: @{username}".format(username=bot.username))
         return
 
     if bot.is_telegram_admin(user_id):
@@ -957,13 +937,13 @@ class BridgeInstance(WebFramework):
                                       disable_web_page_preview=True)
 
     @asyncio.coroutine
-    def _send_deferred_media(self, media_link, eid):
+    def _send_deferred_media(self, media_link, eid, sender=None):
         if media_link.endswith((".gif", ".gifv", ".webm", ".mp4")):
-            yield from tg_bot.sendDocument( eid,
-                                            media_link )
+            send_func = tg_bot.sendDocument
         else:
-            yield from tg_bot.sendPhoto( eid,
-                                         media_link )
+            send_func = tg_bot.sendPhoto
+        caption = "{}: shared media".format(sender) if sender else None
+        yield from send_func(eid, media_link, caption=caption)
 
     @asyncio.coroutine
     def _send_to_external_chat(self, config, event):
@@ -987,13 +967,10 @@ class BridgeInstance(WebFramework):
 
         bridge_user = self._get_user_details(user, { "event": event })
         telesync_config = config['config.json']
-        if "prefer_fullname" in telesync_config and telesync_config["prefer_fullname"]:
-            username = bridge_user["full_name"]
-        else:
-            username = bridge_user["preferred_name"]
+        username = bridge_user["preferred_name"]
         if bridge_user["chat_id"]:
             # wrap linked profiles with a g+ link
-            username = "[{1}](https://plus.google.com/u/0/{0}/about)".format( bridge_user["chat_id"],
+            username = "[{1}](https://plus.google.com/{0})".format( bridge_user["chat_id"],
                                                                               username )
 
         chat_title = format(self.bot.conversations.get_name(conv_id))
@@ -1002,8 +979,6 @@ class BridgeInstance(WebFramework):
             chat_title = event.passthru["chatbridge"]["source_title"]
 
         for eid in external_ids:
-
-            divider = ":"
 
             """XXX: media sending:
 
@@ -1019,9 +994,7 @@ class BridgeInstance(WebFramework):
                     media_link = event.passthru["original_request"]["attachments"][0]
                     logger.info("media link in original request: {}".format(media_link))
 
-                    yield from self._send_deferred_media(media_link, eid)
-                    message = "shared media"
-                    divider = ""
+                    yield from self._send_deferred_media(media_link, eid, bridge_user["preferred_name"])
 
                 elif isinstance(event, FakeEvent):
                     if( "image_id" in event.passthru["original_request"]
@@ -1035,7 +1008,8 @@ class BridgeInstance(WebFramework):
                             self.bot._handlers.image_uri_from(
                                 image_id,
                                 self._send_deferred_media,
-                                eid ))
+                                eid,
+                                bridge_user["preferred_name"]))
 
                 elif( hasattr(event, "conv_event")
                         and hasattr(event.conv_event, "attachments")
@@ -1045,23 +1019,23 @@ class BridgeInstance(WebFramework):
                     media_link = event.conv_event.attachments[0]
                     logger.info("media link in original event: {}".format(media_link))
 
-                    yield from self._send_deferred_media(media_link, eid)
-                    message = "shared media"
-                    divider = ""
+                    yield from self._send_deferred_media(media_link, eid, bridge_user["preferred_name"])
 
                 """standard message relay"""
+
+                if not message:
+                    # Message was purely an image, no accompanying text.
+                    return
 
                 if( "sync_chat_titles" not in config["config.json"]
                         or( config["config.json"]["sync_chat_titles"] and chat_title )):
 
-                    formatted_text = "{} ({}){} {}".format( username,
-                                                            chat_title,
-                                                            divider,
-                                                            message )
+                    formatted_text = "{} ({}): {}".format(username,
+                                                          chat_title,
+                                                          message)
                 else:
-                    formatted_text = "{}{} {}".format( username,
-                                                       divider,
-                                                       message )
+                    formatted_text = "{}: {}".format(username,
+                                                     message)
 
                 logger.info("sending {}: {}".format(eid, formatted_text))
                 yield from tg_bot.sendMessage( eid,
@@ -1074,21 +1048,6 @@ class BridgeInstance(WebFramework):
                 # continue processing the rest of the external chats
             except:
                 raise
-
-    def format_incoming_message(self, message, external_context):
-        config = external_context["config"]
-        source_user = external_context["source_user"]
-        source_title = external_context["source_title"]
-
-        if( "sync_chat_titles" not in config
-                or( config["sync_chat_titles"] and source_title )):
-            formatted = "<b>{}</b> ({}): {}".format( source_user,
-                                                     source_title,
-                                                     message )
-        else:
-            formatted = "<b>{}</b>: {}".format( source_user, message )
-
-        return formatted
 
     def map_external_uid_with_hangups_user(self, source_uid, external_context):
         telegram_uid = str(source_uid)
@@ -1193,34 +1152,35 @@ def syncprofile(bot, event, *args):
 
     parameters = list(args)
 
-    if len(parameters) != 1:
-        yield from bot.coro_send_message(event.conv_id, "supply registration id as single parameter")
+    ho2tg_dict = bot.memory.get_by_path(['profilesync'])['ho2tg']
+    tg2ho_dict = bot.memory.get_by_path(['profilesync'])['tg2ho']
+
+    hangouts_uid = str(event.user_id.chat_id)
+
+    if( hangouts_uid in ho2tg_dict
+            and ho2tg_dict[hangouts_uid] in tg2ho_dict
+            and not isinstance(tg2ho_dict[ho2tg_dict[hangouts_uid]], str) ):
+
+        yield from bot.coro_send_message(
+            event.conv_id,
+            "Your profile is already synced" )
+
+    elif len(parameters) != 1:
+        yield from bot.coro_send_message(event.conv_id, "Are you sure you've started this process with me in Telegram?\nTry sending <b>/syncprofile</b> to me here first: {url}".format(url=tg_util_create_telegram_me_link(tg_bot.username, https=True)))
 
     else:
         registration_code = str(parameters[0])
-        ho2tg_dict = bot.memory.get_by_path(['profilesync'])['ho2tg']
-        tg2ho_dict = bot.memory.get_by_path(['profilesync'])['tg2ho']
 
-        hangouts_uid = str(event.user_id.chat_id)
-
-        if( hangouts_uid in ho2tg_dict
-                and ho2tg_dict[hangouts_uid] in tg2ho_dict
-                and not isinstance(tg2ho_dict[ho2tg_dict[hangouts_uid]], str) ):
-
+        if not registration_code.startswith(reg_code_prefix):
             yield from bot.coro_send_message(
                 event.conv_id,
-                "profile is already synced" )
-
-        elif not registration_code.startswith(reg_code_prefix):
-            yield from bot.coro_send_message(
-                event.conv_id,
-                "execute /syncprofile command in a private chat with the bot on telegram first" )
+                "Are you sure you've started this process with me in Telegram?\nTry sending <b>/syncprofile</b> to me here first: {url}".format(url=tg_util_create_telegram_me_link(tg_bot.username, https=True)))
 
         elif registration_code in ho2tg_dict:
             ho_id = registration_code
             telegram_uid = str(ho2tg_dict[registration_code])
 
-            user_gplus = 'https://plus.google.com/u/0/{}/about'.format(hangouts_uid)
+            user_gplus = 'https://plus.google.com/{}'.format(hangouts_uid)
 
             tg2ho_dict[telegram_uid] = {
                 'registration_code': registration_code,
@@ -1236,11 +1196,11 @@ def syncprofile(bot, event, *args):
 
             yield from bot.coro_send_message(
                 event.conv_id,
-                "profile sync successfully set up" )
+                "Successfully set up profile sync.")
         else:
             yield from bot.coro_send_message(
                 event.conv_id,
-                "execute /syncprofile command in a private chat with the bot on telegram first" )
+                "Are you sure you've started this process with me in Telegram?\nTry sending <b>/syncprofile</b> to me here first: {url}".format(url=tg_util_create_telegram_me_link(tg_bot.username, https=True)))
 
 
 def telesync(bot, event, *args):
