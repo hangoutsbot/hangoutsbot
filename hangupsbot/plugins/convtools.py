@@ -1,4 +1,5 @@
 import asyncio, logging, random, string
+from collections import defaultdict
 
 import hangups
 
@@ -243,36 +244,44 @@ def kick(bot, event, *args):
     """kick users from a conversation
     Usage: /bot kick
     [<optional conversation id, current if not specified>]
-    [<user ids, space-separated if more than one>]
-    [quietly]"""
-    parameters = list(args)
+    [<user ids, space-separated if more than one>]"""
 
     source_conv = event.conv_id
-    remove = []
-    test = False
-    quietly = False
+    if args[0] in bot.conversations.catalog:
+        source_conv = args[0]
+        args = args[1:]
 
-    for parameter in parameters:
-        if parameter in bot.conversations.catalog:
-            source_conv = parameter
-        elif parameter in bot.conversations.catalog[source_conv]["participants"]:
-            remove.append(parameter)
-        elif parameter == "test":
-            test = True
-        elif parameter == "quietly":
-            quietly = True
-        else:
-            raise ValueError(_("supply optional conversation id and valid user ids to kick"))
+    conv_id_list = [source_conv]
 
-    if len(remove) <= 0:
+    # Check to see if sync is active
+    syncouts = bot.get_config_option('sync_rooms')
+
+    # If yes, then find out if the current room is part of one.
+    # If it is, then add the rest of the rooms to the list of conversations to process
+    if syncouts:
+        for sync_room_list in syncouts:
+            if event.conv_id in sync_room_list:
+                for conv in sync_room_list:
+                    if not conv in conv_id_list:
+                        conv_id_list.append(conv)
+
+    remove = defaultdict(list)
+    admins_list = bot.get_config_suboption(source_conv, "admins")
+
+    for conv_id in conv_id_list:
+        for user_id in args:
+            if user_id not in bot.conversations.catalog[source_conv]["participants"]:
+                logger.debug("Skipping unknown user ID: {}".format(user_id))
+            elif user_id in admins_list:
+                # Don't allow non-admins running the command (e.g. tag permissions) to remove actual bot admins.
+                logger.debug("Skipping admin user ID: {}".format(user_id))
+            else:
+                remove[conv_id].append(user_id)
+
+    if not any(remove.values()):
         raise ValueError(_("supply at least one valid user id to kick"))
 
-    arguments = ["refresh", source_conv, "without"] + remove
-
-    if test:
-        arguments.append("test")
-
-    if quietly:
-        arguments.append("quietly")
-
-    yield from command.run(bot, event, *arguments)
+    for conv_id, conv_remove in remove.items():
+        logger.debug("Removing users from {}: {}".format(conv_id, conv_remove))
+        for user_id in conv_remove:
+            yield from bot.remove_user(conv_id, user_id)
