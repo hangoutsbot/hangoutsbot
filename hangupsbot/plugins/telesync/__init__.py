@@ -483,7 +483,7 @@ def tg_on_sticker(tg_bot, tg_chat_id, msg):
 
         yield from tg_bot.chatbridge._send_to_internal_chat(
             ho_conv_id,
-            "sent {} sticker".format(msg["sticker"]['emoji']),
+            " ".join(filter(None, ("sent", msg["sticker"].get("emoji"), "sticker"))),
             {   "config": config,
                 "source_user": user,
                 "source_uid": msg['from']['id'],
