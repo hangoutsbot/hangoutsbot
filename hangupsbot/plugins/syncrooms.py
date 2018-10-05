@@ -180,7 +180,7 @@ def _repeat(bot, event, command):
             logger.info("REPEATING: {} - {}".format(message, passthru))
             yield from bot.coro_send_message(
                 relay_id,
-                message = "{}: {}".format(event.user.full_name, message),
+                message = "{}: {}".format(_format_source(bot, event.user.id_), message),
                 image_id = image_id,
                 context = { "passthru": passthru })
 
