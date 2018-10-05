@@ -142,8 +142,13 @@ def image_upload_raw(image_data, filename):
     image_id = False
     try:
         image_id = yield from _externals["bot"]._client.upload_image(image_data, filename=filename)
-    except KeyError as exc:
-        logger.warning("_client.upload_image failed: {}".format(exc))
+    except Exception:
+        image_data.seek(0)
+        try:
+            filename = "{}.gif".format(filename)
+            image_id = yield from _externals["bot"]._client.upload_image(image_data, filename=filename)
+        except Exception as exc:
+            logger.warning("_client.upload_image failed", exc_info=exc)
     return image_id
 
 

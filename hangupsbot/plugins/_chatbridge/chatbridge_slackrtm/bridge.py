@@ -50,16 +50,21 @@ class BridgeInstance(WebFramework):
                                  "slackrtm": [[self.team, self.channel]]}}]
 
     def map_external_uid_with_hangups_user(self, source_uid, external_context):
-        team, channel = external_context["source_gid"]
-        identity = Base.idents[team].get(SLACK, source_uid)
+        identity = Base.idents[self.team].get(SLACK, source_uid)
         # Make sure the reverse identity holds before mapping:
-        if identity and Base.idents[team].get(HANGOUTS, identity) == source_uid:
+        if identity and Base.idents[self.team].get(HANGOUTS, identity) == source_uid:
             user = self.bot.get_hangups_user(identity)
             if user.definitionsource:
                 logger.debug("Confirmed identity: '{}' -> '{}'".format(source_uid, identity))
                 return user
         logger.debug("No identity to confirm for '{}'".format(source_uid))
         return False
+
+    @asyncio.coroutine
+    def send_to_external_1to1(self, user_id, message):
+        slack = Base.slacks[self.team]
+        channel = yield from slack.dm(user_id)
+        yield from slack.msg(channel=channel, as_user=True, text=message)
 
     @asyncio.coroutine
     def _send_to_external_chat(self, config, event):
@@ -179,7 +184,6 @@ class BridgeInstance(WebFramework):
                                                                   Base.slacks[self.team]),
                                                {"source_user": user,
                                                 "source_uid": msg.user,
-                                                "source_gid": [self.team, msg.channel],
                                                 "source_title": source,
                                                 "source_edited": msg.edited,
                                                 "source_action": msg.action},

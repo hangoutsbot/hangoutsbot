@@ -8,6 +8,8 @@ import plugins
 from version import __version__
 from commands import command
 
+from utils import event_to_user_bridge
+
 
 logger = logging.getLogger(__name__)
 
@@ -108,12 +110,10 @@ def help(bot, event, cmd=None, *args):
     help_lines = [ re.sub(r"(?<!\S)\/bot(?!\S)", bot._handlers.bot_command[0], _line)
                    for _line in help_lines ]
 
-    yield from bot.coro_send_to_user_and_conversation(
-        event.user.id_.chat_id,
-        event.conv_id,
-        "<br />".join(help_lines), # via private message
-        _("<i>{}, I've sent you some help ;)</i>") # public message
-            .format(event.user.full_name))
+    user_id, bridge_id = event_to_user_bridge(event)
+    yield from bot.send_to_bridged_1to1(user_id, bridge_id, "<br />".join(help_lines))
+    if bot.conversations.catalog[event.conv_id]["type"] != "ONE_TO_ONE":
+        yield from bot.coro_send_message(event.conv_id, _("<i>{}, I've sent you some help ;)</i>").format(event.user.full_name))
 
 
 @command.register(admin=True)

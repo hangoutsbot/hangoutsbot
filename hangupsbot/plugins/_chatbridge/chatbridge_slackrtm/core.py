@@ -76,6 +76,15 @@ class Slack(object):
         self._task = None
 
     @asyncio.coroutine
+    def dm(self, user_id):
+        resp = yield from self.sess.post("https://slack.com/api/im.open",
+                                         data={"token": self.token, "user": user_id})
+        json = yield from resp.json()
+        if not json["ok"]:
+            raise SlackAPIError(json["error"])
+        return json["channel"]["id"]
+
+    @asyncio.coroutine
     def msg(self, **kwargs):
         logger.debug("Sending message")
         with (yield from self.lock):

@@ -48,3 +48,10 @@ def class_from_name(module_name, class_name):
     # get the class, will raise AttributeError if class cannot be found
     c = getattr(m, class_name)
     return c
+
+def event_to_user_bridge(event):
+    if "chatbridge" in event.passthru:
+        bridged = event.passthru["chatbridge"]
+        return (bridged["source_uid"], bridged["source_gid"])
+    else:
+        return (event.user_id.chat_id, None)
