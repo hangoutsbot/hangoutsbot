@@ -1,5 +1,6 @@
 import logging
 import importlib
+import subprocess
 import sys
 import re
 
@@ -17,6 +18,16 @@ try:
     import resource
 except ImportError:
     logger.warning("resource is unavailable on your system")
+
+
+def _git_status():
+    try:
+        commit = subprocess.check_output(["git", "show", "--date=short", "--format=format:%ad %h"]).decode().strip()
+        if subprocess.check_output(["git", "diff-index", "HEAD"]):
+            commit += "+"
+        return commit
+    except subprocess.CalledProcessError:
+        return None
 
 
 def _initialise(bot): pass # prevents commands from being automatically added
@@ -234,8 +245,11 @@ def version(bot, event, *args):
     """get the version of the bot and dependencies (admin-only)"""
 
     version_info = []
+    commit = _git_status()
 
     version_info.append(_("Bot Version: **{}**").format(__version__)) # hangoutsbot
+    if commit:
+        version_info.append(_("Git: **{}**").format(commit))
     version_info.append(_("Python Version: **{}**").format(sys.version.split()[0])) # python
 
     # display extra version information only if user is an admin
