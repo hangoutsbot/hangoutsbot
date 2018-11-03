@@ -113,7 +113,7 @@ class Slack(object):
         logger.debug("Channels ({}): {}".format(len(self.channels), self.channels.keys()))
         self.directs = {c["id"]: c for c in json["ims"]}
         logger.debug("Directs ({}): {}".format(len(self.directs), self.directs.keys()))
-        sock = yield from self.sess.ws_connect(json["url"])
+        sock = yield from self.sess.ws_connect(json["url"], heartbeat=30.0)
         logger.debug("Connected to websocket")
         while True:
             event = yield from sock.receive_json()
