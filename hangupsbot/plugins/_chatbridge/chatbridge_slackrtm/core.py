@@ -217,6 +217,7 @@ class Identities(object):
     def save(self):
         self.bot.memory.set_by_path(["slackrtm", self.team, "identities"],
                                     {"hangouts": self.hangouts, "slack": self.slack})
+        self.bot.memory.save()
 
 
 class Message(object):

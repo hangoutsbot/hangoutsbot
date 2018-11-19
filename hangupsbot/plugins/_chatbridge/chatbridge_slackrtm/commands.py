@@ -88,6 +88,7 @@ def sync(team, channel, hangout):
     syncs = Base.bot.config.get_by_path(["slackrtm", "syncs"])
     syncs.append(sync)
     Base.bot.config.set_by_path(["slackrtm", "syncs"], syncs)
+    Base.bot.config.save()
     return "Now syncing <b>#{}</b> on <b>{}</b> to hangout <b>{}</b>.".format(channel["name"], team, hangout)
 
 def unsync(team, channel, hangout):
@@ -105,6 +106,7 @@ def unsync(team, channel, hangout):
             syncs = Base.bot.config.get_by_path(["slackrtm", "syncs"])
             syncs.remove(bridge.sync)
             Base.bot.config.set_by_path(["slackrtm", "syncs"], syncs)
+            Base.bot.config.save()
             # Destroy the bridge and its event callback.
             Base.remove_bridge(bridge)
             return ("No longer syncing <b>#{}</b> on <b>{}</b> to hangout <b>{}</b>."
