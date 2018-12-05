@@ -7,6 +7,8 @@ import hangups
 
 import plugins
 
+from commands import command
+
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +57,7 @@ def _watch_rename(bot, event, command):
                              event.conv_event.new_name,
                              topic ))
 
-            yield from bot._client.setchatname(event.conv_id, topic)
+            yield from command.run(bot, event, *["convrename", "id:" + event.conv_id, topic])
 
 
 def topic(bot, event, *args):
@@ -78,4 +80,4 @@ def topic(bot, event, *args):
     yield from bot.coro_send_message(event.conv, message)
 
     """Rename Hangout"""
-    yield from bot._client.setchatname(event.conv_id, topic)
+    yield from command.run(bot, event, *["convrename", "id:" + event.conv_id, topic])

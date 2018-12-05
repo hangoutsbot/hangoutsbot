@@ -3,6 +3,7 @@ import asyncio, importlib, inspect, logging, os, sys
 from inspect import getmembers, isfunction
 
 import handlers
+import hangups_shim
 
 from commands import command
 
@@ -36,7 +37,8 @@ class tracker:
                 "admin": [],
                 "user": [],
                 "all": None,
-                "tagged": {}
+                "tagged": {},
+                "argument.preprocessors": []
             },
             "handlers": [],
             "shared": [],
@@ -67,6 +69,8 @@ class tracker:
                     if type in type_tags:
                         command.register_tags(command_name, type_tags[type])
                         break
+
+        self.reset()
 
     def register_command(self, type, command_names, tags=None):
         """call during plugin init to register commands"""
@@ -120,8 +124,38 @@ class tracker:
 
         logger.debug("{} - [{}] tags: {}".format(command_name, type, tags))
 
-    def register_handler(self, function, type, priority):
-        self._current["handlers"].append((function, type, priority))
+    def register_handler(self, function, type, priority, module_path=None):
+        _tuple = (function, type, priority)
+
+        if self._current["metadata"] is None:
+            if module_path is None:
+                raise RuntimeError("module_path must be supplied for late-binded handlers")
+            else:
+                self.list[module_path]["handlers"].append(_tuple)
+
+        self._current["handlers"].append(_tuple)
+
+    def deregister_handler(self, function, module_path=None, strict=True):
+        if module_path is None:
+            module_path = list(tracking.list.keys())
+        elif isinstance(module_path, str):
+            module_path = [ module_path ]
+        elif isinstance(module_path, list):
+            pass
+        else:
+            raise TypeError("invalid module_path {}".format(repr(module_path)))
+
+        for m in module_path:
+            if m not in tracking.list and strict is True:
+                raise ValueError("module_path {} does not exist".format(m))
+            for h in tracking.list[m]["handlers"]:
+                if h[0] == function:
+                    logger.debug("untrack handler added by {} {}".format(m, h))
+                    tracking.list[m]["handlers"].remove(h)
+                    return
+
+        if strict:
+            raise ValueError("{} tracker not found: {}".format(module_path, function))
 
     def register_shared(self, id, objectref, forgiving):
         self._current["shared"].append((id, objectref, forgiving))
@@ -135,8 +169,18 @@ class tracker:
         if group not in self._current["aiohttp.web"]:
             self._current["aiohttp.web"].append(group)
 
-    def register_asyncio_task(self, task):
-        self._current["asyncio.task"].append(task)
+    def register_asyncio_task(self, task, module_path=None):
+        if self._current["metadata"] is None:
+            if module_path is None:
+                raise RuntimeError("module_path must be supplied for late-binded tasks")
+            else:
+                self.list[module_path]["asyncio.task"].append(task)
+        else:
+            self._current["asyncio.task"].append(task)
+
+    def register_command_argument_preprocessors_group(self, name):
+        if name not in self._current["commands"]["argument.preprocessors"]:
+            self._current["commands"]["argument.preprocessors"].append(name)
 
 
 tracking = tracker()
@@ -164,10 +208,16 @@ def register_admin_command(command_names, tags=None):
         command_names = [command_names]
     tracking.register_command("admin", command_names, tags=tags)
 
-def register_handler(function, type="message", priority=50):
+def register_handler(function, type="message", priority=50, extra_metadata=None):
     """register external handler"""
+    extra_metadata = extra_metadata or {}
     bot_handlers = tracking.bot._handlers
-    bot_handlers.register_handler(function, type, priority)
+    return bot_handlers.register_handler(function, type, priority, extra_metadata=extra_metadata)
+
+def deregister_handler(function, type="message"):
+    """deregister external handler"""
+    bot_handlers = tracking.bot._handlers
+    bot_handlers.deregister_handler(function, type)
 
 def register_shared(id, objectref, forgiving=True):
     """register shared object"""
@@ -175,16 +225,19 @@ def register_shared(id, objectref, forgiving=True):
     bot.register_shared(id, objectref, forgiving=forgiving)
 
 def start_asyncio_task(coroutine_function, *args, **kwargs):
+    loop = asyncio.get_event_loop()
     if asyncio.iscoroutinefunction(coroutine_function):
-        loop = asyncio.get_event_loop()
         task = loop.create_task(coroutine_function(tracking.bot, *args, **kwargs))
-
-        asyncio.async(task).add_done_callback(asyncio_task_ended)
-
-        tracking.register_asyncio_task(task)
-
+    elif asyncio.iscoroutine(coroutine_function):
+        task = loop.create_task(coroutine_function)
     else:
         raise RuntimeError("coroutine function must be supplied")
+    asyncio.ensure_future(task).add_done_callback(asyncio_task_ended)
+    tracking.register_asyncio_task(task)
+    return task
+
+def register_commands_argument_preprocessor_group(name, preprocessors):
+    command.register_argument_preprocessor_group(name, preprocessors)
 
 
 """plugin loader"""
@@ -349,6 +402,10 @@ def load(bot, module_path, module_name=None):
         logger.exception("EXCEPTION during plugin import: {}".format(module_path))
         return
 
+    if hasattr(sys.modules[module_path], 'hangups'):
+        logger.info("{} has legacy hangups reference".format(module_name))
+        setattr(sys.modules[module_path], 'hangups', hangups_shim)
+
     public_functions = [o for o in getmembers(sys.modules[module_path], isfunction)]
 
     candidate_commands = []
@@ -447,6 +504,19 @@ def unload(bot, module_path):
         plugin = tracking.list[module_path]
         loop = asyncio.get_event_loop()
 
+        # Look for an optional function finali[sz]e, akin to initiali[sz]e.
+        public_functions = [o for o in getmembers(sys.modules[module_path], isfunction)]
+        try:
+            for function_name, the_function in public_functions:
+                if function_name in ("_finalise", "_finalize"):
+                    argc = len(inspect.signature(the_function).parameters)
+                    if argc == 0:
+                        the_function()
+                    elif argc == 1:
+                        the_function(bot)
+        except Exception as e:
+            logger.exception("EXCEPTION during plugin deinit: {}".format(module_path))
+
         if len(plugin["threads"]) == 0:
             all_commands = plugin["commands"]["all"]
             for command_name in all_commands:
@@ -468,6 +538,7 @@ def unload(bot, module_path):
                     if handler[2]["module.path"] == module_path:
                         logger.debug("removing handler {} {}".format(type, handler))
                         bot._handlers.pluggables[type].remove(handler)
+                        tracking.deregister_handler(handler[0], handler[2]["module.path"])
 
             shared = plugin["shared"]
             for shared_def in shared:
@@ -485,6 +556,10 @@ def unload(bot, module_path):
                 from sinks import aiohttp_terminate # XXX: needs to be late-imported
                 for group in plugin["aiohttp.web"]:
                     yield from aiohttp_terminate(group)
+
+            if len(plugin["commands"]["argument.preprocessors"]) > 0:
+                for groupname in plugin["commands"]["argument.preprocessors"]:
+                    del command.preprocessors[groupname]
 
             logger.info("{} unloaded".format(module_path))
 

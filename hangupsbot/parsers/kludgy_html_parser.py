@@ -9,6 +9,8 @@ from html.parser import HTMLParser
 
 import hangups
 
+import hangups_shim
+
 
 def simple_parse_to_segments(html, debug=False, **kwargs):
     html = fix_urls(html)
@@ -23,18 +25,18 @@ def segment_to_html(segment):
     text = text.replace('\n', '<br>\n')
 
     message = []
-    if segment.type_ == hangups.schemas.SegmentType.TEXT:
+    if segment.type_ == hangups_shim.schemas.SegmentType.TEXT:
         message.append(text)
-    elif segment.type_ == hangups.schemas.SegmentType.LINK:
+    elif segment.type_ == hangups_shim.schemas.SegmentType.LINK:
         message.append(
             '<a href="{}">{}</a>'.format(segment.link_target if segment.link_target else text, text)
         )
-    elif segment.type_ == hangups.schemas.SegmentType.LINE_BREAK:
+    elif segment.type_ == hangups_shim.schemas.SegmentType.LINE_BREAK:
         message.append('<br />\n')
     else:
         logging.warning('Ignoring unknown chat message segment type: {}'.format(segment.type_))
 
-    if not segment.type_ == hangups.schemas.SegmentType.LINE_BREAK:
+    if not segment.type_ == hangups_shim.schemas.SegmentType.LINE_BREAK:
         for is_f, f in ((segment.is_bold, 'b'), (segment.is_italic, 'i'),
                         (segment.is_strikethrough, 's'), (segment.is_underline, 'u')):
             if is_f:

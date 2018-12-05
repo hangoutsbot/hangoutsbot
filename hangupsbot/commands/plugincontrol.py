@@ -89,6 +89,11 @@ def plugininfo(bot, event, *args):
 
                     lines.append("... <b><pre>{}</pre></b>: <pre>{}</pre>".format(command_name, ', '.join(matches)))
 
+            """command: argument preprocessors"""
+            if len(plugin["commands"]["argument.preprocessors"]) > 0:
+                lines.append( "<b>command preprocessor groups:</b> "
+                              ", ".join(plugin["commands"]["argument.preprocessors"]) )
+
         if len(lines) > 0:
             text_plugins.append("<br />".join(lines))
 

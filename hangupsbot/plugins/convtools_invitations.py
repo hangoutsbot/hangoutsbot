@@ -4,6 +4,8 @@ import hangups
 
 import plugins
 
+from commands import command
+
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +82,14 @@ def _claim_invite(bot, invite_code, user_id):
 
         try:
             logger.debug("_claim_invite: adding {} to {}".format(user_id, invitation["group_id"]))
-            yield from bot._client.adduser(invitation["group_id"], [user_id])
+
+            yield from bot._client.add_user(
+                hangups.hangouts_pb2.AddUserRequest(
+                    request_header = bot._client.get_request_header(),
+                    invitee_id = [ hangups.hangouts_pb2.InviteeID(gaia_id = user_id) ],
+                    event_request_header = hangups.hangouts_pb2.EventRequestHeader(
+                        conversation_id = hangups.hangouts_pb2.ConversationId(id = invitation["group_id"]),
+                        client_generated_id = bot._client.get_client_generated_id() )))
 
         except hangups.exceptions.NetworkError as e:
             # trying to add a user to a group where the user is already a member raises this
@@ -116,11 +125,21 @@ def _issue_invite_on_exit(bot, event, command):
 
 @asyncio.coroutine
 def _new_group_conversation(bot, initiator_id):
-    response = yield from bot._client.createconversation([initiator_id], force_group=True)
-    new_conversation_id = response['conversation']['id']['id']
+    _response = yield from bot._client.create_conversation(
+        hangups.hangouts_pb2.CreateConversationRequest(
+            request_header = bot._client.get_request_header(),
+            type = hangups.hangouts_pb2.CONVERSATION_TYPE_GROUP,
+            client_generated_id = bot._client.get_client_generated_id(),
+            invitee_id = [ hangups.hangouts_pb2.InviteeID(gaia_id = initiator_id) ]))
+    new_conversation_id = _response.conversation.conversation_id.id
+
     yield from bot.coro_send_message(new_conversation_id, _("<i>group created</i>"))
     yield from asyncio.sleep(1) # allow convmem to update
-    yield from bot._client.setchatname(new_conversation_id, _("GROUP: {}").format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
+    yield from command.run( bot,
+                            event,
+                            *[ "convrename",
+                               "id:" + new_conversation_id,
+                               _("GROUP: {}").format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M")) ])
     return new_conversation_id
 
 

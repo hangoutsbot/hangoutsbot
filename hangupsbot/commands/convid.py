@@ -18,7 +18,7 @@ def _initialise(bot):
 def get_posix_args(rawargs):
     lexer = shlex.shlex(" ".join(rawargs), posix=True)
     lexer.commenters = ""
-    lexer.wordchars += "!@#$%^&*():/.<>?[]-,=+;"
+    lexer.wordchars += "!@#$%^&*():/.<>?[]-,=+;|"
     posix_args = list(lexer)
     return posix_args
 
@@ -90,8 +90,18 @@ def convrename(bot, event, *args):
             posix_args[0] = "id:" + posix_args[0]
         convlist = bot.conversations.get(filter=posix_args[0])
         title = ' '.join(posix_args[1:])
+
         # only act on the first matching conversation
-        yield from bot._client.setchatname(list(convlist.keys())[0], title)
+
+        yield from bot._client.rename_conversation(
+            hangups.hangouts_pb2.RenameConversationRequest(
+                request_header = bot._client.get_request_header(),
+                new_name = title,
+                event_request_header = hangups.hangouts_pb2.EventRequestHeader(
+                    conversation_id = hangups.hangouts_pb2.ConversationId(
+                        id = list(convlist.keys())[0] ),
+                    client_generated_id = bot._client.get_client_generated_id() )))
+
     elif len(posix_args) == 1 and posix_args[0].startswith("id:"):
         """specialised error message for /bot rename (implied convid: <event.conv_id>)"""
         text = _("<em>missing title</em>")
@@ -162,7 +172,14 @@ def convleave(bot, event, *args):
                 yield from bot.coro_send_message(convid, _('I\'ll be back!'))
 
             try:
-                yield from bot._client.removeuser(convid)
+                yield from bot._client.remove_user(
+                    hangups.hangouts_pb2.RemoveUserRequest(
+                        request_header = bot._client.get_request_header(),
+                        event_request_header = hangups.hangouts_pb2.EventRequestHeader(
+                            conversation_id = hangups.hangouts_pb2.ConversationId(
+                                id = convid ),
+                            client_generated_id = bot._client.get_client_generated_id() )))
+
                 if convid in bot._conv_list._conv_dict:
                     # replicate hangups behaviour - remove conversation from internal dict
                     del bot._conv_list._conv_dict[convid]

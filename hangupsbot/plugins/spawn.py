@@ -74,6 +74,8 @@ from datetime import datetime, timedelta, timezone
 from commands import command
 import plugins
 
+from utils import event_to_user_bridge
+
 logger = logging.getLogger(__name__)
 
 _MAP_REGEX = \
@@ -173,7 +175,7 @@ def _spawn(bot, event, *args):
     stderr_str = stderr_data.decode().rstrip()
 
     if len(stderr_str) > 0:
-        yield from bot.coro_send_to_user_and_conversation(
-            event.user.id_.chat_id, event.conv_id, stderr_str)
+        user_id, bridge_id = event_to_user_bridge(event)
+        yield from bot.send_to_bridged_1to1(user_id, bridge_id, stderr_str)
     if len(stdout_str) > 0:
         yield from bot.coro_send_message(event.conv_id, stdout_str)

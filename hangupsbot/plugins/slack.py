@@ -28,13 +28,20 @@ import plugins
 from sinks import aiohttp_start
 from sinks.base_bot_request_handler import AsyncRequestHandler
 
+import hangups
+
 
 logger = logging.getLogger(__name__)
 
 
 def _initialise(bot):
     _start_slack_sinks(bot)
-    plugins.register_handler(_handle_slackout)
+
+    plugins.register_handler(_broadcast, type="sending")
+    plugins.register_handler(_repeat, type="allmessages")
+
+    return []
+
     plugins.register_user_command(["slackusers"])
 
 
@@ -65,17 +72,6 @@ def _start_slack_sinks(bot):
     logger.info("{} slack listeners started".format(itemNo + 1))
 
 
-def _slack_repeater_cleaner(bot, event, id):
-    event_tokens = event.text.split(":", maxsplit=1)
-    event_text = event_tokens[1].strip()
-    if event_text.lower().startswith(tuple([cmd.lower() for cmd in bot._handlers.bot_command])):
-        event_text = bot._handlers.bot_command[0] + " [REDACTED]"
-    event.text = event_text
-    event.from_bot = False
-    event._slack_no_repeat = True
-    event._external_source = event_tokens[0].strip() + "@slack"
-
-
 class SlackAsyncListener(AsyncRequestHandler):
     def process_request(self, path, query_string, content):
         payload  = parse_qs(content)
@@ -94,15 +90,29 @@ class SlackAsyncListener(AsyncRequestHandler):
             if "user_name" in payload:
                 if "slackbot" not in str(payload["user_name"][0]):
                     text = self._remap_internal_slack_ids(text)
-                    response = "<b>" + str(payload["user_name"][0]) + ":</b> " + unescape(text)
-                    response += self._bot.call_shared("reprocessor.attach_reprocessor", _slack_repeater_cleaner)
 
-                    yield from self.send_data( conversation_id, 
-                                               response, 
-                                               context = { 'base': {
-                                                                'tags': ['slack', 'relay'], 
-                                                                'source': 'slack', 
-                                                                'importance': 50 }} )
+                    user = payload["user_name"][0] + "@slack"
+                    original_message = unescape(text)
+
+                    message = "{}: {}".format(user, original_message)
+                    passthru = {
+                        "original_request": {
+                            "message": original_message,
+                            "image_id": None,
+                            "segments": None,
+                            "user": user },
+                        "norelay": [ __name__ ]}
+
+                    yield from self.send_data(
+                        conversation_id,
+                        message,
+                        context = {
+                            "base": {
+                                'tags': ['slack', 'relay'], 
+                                'source': 'slack', 
+                                'importance': 50 },
+                            "passthru": passthru })
+
 
     def _remap_internal_slack_ids(self, text):
         text = self._slack_label_users(text)
@@ -163,51 +173,150 @@ class SlackAsyncListener(AsyncRequestHandler):
 
 
 @asyncio.coroutine
-def _handle_slackout(bot, event, command):
-    if "_slack_no_repeat" in dir(event) and event._slack_no_repeat:
+def _broadcast(bot, broadcast_list, context):
+    target_conv_id = broadcast_list[0][0]
+    message = broadcast_list[0][1]
+    image_id = broadcast_list[0][2]
+
+    slackChannelConfigs = bot.get_config_option('slack')
+    if not isinstance(slackChannelConfigs, list):
         return
 
-    """forward messages to slack over webhook"""
+    channelConfigs = []
+    for channelConfig in slackChannelConfigs:
+        if target_conv_id in channelConfig["synced_conversations"]:
+            channelConfigs.append(channelConfig)
+    if not channelConfigs:
+        return
 
-    slack_sink = bot.get_config_option('slack')
+    passthru = context["passthru"]
 
-    if isinstance(slack_sink, list):
-        for sinkConfig in slack_sink:
+    if "norelay" not in passthru:
+        passthru["norelay"] = []
+    if __name__ in passthru["norelay"]:
+        # prevent message broadcast duplication
+        logger.info("NORELAY:_broadcast {}".format(passthru["norelay"]))
+        return
+    else:
+        # halt messaging handler from re-relaying
+        passthru["norelay"].append(__name__)
 
-            try:
-                slackkey = sinkConfig["key"]
-                channel = sinkConfig["channel"]
-                convlist = sinkConfig["synced_conversations"]
+    myself = bot.user_self()
+    chat_id = myself['chat_id']
+    fullname = myself['full_name']
 
-                if event.conv_id in convlist:
-                    fullname = event.user.full_name
-                    response = yield from bot._client.getentitybyid([event.user_id.chat_id])
-                    try:
-                        photo_url = "http:" + response.entities[0].properties.photo_url
-                    except Exception as e:
-                        logger.exception("FAILED to acquire photo_url for {}".format(fullname))
-                        photo_url = None
+    # context preserves as much of the original request as possible
+    if "original_request" in passthru:
+        message = passthru["original_request"]["message"]
+        image_id = passthru["original_request"]["image_id"]
+        segments = passthru["original_request"]["segments"]
+        if "user" in passthru["original_request"]:
+            if(isinstance(passthru["original_request"]["user"], str)):
+                pass
+            else:
+                chat_id = passthru["original_request"]["user"].id_.chat_id
+                # message line formatting: leave it to slack
 
-                    try:
-                        client = SlackClient(slackkey, verify=True)
-                    except TypeError:
-                        client = SlackClient(slackkey)
+    # for messages from other plugins, relay them
+    for config in channelConfigs:
+        logger.info("BROADCASTING: {} - {}".format(message, passthru))
+        yield from _slack_send(bot, config, message, chat_id, passthru)
 
-                    slack_api_params = { 'username': fullname,
-                                         'icon_url': photo_url }
 
-                    if "link_names" not in sinkConfig or sinkConfig["link_names"]:
-                        logger.debug("slack api link_names is active")
-                        slack_api_params["link_names"] = 1
+@asyncio.coroutine
+def _repeat(bot, event, command):
+    """formerly _handle_slackout
+    forward messages to slack over webhook"""
 
-                    if bot.conversations.catalog[event.conv_id]["history"] or "otr_privacy" not in sinkConfig or not sinkConfig["otr_privacy"]:
-                        client.chat_post_message(channel, event.text, **slack_api_params)
+    slackChannelConfigs = bot.get_config_option('slack')
+    if not isinstance(slackChannelConfigs, list):
+        return
 
-            except Exception as e:
-                logger.exception( "Could not handle slackout with key {} between {} and {}."
-                                  " Is config.json properly configured?".format( slackkey,
-                                                                                 channel,
-                                                                                 convlist ))
+    channelConfigs = []
+    for channelConfig in slackChannelConfigs:
+        if event.conv_id in channelConfig["synced_conversations"]:
+            channelConfigs.append(channelConfig)
+    if not channelConfigs:
+        return
+        
+    passthru = event.passthru
+
+    if "norelay" not in passthru:
+        passthru["norelay"] = []
+    if __name__ in passthru["norelay"]:
+        # prevent message relay duplication
+        logger.info("NORELAY:_repeat {}".format(passthru["norelay"]))
+        return
+    else:
+        # halt sending handler from re-relaying
+        passthru["norelay"].append(__name__)
+
+    user = event.user
+    message = event.text
+    image_id = None
+
+    if "original_request" in passthru:
+        message = passthru["original_request"]["message"]
+        image_id = passthru["original_request"]["image_id"]
+        segments = passthru["original_request"]["segments"]
+        # user is only assigned once, upon the initial event
+        if "user" in passthru["original_request"]:
+            user = passthru["original_request"]["user"]
+        else:
+            passthru["original_request"]["user"] = user
+    else:
+        # user raised an event
+        passthru["original_request"] = { "message": event.text,
+                                         "image_id": None, # XXX: should be attachments
+                                         "segments": event.conv_event.segments,
+                                         "user": event.user }
+
+    for config in channelConfigs:
+        logger.info("REPEATING: {} - {}".format(message, passthru))
+        yield from _slack_send(bot, config, message, user.id_.chat_id, passthru)
+
+
+@asyncio.coroutine
+def _slack_send(bot, sinkConfig, message, chat_id, passthru):
+
+    _response = yield from bot._client.get_entity_by_id(
+        hangups.hangouts_pb2.GetEntityByIdRequest(
+            request_header = bot._client.get_request_header(),
+            batch_lookup_spec = [
+                hangups.hangouts_pb2.EntityLookupSpec(
+                    gaia_id = chat_id )]))
+
+    try:
+        photo_url = "http:" + _response.entity[0].properties.photo_url
+    except Exception as e:
+        logger.exception("FAILED to acquire photo_url for {}".format(fullname))
+        photo_url = None
+
+    if "original_request" in passthru:
+        message = passthru["original_request"]["message"]
+        if isinstance(passthru["original_request"]["user"], str):
+            fullname = passthru["original_request"]["user"]
+        else:
+            fullname = _response.entity[0].properties.display_name;
+
+    try:
+        try:
+            client = SlackClient(sinkConfig["key"], verify=True)
+        except TypeError:
+            client = SlackClient(sinkConfig["key"])
+
+        slack_api_params = { 'username': fullname,
+                             'icon_url': photo_url }
+
+        if "link_names" not in sinkConfig or sinkConfig["link_names"]:
+            logger.debug("slack api link_names is active")
+            slack_api_params["link_names"] = 1
+
+        client.chat_post_message(sinkConfig["channel"],  message, **slack_api_params)
+    except Exception as e:
+        logger.exception( "Could not handle slackout with key {} between {} and {}. "
+                          "Is config.json properly configured?".format( slackkey,
+                                                                        channel ))
 
 
 def slackusers(bot, event, *args):

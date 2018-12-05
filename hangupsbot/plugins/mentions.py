@@ -483,7 +483,7 @@ def setnickname(bot, event, *args):
     bot.memory.set_by_path(["user_data", event.user.id_.chat_id, "nickname"], nickname)
 
     # Update nicks cache with new nickname
-    nicks[event.user.id_.chat_id] = nickname
+    nicks[event.user.id_.chat_id] = nickname.lower()
 
     try:
         label = '{0} ({1})'.format(event.user.full_name.split(' ', 1)[0], nickname)

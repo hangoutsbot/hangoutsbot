@@ -1,17 +1,28 @@
-import re
-import logging
-
 import aiohttp
 import asyncio
 import io
+import logging
 import os
+import re
+import sys
 
+from asyncio.subprocess import PIPE
 
 import plugins
 
+
 logger = logging.getLogger(__name__)
 
-_externals = { "bot": None }
+
+_externals = { "bot": None,
+               "ClientSession": aiohttp.ClientSession() }
+
+
+try:
+    aiohttp_clienterror = aiohttp.ClientError
+except AttributeError:
+    aiohttp_clienterror = aiohttp.errors.ClientError
+    logger.warning("[DEPRECATED]: aiohttp < 2.0")
 
 
 def _initialise(bot):
@@ -77,18 +88,47 @@ def image_validate_link(image_uri, reject_googleusercontent=True):
 
 @asyncio.coroutine
 def image_upload_single(image_uri):
-    logger.debug("getting {}".format(image_uri))
     filename = os.path.basename(image_uri)
+    logger.info("fetching {}".format(filename))
     try:
-        r = yield from aiohttp.request('get', image_uri)
+        r = yield from _externals["ClientSession"].get(image_uri)
         content_type = r.headers['Content-Type']
-        if not content_type.startswith('image/') and not content_type == "application/octet-stream":
-            logger.warning("request did not return image/image-like data, content-type={}, headers={}".format(content_type, r.headers))
+
+        image_handling = False # must == True if valid image, can contain additonal directives
+
+        """image handling logic for specific image types - if necessary, guess by extension"""
+
+        if content_type.startswith('image/'): # If it's identifying itself as an image then just upload it - Google's servers will cope.
+            image_handling = "standard"
+
+        elif content_type == "application/octet-stream":
+            ext = filename.split(".")[-1].lower() # Try to guess the type from the extension
+
+            if ext in ("jpg", "jpeg", "jpe", "jif", "jfif", "gif", "png", "webp"): # If we know what the extension is, just upload it.
+                image_handling = "standard"
+            else:
+                image_handling = "image_convert_to_png" # Only send for processing if the content type doesn't show as image and doesn't match known good extensions.
+
+        if image_handling:
+            logger.debug("reading {}".format(image_uri))
+            raw = yield from r.read()
+            logger.debug("finished {}".format(image_uri))
+            if image_handling is not "standard":
+                try:
+                    results = yield from getattr(sys.modules[__name__], image_handling)(raw)
+                    if results:
+                        # allow custom handlers to fail gracefully
+                        raw = results
+                except Exception as e:
+                    logger.exception("custom image handler failed: {}".format(image_handling))
+        else:
+            logger.warning("not image/image-like, filename={}, headers={}".format(filename, r.headers))
             return False
-        raw = yield from r.read()
-    except (aiohttp.errors.ClientError) as exc:
+
+    except (aiohttp_clienterror) as exc:
         logger.warning("failed to get {} - {}".format(filename, exc))
         return False
+
     image_data = io.BytesIO(raw)
     image_id = yield from image_upload_raw(image_data, filename=filename)
     return image_id
@@ -99,8 +139,13 @@ def image_upload_raw(image_data, filename):
     image_id = False
     try:
         image_id = yield from _externals["bot"]._client.upload_image(image_data, filename=filename)
-    except KeyError as exc:
-        logger.warning("_client.upload_image failed: {}".format(exc))
+    except Exception:
+        image_data.seek(0)
+        try:
+            filename = "{}.gif".format(filename)
+            image_id = yield from _externals["bot"]._client.upload_image(image_data, filename=filename)
+        except Exception as exc:
+            logger.warning("_client.upload_image failed", exc_info=exc)
     return image_id
 
 
@@ -111,3 +156,24 @@ def image_validate_and_upload_single(text, reject_googleusercontent=True):
     if image_link:
         image_id = yield from image_upload_single(image_link)
     return image_id
+
+
+@asyncio.coroutine
+def image_convert_to_png(image):
+    path_imagemagick = _externals["bot"].get_config_option("image.imagemagick") or "/usr/bin/convert"
+    cmd = (path_imagemagick, "-", "png:-")
+
+    try:
+        proc = yield from asyncio.create_subprocess_exec(
+            *cmd,
+            stdin = PIPE,
+            stdout = PIPE,
+            stderr = PIPE )
+
+        (stdout_data, stderr_data) = yield from proc.communicate(input=image)
+
+        return stdout_data
+
+    except FileNotFoundError:
+        logger.error("imagemagick not found at path {}".format(path_imagemagick))
+        return False

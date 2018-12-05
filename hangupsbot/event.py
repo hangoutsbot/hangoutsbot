@@ -21,7 +21,7 @@ class StatusEvent(GenericEvent):
         super().__init__(bot)
 
         self.conv_event = state_update_event
-        self.conv_id = state_update_event.conversation_id.id_
+        self.conv_id = state_update_event.conversation_id.id
         self.conv = None
         self.event_id = None
         self.user_id = None
@@ -37,9 +37,11 @@ class TypingEvent(StatusEvent):
     def __init__(self, bot, state_update_event):
         super().__init__(bot, state_update_event)
 
-        self.user_id = state_update_event.user_id
+        self.conv_event = hangups.parsers.parse_typing_status_message(state_update_event)
+
+        self.user_id = state_update_event.sender_id
         self.timestamp = state_update_event.timestamp
-        self.user = self.bot.get_hangups_user(state_update_event.user_id)
+        self.user = self.bot.get_hangups_user(state_update_event.sender_id)
         if self.user.is_self:
             self.from_bot = True
         self.text = "typing"
@@ -51,9 +53,11 @@ class WatermarkEvent(StatusEvent):
     def __init__(self, bot, state_update_event):
         super().__init__(bot, state_update_event)
 
-        self.user_id = state_update_event.participant_id
+        self.conv_event =  hangups.parsers.parse_watermark_notification(state_update_event)
+
+        self.user_id = state_update_event.sender_id
         self.timestamp = state_update_event.latest_read_timestamp
-        self.user = self.bot.get_hangups_user(state_update_event.participant_id)
+        self.user = self.bot.get_hangups_user(state_update_event.sender_id)
         if self.user.is_self:
             self.from_bot = True
         self.text = "watermark"

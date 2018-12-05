@@ -109,6 +109,6 @@ class ChatMessageLogger(logging.Handler):
         message = self.format(record)
         convs = self.bot.conversations.get("tag:receive-logs")
         for conv_id in convs.keys():
-            asyncio.async(
+            asyncio.ensure_future(
                 self.bot.coro_send_message(conv_id, message)
             ).add_done_callback(lambda future: future.result())

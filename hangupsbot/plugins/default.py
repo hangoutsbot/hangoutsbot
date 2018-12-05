@@ -237,13 +237,12 @@ def reload(bot, event, *args):
     bot.memory.load()
 
 
-def quit(bot, event, *args):
+def quit(bot, event, *dummys):
     """stop running"""
-    logger.info('HangupsBot killed by user {} from conversation {}'.format(
-        event.user.full_name,
-        bot.conversations.get_name(event.conv)))
+    logger.info('HangupsBot killed by user %s from conversation %s',
+                event.user.full_name, bot.conversations.get_name(event.conv))
 
-    yield from bot._client.disconnect()
+    bot.stop()
 
 
 def config(bot, event, cmd=None, *args):

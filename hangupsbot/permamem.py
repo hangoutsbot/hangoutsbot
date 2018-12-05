@@ -2,6 +2,8 @@ import asyncio, datetime, logging, random, re
 
 import hangups
 
+import hangups_shim
+
 bot = None
 
 
@@ -207,7 +209,8 @@ class conversation_memory:
 
         chat_ids = list(set(chat_ids))
 
-        chunks = [chat_ids[i:i+batch_max] for i in range(0, len(chat_ids), batch_max)]
+        chunks = [ chat_ids[i:i+batch_max]
+                   for i in range(0, len(chat_ids), batch_max) ]
 
         updated_users = 0
 
@@ -215,16 +218,21 @@ class conversation_memory:
             logger.debug("getentitybyid(): {}".format(chunk))
 
             try:
-                response = yield from self.bot._client.getentitybyid(chunk)
+                _request = hangups.hangouts_pb2.GetEntityByIdRequest(
+                    request_header=self.bot._client.get_request_header(),
+                    batch_lookup_spec=[ hangups.hangouts_pb2.EntityLookupSpec( gaia_id=chat_id) 
+                                        for chat_id in chunk ])
 
-                for _user in response.entities:
-                    UserID = hangups.user.UserID(chat_id=_user.id_.chat_id, gaia_id=_user.id_.gaia_id)
+                _response = yield from self.bot._client.get_entity_by_id(_request)
+
+                for _user in _response.entity:
+                    UserID = hangups.user.UserID(chat_id=_user.id.chat_id, gaia_id=_user.id.gaia_id)
                     User = hangups.user.User(
                         UserID,
                         _user.properties.display_name,
                         _user.properties.first_name,
                         _user.properties.photo_url,
-                        _user.properties.emails,
+                        list(_user.properties.email), # repeated field
                         False)
 
                     """this function usually called because hangups user list is incomplete, so help fill it in as well"""
@@ -278,7 +286,7 @@ class conversation_memory:
             "full_name": User.full_name,
             "first_name": User.first_name,
             "photo_url": User.photo_url,
-            "emails": User.emails,
+            "emails": list(User.emails),
             "is_self": User.is_self,
             "is_definitive": is_definitive }
 
@@ -383,10 +391,10 @@ class conversation_memory:
             yield from self.get_users_from_query(_users_to_fetch)
 
         """store the conversation type: GROUP, ONE_TO_ONE"""
-        if conv._conversation.type_ == hangups.schemas.ConversationType.GROUP:
+        if conv._conversation.type == hangups_shim.schemas.ConversationType.GROUP:
             memory["type"] = "GROUP"
-        else: 
-            # conv._conversation.type_ == hangups.schemas.ConversationType.STICKY_ONE_TO_ONE
+        else:
+            # conv._conversation.type_ == hangups_shim.schemas.ConversationType.STICKY_ONE_TO_ONE
             memory["type"] = "ONE_TO_ONE"
 
         """store the off_the_record state"""
@@ -529,7 +537,9 @@ class conversation_memory:
                 # perform case-insensitive search
                 filter_lower = term[5:].lower()
                 for convid, convdata in sourcelist.items():
-                    if filter_lower in convdata["title"].lower():
+                    title_lower = convdata["title"].lower()
+                    if( filter_lower in title_lower
+                            or filter_lower in title_lower.replace(" ", "") ):
                         matched[convid] = convdata
 
             elif term.startswith("chat_id:"):

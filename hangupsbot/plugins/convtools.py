@@ -1,4 +1,5 @@
 import asyncio, logging, random, string
+from collections import defaultdict
 
 import hangups
 
@@ -30,7 +31,16 @@ def _batch_add_users(bot, target_conv, chat_ids, batch_max=20):
     chunks = [chat_ids[i:i+batch_max] for i in range(0, len(chat_ids), batch_max)]
     for number, partial_list in enumerate(chunks):
         logger.info("batch add users: {}/{} {} user(s) into {}".format(number+1, len(chunks), len(partial_list), target_conv))
-        yield from bot._client.adduser(target_conv, partial_list)
+
+        yield from bot._client.add_user(
+            hangups.hangouts_pb2.AddUserRequest(
+                request_header = bot._client.get_request_header(),
+                invitee_id = [ hangups.hangouts_pb2.InviteeID(gaia_id = chat_id)
+                               for chat_id in partial_list ],
+                event_request_header = hangups.hangouts_pb2.EventRequestHeader(
+                    conversation_id = hangups.hangouts_pb2.ConversationId(id = target_conv),
+                    client_generated_id = bot._client.get_client_generated_id() )))
+
         users_added = users_added + len(partial_list)
         yield from asyncio.sleep(0.5)
 
@@ -82,17 +92,26 @@ def createconversation(bot, event, *args):
     Usage: /bot createconversation <user id(s)>"""
     parameters = list(args)
 
-    force_group = False # default: defer to hangups client decision
+    force_group = True # only create groups
 
     if "group" in parameters:
+        # block maintained for legacy command support
+        # removes redundant supplied parameter
         parameters.remove("group")
         force_group = True
 
     user_ids = list(set(parameters))
     logger.info("createconversation: {}".format(user_ids))
 
-    response = yield from bot._client.createconversation(user_ids, force_group)
-    new_conversation_id = response['conversation']['id']['id']
+    _response = yield from bot._client.create_conversation(
+        hangups.hangouts_pb2.CreateConversationRequest(
+            request_header = bot._client.get_request_header(),
+            type = hangups.hangouts_pb2.CONVERSATION_TYPE_GROUP,
+            client_generated_id = bot._client.get_client_generated_id(),
+            invitee_id = [ hangups.hangouts_pb2.InviteeID(gaia_id = chat_id)
+                           for chat_id in user_ids ]))
+    new_conversation_id = _response.conversation.conversation_id.id
+
     yield from bot.coro_send_message(new_conversation_id, "<i>conversation created</i>")
 
 
@@ -186,17 +205,24 @@ def refresh(bot, event, *args):
                                                                          " ".join(list_added) or _("<em>none</em>")))
     else:
         if len(list_added) > 1:
-            response = yield from bot._client.createconversation([], force_group=True)
-            new_conversation_id = response['conversation']['id']['id']
+
+            _response = yield from bot._client.create_conversation(
+                hangups.hangouts_pb2.CreateConversationRequest(
+                    request_header = bot._client.get_request_header(),
+                    type = hangups.hangouts_pb2.CONVERSATION_TYPE_GROUP,
+                    client_generated_id = bot._client.get_client_generated_id(),
+                    invitee_id = []))
+            new_conversation_id = _response.conversation.conversation_id.id
+
             yield from bot.coro_send_message(new_conversation_id, _("<i>refreshing group...</i><br />"))
             yield from asyncio.sleep(1)
             yield from _batch_add_users(bot, new_conversation_id, list_added)
             yield from bot.coro_send_message(new_conversation_id, _("<i>all users added</i><br />"))
             yield from asyncio.sleep(1)
-            yield from bot._client.setchatname(new_conversation_id, new_title)
+            yield from command.run(bot, event, *["convrename", "id:" + new_conversation_id, new_title])
 
             if renameold:
-                yield from bot._client.setchatname(source_conv, old_title)
+                yield from command.run(bot, event, *["convrename", "id:" + source_conv, old_title])
 
             if not quietly:
                 yield from bot.coro_send_message(source_conv, _("<i>group has been obsoleted</i>"))
@@ -218,36 +244,44 @@ def kick(bot, event, *args):
     """kick users from a conversation
     Usage: /bot kick
     [<optional conversation id, current if not specified>]
-    [<user ids, space-separated if more than one>]
-    [quietly]"""
-    parameters = list(args)
+    [<user ids, space-separated if more than one>]"""
 
     source_conv = event.conv_id
-    remove = []
-    test = False
-    quietly = False
+    if args[0] in bot.conversations.catalog:
+        source_conv = args[0]
+        args = args[1:]
 
-    for parameter in parameters:
-        if parameter in bot.conversations.catalog:
-            source_conv = parameter
-        elif parameter in bot.conversations.catalog[source_conv]["participants"]:
-            remove.append(parameter)
-        elif parameter == "test":
-            test = True
-        elif parameter == "quietly":
-            quietly = True
-        else:
-            raise ValueError(_("supply optional conversation id and valid user ids to kick"))
+    conv_id_list = [source_conv]
 
-    if len(remove) <= 0:
+    # Check to see if sync is active
+    syncouts = bot.get_config_option('sync_rooms')
+
+    # If yes, then find out if the current room is part of one.
+    # If it is, then add the rest of the rooms to the list of conversations to process
+    if syncouts:
+        for sync_room_list in syncouts:
+            if event.conv_id in sync_room_list:
+                for conv in sync_room_list:
+                    if not conv in conv_id_list:
+                        conv_id_list.append(conv)
+
+    remove = defaultdict(list)
+    admins_list = bot.get_config_suboption(source_conv, "admins")
+
+    for conv_id in conv_id_list:
+        for user_id in args:
+            if user_id not in bot.conversations.catalog[source_conv]["participants"]:
+                logger.debug("Skipping unknown user ID: {}".format(user_id))
+            elif user_id in admins_list:
+                # Don't allow non-admins running the command (e.g. tag permissions) to remove actual bot admins.
+                logger.debug("Skipping admin user ID: {}".format(user_id))
+            else:
+                remove[conv_id].append(user_id)
+
+    if not any(remove.values()):
         raise ValueError(_("supply at least one valid user id to kick"))
 
-    arguments = ["refresh", source_conv, "without"] + remove
-
-    if test:
-        arguments.append("test")
-
-    if quietly:
-        arguments.append("quietly")
-
-    yield from command.run(bot, event, *arguments)
+    for conv_id, conv_remove in remove.items():
+        logger.debug("Removing users from {}: {}".format(conv_id, conv_remove))
+        for user_id in conv_remove:
+            yield from bot.remove_user(conv_id, user_id)
