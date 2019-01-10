@@ -1,26 +1,26 @@
 # BOT DEPENDENCIES #
 
-git+https://github.com/tdryer/hangups.git
 appdirs
 asyncio
 aiohttp>=1.3,<3
+hangups>=0.4.2
 ReParser==1.4.3
 
 # PLUGIN DEPENDENCIES #
 
-python_dateutil                                 # sinks: gitlab
-pushbullet.py                                   # plugins: mentions
-goslate                                         # plugins: simplytranslate, syncrooms_autotranslate
-textblob                                        # plugins: simplytranslate, syncrooms_autotranslate
-wikipedia                                       # plugins: simplewikipedia
-wolframalpha                                    # plugins: wolframalpha
-git+https://github.com/carpedm20/emoji          # plugins: slack, slackrtm
-git+https://github.com/loisaidasam/pyslack.git  # plugins: slack
-slackclient >=0.16                              # plugins: slackrtm
-selenium                                        # plugins: image_screenshot
-telepot>=11.0                                   # plugins: telesync
-cleverwrap                                      # plugins: cleverbot
-TwitterAPI                                      # plugins: twitter
-google-api-python-client                        # plugins: spotify
-spotipy                                         # plugins: spotify
-soundcloud                                      # plugins: spotify
+python_dateutil             # sinks: gitlab
+pushbullet.py               # plugins: mentions
+goslate                     # plugins: simplytranslate, syncrooms_autotranslate
+textblob                    # plugins: simplytranslate, syncrooms_autotranslate
+wikipedia                   # plugins: simplewikipedia
+wolframalpha                # plugins: wolframalpha
+emoji>=0.5.0                # plugins: slack, slackrtm
+pyslack-real>=0.5.2         # plugins: slack
+slackclient >=0.16          # plugins: slackrtm
+selenium                    # plugins: image_screenshot
+telepot>=11.0               # plugins: telesync
+cleverwrap                  # plugins: cleverbot
+TwitterAPI                  # plugins: twitter
+google-api-python-client    # plugins: spotify
+spotipy                     # plugins: spotify
+soundcloud                  # plugins: spotify
