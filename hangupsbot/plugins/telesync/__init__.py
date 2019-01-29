@@ -619,8 +619,7 @@ def tg_on_location_share(tg_bot, tg_chat_id, msg):
                 "source_uid": False,
                 "source_title": chat_title })
 
-        logger.info("location {} {}".format( ho_conv_id,
-                                             text ))
+        logger.info("location {} {}".format(ho_conv_id, maps_url))
 
 
 @asyncio.coroutine
