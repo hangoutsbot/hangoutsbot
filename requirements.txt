@@ -2,8 +2,8 @@
 
 appdirs
 asyncio
-aiohttp>=1.3,<3
-hangups>=0.4.2
+aiohttp>=3.3,<4
+hangups>=0.4.7
 ReParser==1.4.3
 
 # PLUGIN DEPENDENCIES #
