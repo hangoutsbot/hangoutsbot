@@ -30,12 +30,12 @@ logger = logging.getLogger(__name__)
 reg_code_prefix = "VERIFY"
 
 
-ClientSession = aiohttp.ClientSession()
+client_session = None
 
 @asyncio.coroutine
 def convert_online_mp4_to_gif(source_url, fallback_url=False):
     """experimental utility function to convert telegram mp4s back into gifs"""
-    global ClientSession
+    global client_session
 
     config = _telesync_config(tg_bot.ho_bot)
 
@@ -52,7 +52,7 @@ def convert_online_mp4_to_gif(source_url, fallback_url=False):
         api_key = "gifs56d63999f0f34"
 
     # retrieve the source image
-    api_request = yield from ClientSession.get(source_url)
+    api_request = yield from client_session.get(source_url)
     raw_image = yield from api_request.read()
 
     # upload it to gifs.com for conversion
@@ -64,7 +64,7 @@ def convert_online_mp4_to_gif(source_url, fallback_url=False):
     data.add_field('file', raw_image)
     data.add_field('title', 'example.mp4')
 
-    response = yield from ClientSession.post(url, data=data, headers=headers)
+    response = yield from client_session.post(url, data=data, headers=headers)
     if response.status != 200:
         return fallback_url or source_url
 
@@ -1095,8 +1095,11 @@ def _initialise(bot):
         bot.memory.set_by_path(['profilesync'], {'ho2tg': {}, 'tg2ho': {}})
         bot.memory.save()
 
+    global client_session
     global tg_bot
     global tg_loop
+
+    client_session = aiohttp.ClientSession()
 
     tg_bot = TelegramBot(bot)
 
@@ -1127,9 +1130,13 @@ def _initialise(bot):
 
     plugins.register_handler(_on_membership_change, type="membership")
 
+@asyncio.coroutine
 def _finalise(bot):
+    global client_session
     global tg_bot
     global tg_loop
+    if client_session:
+        yield from client_session.close()
     if tg_bot:
         tg_bot.chatbridge.close()
     if tg_loop:
