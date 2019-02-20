@@ -184,10 +184,13 @@ class Slack(object):
         if not self._task:
             self._task = asyncio.ensure_future(self.loop())
 
+    @asyncio.coroutine
     def stop(self):
         if self._task:
             self._task.cancel()
             self._task = None
+        if self._sess:
+            yield from self._sess.close()
 
 
 class Identities(object):
