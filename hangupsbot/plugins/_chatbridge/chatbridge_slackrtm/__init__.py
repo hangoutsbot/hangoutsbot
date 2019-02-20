@@ -23,4 +23,5 @@ def _initialise(bot):
 def _finalise(bot):
     for slack in list(Base.slacks.values()):
         Base.remove_slack(slack)
+        slack.stop()
     Base.bot = None
