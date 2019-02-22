@@ -61,7 +61,7 @@ class CommandDispatcher(object):
             # probably convuser format - resolve conversation id first
             subtokens[0] = self.one_conv_id(subtokens[0], internal_context)
 
-        text = subtokens[-1][1:]
+        text = subtokens[-1][1:].lower()
 
         if text == "me":
             # current user chat_id

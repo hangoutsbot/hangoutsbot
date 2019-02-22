@@ -147,10 +147,7 @@ class BridgeInstance(WebFramework):
             try:
                 logger.debug("Attempt {} at downloading file".format(retry_count+1))
                 # Retrieve the image content from Slack.
-                resp = yield from Base.slacks[self.team].sess.get(msg.file,
-                                                                  headers={"Authorization": "Bearer {}".format(
-                                                                      Base.slacks[self.team].token)})
-                # logger.debug(resp)
+                resp = yield from Base.slacks[self.team].get(msg.file)
                 name_ext = "." + filename.rsplit(".", 1).pop().lower()
                 # Check the file extension matches the MIME type.
                 mime_type = resp.content_type
@@ -160,7 +157,6 @@ class BridgeInstance(WebFramework):
                                      " Attempt [{}/3]"
                                      .format(mime_type, name_ext, retry_count+1))
                 image = yield from resp.read()
-                # logger.debug(json.dumps(image))
                 image_id = yield from self.bot._client.upload_image(BytesIO(image), filename=filename)
                 yield from self._relay_msg(msg, conv_id, image_id)
                 break

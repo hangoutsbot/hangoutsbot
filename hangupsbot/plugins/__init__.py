@@ -505,15 +505,21 @@ def unload(bot, module_path):
         loop = asyncio.get_event_loop()
 
         # Look for an optional function finali[sz]e, akin to initiali[sz]e.
+        # May be a regular function or a coroutine, optionally taking the bot as an argument.
         public_functions = [o for o in getmembers(sys.modules[module_path], isfunction)]
         try:
             for function_name, the_function in public_functions:
                 if function_name in ("_finalise", "_finalize"):
                     argc = len(inspect.signature(the_function).parameters)
                     if argc == 0:
-                        the_function()
+                        args = ()
                     elif argc == 1:
-                        the_function(bot)
+                        args = (bot,)
+                    else:
+                        continue
+                    coro = the_function(*args)
+                    if asyncio.iscoroutinefunction(the_function):
+                        yield from coro
         except Exception as e:
             logger.exception("EXCEPTION during plugin deinit: {}".format(module_path))
 

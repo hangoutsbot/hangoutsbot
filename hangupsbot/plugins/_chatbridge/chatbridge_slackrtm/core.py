@@ -34,7 +34,6 @@ class Base(object):
 
     @classmethod
     def remove_slack(cls, slack):
-        slack.stop()
         for bridge in list(Base.bridges[slack.name]):
             Base.remove_bridge(bridge)
         del cls.idents[slack.name]
@@ -65,7 +64,6 @@ class Slack(object):
     def __init__(self, name, token):
         self.name = name
         self.token = token
-        self.sess = aiohttp.ClientSession()
         self.team = self.users = self.channels = self.directs = None
         # When we send messages asynchronously, we'll receive an RTM event before the HTTP request
         # returns. This lock will block event parsing whilst we're sending, to make sure the caller
@@ -74,11 +72,12 @@ class Slack(object):
         self.callbacks = []
         # Internal tracking of the RTM task, used to cancel on plugin unload.
         self._task = None
+        self._sess = aiohttp.ClientSession()
 
     @asyncio.coroutine
     def dm(self, user_id):
-        resp = yield from self.sess.post("https://slack.com/api/im.open",
-                                         data={"token": self.token, "user": user_id})
+        resp = yield from self._sess.post("https://slack.com/api/im.open",
+                                          data={"token": self.token, "user": user_id})
         json = yield from resp.json()
         if not json["ok"]:
             raise SlackAPIError(json["error"])
@@ -90,18 +89,23 @@ class Slack(object):
         with (yield from self.lock):
             # Block event processing whilst we wait for the message to go through. Processing will
             # resume once the caller yields or returns.
-            resp = yield from self.sess.post("https://slack.com/api/chat.postMessage",
-                                             data=dict(kwargs, token=self.token))
+            resp = yield from self._sess.post("https://slack.com/api/chat.postMessage",
+                                              data=dict(kwargs, token=self.token))
             json = yield from resp.json()
         if not json["ok"]:
             raise SlackAPIError(json["error"])
         return json
 
     @asyncio.coroutine
+    def get(self, url):
+        headers = {"Authorization": "Bearer {}".format(self.token)}
+        return (yield from self._sess.post(url, headers=headers))
+
+    @asyncio.coroutine
     def rtm(self):
         logger.debug("Requesting RTM session")
-        resp = yield from self.sess.post("https://slack.com/api/rtm.start",
-                                         data={"token": self.token})
+        resp = yield from self._sess.post("https://slack.com/api/rtm.start",
+                                          data={"token": self.token})
         json = yield from resp.json()
         if not json["ok"]:
             raise SlackAPIError(json["error"])
@@ -113,7 +117,7 @@ class Slack(object):
         logger.debug("Channels ({}): {}".format(len(self.channels), self.channels.keys()))
         self.directs = {c["id"]: c for c in json["ims"]}
         logger.debug("Directs ({}): {}".format(len(self.directs), self.directs.keys()))
-        sock = yield from self.sess.ws_connect(json["url"], heartbeat=30.0)
+        sock = yield from self._sess.ws_connect(json["url"], heartbeat=30.0)
         logger.debug("Connected to websocket")
         while True:
             event = yield from sock.receive_json()
@@ -180,10 +184,13 @@ class Slack(object):
         if not self._task:
             self._task = asyncio.ensure_future(self.loop())
 
+    @asyncio.coroutine
     def stop(self):
         if self._task:
             self._task.cancel()
             self._task = None
+        if self._sess:
+            yield from self._sess.close()
 
 
 class Identities(object):

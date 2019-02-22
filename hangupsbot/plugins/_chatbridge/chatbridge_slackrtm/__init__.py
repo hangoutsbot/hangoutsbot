@@ -1,3 +1,5 @@
+import asyncio
+
 import plugins
 
 from .bridge import BridgeInstance, on_membership_change
@@ -20,7 +22,9 @@ def _initialise(bot):
         slack.start()
     plugins.register_handler(on_membership_change, type="membership")
 
+@asyncio.coroutine
 def _finalise(bot):
     for slack in list(Base.slacks.values()):
         Base.remove_slack(slack)
+        yield from slack.stop()
     Base.bot = None
