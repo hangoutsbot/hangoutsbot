@@ -153,9 +153,8 @@ class BridgeInstance(WebFramework):
                 mime_type = resp.content_type
                 mime_exts = mimetypes.guess_all_extensions(mime_type)
                 if name_ext.lower() not in [ext.lower() for ext in mime_exts]:
-                    raise ValueError("MIME '{}' does not match extension '{}', we probably didn't get the right file." +
-                                     " Attempt [{}/3]"
-                                     .format(mime_type, name_ext, retry_count+1))
+                    raise ValueError(("MIME '{}' does not match extension '{}', we probably didn't get the right file."
+                                      " [Attempt {}/3]").format(mime_type, name_ext, retry_count + 1))
                 image = yield from resp.read()
                 image_id = yield from self.bot._client.upload_image(BytesIO(image), filename=filename)
                 yield from self._relay_msg(msg, conv_id, image_id)
