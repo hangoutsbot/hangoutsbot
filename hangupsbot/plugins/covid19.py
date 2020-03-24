@@ -9,7 +9,7 @@ def _initialise(bot):
     plugins.register_user_command(["covid19"])
     
 def covid19(bot, event, *args):
-    """reply to a ping"""
+    """Get covid-19 data"""
     try:   
         page = requests.get('https://coronavirus-19-api.herokuapp.com/all')
         pagearray = json.loads(page.text)
