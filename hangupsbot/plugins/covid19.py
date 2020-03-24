@@ -16,6 +16,6 @@ def covid19(bot, event, *args):
         deaths = str(pagearray["deaths"])
         html_text = "The COVID-19 outbreak has " + cases + " cases and " + deaths + "$
     except:
-        html_text = "Unable to get catfacts right now"
+        html_text = "Unable to get covid-19 data right now"
         logger.exception(html_text)
     yield from bot.coro_send_message(event.conv_id, html_text)
