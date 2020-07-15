@@ -157,6 +157,28 @@ def tagindexdump(bot, event, *args):
 
 
 @command.register(admin=True)
+def tagsconv(bot, event, *args):
+    """get tag assignments for conversation (default: current conversation). usage: tagsconv [here|<conv id>]"""
+    if len(args) == 1:
+        conv_id = args[0]
+    else:
+        conv_id = event.conv_id
+
+    if conv_id == "here":
+        conv_id = event.conv_id
+
+    active_conv_tags = bot.tags.convactive(conv_id)
+    if active_conv_tags:
+        message_taglist = ", ".join([ "<pre>{}</pre>".format(tag) for tag in active_conv_tags ])
+    else:
+        message_taglist = "<em>no tags returned</em>"
+
+    yield from bot.coro_send_message(event.conv_id,
+                                     "<b><pre>{}</pre></b>: {}".format(
+                                        conv_id, message_taglist))
+
+
+@command.register(admin=True)
 def tagsuser(bot, event, *args):
     """get tag assignments for a user in an (optional) conversation. usage: tagsuser <user id> [<conv id>]"""
     if len(args) == 1:

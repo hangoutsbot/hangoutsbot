@@ -156,11 +156,11 @@ def aiohttp_start(bot, name, port, certfile, RequestHandlerClass, group, callbac
     loop = asyncio.get_event_loop()
     server = loop.create_server(handler, name, port, ssl=sslcontext)
 
-    asyncio.async(server).add_done_callback(functools.partial( aiohttp_started,
-                                                               handler=handler,
-                                                               app=app,
-                                                               group=group,
-                                                               callback=callback ))
+    asyncio.ensure_future(server).add_done_callback(functools.partial( aiohttp_started,
+                                                                       handler=handler,
+                                                                       app=app,
+                                                                       group=group,
+                                                                       callback=callback ))
 
     tracking.register_aiohttp_web(group)
 
@@ -195,7 +195,7 @@ def aiohttp_terminate(groups):
         yield from handler.finish_connections(1.0)
         server.close()
         yield from server.wait_closed()
-        yield from app.finish()
+        yield from app.cleanup()
 
         logger.info("aiohttp: terminating {} {}".format(constructors[3], constructors))
         removed.append(constructors)

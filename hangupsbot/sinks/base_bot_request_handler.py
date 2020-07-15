@@ -41,7 +41,7 @@ class BaseBotRequestHandler(BaseHTTPRequestHandler):
 
         # process the payload
         try:
-            asyncio.async(
+            asyncio.ensure_future(
                 self.process_request(path, query_string, content)
             ).add_done_callback(lambda future: future.result())
 

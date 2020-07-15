@@ -3,7 +3,7 @@ import appdirs, argparse, asyncio, gettext, logging, logging.config, os, shutil,
 
 import hangups
 
-from hangups.schemas import OffTheRecordStatus
+import hangups_shim
 
 import config
 import handlers
@@ -37,6 +37,8 @@ class HangupsBot(object):
         self.Exceptions = HangupsBotExceptions()
 
         self.shared = {} # safe place to store references to objects
+
+        self.bridges = {} # WebFramework will register bridges here by uid
 
         self._client = None
         self._cookies_path = cookies_path
@@ -163,23 +165,22 @@ class HangupsBot(object):
 
                     loop.run_until_complete(self._client.connect())
 
+                except SystemExit:
                     logger.info("bot is exiting")
+                    raise
 
+                except:                             # pylint:disable=bare-except
+                    logger.exception("CLIENT: unrecoverable low-level error")
+                finally:
                     loop.run_until_complete(plugins.unload_all(self))
 
                     self.memory.flush()
                     self.config.flush()
 
-                    sys.exit(0)
-                except Exception as e:
-                    logger.exception("CLIENT: unrecoverable low-level error")
-                    print('Client unexpectedly disconnected:\n{}'.format(e))
-
-                    loop.run_until_complete(plugins.unload_all(self))
-
-                    logger.info('Waiting {} seconds...'.format(5 + retry * 5))
-                    time.sleep(5 + retry * 5)
-                    logger.info('Trying to connect again (try {} of {})...'.format(retry + 1, self._max_retries))
+                logger.info('Waiting %s seconds...', 5 + retry * 5)
+                time.sleep(5 + retry * 5)
+                logger.info('Trying to connect again (try %s of %s)...',
+                            retry + 1, self._max_retries)
 
             logger.error('Maximum number of retries reached! Exiting...')
 
@@ -189,9 +190,9 @@ class HangupsBot(object):
 
     def stop(self):
         """Disconnect from Hangouts"""
-        asyncio.async(
-            self._client.disconnect()
-        ).add_done_callback(lambda future: future.result())
+        waiter = asyncio.ensure_future(self._client.disconnect())
+        waiter.add_done_callback(lambda future: future.result())
+        waiter.add_done_callback(lambda x: sys.exit(0))
 
 
     def send_message(self, conversation, text, context=None, image_id=None):
@@ -202,7 +203,7 @@ class HangupsBot(object):
             # replicate old behaviour (no html/markdown parsing) if no new features are used
             context["parser"] = False
 
-        asyncio.async(
+        asyncio.ensure_future(
             self.coro_send_message( conversation,
                                     text,
                                     context=context,
@@ -216,7 +217,7 @@ class HangupsBot(object):
 
         segments = simple_parse_to_segments(html)
 
-        asyncio.async(
+        asyncio.ensure_future(
             self.coro_send_message( conversation,
                                     segments,
                                     context=context,
@@ -228,7 +229,7 @@ class HangupsBot(object):
         logger.debug(  '[DEPRECATED]: yield from bot.coro_send_message()'
                         ' instead of send_message_segments()')
 
-        asyncio.async(
+        asyncio.ensure_future(
             self.coro_send_message( conversation,
                                     segments,
                                     context=context,
@@ -289,6 +290,7 @@ class HangupsBot(object):
         if not hangups_user:
             try:
                 hangups_user = self._user_list._user_dict[UserID]
+                hangups_user.definitionsource = "hangups"
             except KeyError as e:
                 pass
 
@@ -298,12 +300,13 @@ class HangupsBot(object):
                 _cached = self.memory.get_by_path(["user_data", chat_id, "_hangups"])
 
                 hangups_user = hangups.user.User(
-                    UserID, 
+                    UserID,
                     _cached["full_name"],
                     _cached["first_name"],
                     _cached["photo_url"],
                     _cached["emails"],
                     _cached["is_self"] )
+                hangups_user.definitionsource = "permamem"
 
         """if all else fails, create an "unknown" user"""
         if not hangups_user:
@@ -314,6 +317,7 @@ class HangupsBot(object):
                 None,
                 [],
                 False )
+            hangups_user.definitionsource = False
 
         return hangups_user
 
@@ -396,7 +400,7 @@ class HangupsBot(object):
 
         if self.memory.exists(["user_data", chat_id, "1on1"]):
             conversation_id = self.memory.get_by_path(["user_data", chat_id, "1on1"])
-            conversation = FakeConversation(self._client, conversation_id)
+            conversation = FakeConversation(self, conversation_id)
             logger.info(_("memory: {} is 1on1 with {}").format(conversation_id, chat_id))
         else:
             for c in self.list_conversations():
@@ -416,7 +420,7 @@ class HangupsBot(object):
 
 
     @asyncio.coroutine
-    def get_1to1(self, chat_id):
+    def get_1to1(self, chat_id, context=None):
         """find/create a 1-to-1 conversation with specified user
         config.autocreate-1to1 = false to revert to legacy behaviour of finding existing 1-to-1
         config.bot_introduction = "some text or html" to show to users when a new conversation
@@ -424,7 +428,13 @@ class HangupsBot(object):
         """
 
         if self.memory.exists(["user_data", chat_id, "optout"]):
-            if self.memory.get_by_path(["user_data", chat_id, "optout"]):
+            optout = self.memory.get_by_path(["user_data", chat_id, "optout"])
+            if( isinstance(optout, list)
+                    and context and 'initiator_convid' in context
+                    and context['initiator_convid'] in optout ):
+                logger.info("get_1on1: user {} has optout for {}".format(chat_id, context['initiator_convid']))
+                return False
+            elif isinstance(optout, bool) and optout:
                 logger.info("get_1on1: user {} has optout".format(chat_id))
                 return False
 
@@ -436,7 +446,7 @@ class HangupsBot(object):
 
         if self.memory.exists(["user_data", chat_id, "1on1"]):
             conversation_id = self.memory.get_by_path(["user_data", chat_id, "1on1"])
-            conversation = FakeConversation(self._client, conversation_id)
+            conversation = FakeConversation(self, conversation_id)
             logger.info("get_1on1: remembered {} for {}".format(conversation_id, chat_id))
         else:
             autocreate_1to1 = True if self.get_config_option('autocreate-1to1') is not False else False
@@ -452,10 +462,19 @@ class HangupsBot(object):
                                         "messages and alerts. "
                                         "For help, type <b>{0} help</b>. "
                                         "To keep me quiet, reply with <b>{0} optout</b>.</i>").format(self._handlers.bot_command[0])
-                    response = yield from self._client.createconversation([chat_id])
-                    new_conversation_id = response['conversation']['id']['id']
+
+                    request = hangups.hangouts_pb2.CreateConversationRequest(
+                        request_header = self._client.get_request_header(),
+                        type = hangups.hangouts_pb2.CONVERSATION_TYPE_ONE_TO_ONE,
+                        client_generated_id = self._client.get_client_generated_id(),
+                        invitee_id = [ hangups.hangouts_pb2.InviteeID(gaia_id=chat_id) ])
+
+                    response = yield from self._client.create_conversation(request)
+
+                    new_conversation_id = response.conversation.conversation_id.id
+
                     yield from self.coro_send_message(new_conversation_id, introduction)
-                    conversation = FakeConversation(self._client, new_conversation_id)
+                    conversation = FakeConversation(self, new_conversation_id)
                 except Exception as e:
                     logger.exception("GET_1TO1: failed to create 1-to-1 for user {}".format(chat_id))
             else:
@@ -479,6 +498,21 @@ class HangupsBot(object):
                 self.memory.save()
 
         return conversation
+
+    @asyncio.coroutine
+    def send_to_bridged_1to1(self, user_id, bridge_id, message):
+        if bridge_id is None or bridge_id in self.conversations.catalog:
+            # Bridge ID is in fact a hangout, defer to existing handling.
+            conv = yield from self.get_1to1(user_id)
+            yield from self.coro_send_message(conv.id_, message)
+        elif bridge_id in self.bridges:
+            # Defer to the bridge to handle sending this message.
+            bridge = self.bridges[bridge_id]
+            # Strip formatting -- we don't know what format the external side is expecting.
+            # Turn it into segments and just keep the plain text.
+            segments = simple_parse_to_segments(message)
+            message = "".join(segment.text for segment in segments)
+            yield from bridge.send_to_external_1to1(user_id, message)
 
 
     def initialise_memory(self, chat_id, datatype):
@@ -507,7 +541,7 @@ class HangupsBot(object):
         return self.messagecontext("unknown", 50, ["legacy"])
 
     @asyncio.coroutine
-    def _on_connect(self, initial_data):
+    def _on_connect(self):
         """handle connection/reconnection"""
 
         logger.debug("connected")
@@ -520,15 +554,17 @@ class HangupsBot(object):
         self._handlers = handlers.EventHandler(self)
         handlers.handler.set_bot(self) # shim for handler decorator
 
-        plugins.load(self, "monkeypatch.otr_support")
+        """
+        monkeypatch plugins go heere
+        # plugins.load(self, "monkeypatch.something")
+        use only in extreme circumstances e.g. adding new functionality into hangups library
+        """
 
-        self._user_list = yield from hangups.user.build_user_list(self._client,
-                                                                  initial_data)
+        #self._user_list = yield from hangups.user.build_user_list(self._client)
 
-        self._conv_list = hangups.ConversationList(self._client,
-                                                   initial_data.conversation_states,
-                                                   self._user_list,
-                                                   initial_data.sync_timestamp)
+        self._user_list, self._conv_list = (
+            yield from hangups.build_user_conversation_list(self._client)
+        )
 
         self.conversations = yield from permamem.initialise_permanent_memory(self)
 
@@ -547,19 +583,25 @@ class HangupsBot(object):
 
 
     def _on_status_changes(self, state_update):
-        if state_update.typing_notification is not None:
-            asyncio.async(
+        notification_type = state_update.WhichOneof('state_update')
+        if notification_type == 'typing_notification':
+            asyncio.ensure_future(
                 self._handlers.handle_typing_notification(
                     TypingEvent(self, state_update.typing_notification)
                 )
             ).add_done_callback(lambda future: future.result())
-
-        if state_update.watermark_notification is not None:
-            asyncio.async(
+        elif notification_type == 'watermark_notification':
+            asyncio.ensure_future(
                 self._handlers.handle_watermark_notification(
                     WatermarkEvent(self, state_update.watermark_notification)
                 )
             ).add_done_callback(lambda future: future.result())
+        elif notification_type == 'event_notification':
+            """
+            XXX: Unsupported State Updates (state_update):
+            re: https://github.com/tdryer/hangups/blob/9a27ecd0cbfd94acf8959e89c52ac3250c920a1f/hangups/hangouts.proto#L1034
+            """
+            pass
 
 
     @asyncio.coroutine
@@ -581,34 +623,49 @@ class HangupsBot(object):
 
         event = ConversationEvent(self, conv_event)
 
-        yield from self.conversations.update(self._conv_list.get(conv_event.conversation_id), 
+        yield from self.conversations.update(self._conv_list.get(conv_event.conversation_id),
                                              source="event")
 
         if isinstance(conv_event, hangups.ChatMessageEvent):
             self._execute_hook("on_chat_message", event)
-            asyncio.async(
+            asyncio.ensure_future(
                 self._handlers.handle_chat_message(event)
             ).add_done_callback(lambda future: future.result())
 
         elif isinstance(conv_event, hangups.MembershipChangeEvent):
             self._execute_hook("on_membership_change", event)
-            asyncio.async(
+            asyncio.ensure_future(
                 self._handlers.handle_chat_membership(event)
             ).add_done_callback(lambda future: future.result())
 
         elif isinstance(conv_event, hangups.RenameEvent):
             self._execute_hook("on_rename", event)
-            asyncio.async(
+            asyncio.ensure_future(
                 self._handlers.handle_chat_rename(event)
             ).add_done_callback(lambda future: future.result())
 
-        elif type(conv_event) is hangups.conversation_event.ConversationEvent:
-            if conv_event._event.hangout_event:
-                asyncio.async(
-                    self._handlers.handle_call(event)
-                ).add_done_callback(lambda future: future.result())
+        elif isinstance(conv_event, hangups.GroupLinkSharingModificationEvent):
+            asyncio.ensure_future(
+                self._handlers.handle_chat_link_share(event)
+            ).add_done_callback(lambda future: future.result())
+
+        elif isinstance(conv_event, hangups.OTREvent):
+            asyncio.ensure_future(
+                self._handlers.handle_chat_history(event)
+            ).add_done_callback(lambda future: future.result())
+
+        elif type(conv_event) is hangups.conversation_event.HangoutEvent:
+            asyncio.ensure_future(
+                self._handlers.handle_call(event)
+            ).add_done_callback(lambda future: future.result())
 
         else:
+            """
+            XXX: Unsupported Events:
+            * GroupLinkSharingModificationEvent
+            re: https://github.com/tdryer/hangups/blob/master/hangups/conversation_event.py
+            """
+
             logger.warning("_on_event(): unrecognised event type: {}".format(type(conv_event)))
 
 
@@ -680,6 +737,9 @@ class HangupsBot(object):
         if not context:
             context = {}
 
+        if "passthru" not in context:
+            context['passthru'] = {}
+
         if "base" not in context:
             # default legacy context
             context["base"] = self._messagecontext_legacy()
@@ -693,38 +753,7 @@ class HangupsBot(object):
         else:
             raise ValueError('could not identify conversation id')
 
-        # parse message strings to segments
-
-        if message is None:
-            segments = []
-        elif "parser" in context and context["parser"] is False and isinstance(message, str):
-            segments = [hangups.ChatMessageSegment(message)]
-        elif isinstance(message, str):
-            segments = simple_parse_to_segments(message)
-        elif isinstance(message, list):
-            segments = message
-        else:
-            raise TypeError("unknown message type supplied")
-
-        # determine OTR status
-
-        if "history" not in context:
-            context["history"] = True
-            try:
-                context["history"] = self.conversations.catalog[conversation_id]["history"]
-
-            except KeyError:
-                # rare scenario where a conversation was not refreshed
-                # once the initial message goes through, convmem will be updated
-                logger.warning("CORO_SEND_MESSAGE(): could not determine otr for {}".format(
-                    conversation_id))
-
-        if context["history"]:
-            otr_status = OffTheRecordStatus.ON_THE_RECORD
-        else:
-            otr_status = OffTheRecordStatus.OFF_THE_RECORD
-
-        broadcast_list = [(conversation_id, segments)]
+        broadcast_list = [(conversation_id, message, image_id)]
 
         # run any sending handlers
 
@@ -745,12 +774,12 @@ class HangupsBot(object):
 
             # send messages using FakeConversation as a workaround
 
-            _fc = FakeConversation(self._client, response[0])
+            _fc = FakeConversation(self, response[0])
 
             try:
                 yield from _fc.send_message( response[1],
-                                             image_id=image_id,
-                                             otr_status=otr_status )
+                                             image_id = response[2],
+                                             context = context )
             except hangups.NetworkError as e:
                 logger.exception("CORO_SEND_MESSAGE: error sending {}".format(response[0]))
 
@@ -834,6 +863,101 @@ class HangupsBot(object):
 
         if public_message:
             yield from self.coro_send_message(conv_id, public_message, context=context)
+
+
+    @asyncio.coroutine
+    def add_user(self, chat_id, *user_ids):
+        """Add one or more users to this conversation.
+        Args:
+            user_ids (str...): IDs of the new users.
+        Raises:
+            TypeError: If conversation is not a group.
+            NetworkError: If conversation cannot be invited to.
+        """
+        conv = self._conv_list.get(chat_id)
+        if not conv._conversation.type == hangups.hangouts_pb2.CONVERSATION_TYPE_GROUP:
+            raise TypeError('Conversation is not a group')
+        try:
+            yield from self._client.add_user(
+                hangups.hangouts_pb2.AddUserRequest(
+                    request_header=self._client.get_request_header(),
+                    event_request_header=conv._get_event_request_header(),
+                    invitee_id=[hangups.hangouts_pb2.InviteeID(gaia_id=user_id)
+                                for user_id in user_ids],
+                )
+            )
+        except exceptions.NetworkError as e:
+            logger.warning('Failed to add user: {}'.format(e))
+            raise
+
+
+    @asyncio.coroutine
+    def remove_user(self, chat_id, user_id):
+        """Remove a user from this conversation.
+        Args:
+            user_id (str): ID of the existing user.
+        Raises:
+            TypeError: If conversation is not a group.
+            NetworkError: If conversation cannot be removed from.
+        """
+        conv = self._conv_list.get(chat_id)
+        if not conv._conversation.type == hangups.hangouts_pb2.CONVERSATION_TYPE_GROUP:
+            raise TypeError('Conversation is not a group')
+        try:
+            yield from self._client.remove_user(
+                hangups.hangouts_pb2.RemoveUserRequest(
+                    request_header=self._client.get_request_header(),
+                    event_request_header=conv._get_event_request_header(),
+                    participant_id=hangups.hangouts_pb2.ParticipantId(gaia_id=user_id),
+                )
+            )
+        except exceptions.NetworkError as e:
+            logger.warning('Failed to remove user: {}'.format(e))
+            raise
+
+
+    @asyncio.coroutine
+    def set_group_link_sharing_enabled(self, chat_id, joins=hangups.hangouts_pb2.GROUP_LINK_SHARING_STATUS_ON):
+        """Set the OTR mode of this conversation.
+
+        Args:
+            chat_id: conversation ID
+            otr: ``GROUP_LINK_SHARING_STATUS_ON`` to enable link joins,
+                or ``GROUP_LINK_SHARING_STATUS_OFF`` enable them.
+
+        Raises:
+            NetworkError: If the request fails.
+        """
+        conv = self._conv_list.get(chat_id)
+        yield from self._client.set_group_link_sharing_enabled(
+            hangups.hangouts_pb2.SetGroupLinkSharingEnabledRequest(
+                request_header=self._client.get_request_header(),
+                event_request_header=conv._get_event_request_header(),
+                group_link_sharing_status=joins,
+            )
+        )
+
+
+    @asyncio.coroutine
+    def modify_otr_status(self, chat_id, otr=hangups.hangouts_pb2.OFF_THE_RECORD_STATUS_OFF_THE_RECORD):
+        """Set the OTR mode of this conversation.
+
+        Args:
+            chat_id: conversation ID
+            otr: ``OFF_THE_RECORD_STATUS_OFF_THE_RECORD`` to disable history,
+                or ``OFF_THE_RECORD_STATUS_ON_THE_RECORD`` enable it.
+
+        Raises:
+            NetworkError: If the request fails.
+        """
+        conv = self._conv_list.get(chat_id)
+        yield from self._client.modify_otr_status(
+            hangups.hangouts_pb2.ModifyOTRStatusRequest(
+                request_header=self._client.get_request_header(),
+                otr_status=otr,
+                event_request_header=conv._get_event_request_header(),
+            )
+        )
 
 
     def user_self(self):
@@ -969,7 +1093,7 @@ def main():
                         help=_('show program\'s version number and exit'))
     args = parser.parse_args()
 
-    
+
 
     # Create all necessary directories.
     for path in [args.log, args.cookies, args.config, args.memory]:

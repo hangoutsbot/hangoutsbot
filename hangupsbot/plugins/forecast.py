@@ -1,3 +1,4 @@
+# coding: utf-8
 """
 Use DarkSky.net to get current weather forecast for a given location.
 

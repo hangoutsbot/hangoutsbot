@@ -2,6 +2,7 @@ import logging
 import shlex
 import asyncio
 import inspect
+import time
 import uuid
 
 import hangups
@@ -23,11 +24,18 @@ class EventHandler:
         self._prefix_reprocessor = "uuid://"
         self._reprocessors = {}
 
+        self._passthrus = {}
+        self._contexts = {}
+        self._image_ids = {}
+        self._executables = {}
+
         self.pluggables = { "allmessages": [],
                             "call": [],
                             "membership": [],
                             "message": [],
                             "rename": [],
+                            "linkshare": [],
+                            "history": [],
                             "sending":[],
                             "typing": [],
                             "watermark": [] }
@@ -36,24 +44,99 @@ class EventHandler:
                              self.attach_reprocessor,
                              forgiving=True )
 
+        bot.register_shared( 'chatbridge.behaviours',
+                             {},
+                             forgiving=True )
 
-    def register_handler(self, function, type="message", priority=50):
-        """registers extra event handlers"""
-        if type in ["allmessages", "call", "membership", "message", "rename", "typing", "watermark"]:
+    def register_handler(self, function, type="message", priority=50, extra_metadata=None):
+        """
+        register hangouts event handler
+        * extra_metadata is function-specific, and will be added along with standard plugin-defined metadata
+        * depending on event type, may perform transparent conversion of function into coroutine for convenience
+          * reference to original function is stored as part of handler metadata
+        * returns actual handler that will be used
+        """
+
+        extra_metadata = extra_metadata or {}
+        extra_metadata["function.original"] = function
+
+        # determine the actual handler function that will be registered
+        _handler = function
+        if type in ["allmessages", "call", "membership", "message", "rename", "linkshare", "history", "typing", "watermark"]:
             if not asyncio.iscoroutine(function):
-                # transparently convert into coroutine
-                function = asyncio.coroutine(function)
+                _handler = asyncio.coroutine(_handler)
         elif type in ["sending"]:
-            if asyncio.iscoroutine(function):
+            if asyncio.iscoroutine(_handler):
                 raise RuntimeError("{} handler cannot be a coroutine".format(type))
         else:
             raise ValueError("unknown event type for handler: {}".format(type))
 
         current_plugin = plugins.tracking.current()
-        self.pluggables[type].append((function, priority, current_plugin["metadata"]))
+
+        # build handler-specific metadata
+        _metadata = {}
+        if current_plugin["metadata"] is None:
+            # late registration - after plugins.tracking.end(), metadata key is reset to None
+            _metadata = extra_metadata
+        else:
+            _metadata.update(current_plugin["metadata"])
+            _metadata.update(extra_metadata)
+
+        if not _metadata.get("module"):
+            raise ValueError("module not defined")
+        if not _metadata.get("module.path"):
+            raise ValueError("module.path not defined")
+
+        self.pluggables[type].append((_handler, priority, _metadata))
         self.pluggables[type].sort(key=lambda tup: tup[1])
 
-        plugins.tracking.register_handler(function, type, priority)
+        plugins.tracking.register_handler(_handler, type, priority, module_path=_metadata["module.path"])
+
+        return _handler
+
+    def deregister_handler(self, function, type=None, strict=True):
+        """
+        deregister a handler and stop processing it on events
+        * also removes it from plugins.tracking
+        * highly recommended to supply type (e.g. "sending", "message", etc) for optimisation
+        """
+
+        if type is None:
+            type = list(self.pluggables.keys())
+        elif isinstance(type, str):
+            type = [ type ]
+        elif isinstance(type, list):
+            pass
+        else:
+            raise TypeError("invalid type {}".format(repr(type)))
+
+        for t in type:
+            if t not in self.pluggables and strict is True:
+                raise ValueError("type {} does not exist".format(t))
+            for h in self.pluggables[t]:
+                # match by either a wrapped coroutine or original source function
+                if h[0] == function or h[2]["function.original"] == function:
+                    # remove from tracking
+                    plugins.tracking.deregister_handler(h[0], module_path=h[2]["module.path"])
+
+                    # remove from being processed
+                    logger.debug("deregister {} handler {}".format(t, h))
+                    self.pluggables[t].remove(h)
+
+                    return # remove first encountered only
+
+        if strict:
+            raise ValueError("{} handler(s) {}".format(type, function))
+
+    def register_passthru(self, variable):
+        _id = str(uuid.uuid4())
+        self._passthrus[_id] = variable
+        return _id
+
+    def register_context(self, variable):
+        _id = str(uuid.uuid4())
+        self._contexts[_id] = variable
+        return _id
 
     def register_reprocessor(self, callable):
         _id = str(uuid.uuid4())
@@ -106,6 +189,23 @@ class EventHandler:
     """handler core"""
 
     @asyncio.coroutine
+    def image_uri_from(self, image_id, callback, *args, **kwargs):
+        """XXX: there isn't a direct way to resolve an image_id to the public url without
+        posting it first via the api. other plugins and functions can establish a short-lived
+        task to wait for the image id to be posted, and retrieve the url in an asyncronous way"""
+
+        ticks = 0
+        while True:
+            if image_id not in self._image_ids:
+                yield from asyncio.sleep(1)
+                ticks = ticks + 1
+                if ticks > 60:
+                    return False
+            else:
+                yield from callback(self._image_ids[image_id], *args, **kwargs)
+                return True
+
+    @asyncio.coroutine
     def run_reprocessor(self, id, event, *args, **kwargs):
         if id in self._reprocessors:
             is_coroutine = asyncio.iscoroutinefunction(self._reprocessors[id])
@@ -125,7 +225,23 @@ class EventHandler:
             else:
                 event.from_bot = False
 
-            """reprocessor - process event with hidden context from handler.attach_reprocessor()"""
+            """EventAnnotation - allows metadata to survive a trip to Google"""
+
+            event.passthru = {}
+            event.context = {}
+            for annotation in event.conv_event._event.chat_message.annotation:
+                if annotation.type == 1025:
+                    # reprocessor - process event with hidden context from handler.attach_reprocessor()
+                    yield from self.run_reprocessor(annotation.value, event)
+                elif annotation.type == 1026:
+                    if annotation.value in self._passthrus:
+                        event.passthru = self._passthrus[annotation.value]
+                        del self._passthrus[annotation.value]
+                elif annotation.type == 1027:
+                    if annotation.value in self._contexts:
+                        event.context = self._contexts[annotation.value]
+                        del self._contexts[annotation.value]
+
             if len(event.conv_event.segments) > 0:
                 for segment in event.conv_event.segments:
                     if segment.link_target:
@@ -134,12 +250,42 @@ class EventHandler:
                             yield from self.run_reprocessor(_id, event)
 
             """auto opt-in - opted-out users who chat with the bot will be opted-in again"""
-            if self.bot.conversations.catalog[event.conv_id]["type"] == "ONE_TO_ONE":
+            if not event.from_bot and self.bot.conversations.catalog[event.conv_id]["type"] == "ONE_TO_ONE":
                 if self.bot.memory.exists(["user_data", event.user.id_.chat_id, "optout"]):
-                    if self.bot.memory.get_by_path(["user_data", event.user.id_.chat_id, "optout"]):
+                    optout = self.bot.memory.get_by_path(["user_data", event.user.id_.chat_id, "optout"])
+                    if isinstance(optout, bool) and optout:
                         yield from command.run(self.bot, event, *["optout"])
                         logger.info("auto opt-in for {}".format(event.user.id_.chat_id))
                         return
+
+            """map image ids to their public uris in absence of any fixed server api
+               XXX: small memory leak over time as each id gets cached indefinitely"""
+
+            if( event.passthru
+                    and "original_request" in event.passthru
+                    and "image_id" in event.passthru["original_request"]
+                    and event.passthru["original_request"]["image_id"]
+                    and len(event.conv_event.attachments) == 1 ):
+
+                _image_id = event.passthru["original_request"]["image_id"]
+                _image_uri = event.conv_event.attachments[0]
+
+                if _image_id not in self._image_ids:
+                    self._image_ids[_image_id] = _image_uri
+                    logger.info("associating image_id={} with {}".format(_image_id, _image_uri))
+
+            """first occurence of an actual executable id needs to be handled as an event
+               XXX: small memory leak over time as each id gets cached indefinitely"""
+
+            if( event.passthru and "executable" in event.passthru and event.passthru["executable"] ):
+                if event.passthru["executable"] not in self._executables:
+                    original_message = event.passthru["original_request"]["message"]
+                    linked_hangups_user = event.passthru["original_request"]["user"]
+                    logger.info("current event is executable: {}".format(original_message))
+                    self._executables[event.passthru["executable"]] = time.time()
+                    event.from_bot = False
+                    event.text = original_message
+                    event.user = linked_hangups_user
 
             yield from self.run_pluggable_omnibus("allmessages", self.bot, event, command)
             if not event.from_bot:
@@ -184,8 +330,8 @@ class EventHandler:
 
         # Test if command length is sufficient
         if len(line_args) < 2:
-            config_silent = bot.get_config_suboption(event.conv.id_, 'silentmode')
-            tagged_silent = "silent" in bot.tags.useractive(event.user_id.chat_id, event.conv.id_)
+            config_silent = self.bot.get_config_suboption(event.conv.id_, 'silentmode')
+            tagged_silent = "silent" in self.bot.tags.useractive(event.user_id.chat_id, event.conv.id_)
             if not (config_silent or tagged_silent):
                 yield from self.bot.coro_send_message(event.conv, _('{}: Missing parameter(s)').format(
                     event.user.full_name))
@@ -223,18 +369,28 @@ class EventHandler:
         yield from self.run_pluggable_omnibus("rename", self.bot, event, command)
 
     @asyncio.coroutine
+    def handle_chat_link_share(self, event):
+        """handle conversation link join status change"""
+        yield from self.run_pluggable_omnibus("linkshare", self.bot, event, command)
+
+    @asyncio.coroutine
+    def handle_chat_history(self, event):
+        """handle conversation OTR status change"""
+        yield from self.run_pluggable_omnibus("history", self.bot, event, command)
+
+    @asyncio.coroutine
     def handle_call(self, event):
-        """handle conversation name change"""
+        """handle incoming calls (voice/video)"""
         yield from self.run_pluggable_omnibus("call", self.bot, event, command)
 
     @asyncio.coroutine
     def handle_typing_notification(self, event):
-        """handle conversation name change"""
+        """handle changes in typing state"""
         yield from self.run_pluggable_omnibus("typing", self.bot, event, command)
 
     @asyncio.coroutine
     def handle_watermark_notification(self, event):
-        """handle conversation name change"""
+        """handle watermark updates"""
         yield from self.run_pluggable_omnibus("watermark", self.bot, event, command)
 
     @asyncio.coroutine
@@ -303,6 +459,10 @@ class HandlerBridge:
             event_type = "membership"
         elif event is hangups.RenameEvent:
             event_type = "rename"
+        elif event is hangups.GroupLinkSharingModificationEvent:
+            event_type = "linkshare"
+        elif event is hangups.OTREvent:
+            event_type = "history"
         elif type(event) is str:
             event_type = str # accept all kinds of strings, just like register_handler
         else:

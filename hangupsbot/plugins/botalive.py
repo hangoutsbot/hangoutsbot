@@ -171,5 +171,10 @@ def _conv_watermark_now(bot, conv_id):
     devnote: this is a direct-to-hangups call, and should remain separate for migration between library versions"""
 
     now = datetime.datetime.now()
-    yield from bot._client.updatewatermark(conv_id, now)
+    yield from bot._client.update_watermark(
+        hangups.hangouts_pb2.UpdateWatermarkRequest(
+            request_header = bot._client.get_request_header(),
+            conversation_id = hangups.hangouts_pb2.ConversationId(
+                id = conv_id ),
+            last_read_timestamp = int(now.strftime("%s")) * 1000000 ))
     return now.timestamp()

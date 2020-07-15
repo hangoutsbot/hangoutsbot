@@ -1,6 +1,7 @@
+# coding: utf-8
 import importlib, logging, unicodedata
 
-import hangups
+import hangups_shim as hangups
 
 from parsers import simple_parse_to_segments, segment_to_html
 
@@ -47,3 +48,10 @@ def class_from_name(module_name, class_name):
     # get the class, will raise AttributeError if class cannot be found
     c = getattr(m, class_name)
     return c
+
+def event_to_user_bridge(event):
+    if "chatbridge" in event.passthru:
+        bridged = event.passthru["chatbridge"]
+        return (bridged["source_uid"], bridged["source_gid"])
+    else:
+        return (event.user_id.chat_id, None)
