@@ -1,24 +1,27 @@
 # BOT DEPENDENCIES #
-git+https://github.com/hangoutsbot/hangups.git
+
 appdirs
 asyncio
-aiohttp>=1.0,<1.1
-jsonrpclib-pelix
+aiohttp>=3.3,<4
+hangups>=0.4.7
+ReParser==1.4.3
 
 # PLUGIN DEPENDENCIES #
-beautifulsoup4
-pushbullet.py # mentions
-goslate # translations
-wikipedia
-wolframalpha
-git+https://github.com/loisaidasam/pyslack.git # slack
-git+https://github.com/carpedm20/emoji
-selenium # screenshots
-google-api-python-client # for spotify
-spotipy
-slackclient >=0.16 # slackrtm (includes websockets)
-textblob
-python_dateutil # gitlab sink
-telepot == 7.1 # telegram sync, newer versions doesn't support Python3.4.1
-discord.py
-cleverwrap # cleverbot
+
+python_dateutil             # sinks: gitlab
+pushbullet.py               # plugins: mentions
+goslate                     # plugins: simplytranslate, syncrooms_autotranslate
+textblob                    # plugins: simplytranslate, syncrooms_autotranslate
+wikipedia                   # plugins: simplewikipedia
+wolframalpha                # plugins: wolframalpha
+emoji>=0.5.0                # plugins: slack, slackrtm
+pyslack-real>=0.5.2         # plugins: slack
+slackclient >=0.16          # plugins: slackrtm
+selenium                    # plugins: image_screenshot
+telepot>=11.0               # plugins: telesync
+cleverwrap                  # plugins: cleverbot
+TwitterAPI                  # plugins: twitter
+google-api-python-client    # plugins: spotify
+spotipy                     # plugins: spotify
+soundcloud                  # plugins: spotify
+discord.py                  # plugins: discord

@@ -61,11 +61,13 @@ def on_message(message):
     already_seen_discord_messages.append(message.id)
     global sending
     if 'whereami' in message.content:
-        yield from client.send_message(message.channel, message.channel.id)
+        yield from message.channel.send(message.channel.id)
     logger.debug("message in discord channel {} - {}, {}".format(message.channel.id, message.system_content, message.type))
     conv_config = _bot.config.get_by_path(["conversations"])
     for conv_id, config in conv_config.items():
-        if config.get("discord_sync") == message.channel.id:
+        discord_channel = config.get("discord_sync")
+        logger.debug(discord_channel)
+        if discord_channel and int(discord_channel) == message.channel.id:
             msg = "<b>{}</b>: {}".format(message.author.display_name, message.clean_content)
             if conv_id not in sending:
               sending[conv_id] = 0
@@ -81,6 +83,11 @@ def on_message(message):
               image_id = yield from _bot._client.upload_image(image_data, filename=a['filename'])
               yield from _bot.coro_send_message(conv_id, None, image_id=image_id, context={'discord': True})
 
+@asyncio.coroutine
+def main_task(token):
+    yield from client.login(token)
+    yield from client.connect()
+
 def _initialise(bot):
     global _bot
     _bot = bot
@@ -92,18 +99,13 @@ def _initialise(bot):
     plugins.register_handler(_handle_hangout_message, type="allmessages")
     plugins.register_admin_command(['dsync'])
 
-    try:
-        client.run(token)
-    except RuntimeError:
-        # client.run will try start an event loop, however this will fail as hangoutsbot will have already started one
-        # this isn't anything to worry about
-        pass
+    asyncio.ensure_future(main_task(token))
 
 def _handle_hangout_message(bot, event, command):
     global sending
     discord_channel = bot.get_config_suboption(event.conv_id, "discord_sync")
     if discord_channel:
-        channel = client.get_channel(discord_channel)
+        channel = client.get_channel(int(discord_channel))
         if channel:
             if sending.get(event.conv_id) and ':' in event.text:
                 # this hangout message originated in discord
@@ -118,7 +120,7 @@ def _handle_hangout_message(bot, event, command):
                 yield from plugins.mentions._handle_mention(bot, fake_event, command)
             else:
                 if event.from_bot:
-                    yield from client.send_message(channel, event.text)
+                    yield from channel.send(event.text)
                 else:
                     fullname = event.user.full_name
                     mentions = dict([(word.strip('@'),set()) for word in set(event.text.split()) if word.startswith('@') and word != '@all'])
@@ -133,12 +135,13 @@ def _handle_hangout_message(bot, event, command):
                         msg = msg.replace('@' + m, '<@{}>'.format(mentions[m].pop()))
                     msg = msg.replace('@all', '@everyone')
                     msg = "**{}**: {}".format(fullname, msg)
-                    yield from client.send_message(channel, msg)
+                    yield from channel.send(msg)
         else:
             logger.debug('channel {} not found'.format(discord_channel))
 
 def dsync(bot, event, discord_channel=None):
     ''' Sync a hangout to a discord channel. Usage - "/bot dsync 123456789" Say "whereami" in the channel once the bot has been added to get the channel id" '''
+    discord_channel = int(discord_channel)
     try:
       bot.config.set_by_path(["conversations", event.conv_id, "discord_sync"], discord_channel)
     except KeyError:
