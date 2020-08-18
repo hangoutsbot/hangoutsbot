@@ -16,7 +16,7 @@ wikipedia                   # plugins: simplewikipedia
 wolframalpha                # plugins: wolframalpha
 emoji>=0.5.0                # plugins: slack, slackrtm
 pyslack-real>=0.5.2         # plugins: slack
-slackclient >=0.16          # plugins: slackrtm
+slackclient >=0.16,<2.*.*         # plugins: slackrtm
 selenium                    # plugins: image_screenshot
 telepot>=11.0               # plugins: telesync
 cleverwrap                  # plugins: cleverbot
