@@ -1,7 +1,6 @@
 # BOT DEPENDENCIES #
 
 appdirs
-asyncio
 aiohttp>=3.3,<4
 hangups>=0.4.11
 ReParser==1.4.3
