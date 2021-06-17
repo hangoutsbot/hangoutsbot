@@ -36,6 +36,8 @@ import logging
 import aiohttp
 import io
 import copy
+import re
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +121,11 @@ def _handle_hangout_message(bot, event, command):
                 yield from _bot._handlers.handle_command(fake_event)
                 yield from plugins.mentions._handle_mention(bot, fake_event, command)
             else:
+                links = re.findall(r'(https://chat.google.com/api/get_hangouts_attachment_url[^ ]+)', event.text)
+                for link in links:
+                    logger.debug(f"found link: {link}")
+                    response = requests.get(link, cookies=bot.cookies)
+                    event.text = response.url
                 if event.from_bot:
                     yield from channel.send(event.text)
                 else:
