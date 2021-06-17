@@ -42,6 +42,7 @@ class HangupsBot(object):
 
         self._client = None
         self._cookies_path = cookies_path
+        self.cookies = None
         self._max_retries = max_retries
 
         # These are populated by on_connect when it's called.
@@ -137,6 +138,7 @@ class HangupsBot(object):
         # (or load already saved cookies)
         try:
             cookies = hangups.auth.get_auth_stdin(cookies_path)
+            logger.debug(cookies)
             return cookies
 
         except hangups.GoogleAuthError as e:
@@ -145,8 +147,8 @@ class HangupsBot(object):
 
     def run(self):
         """Connect to Hangouts and run bot"""
-        cookies = self.login(self._cookies_path)
-        if cookies:
+        self.cookies = self.login(self._cookies_path)
+        if self.cookies:
             # Start asyncio event loop
             loop = asyncio.get_event_loop()
 
@@ -159,7 +161,7 @@ class HangupsBot(object):
             for retry in range(self._max_retries):
                 try:
                     # create Hangups client (recreate if its a retry)
-                    self._client = hangups.Client(cookies)
+                    self._client = hangups.Client(self.cookies)
                     self._client.on_connect.add_observer(self._on_connect)
                     self._client.on_disconnect.add_observer(self._on_disconnect)
 
@@ -776,12 +778,15 @@ class HangupsBot(object):
 
             _fc = FakeConversation(self, response[0])
 
-            try:
-                yield from _fc.send_message( response[1],
-                                             image_id = response[2],
-                                             context = context )
-            except hangups.NetworkError as e:
-                logger.exception("CORO_SEND_MESSAGE: error sending {}".format(response[0]))
+            for retry_count in range(3):
+                try:
+                    yield from _fc.send_message( response[1],
+                                                 image_id = response[2],
+                                                 context = context )
+                    break
+                except hangups.NetworkError as e:
+                    logger.exception("CORO_SEND_MESSAGE: error sending {}".format(response[0]))
+                    yield from asyncio.sleep(1)
 
 
     @asyncio.coroutine
