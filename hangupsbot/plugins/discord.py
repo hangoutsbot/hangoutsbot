@@ -125,7 +125,7 @@ def _handle_hangout_message(bot, event, command):
                 for link in links:
                     logger.debug(f"found link: {link}")
                     response = requests.get(link, cookies=bot.cookies)
-                    event.text = response.url
+                    event.text = event.text.replace(link, response.url)
                 if event.from_bot:
                     yield from channel.send(event.text)
                 else:
