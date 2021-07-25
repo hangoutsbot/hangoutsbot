@@ -38,6 +38,7 @@ import io
 import copy
 import re
 import requests
+from io import BytesIO
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +126,16 @@ def _handle_hangout_message(bot, event, command):
                 for link in links:
                     logger.debug(f"found link: {link}")
                     response = requests.get(link, cookies=bot.cookies)
-                    event.text = event.text.replace(link, response.url)
+                    logger.debug(response)
+                    logger.debug(response.url)
+                    logger.debug(response.headers)
+                    try:
+                        disp = response.headers.get("Content-Disposition")
+                        filename = re.search(r'filename="([^"]+)"', disp).group(1)
+                    except:
+                        filename = "image.png"
+                    yield from channel.send(file=discord.File(BytesIO(response.content), filename))
+                    event.text = event.text.replace(link, "")
                 if event.from_bot:
                     yield from channel.send(event.text)
                 else:
