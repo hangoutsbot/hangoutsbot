@@ -23,3 +23,4 @@ TwitterAPI                  # plugins: twitter
 google-api-python-client    # plugins: spotify
 spotipy                     # plugins: spotify
 soundcloud                  # plugins: spotify
+discord.py                  # plugins: discord
