@@ -455,7 +455,7 @@ def load(bot, module_path, module_name=None):
         if available_commands is False:
             # implicit init, legacy support: assume all candidate_commands are user-available
             register_user_command([function_name for function_name, function in candidate_commands])
-        elif available_commands is []:
+        elif available_commands == []:
             # explicit init, no user-available commands
             pass
         else:
